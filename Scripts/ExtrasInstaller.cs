@@ -27,5 +27,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV09Thickness();
         main.InstallV095Stability();
         main.InstallV095IntegrityGuards();
+        main.InstallV095TopologyGuards();
     }
 }
