@@ -364,7 +364,7 @@ public partial class Main
         if (_world == null || _selected == null) return;
         var def = _v07Parts.FirstOrDefault(p => p.Id == _v07SelectedPartId); if (def == null) return;
         Vector3 local = new(def.MountPoint[0], def.MountPoint[1], def.MountPoint[2]);
-        Vector3 n = new(def.MountNormal[0], def.MountNormal[1], def.MountNormal[2]).Normalized();
+        Vector3 n = new Vector3(def.MountNormal[0], def.MountNormal[1], def.MountNormal[2]).Normalized();
         Vector3 wp = _selected.GlobalTransform * local; Vector3 wn = (_selected.GlobalTransform.Basis * n).Normalized();
         var root = new Node3D { Name = "Part Mount Preview v0.7" }; _world.AddChild(root); _v07MountVisualRoot = root;
         root.AddChild(new MeshInstance3D { Mesh = new SphereMesh { Radius = .9f, Height = 1.8f, RadialSegments = 12, Rings = 6 }, GlobalPosition = wp });
