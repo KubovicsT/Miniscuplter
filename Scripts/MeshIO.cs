@@ -69,7 +69,7 @@ public static class MeshIO
         for (int s = 0; s < mesh.GetSurfaceCount(); s++)
         {
             var arrays = mesh.SurfaceGetArrays(s);
-            var verts = (Vector3[])arrays[(int)Mesh.ArrayType.Vertex];
+            var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             var idx = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
             if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3) tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
             else for (int i = 0; i + 2 < verts.Length; i += 3) tris.Add((verts[i], verts[i+1], verts[i+2]));
