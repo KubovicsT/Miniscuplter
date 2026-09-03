@@ -25,18 +25,39 @@ public partial class Main
 
     void StrictV095LoadProject(string path)
     {
+        string full = Path.GetFullPath(path);
         try
         {
-            string full = Path.GetFullPath(path);
             if (!File.Exists(full)) throw new FileNotFoundException("Project file does not exist.", full);
-            var dto = JsonSerializer.Deserialize<ProjectDto>(File.ReadAllText(full), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("Invalid project JSON.");
-            ValidateV095ProjectMetadata(dto);
+            var dto = ReadAndValidateV095ProjectManifest(full);
             SafeV095LoadProject(full);
         }
-        catch (Exception ex)
+        catch (Exception primaryError)
         {
-            SetStatus("Project metadata preflight rejected the load; current scene is unchanged: " + ex.Message);
+            string backup = full + ".bak";
+            try
+            {
+                if (!File.Exists(backup)) throw new InvalidDataException("No saved project backup is available.");
+                _ = ReadAndValidateV095ProjectManifest(backup);
+                string corruptCopy = full + ".corrupt_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+                if (File.Exists(full)) File.Copy(full, corruptCopy, true);
+                File.Copy(backup, full, true);
+                _ = ReadAndValidateV095ProjectManifest(full);
+                SetStatus("Primary project manifest was invalid; restored the last validated .bak manifest and preserved the broken file as a .corrupt copy.");
+                SafeV095LoadProject(full);
+            }
+            catch (Exception backupError)
+            {
+                SetStatus("Project load rejected; current scene is unchanged. Primary error: " + primaryError.Message + " Backup recovery: " + backupError.Message);
+            }
         }
+    }
+
+    static ProjectDto ReadAndValidateV095ProjectManifest(string path)
+    {
+        var dto = JsonSerializer.Deserialize<ProjectDto>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("Invalid project JSON.");
+        ValidateV095ProjectMetadata(dto);
+        return dto;
     }
 
     static bool V095FiniteArray(float[]? values, int minimum)
