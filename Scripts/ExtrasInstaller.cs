@@ -14,5 +14,6 @@ public partial class ExtrasInstaller : Node
         if (GetParent() is not Main main) return;
         main.InstallV01Extras();
         main.InstallV02Extras();
+        main.InstallV03Extras();
     }
 }
