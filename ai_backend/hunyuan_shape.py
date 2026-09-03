@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
 from model_manager import component_path, hardware_info, TOOLS_ROOT
 
 _PIPE = None
+
+QUALITY_STEPS = {
+    "preview": 18,
+    "standard": 30,
+    "high": 45,
+}
 
 
 def _load_pipeline():
@@ -29,7 +34,6 @@ def _load_pipeline():
         ) from exc
 
     model_dir = weights / "hunyuan3d-dit-v2-1"
-    # Tencent's API accepts either the repository root/subfolder or a local model folder.
     try:
         _PIPE = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(str(weights), subfolder="hunyuan3d-dit-v2-1")
     except TypeError:
@@ -39,26 +43,22 @@ def _load_pipeline():
         import torch
         hw = hardware_info()
         if torch.cuda.is_available():
-            # Hunyuan's documented shape requirement is about 10 GB. On 8 GB cards
-            # we prefer model CPU offload when the pipeline exposes it.
             if hw.get("vram_mb", 0) <= 8192 and hasattr(_PIPE, "enable_model_cpu_offload"):
                 _PIPE.enable_model_cpu_offload()
             elif hasattr(_PIPE, "to"):
                 _PIPE.to("cuda")
     except Exception:
-        # Let generation itself provide the detailed provider error.
         pass
     return _PIPE
 
 
-def generate_shape(image_path: str, output_path: str, prompt: str = "") -> str:
+def generate_shape(image_path: str, output_path: str, prompt: str = "", quality: str = "standard") -> str:
     pipe = _load_pipeline()
     kwargs = {"image": image_path}
+    steps = QUALITY_STEPS.get((quality or "standard").lower(), QUALITY_STEPS["standard"])
 
-    # Keep defaults conservative for a GTX 1080-class system. Different upstream
-    # revisions expose slightly different keyword sets, so retry with the minimal API.
     try:
-        result = pipe(**kwargs, num_inference_steps=30)
+        result = pipe(**kwargs, num_inference_steps=steps)
     except TypeError:
         result = pipe(**kwargs)
 
