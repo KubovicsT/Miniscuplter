@@ -10,10 +10,13 @@ using System.Threading.Tasks;
 namespace Miniscuplter;
 
 public record ReferenceResult(string Title, string PageUrl, string? ThumbnailUrl);
+public record AiComponentInfo(string Id, string Name, string Kind, bool Installed, double EstimatedGb, string Description, string? Path);
+public record AiHardwareInfo(string? Gpu, int VramMb, bool CudaAvailable, string RecommendedProfile);
+public record AiComponentStatus(AiHardwareInfo Hardware, List<AiComponentInfo> Components, string DataRoot);
 
 public sealed class AIClient
 {
-    readonly NetHttpClient _http = new() { Timeout = TimeSpan.FromMinutes(30) };
+    readonly NetHttpClient _http = new() { Timeout = TimeSpan.FromMinutes(90) };
     public string BackendUrl { get; set; } = "http://127.0.0.1:7868";
     public bool InternetReferencesEnabled { get; set; } = true;
 
@@ -40,6 +43,55 @@ public sealed class AIClient
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
         using var doc = JsonDocument.Parse(body);
         return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("AI backend returned no file path.");
+    }
+
+    public async Task<AiComponentStatus> GetComponentsAsync()
+    {
+        using var response = await _http.GetAsync(BackendUrl + "/components");
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        var hw = root.GetProperty("hardware");
+        var hardware = new AiHardwareInfo(
+            hw.TryGetProperty("gpu", out var gpu) && gpu.ValueKind != JsonValueKind.Null ? gpu.GetString() : null,
+            hw.TryGetProperty("vram_mb", out var vm) ? vm.GetInt32() : 0,
+            hw.TryGetProperty("cuda_available", out var ca) && ca.GetBoolean(),
+            hw.TryGetProperty("recommended_profile", out var rp) ? rp.GetString() ?? "unknown" : "unknown");
+        var items = new List<AiComponentInfo>();
+        foreach (var e in root.GetProperty("components").EnumerateArray())
+        {
+            items.Add(new AiComponentInfo(
+                e.GetProperty("id").GetString() ?? "unknown",
+                e.GetProperty("name").GetString() ?? "AI Component",
+                e.GetProperty("kind").GetString() ?? "unknown",
+                e.GetProperty("installed").GetBoolean(),
+                e.TryGetProperty("estimated_gb", out var gb) ? gb.GetDouble() : 0,
+                e.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
+                e.TryGetProperty("path", out var p) && p.ValueKind != JsonValueKind.Null ? p.GetString() : null));
+        }
+        string dataRoot = root.TryGetProperty("data_root", out var dr) ? dr.GetString() ?? "" : "";
+        return new AiComponentStatus(hardware, items, dataRoot);
+    }
+
+    public async Task InstallComponentAsync(string id)
+    {
+        await PostJsonAsync("/components/install", new { id });
+    }
+
+    public async Task UninstallComponentAsync(string id)
+    {
+        await PostJsonAsync("/components/uninstall", new { id });
+    }
+
+    public async Task ReleaseModelsAsync() => await PostJsonAsync("/release-models", new { });
+
+    async Task PostJsonAsync(string route, object payload)
+    {
+        using var response = await _http.PostAsync(BackendUrl + route,
+            new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
     }
 
     public async Task<List<ReferenceResult>> SearchReferencesAsync(string query, int limit = 8)
