@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using NetHttpClient = System.Net.Http.HttpClient;
 using System.Net.Http;
 using System.Text;
@@ -19,6 +20,7 @@ public sealed class AIClient
 {
     readonly NetHttpClient _http = new() { Timeout = TimeSpan.FromMinutes(90) };
     readonly object _cancelLock = new();
+    readonly SemaphoreSlim _jobGate = new(1, 1);
     CancellationTokenSource? _activeRequest;
     public string BackendUrl { get; set; } = "http://127.0.0.1:7868";
     public bool InternetReferencesEnabled { get; set; } = true;
@@ -39,24 +41,53 @@ public sealed class AIClient
     {
         var body = await PostJsonTextAsync(route, payload, true);
         using var doc = JsonDocument.Parse(body);
-        return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("Backend returned no file path.");
+        string path = doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("Backend returned no file path.");
+        if (!File.Exists(path)) throw new InvalidOperationException($"Backend reported success but output file does not exist: {path}");
+        if (new FileInfo(path).Length == 0) throw new InvalidOperationException($"Backend reported success but output file is empty: {path}");
+        return path;
     }
 
     async Task<string> PostJsonTextAsync(string route, object payload, bool cancellable = false)
     {
         CancellationTokenSource? cts = cancellable ? new CancellationTokenSource() : null;
-        if (cts != null) { lock (_cancelLock) { _activeRequest?.Dispose(); _activeRequest = cts; } }
+        bool gateHeld = false;
         try
         {
+            if (cancellable)
+            {
+                await _jobGate.WaitAsync(cts!.Token);
+                gateHeld = true;
+                lock (_cancelLock)
+                {
+                    _activeRequest?.Cancel();
+                    _activeRequest?.Dispose();
+                    _activeRequest = cts;
+                }
+            }
+
             var json = JsonSerializer.Serialize(payload);
             using var request = new HttpRequestMessage(HttpMethod.Post, BackendUrl + route) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts?.Token ?? CancellationToken.None);
             var body = await response.Content.ReadAsStringAsync(cts?.Token ?? CancellationToken.None);
-            if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
+            if (!response.IsSuccessStatusCode)
+            {
+                string detail = string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}" : body;
+                throw new InvalidOperationException(detail);
+            }
+            if (string.IsNullOrWhiteSpace(body)) throw new InvalidOperationException("Backend returned an empty response.");
             return body;
         }
         catch (OperationCanceledException) { throw new InvalidOperationException("Operation cancelled by user."); }
-        finally { if (cts != null) { lock (_cancelLock) { if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null; } cts.Dispose(); } }
+        catch (HttpRequestException ex) { throw new InvalidOperationException("Backend connection failed: " + ex.Message, ex); }
+        finally
+        {
+            if (cts != null)
+            {
+                lock (_cancelLock) { if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null; }
+                cts.Dispose();
+            }
+            if (gateHeld) _jobGate.Release();
+        }
     }
 
     public async Task<AiComponentStatus> GetComponentsAsync()
