@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v0.2 ]
   pull_request:
 
 jobs:
@@ -17,3 +17,13 @@ jobs:
         run: dotnet restore Miniscuplter.csproj
       - name: Build
         run: dotnet build Miniscuplter.csproj --configuration Release --no-restore
+
+  python-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Compile backend sources
+        run: python -m compileall -q ai_backend
