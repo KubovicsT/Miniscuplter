@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, v0.2, v0.3 ]
+    branches: [ main, v0.2, v0.3, v0.4 ]
   pull_request:
 
 jobs:
