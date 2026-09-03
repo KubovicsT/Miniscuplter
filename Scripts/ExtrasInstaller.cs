@@ -29,5 +29,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV095IntegrityGuards();
         main.InstallV095TopologyGuards();
         main.InstallV095RigGuards();
+        main.InstallV095LibraryGuards();
     }
 }
