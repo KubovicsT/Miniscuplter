@@ -134,7 +134,7 @@ public partial class Main
 
             string tmp = full + ".tmp";
             File.WriteAllText(tmp, json);
-            using (var fs = new FileStream(tmp, FileMode.Open, FileAccess.Read, FileShare.Read)) fs.Flush(true);
+            using (var fs = new FileStream(tmp, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read)) fs.Flush(true);
             if (File.Exists(full))
             {
                 string backup = full + ".bak";
