@@ -26,14 +26,14 @@ public sealed class AIClient
         catch { return false; }
     }
 
-    public async Task<string> GenerateConceptAsync(string prompt, string outputPath)
-        => await PostForFileAsync("/generate-concept", new { prompt, output_path = outputPath });
+    public async Task<string> GenerateConceptAsync(string prompt, string outputPath, string quality = "standard")
+        => await PostForFileAsync("/generate-concept", new { prompt, output_path = outputPath, quality });
 
-    public async Task<string> EditImageAsync(string imagePath, string? maskPath, string prompt, string outputPath)
-        => await PostForFileAsync("/edit-image", new { image_path = imagePath, mask_path = maskPath, prompt, output_path = outputPath });
+    public async Task<string> EditImageAsync(string imagePath, string? maskPath, string prompt, string outputPath, string quality = "standard")
+        => await PostForFileAsync("/edit-image", new { image_path = imagePath, mask_path = maskPath, prompt, output_path = outputPath, quality });
 
-    public async Task<string> Generate3DAsync(string imagePath, string prompt, string outputPath)
-        => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath });
+    public async Task<string> Generate3DAsync(string imagePath, string prompt, string outputPath, string quality = "standard")
+        => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath, quality });
 
     public async Task<string> VoxelRemeshAsync(IReadOnlyList<string> inputPaths, string outputPath, double voxelSize)
         => await PostForFileAsync("/geometry/voxel-remesh", new { input_paths = inputPaths, output_path = outputPath, voxel_size = voxelSize });
@@ -77,16 +77,8 @@ public sealed class AIClient
         return new AiComponentStatus(hardware, items, dataRoot);
     }
 
-    public async Task InstallComponentAsync(string id)
-    {
-        await PostJsonAsync("/components/install", new { id });
-    }
-
-    public async Task UninstallComponentAsync(string id)
-    {
-        await PostJsonAsync("/components/uninstall", new { id });
-    }
-
+    public async Task InstallComponentAsync(string id) => await PostJsonAsync("/components/install", new { id });
+    public async Task UninstallComponentAsync(string id) => await PostJsonAsync("/components/uninstall", new { id });
     public async Task ReleaseModelsAsync() => await PostJsonAsync("/release-models", new { });
 
     async Task PostJsonAsync(string route, object payload)
