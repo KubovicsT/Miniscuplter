@@ -20,6 +20,7 @@ public partial class Main
         public int RigJoint { get; set; } = -1;
         public float[] JointOffset { get; set; } = new float[3];
         public float SurfaceOffset { get; set; } = 0f;
+        public float RollDeg { get; set; } = 0f;
     }
 
     public sealed class V07AttachmentDto
@@ -27,6 +28,9 @@ public partial class Main
         public string PartObjectName { get; set; } = "";
         public string SocketId { get; set; } = "";
         public string LibraryId { get; set; } = "";
+        public float[] LocalOffset { get; set; } = new float[3];
+        public float[] LocalRotationDeg { get; set; } = new float[3];
+        public float UniformScale { get; set; } = 1f;
     }
 
     sealed class V07PartDefinition
@@ -38,6 +42,9 @@ public partial class Main
         public string MeshPath { get; set; } = "";
         public string Builtin { get; set; } = "";
         public float DefaultScale { get; set; } = 1f;
+        public float[] MountPoint { get; set; } = new float[3];
+        public float[] MountNormal { get; set; } = new float[] { 0, 1, 0 };
+        public float MountRollDeg { get; set; } = 0f;
     }
 
     readonly List<V07SocketDto> _v07Sockets = new();
@@ -54,6 +61,12 @@ public partial class Main
     bool _v07SocketPlacementMode;
     MeshInstance3D? _v07SocketOwner;
     Node3D? _v07SocketVisualRoot;
+    Node3D? _v07MountVisualRoot;
+    SpinBox? _v07SocketRoll;
+    SpinBox? _v07AttachOffsetX; SpinBox? _v07AttachOffsetY; SpinBox? _v07AttachOffsetZ;
+    SpinBox? _v07AttachRotX; SpinBox? _v07AttachRotY; SpinBox? _v07AttachRotZ;
+    SpinBox? _v07AttachScale;
+    bool _v07MountPointMode;
 
     static readonly string[] V07Categories = { "All", "Head", "Body", "Armour", "Weapon", "Shield", "Back", "Base", "Accessory", "Creature", "Generic" };
     static readonly string[] V07SocketTypes = { "Generic", "Head", "LeftHand", "RightHand", "LeftShoulder", "RightShoulder", "Back", "Waist", "Base", "Accessory" };
@@ -101,6 +114,25 @@ public partial class Main
         AddV07Button(snapRow, "Detach Selected", DetachSelectedV07Object);
         AddV07Button(snapRow, "Refresh Attachments", RefreshV07Attachments);
         panel.AddChild(snapRow);
+
+        var orientRow = new HBoxContainer();
+        _v07SocketRoll = new SpinBox { MinValue = -180, MaxValue = 180, Step = 1, Suffix = "°", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _v07SocketRoll.ValueChanged += v => { var s = _v07Sockets.FirstOrDefault(x => x.Id == _v07SelectedSocketId); if (s != null) { s.RollDeg = (float)v; RefreshV07Attachments(); RebuildV07SocketVisuals(); } };
+        orientRow.AddChild(new Label { Text = "Socket roll" }); orientRow.AddChild(_v07SocketRoll);
+        AddV07Button(orientRow, "Set Part Mount Point", BeginV07MountPointPlacement);
+        panel.AddChild(orientRow);
+
+        panel.AddChild(new Label { Text = "Attachment fine tune (local X/Y/Z, rotation XYZ, scale)" });
+        var offRow = new HBoxContainer();
+        _v07AttachOffsetX = V07FineSpin(-100, 100, .1); _v07AttachOffsetY = V07FineSpin(-100, 100, .1); _v07AttachOffsetZ = V07FineSpin(-100, 100, .1);
+        offRow.AddChild(_v07AttachOffsetX); offRow.AddChild(_v07AttachOffsetY); offRow.AddChild(_v07AttachOffsetZ); panel.AddChild(offRow);
+        var rotRow = new HBoxContainer();
+        _v07AttachRotX = V07FineSpin(-180, 180, 1); _v07AttachRotY = V07FineSpin(-180, 180, 1); _v07AttachRotZ = V07FineSpin(-180, 180, 1);
+        rotRow.AddChild(_v07AttachRotX); rotRow.AddChild(_v07AttachRotY); rotRow.AddChild(_v07AttachRotZ); panel.AddChild(rotRow);
+        var scaleRow = new HBoxContainer();
+        _v07AttachScale = V07FineSpin(.05, 20, .01); _v07AttachScale.Value = 1;
+        scaleRow.AddChild(_v07AttachScale); AddV07Button(scaleRow, "Apply Fine Tune", ApplyV07AttachmentFineTune); AddV07Button(scaleRow, "Reset Fine Tune", ResetV07AttachmentFineTune); panel.AddChild(scaleRow);
+
         var socketScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 190) };
         _v07SocketList = new VBoxContainer(); socketScroll.AddChild(_v07SocketList); panel.AddChild(socketScroll);
 
@@ -112,6 +144,8 @@ public partial class Main
     {
         var b = new Button { Text = text, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; b.Pressed += action; parent.AddChild(b);
     }
+
+    static SpinBox V07FineSpin(double min, double max, double step) => new() { MinValue = min, MaxValue = max, Step = step, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 
     string V07LibraryRoot()
     {
@@ -164,7 +198,7 @@ public partial class Main
         foreach (var p in _v07Parts.Where(p => (cat == "All" || p.Category.Equals(cat, StringComparison.OrdinalIgnoreCase)) && (q.Length == 0 || p.Name.Contains(q, StringComparison.OrdinalIgnoreCase) || p.Category.Contains(q, StringComparison.OrdinalIgnoreCase))))
         {
             var b = new Button { Text = $"{p.Name}   [{p.Category} → {p.SocketType}]", Alignment = HorizontalAlignment.Left };
-            b.Pressed += () => { _v07SelectedPartId = p.Id; if (_v07SelectionStatus != null) _v07SelectionStatus.Text = $"Selected: {p.Name} · compatible socket: {p.SocketType}"; }; _v07LibraryList.AddChild(b);
+            b.Pressed += () => { _v07SelectedPartId = p.Id; if (_v07SelectionStatus != null) _v07SelectionStatus.Text = $"Selected: {p.Name} · compatible socket: {p.SocketType}"; RebuildV07MountVisual(); }; _v07LibraryList.AddChild(b);
         }
     }
 
@@ -218,6 +252,15 @@ public partial class Main
         };
     }
 
+    void BeginV07MountPointPlacement()
+    {
+        if (_selected == null) { SetStatus("Select a part object in the scene first."); return; }
+        var def = _v07Parts.FirstOrDefault(p => p.Id == _v07SelectedPartId);
+        if (def == null) { SetStatus("Select the corresponding library part first."); return; }
+        _v07MountPointMode = true;
+        SetStatus("Mount-point mode: click the surface point on the selected part that should touch the socket.");
+    }
+
     void BeginV07SocketPlacement()
     {
         if (_selected == null) { SetStatus("Select the character/body object that owns the socket first."); return; }
@@ -226,9 +269,22 @@ public partial class Main
 
     void OnV07ViewportInput(InputEvent ev)
     {
-        if (!_v07SocketPlacementMode || _v07SocketOwner == null || _camera == null) return;
+        if (_camera == null) return;
         if (ev is not InputEventMouseButton mb || mb.ButtonIndex != MouseButton.Left || !mb.Pressed) return;
         Vector3 ro = _camera.ProjectRayOrigin(mb.Position), rd = _camera.ProjectRayNormal(mb.Position);
+
+        if (_v07MountPointMode)
+        {
+            if (_selected == null) return;
+            var def = _v07Parts.FirstOrDefault(p => p.Id == _v07SelectedPartId); if (def == null) return;
+            if (!RayMeshDetailedV055(ro, rd, _selected, out var mhit, out var mnormal)) { SetStatus("No part surface hit."); return; }
+            Transform3D minv = _selected.GlobalTransform.AffineInverse();
+            Vector3 mlocal = minv * mhit; Vector3 mln = (minv.Basis * mnormal).Normalized();
+            def.MountPoint = Vec(mlocal); def.MountNormal = Vec(mln); SaveV07Library(); _v07MountPointMode = false; RebuildV07MountVisual();
+            SetStatus($"Saved mount point for {def.Name}. Future snaps align this point to the socket."); GetViewport().SetInputAsHandled(); return;
+        }
+
+        if (!_v07SocketPlacementMode || _v07SocketOwner == null) return;
         if (!RayMeshDetailedV055(ro, rd, _v07SocketOwner, out var hit, out var normal)) { SetStatus("No surface hit. Click directly on the selected owner mesh."); return; }
         Transform3D inv = _v07SocketOwner.GlobalTransform.AffineInverse(); Vector3 local = inv * hit; Vector3 localNormal = (inv.Basis * normal).Normalized();
         var socket = new V07SocketDto { OwnerObject = _v07SocketOwner.Name.ToString(), Name = CurrentV07SocketType(), Type = CurrentV07SocketType(), LocalPosition = Vec(local), LocalNormal = Vec(localNormal) };
@@ -271,7 +327,7 @@ public partial class Main
         foreach (var s in _v07Sockets)
         {
             var row = new HBoxContainer(); var b = new Button { Text = $"{s.Type} · {s.OwnerObject}" + (s.RigJoint >= 0 ? $" · joint {s.RigJoint}" : ""), Alignment = HorizontalAlignment.Left, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            b.Pressed += () => { _v07SelectedSocketId = s.Id; RebuildV07SocketVisuals(); SetStatus($"Selected {s.Type} socket on {s.OwnerObject}."); }; row.AddChild(b);
+            b.Pressed += () => { _v07SelectedSocketId = s.Id; if (_v07SocketRoll != null) _v07SocketRoll.Value = s.RollDeg; RebuildV07SocketVisuals(); SetStatus($"Selected {s.Type} socket on {s.OwnerObject}."); }; row.AddChild(b);
             var del = new Button { Text = "×" }; del.Pressed += () => DeleteV07Socket(s.Id); row.AddChild(del); _v07SocketList.AddChild(row);
         }
     }
@@ -290,8 +346,30 @@ public partial class Main
             if (!TryGetV07SocketWorld(s, out var p, out var n)) continue; float radius = s.Id == _v07SelectedSocketId ? 1.5f : 1f;
             var sphere = new MeshInstance3D { Mesh = new SphereMesh { Radius = radius, Height = radius * 2, RadialSegments = 12, Rings = 6 }, GlobalPosition = p }; root.AddChild(sphere);
             var stem = new MeshInstance3D { Mesh = new CylinderMesh { TopRadius = .18f, BottomRadius = .18f, Height = 4f, RadialSegments = 8 }, GlobalPosition = p + n * 2f };
-            stem.GlobalBasis = new Basis(new Quaternion(Vector3.Up, n.Normalized())); root.AddChild(stem);
+            stem.GlobalBasis = V07SocketBasis(n, s.RollDeg); root.AddChild(stem);
         }
+        RebuildV07MountVisual();
+    }
+
+    static Basis V07SocketBasis(Vector3 normal, float rollDeg)
+    {
+        Vector3 n = normal.Normalized(); Basis b = new Basis(new Quaternion(Vector3.Up, n));
+        if (Math.Abs(rollDeg) > .001f) b = new Basis(new Quaternion(n, Mathf.DegToRad(rollDeg))) * b;
+        return b;
+    }
+
+    void RebuildV07MountVisual()
+    {
+        _v07MountVisualRoot?.QueueFree(); _v07MountVisualRoot = null;
+        if (_world == null || _selected == null) return;
+        var def = _v07Parts.FirstOrDefault(p => p.Id == _v07SelectedPartId); if (def == null) return;
+        Vector3 local = new(def.MountPoint[0], def.MountPoint[1], def.MountPoint[2]);
+        Vector3 n = new(def.MountNormal[0], def.MountNormal[1], def.MountNormal[2]).Normalized();
+        Vector3 wp = _selected.GlobalTransform * local; Vector3 wn = (_selected.GlobalTransform.Basis * n).Normalized();
+        var root = new Node3D { Name = "Part Mount Preview v0.7" }; _world.AddChild(root); _v07MountVisualRoot = root;
+        root.AddChild(new MeshInstance3D { Mesh = new SphereMesh { Radius = .9f, Height = 1.8f, RadialSegments = 12, Rings = 6 }, GlobalPosition = wp });
+        var stem = new MeshInstance3D { Mesh = new CylinderMesh { TopRadius = .15f, BottomRadius = .15f, Height = 3f, RadialSegments = 8 }, GlobalPosition = wp + wn * 1.5f };
+        stem.GlobalBasis = new Basis(new Quaternion(Vector3.Up, wn)); root.AddChild(stem);
     }
 
     bool TryGetV07SocketWorld(V07SocketDto socket, out Vector3 worldPos, out Vector3 worldNormal)
@@ -321,8 +399,14 @@ public partial class Main
         if (_selected == null) { SetStatus("Select the part object to snap first."); return; } var socket = _v07Sockets.FirstOrDefault(s => s.Id == _v07SelectedSocketId); if (socket == null) { SetStatus("Choose a socket first."); return; }
         if (_selected.Name.ToString() == socket.OwnerObject) { SetStatus("The socket owner cannot be snapped to its own socket."); return; }
         if (!TryGetV07SocketWorld(socket, out var p, out var n)) { SetStatus("Socket owner no longer exists."); return; }
-        var gt = _selected.GlobalTransform; gt.Origin = p; gt.Basis = new Basis(new Quaternion(Vector3.Up, n.Normalized())).Scaled(_selected.Scale); _selected.GlobalTransform = gt;
-        string library = _v07SelectedPartId; _v07Attachments.RemoveAll(a => a.PartObjectName == _selected.Name.ToString()); _v07Attachments.Add(new V07AttachmentDto { PartObjectName = _selected.Name.ToString(), SocketId = socket.Id, LibraryId = library }); ImportV06Role(_selected.Name.ToString(), "attachment");
+        string library = _v07SelectedPartId; var def = _v07Parts.FirstOrDefault(x => x.Id == library);
+        Basis basis = V07SocketBasis(n, socket.RollDeg);
+        Vector3 mountPoint = def == null ? Vector3.Zero : new Vector3(def.MountPoint[0], def.MountPoint[1], def.MountPoint[2]);
+        Vector3 mountNormal = def == null ? Vector3.Up : new Vector3(def.MountNormal[0], def.MountNormal[1], def.MountNormal[2]).Normalized();
+        Basis mountBasis = new Basis(new Quaternion(mountNormal, Vector3.Up));
+        Basis finalBasis = basis * mountBasis;
+        var gt = _selected.GlobalTransform; gt.Basis = finalBasis.Scaled(_selected.Scale); gt.Origin = p - gt.Basis * mountPoint; _selected.GlobalTransform = gt;
+        _v07Attachments.RemoveAll(a => a.PartObjectName == _selected.Name.ToString()); _v07Attachments.Add(new V07AttachmentDto { PartObjectName = _selected.Name.ToString(), SocketId = socket.Id, LibraryId = library, UniformScale = 1f }); ImportV06Role(_selected.Name.ToString(), "attachment");
         SetStatus($"Snapped {_selected.Name} to {socket.Type}. It remains a separate editable object until you voxel-union it.");
     }
 
@@ -336,9 +420,37 @@ public partial class Main
         foreach (var a in _v07Attachments.ToList())
         {
             var part = _objects.FirstOrDefault(o => o.Name.ToString() == a.PartObjectName); var socket = _v07Sockets.FirstOrDefault(s => s.Id == a.SocketId); if (part == null || socket == null) continue;
-            if (!TryGetV07SocketWorld(socket, out var p, out var n)) continue; var gt = part.GlobalTransform; Vector3 scale = part.Scale; gt.Origin = p; gt.Basis = new Basis(new Quaternion(Vector3.Up, n.Normalized())).Scaled(scale); part.GlobalTransform = gt;
+            if (!TryGetV07SocketWorld(socket, out var p, out var n)) continue;
+            var def = _v07Parts.FirstOrDefault(x => x.Id == a.LibraryId);
+            Vector3 mountPoint = def == null ? Vector3.Zero : new Vector3(def.MountPoint[0], def.MountPoint[1], def.MountPoint[2]);
+            Vector3 mountNormal = def == null ? Vector3.Up : new Vector3(def.MountNormal[0], def.MountNormal[1], def.MountNormal[2]).Normalized();
+            Basis basis = V07SocketBasis(n, socket.RollDeg) * new Basis(new Quaternion(mountNormal, Vector3.Up));
+            Vector3 rot = new(Mathf.DegToRad(a.LocalRotationDeg[0]), Mathf.DegToRad(a.LocalRotationDeg[1]), Mathf.DegToRad(a.LocalRotationDeg[2]));
+            basis = basis * new Basis(Quaternion.FromEuler(rot));
+            Vector3 scale = Vector3.One * Math.Max(.01f, a.UniformScale);
+            var gt = part.GlobalTransform; gt.Basis = basis.Scaled(scale);
+            Vector3 localOffset = new(a.LocalOffset[0], a.LocalOffset[1], a.LocalOffset[2]);
+            gt.Origin = p + basis * localOffset - gt.Basis * mountPoint; part.GlobalTransform = gt;
         }
         RebuildV07SocketVisuals();
+    }
+
+    void ApplyV07AttachmentFineTune()
+    {
+        if (_selected == null) return;
+        var a = _v07Attachments.FirstOrDefault(x => x.PartObjectName == _selected.Name.ToString()); if (a == null) { SetStatus("Selected object is not attached to a socket."); return; }
+        a.LocalOffset = new[] { (float)(_v07AttachOffsetX?.Value ?? 0), (float)(_v07AttachOffsetY?.Value ?? 0), (float)(_v07AttachOffsetZ?.Value ?? 0) };
+        a.LocalRotationDeg = new[] { (float)(_v07AttachRotX?.Value ?? 0), (float)(_v07AttachRotY?.Value ?? 0), (float)(_v07AttachRotZ?.Value ?? 0) };
+        a.UniformScale = (float)(_v07AttachScale?.Value ?? 1); RefreshV07Attachments(); SetStatus("Applied attachment fine-tune offsets.");
+    }
+
+    void ResetV07AttachmentFineTune()
+    {
+        if (_selected == null) return; var a = _v07Attachments.FirstOrDefault(x => x.PartObjectName == _selected.Name.ToString()); if (a == null) return;
+        a.LocalOffset = new float[3]; a.LocalRotationDeg = new float[3]; a.UniformScale = 1f;
+        if (_v07AttachOffsetX != null) _v07AttachOffsetX.Value = 0; if (_v07AttachOffsetY != null) _v07AttachOffsetY.Value = 0; if (_v07AttachOffsetZ != null) _v07AttachOffsetZ.Value = 0;
+        if (_v07AttachRotX != null) _v07AttachRotX.Value = 0; if (_v07AttachRotY != null) _v07AttachRotY.Value = 0; if (_v07AttachRotZ != null) _v07AttachRotZ.Value = 0; if (_v07AttachScale != null) _v07AttachScale.Value = 1;
+        RefreshV07Attachments(); SetStatus("Attachment fine tune reset.");
     }
 
     internal List<V07SocketDto> ExportV07Sockets() => _v07Sockets;
