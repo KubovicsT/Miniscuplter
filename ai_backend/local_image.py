@@ -10,6 +10,16 @@ from model_manager import component_path, hardware_info
 _PIPE = None
 _IMG_PIPE = None
 
+QUALITY = {
+    "preview": {"steps": 12, "size": 384, "guidance": 6.5, "strength": 0.52},
+    "standard": {"steps": 24, "size": 512, "guidance": 7.0, "strength": 0.58},
+    "high": {"steps": 36, "size": 640, "guidance": 7.5, "strength": 0.62},
+}
+
+
+def _q(name: str):
+    return QUALITY.get((name or "standard").lower(), QUALITY["standard"])
+
 
 def _torch_and_model():
     try:
@@ -29,7 +39,6 @@ def _configure(pipe, torch):
     hw = hardware_info()
     if torch.cuda.is_available():
         pipe.enable_attention_slicing()
-        # GTX 1080 / 8 GB and similar cards are treated conservatively.
         if hw.get("vram_mb", 0) <= 8192:
             try:
                 pipe.enable_model_cpu_offload()
@@ -65,15 +74,16 @@ def _img_pipe():
     return _configure(_IMG_PIPE, torch)
 
 
-def generate_concept(prompt: str, output_path: str) -> str:
+def generate_concept(prompt: str, output_path: str, quality: str = "standard") -> str:
+    cfg = _q(quality)
     pipe = _text_pipe()
     result = pipe(
         prompt=prompt,
         negative_prompt="blurry, low detail, text, watermark, cropped, malformed anatomy",
-        num_inference_steps=24,
-        guidance_scale=7.0,
-        width=512,
-        height=512,
+        num_inference_steps=cfg["steps"],
+        guidance_scale=cfg["guidance"],
+        width=cfg["size"],
+        height=cfg["size"],
     ).images[0]
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -81,18 +91,18 @@ def generate_concept(prompt: str, output_path: str) -> str:
     return str(out)
 
 
-def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_path: str) -> str:
+def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_path: str, quality: str = "standard") -> str:
+    cfg = _q(quality)
     pipe = _img_pipe()
     original = Image.open(image_path).convert("RGB")
-    # SD 2.1 base is a 512 model; preserve the original resolution after generation.
-    work = original.resize((512, 512), Image.Resampling.LANCZOS)
+    work = original.resize((cfg["size"], cfg["size"]), Image.Resampling.LANCZOS)
     result = pipe(
         prompt=prompt,
         negative_prompt="blurry, low detail, text, watermark, malformed anatomy",
         image=work,
-        strength=0.58,
-        guidance_scale=7.0,
-        num_inference_steps=24,
+        strength=cfg["strength"],
+        guidance_scale=cfg["guidance"],
+        num_inference_steps=cfg["steps"],
     ).images[0]
 
     if mask_path and Path(mask_path).exists():
