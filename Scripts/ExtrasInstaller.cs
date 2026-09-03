@@ -18,5 +18,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV04Extras();
         main.InstallV05Extras();
         main.InstallV055Extras();
+        main.InstallV06Extras();
     }
 }
