@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+
+namespace Miniscuplter;
+
+public partial class Main
+{
+    sealed class V095PortableState
+    {
+        public int Version { get; set; } = 1;
+        public List<V095MountSnapshot> Mounts { get; set; } = new();
+    }
+
+    sealed class V095MountSnapshot
+    {
+        public string LibraryId { get; set; } = "";
+        public string Name { get; set; } = "Part";
+        public string Category { get; set; } = "Generic";
+        public string SocketType { get; set; } = "Generic";
+        public float DefaultScale { get; set; } = 1f;
+        public float[] MountPoint { get; set; } = new float[3];
+        public float[] MountNormal { get; set; } = new float[] { 0, 1, 0 };
+        public float MountRollDeg { get; set; }
+    }
+
+    void WriteV095PortableState(string generationDir)
+    {
+        var state = new V095PortableState();
+        foreach (string id in _v07Attachments.Select(a => a.LibraryId).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct())
+        {
+            var def = _v07Parts.FirstOrDefault(p => p.Id == id);
+            if (def == null) continue;
+            state.Mounts.Add(new V095MountSnapshot
+            {
+                LibraryId = def.Id,
+                Name = def.Name,
+                Category = def.Category,
+                SocketType = def.SocketType,
+                DefaultScale = def.DefaultScale,
+                MountPoint = def.MountPoint?.Length >= 3 ? (float[])def.MountPoint.Clone() : new float[3],
+                MountNormal = def.MountNormal?.Length >= 3 ? (float[])def.MountNormal.Clone() : new float[] { 0, 1, 0 },
+                MountRollDeg = def.MountRollDeg
+            });
+        }
+        File.WriteAllText(Path.Combine(generationDir, "v095_state.json"), JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    void ApplyV095PortableState(string? generationDir)
+    {
+        if (string.IsNullOrWhiteSpace(generationDir)) return;
+        string path = Path.Combine(generationDir, "v095_state.json");
+        if (!File.Exists(path)) return;
+        try
+        {
+            var state = JsonSerializer.Deserialize<V095PortableState>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (state?.Mounts == null) return;
+            foreach (var snap in state.Mounts)
+            {
+                if (string.IsNullOrWhiteSpace(snap.LibraryId) || snap.MountPoint?.Length < 3 || snap.MountNormal?.Length < 3) continue;
+                var def = _v07Parts.FirstOrDefault(p => p.Id == snap.LibraryId);
+                if (def == null)
+                {
+                    def = new V07PartDefinition
+                    {
+                        Id = snap.LibraryId,
+                        Name = snap.Name,
+                        Category = snap.Category,
+                        SocketType = snap.SocketType,
+                        DefaultScale = snap.DefaultScale,
+                        MeshPath = "",
+                        MountPoint = (float[])snap.MountPoint.Clone(),
+                        MountNormal = (float[])snap.MountNormal.Clone(),
+                        MountRollDeg = snap.MountRollDeg
+                    };
+                    _v07Parts.Add(def);
+                }
+                else
+                {
+                    def.DefaultScale = snap.DefaultScale;
+                    def.MountPoint = (float[])snap.MountPoint.Clone();
+                    def.MountNormal = (float[])snap.MountNormal.Clone();
+                    def.MountRollDeg = snap.MountRollDeg;
+                }
+            }
+            RefreshV07Attachments();
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Project loaded, but embedded attachment mount metadata could not be restored: " + ex.Message);
+        }
+    }
+
+    static string? V095GenerationDirectory(string assetsRoot, IEnumerable<ObjectDto> objects)
+    {
+        foreach (var item in objects)
+        {
+            if (string.IsNullOrWhiteSpace(item.Mesh)) continue;
+            string? relativeDir = Path.GetDirectoryName(item.Mesh.Replace('/', Path.DirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(relativeDir)) continue;
+            string candidate = Path.GetFullPath(Path.Combine(assetsRoot, relativeDir));
+            string root = Path.GetFullPath(assetsRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return candidate;
+        }
+        return null;
+    }
+}
