@@ -98,11 +98,10 @@ def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
 
 
 def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12000) -> dict:
-    """Estimate local wall thickness at mesh vertices using inward multi-direction ray casting.
+    """Estimate local wall thickness using inward multi-direction ray casting.
 
-    Values are returned per original vertex so the editor can render them directly. For large meshes a
-    deterministic subset is ray-tested and unsampled vertices inherit the nearest sampled vertex value.
-    This measures surface-to-opposite-surface distance; it is application-agnostic and not a print rule.
+    Sample positions and values are returned in the same world-space coordinate frame as the exported STL.
+    The editor spatially transfers those samples to its live mesh, so STL vertex re-indexing does not matter.
     """
     mesh = _load_mesh(input_path)
     if not math.isfinite(target_mm) or target_mm <= 0:
@@ -118,7 +117,6 @@ def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12
     n = normals[sample_idx]
     eps = max(float(np.max(mesh.extents)) * 1e-6, 1e-5)
 
-    # Inward normal plus small angular deviations reduce false misses on curved/concave walls.
     dirs_all = []
     for normal in n:
         inward = -normal / max(np.linalg.norm(normal), 1e-12)
@@ -140,29 +138,21 @@ def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12
             dist = np.linalg.norm(locations - o[ray_ids], axis=1) + eps
             valid = dist > eps * 2
             for rid, value in zip(ray_ids[valid], dist[valid]):
-                if not math.isfinite(best[rid]) or value < best[rid]: best[rid] = float(value)
+                if not math.isfinite(best[rid]) or value < best[rid]:
+                    best[rid] = float(value)
 
-    values = np.full(count, np.nan, dtype=float)
-    values[sample_idx] = best
-    valid_samples = sample_idx[np.isfinite(best)]
-    if len(valid_samples) and len(sample_idx) < count:
-        # Chunked nearest sampled-vertex propagation avoids a scipy dependency.
-        sv = vertices[valid_samples]; sval = values[valid_samples]
-        missing = np.where(~np.isfinite(values))[0]
-        for start in range(0, len(missing), 1024):
-            ids = missing[start:start + 1024]
-            delta = vertices[ids, None, :] - sv[None, :, :]
-            nearest = np.argmin(np.einsum('ijk,ijk->ij', delta, delta), axis=1)
-            values[ids] = sval[nearest]
-    finite = values[np.isfinite(values)]
-    below = int(np.count_nonzero(finite < target_mm))
+    finite_mask = np.isfinite(best)
+    finite_values = best[finite_mask]
+    finite_positions = origins[finite_mask]
+    below = int(np.count_nonzero(finite_values < target_mm))
     return {
-        "target_mm": float(target_mm), "vertex_count": int(count), "ray_sampled_vertices": int(len(sample_idx)),
-        "resolved_vertices": int(len(finite)), "below_target_vertices": below,
-        "minimum_mm": float(np.min(finite)) if len(finite) else None,
-        "maximum_mm": float(np.max(finite)) if len(finite) else None,
-        "values_mm": [float(v) if math.isfinite(v) else None for v in values],
-        "method": "multi-direction inward ray distance to opposite surface; unsampled vertices use nearest sampled value",
+        "target_mm": float(target_mm), "source_vertex_count": int(count), "ray_sampled_vertices": int(len(sample_idx)),
+        "resolved_samples": int(len(finite_values)), "below_target_samples": below,
+        "minimum_mm": float(np.min(finite_values)) if len(finite_values) else None,
+        "maximum_mm": float(np.max(finite_values)) if len(finite_values) else None,
+        "sample_positions_mm": [[float(x), float(y), float(z)] for x, y, z in finite_positions],
+        "sample_values_mm": [float(v) for v in finite_values],
+        "method": "multi-direction inward ray distance to opposite surface; viewport values are spatially interpolated from resolved samples",
     }
 
 
