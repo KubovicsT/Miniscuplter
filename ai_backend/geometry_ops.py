@@ -72,113 +72,136 @@ def _feature_size_heuristic(mesh: trimesh.Trimesh, threshold_mm: float) -> dict:
     positive = alt[alt > 1e-9]
     minimum = float(np.min(positive)) if len(positive) else None
     flagged = int(np.count_nonzero((alt > 0) & (alt < threshold_mm)))
-    return {
-        "threshold_mm": float(threshold_mm),
-        "flagged_triangles": flagged,
-        "sampled_triangles": int(len(tri)),
-        "minimum_altitude_mm": minimum,
-        "meaning": "triangle-altitude feature-size heuristic; this is not a true wall-thickness measurement",
-    }
+    return {"threshold_mm": float(threshold_mm), "flagged_triangles": flagged, "sampled_triangles": int(len(tri)), "minimum_altitude_mm": minimum,
+            "meaning": "triangle-altitude feature-size heuristic; this is not a true wall-thickness measurement"}
 
 
 def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
-    # Broad-phase triangle AABB overlap count. Adjacent triangles are excluded.
-    # It intentionally does not claim exact triangle/triangle intersection.
     tri = mesh.triangles
     n = len(tri)
     if n < 2:
         return {"candidate_pairs": 0, "tested_pairs": 0, "truncated": False}
-    mins = tri.min(axis=1)
-    maxs = tri.max(axis=1)
-    faces = mesh.faces
-    candidates = 0
-    tested = 0
-    truncated = False
+    mins = tri.min(axis=1); maxs = tri.max(axis=1); faces = mesh.faces
+    candidates = 0; tested = 0
     for i in range(n):
         overlap = np.where(np.all(maxs[i + 1:] >= mins[i], axis=1) & np.all(mins[i + 1:] <= maxs[i], axis=1))[0]
         for rel in overlap:
             j = i + 1 + int(rel)
             if len(set(faces[i].tolist()).intersection(faces[j].tolist())) > 0:
                 continue
-            candidates += 1
-            tested += 1
+            candidates += 1; tested += 1
             if tested >= MAX_INTERSECTION_PAIRS:
-                truncated = True
-                return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": truncated,
+                return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": True,
                         "meaning": "non-adjacent triangle AABB-overlap heuristic; candidates are not guaranteed intersections"}
-    return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": truncated,
+    return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": False,
             "meaning": "non-adjacent triangle AABB-overlap heuristic; candidates are not guaranteed intersections"}
+
+
+def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12000) -> dict:
+    """Estimate local wall thickness at mesh vertices using inward multi-direction ray casting.
+
+    Values are returned per original vertex so the editor can render them directly. For large meshes a
+    deterministic subset is ray-tested and unsampled vertices inherit the nearest sampled vertex value.
+    This measures surface-to-opposite-surface distance; it is application-agnostic and not a print rule.
+    """
+    mesh = _load_mesh(input_path)
+    if not math.isfinite(target_mm) or target_mm <= 0:
+        raise ValueError("target_mm must be greater than zero")
+    max_samples = max(100, min(int(max_samples), 50000))
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    normals = np.asarray(mesh.vertex_normals, dtype=float)
+    count = len(vertices)
+    if count == 0:
+        raise ValueError("Mesh contains no vertices")
+    sample_idx = np.arange(count, dtype=int) if count <= max_samples else np.unique(np.linspace(0, count - 1, max_samples).astype(int))
+    origins = vertices[sample_idx]
+    n = normals[sample_idx]
+    eps = max(float(np.max(mesh.extents)) * 1e-6, 1e-5)
+
+    # Inward normal plus small angular deviations reduce false misses on curved/concave walls.
+    dirs_all = []
+    for normal in n:
+        inward = -normal / max(np.linalg.norm(normal), 1e-12)
+        axis = np.array([1.0, 0.0, 0.0]) if abs(inward[0]) < 0.8 else np.array([0.0, 1.0, 0.0])
+        t1 = np.cross(inward, axis); t1 /= max(np.linalg.norm(t1), 1e-12)
+        t2 = np.cross(inward, t1); t2 /= max(np.linalg.norm(t2), 1e-12)
+        dirs_all.append([inward,
+                         (inward + .18 * t1).astype(float), (inward - .18 * t1).astype(float),
+                         (inward + .18 * t2).astype(float), (inward - .18 * t2).astype(float)])
+    dirs_all = np.asarray(dirs_all, dtype=float)
+    dirs_all /= np.maximum(np.linalg.norm(dirs_all, axis=2, keepdims=True), 1e-12)
+    best = np.full(len(sample_idx), np.nan, dtype=float)
+    intersector = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+    for k in range(dirs_all.shape[1]):
+        d = dirs_all[:, k, :]
+        o = origins + d * eps
+        locations, ray_ids, _ = intersector.intersects_location(o, d, multiple_hits=False)
+        if len(locations):
+            dist = np.linalg.norm(locations - o[ray_ids], axis=1) + eps
+            valid = dist > eps * 2
+            for rid, value in zip(ray_ids[valid], dist[valid]):
+                if not math.isfinite(best[rid]) or value < best[rid]: best[rid] = float(value)
+
+    values = np.full(count, np.nan, dtype=float)
+    values[sample_idx] = best
+    valid_samples = sample_idx[np.isfinite(best)]
+    if len(valid_samples) and len(sample_idx) < count:
+        # Chunked nearest sampled-vertex propagation avoids a scipy dependency.
+        sv = vertices[valid_samples]; sval = values[valid_samples]
+        missing = np.where(~np.isfinite(values))[0]
+        for start in range(0, len(missing), 1024):
+            ids = missing[start:start + 1024]
+            delta = vertices[ids, None, :] - sv[None, :, :]
+            nearest = np.argmin(np.einsum('ijk,ijk->ij', delta, delta), axis=1)
+            values[ids] = sval[nearest]
+    finite = values[np.isfinite(values)]
+    below = int(np.count_nonzero(finite < target_mm))
+    return {
+        "target_mm": float(target_mm), "vertex_count": int(count), "ray_sampled_vertices": int(len(sample_idx)),
+        "resolved_vertices": int(len(finite)), "below_target_vertices": below,
+        "minimum_mm": float(np.min(finite)) if len(finite) else None,
+        "maximum_mm": float(np.max(finite)) if len(finite) else None,
+        "values_mm": [float(v) if math.isfinite(v) else None for v in values],
+        "method": "multi-direction inward ray distance to opposite surface; unsampled vertices use nearest sampled value",
+    }
 
 
 def analyze_mesh(input_path: str, feature_threshold_mm: float = 0.6) -> dict:
     mesh = _load_mesh(input_path)
     open_edges, nonmanifold_edges = _edge_incidence(mesh)
     components = mesh.split(only_watertight=False)
-    ext = [float(v) for v in mesh.extents]
-    result = {
-        "vertices": int(len(mesh.vertices)),
-        "triangles": int(len(mesh.faces)),
-        "bounds_mm": ext,
-        "watertight": bool(mesh.is_watertight),
-        "winding_consistent": bool(mesh.is_winding_consistent),
-        "open_edges": open_edges,
-        "nonmanifold_edges": nonmanifold_edges,
-        "connected_shells": int(len(components)),
-        "degenerate_faces": _degenerate_faces(mesh),
-        "volume_mm3": float(abs(mesh.volume)) if mesh.is_watertight and math.isfinite(float(mesh.volume)) else None,
-        "surface_area_mm2": float(mesh.area) if math.isfinite(float(mesh.area)) else None,
-        "feature_size": _feature_size_heuristic(mesh, feature_threshold_mm),
-        "self_intersection": _self_intersection_heuristic(mesh),
-    }
-    result["structurally_printable"] = bool(
-        result["watertight"] and result["winding_consistent"] and result["open_edges"] == 0
-        and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0
-    )
+    result = {"vertices": int(len(mesh.vertices)), "triangles": int(len(mesh.faces)), "bounds_mm": [float(v) for v in mesh.extents],
+              "watertight": bool(mesh.is_watertight), "winding_consistent": bool(mesh.is_winding_consistent), "open_edges": open_edges,
+              "nonmanifold_edges": nonmanifold_edges, "connected_shells": int(len(components)), "degenerate_faces": _degenerate_faces(mesh),
+              "volume_mm3": float(abs(mesh.volume)) if mesh.is_watertight and math.isfinite(float(mesh.volume)) else None,
+              "surface_area_mm2": float(mesh.area) if math.isfinite(float(mesh.area)) else None,
+              "feature_size": _feature_size_heuristic(mesh, feature_threshold_mm), "self_intersection": _self_intersection_heuristic(mesh)}
+    result["structurally_printable"] = bool(result["watertight"] and result["winding_consistent"] and result["open_edges"] == 0 and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0)
     return result
 
 
 def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float = 0.35) -> str:
     paths = [str(Path(p).resolve()) for p in input_paths]
-    if not paths:
-        raise ValueError("At least one input mesh is required")
-    if not math.isfinite(voxel_size) or voxel_size <= 0:
-        raise ValueError("voxel_size must be a finite value greater than zero")
-
+    if not paths: raise ValueError("At least one input mesh is required")
+    if not math.isfinite(voxel_size) or voxel_size <= 0: raise ValueError("voxel_size must be a finite value greater than zero")
     meshes = [_load_mesh(p) for p in paths]
     combined = meshes[0] if len(meshes) == 1 else trimesh.util.concatenate(meshes)
     cells = estimate_voxel_cells(combined, float(voxel_size))
     if cells > MAX_VOXEL_CELLS:
-        ext = combined.extents
-        recommended = max(float(ext.max()) / 450.0, voxel_size)
-        raise MemoryError(
-            f"Requested voxel grid is approximately {cells:,} cells, above the safety limit of {MAX_VOXEL_CELLS:,}. "
-            f"Increase voxel size (try about {recommended:.2f} mm or larger), reduce model size, or raise MINISCULPTER_MAX_VOXEL_CELLS if the machine has enough RAM."
-        )
-
+        recommended = max(float(combined.extents.max()) / 450.0, voxel_size)
+        raise MemoryError(f"Requested voxel grid is approximately {cells:,} cells, above the safety limit of {MAX_VOXEL_CELLS:,}. Increase voxel size (try about {recommended:.2f} mm or larger), reduce model size, or raise MINISCULPTER_MAX_VOXEL_CELLS if the machine has enough RAM.")
     grid = combined.voxelized(pitch=float(voxel_size)).fill()
-    if grid.shape is None or any(int(v) <= 0 for v in grid.shape):
-        raise RuntimeError("Voxelization produced an invalid occupancy grid")
+    if grid.shape is None or any(int(v) <= 0 for v in grid.shape): raise RuntimeError("Voxelization produced an invalid occupancy grid")
     result = grid.marching_cubes
-    if result.is_empty:
-        raise RuntimeError("Voxel reconstruction produced an empty mesh")
-
-    result.apply_transform(grid.transform)
-    result.remove_unreferenced_vertices()
-    result.merge_vertices()
-    if not result.is_finite:
-        raise RuntimeError("Voxel reconstruction produced invalid coordinates")
-
-    out = Path(output_path).resolve()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    result.export(out, file_type="stl")
-    if not out.exists() or out.stat().st_size == 0:
-        raise RuntimeError("Voxel reconstruction finished but no STL was written")
+    if result.is_empty: raise RuntimeError("Voxel reconstruction produced an empty mesh")
+    result.apply_transform(grid.transform); result.remove_unreferenced_vertices(); result.merge_vertices()
+    if not result.is_finite: raise RuntimeError("Voxel reconstruction produced invalid coordinates")
+    out = Path(output_path).resolve(); out.parent.mkdir(parents=True, exist_ok=True); result.export(out, file_type="stl")
+    if not out.exists() or out.stat().st_size == 0: raise RuntimeError("Voxel reconstruction finished but no STL was written")
     return str(out)
 
 
 def repair_mesh(input_path: str, output_path: str, voxel_size: float = 0.30) -> dict:
-    before = analyze_mesh(input_path)
-    path = voxel_remesh([input_path], output_path, voxel_size)
-    after = analyze_mesh(path)
+    before = analyze_mesh(input_path); path = voxel_remesh([input_path], output_path, voxel_size); after = analyze_mesh(path)
     return {"path": path, "voxel_size": float(voxel_size), "before": before, "after": after,
             "method": "filled voxel reconstruction; destructive and may soften details below the selected voxel pitch"}
