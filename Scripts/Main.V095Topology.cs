@@ -8,6 +8,11 @@ namespace Miniscuplter;
 
 public partial class Main
 {
+    public void InstallV095TopologyGuards()
+    {
+        ReplaceV095Button("Repair Selected", async () => await SafeV095RepairSelectedAsync());
+    }
+
     void V095TopologyChanged(MeshInstance3D target)
     {
         _v08Masks.Remove(target.Name.ToString());
