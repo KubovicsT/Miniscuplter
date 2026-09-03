@@ -46,16 +46,32 @@ public sealed class AIClient
     public async Task<string> VoxelRemeshAsync(IReadOnlyList<string> inputPaths, string outputPath, double voxelSize)
         => await PostForFileAsync("/geometry/voxel-remesh", new { input_paths = inputPaths, output_path = outputPath, voxel_size = voxelSize });
 
+    public async Task<string> AnalyzeGeometryAsync(string inputPath, double featureThresholdMm)
+        => await PostJsonTextAsync("/geometry/analyze", new { input_path = inputPath, feature_threshold_mm = featureThresholdMm });
+
+    public async Task<string> RepairGeometryAsync(string inputPath, string outputPath, double voxelSize)
+        => await PostForFileAsync("/geometry/repair", new { input_path = inputPath, output_path = outputPath, voxel_size = voxelSize });
+
     public async Task<string> PredictRigAsync(string inputPath, string outputPath, string mode = "quick", int seed = 0, double branchThreshold = 0.28)
         => await PostForFileAsync("/rig/predict-skeleton", new { input_path = inputPath, output_path = outputPath, mode, seed, branch_threshold = branchThreshold });
 
     async Task<string> PostForFileAsync(string route, object payload)
     {
-        CancellationTokenSource cts = new();
-        lock (_cancelLock)
+        var body = await PostJsonTextAsync(route, payload, true);
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("Backend returned no file path.");
+    }
+
+    async Task<string> PostJsonTextAsync(string route, object payload, bool cancellable = false)
+    {
+        CancellationTokenSource? cts = cancellable ? new CancellationTokenSource() : null;
+        if (cts != null)
         {
-            _activeRequest?.Dispose();
-            _activeRequest = cts;
+            lock (_cancelLock)
+            {
+                _activeRequest?.Dispose();
+                _activeRequest = cts;
+            }
         }
         try
         {
@@ -64,11 +80,10 @@ public sealed class AIClient
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts.Token);
-            var body = await response.Content.ReadAsStringAsync(cts.Token);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts?.Token ?? CancellationToken.None);
+            var body = await response.Content.ReadAsStringAsync(cts?.Token ?? CancellationToken.None);
             if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
-            using var doc = JsonDocument.Parse(body);
-            return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("AI backend returned no file path.");
+            return body;
         }
         catch (OperationCanceledException)
         {
@@ -76,11 +91,14 @@ public sealed class AIClient
         }
         finally
         {
-            lock (_cancelLock)
+            if (cts != null)
             {
-                if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null;
+                lock (_cancelLock)
+                {
+                    if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null;
+                }
+                cts.Dispose();
             }
-            cts.Dispose();
         }
     }
 
