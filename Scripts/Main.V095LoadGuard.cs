@@ -29,7 +29,7 @@ public partial class Main
         try
         {
             if (!File.Exists(full)) throw new FileNotFoundException("Project file does not exist.", full);
-            var dto = ReadAndValidateV095ProjectManifest(full);
+            _ = ReadAndValidateV095ProjectManifest(full, full);
             SafeV095LoadProject(full);
         }
         catch (Exception primaryError)
@@ -38,12 +38,12 @@ public partial class Main
             try
             {
                 if (!File.Exists(backup)) throw new InvalidDataException("No saved project backup is available.");
-                _ = ReadAndValidateV095ProjectManifest(backup);
+                _ = ReadAndValidateV095ProjectManifest(backup, full);
                 string corruptCopy = full + ".corrupt_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
                 if (File.Exists(full)) File.Copy(full, corruptCopy, true);
                 File.Copy(backup, full, true);
-                _ = ReadAndValidateV095ProjectManifest(full);
-                SetStatus("Primary project manifest was invalid; restored the last validated .bak manifest and preserved the broken file as a .corrupt copy.");
+                _ = ReadAndValidateV095ProjectManifest(full, full);
+                SetStatus("Primary project generation was invalid; restored the last validated .bak manifest and preserved the broken manifest as a .corrupt copy.");
                 SafeV095LoadProject(full);
             }
             catch (Exception backupError)
@@ -53,11 +53,29 @@ public partial class Main
         }
     }
 
-    static ProjectDto ReadAndValidateV095ProjectManifest(string path)
+    static ProjectDto ReadAndValidateV095ProjectManifest(string manifestPath, string projectPathForAssets)
     {
-        var dto = JsonSerializer.Deserialize<ProjectDto>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("Invalid project JSON.");
+        var dto = JsonSerializer.Deserialize<ProjectDto>(File.ReadAllText(manifestPath), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("Invalid project JSON.");
         ValidateV095ProjectMetadata(dto);
+        ValidateV095ProjectAssets(projectPathForAssets, dto);
         return dto;
+    }
+
+    static void ValidateV095ProjectAssets(string projectPath, ProjectDto dto)
+    {
+        string full = Path.GetFullPath(projectPath);
+        string parent = Path.GetDirectoryName(full) ?? throw new InvalidDataException("Project path has no parent directory.");
+        string assetsRoot = Path.Combine(parent, Path.GetFileNameWithoutExtension(full) + "_assets");
+        string rootPrefix = Path.GetFullPath(assetsRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var item in dto.Objects)
+        {
+            if (string.IsNullOrWhiteSpace(item.Mesh)) throw new InvalidDataException($"Object '{item.Name}' has no mesh asset reference.");
+            string meshPath = Path.GetFullPath(Path.Combine(assetsRoot, item.Mesh.Replace('/', Path.DirectorySeparatorChar)));
+            if (!meshPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException($"Object '{item.Name}' references an asset outside the project asset directory.");
+            if (!File.Exists(meshPath) || new FileInfo(meshPath).Length == 0) throw new FileNotFoundException($"Mesh asset for '{item.Name}' is missing or empty.", meshPath);
+            var mesh = MeshIO.LoadStl(meshPath);
+            if (mesh.GetSurfaceCount() == 0) throw new InvalidDataException($"Mesh asset for '{item.Name}' contains no surfaces.");
+        }
     }
 
     static bool V095FiniteArray(float[]? values, int minimum)
