@@ -83,6 +83,10 @@ public partial class Main
         string? generationDir = null;
         try
         {
+            var liveObjects = _objects.Where(o => GodotObject.IsInstanceValid(o) && o.Mesh != null).ToList();
+            var duplicate = liveObjects.GroupBy(o => o.Name.ToString(), StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+            if (duplicate != null) throw new InvalidDataException($"Duplicate object name '{duplicate.Key}' would make rig/mask/attachment identity ambiguous. Rename or allow the v0.9.5 integrity guard to resolve it before saving.");
+
             string full = Path.GetFullPath(projectPath);
             string parent = Path.GetDirectoryName(full) ?? throw new InvalidOperationException("Project destination has no parent directory.");
             Directory.CreateDirectory(parent);
@@ -103,7 +107,7 @@ public partial class Main
             };
 
             int meshIndex = 0;
-            foreach (var obj in _objects.Where(o => GodotObject.IsInstanceValid(o) && o.Mesh != null))
+            foreach (var obj in liveObjects)
             {
                 if (!V095Finite(obj.Position.X) || !V095Finite(obj.Position.Y) || !V095Finite(obj.Position.Z) ||
                     !V095Finite(obj.Rotation.X) || !V095Finite(obj.Rotation.Y) || !V095Finite(obj.Rotation.Z) ||
@@ -129,24 +133,16 @@ public partial class Main
                 });
             }
 
+            WriteV095PortableState(generationDir);
             string json = JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true });
             _ = JsonSerializer.Deserialize<ProjectDto>(json) ?? throw new InvalidDataException("Generated project manifest failed validation.");
 
             string tmp = full + ".tmp";
             File.WriteAllText(tmp, json);
-            using (var fs = new FileStream(tmp, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read)) fs.Flush(true);
-            if (File.Exists(full))
-            {
-                string backup = full + ".bak";
-                File.Copy(full, backup, true);
-            }
+            using (var fs = new FileStream(tmp, FileMode.Open, System.IO.FileAccess.ReadWrite, FileShare.None)) fs.Flush(true);
+            if (File.Exists(full)) File.Copy(full, full + ".bak", true);
             File.Move(tmp, full, true);
 
-            foreach (string old in Directory.EnumerateDirectories(assetsRoot, "gen_*"))
-            {
-                if (Path.GetFullPath(old).Equals(Path.GetFullPath(generationDir), StringComparison.OrdinalIgnoreCase)) continue;
-                try { Directory.Delete(old, true); } catch { }
-            }
             SetStatus($"Saved transactional v{dto.Version} project with {dto.Objects.Count} object(s): {full}");
         }
         catch (Exception ex)
@@ -175,14 +171,19 @@ public partial class Main
             if (dto.Version < 1 || dto.Version > 6) throw new InvalidDataException($"Unsupported project version {dto.Version}. This build supports versions 1–6.");
             dto.Objects ??= new(); dto.AiLayers ??= new(); dto.Rigs ??= new(); dto.Sockets ??= new(); dto.Attachments ??= new(); dto.SculptMasks ??= new();
 
+            var duplicate = dto.Objects.GroupBy(o => o.Name ?? "", StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+            if (duplicate != null) throw new InvalidDataException($"Project contains duplicate object identity '{duplicate.Key}'. Loading it could attach rigs, masks or sockets to the wrong object, so the scene was left unchanged.");
+
             string assetsRoot = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "_assets");
+            string assetsRootPrefix = Path.GetFullPath(assetsRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string? portableDir = V095GenerationDirectory(assetsRoot, dto.Objects);
             var staged = new List<(ObjectDto dto, ArrayMesh mesh)>();
             foreach (var item in dto.Objects)
             {
                 if (string.IsNullOrWhiteSpace(item.Mesh)) throw new InvalidDataException($"Object '{item.Name}' has no mesh asset reference.");
                 if (!V095Vec3(item.Position) || !V095Vec3(item.Rotation) || !V095Vec3(item.Scale)) throw new InvalidDataException($"Object '{item.Name}' has an invalid transform record.");
                 string meshPath = Path.GetFullPath(Path.Combine(assetsRoot, item.Mesh.Replace('/', Path.DirectorySeparatorChar)));
-                if (!meshPath.StartsWith(Path.GetFullPath(assetsRoot), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Project contains an asset path outside its asset directory.");
+                if (!meshPath.StartsWith(assetsRootPrefix, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Project contains an asset path outside its asset directory.");
                 if (!File.Exists(meshPath)) throw new FileNotFoundException($"Project mesh asset for '{item.Name}' is missing.", meshPath);
                 var mesh = MeshIO.LoadStl(meshPath);
                 if (mesh.GetSurfaceCount() == 0) throw new InvalidDataException($"Project mesh asset for '{item.Name}' contains no surfaces.");
@@ -209,6 +210,7 @@ public partial class Main
             ImportV06Rigs(dto.Rigs);
             ImportV08Masks(dto.SculptMasks);
             ImportV07State(dto.Sockets, dto.Attachments);
+            ApplyV095PortableState(portableDir);
             RebuildSceneList();
             var rigObject = _objects.FirstOrDefault(o => dto.Rigs.Any(r => r.ObjectName == o.Name.ToString()));
             if (rigObject != null) { Select(rigObject); RestoreV06RigForObject(rigObject); }
