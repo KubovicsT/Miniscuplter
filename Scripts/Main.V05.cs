@@ -176,7 +176,8 @@ public partial class Main
         if (string.IsNullOrEmpty(source) || !File.Exists(source)) { CaptureView(); source = _lastCapture; }
         string prompt = _prompt?.Text.Trim() ?? "";
         if (prompt.Length == 0) { SetStatus("Enter an edit prompt first."); return; }
-        foreach (var c in _v05Candidates?.GetChildren() ?? Array.Empty<Node>()) c.QueueFree();
+        if (_v05Candidates != null)
+            foreach (var c in _v05Candidates.GetChildren()) c.QueueFree();
         for (int i=0;i<4;i++)
         {
             int n=i+1;
