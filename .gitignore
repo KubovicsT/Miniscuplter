@@ -1,0 +1,11 @@
+.godot/
+.mono/
+.vscode/
+.idea/
+bin/
+obj/
+ai_backend/.venv/
+ai_backend/__pycache__/
+*.user
+*.tmp
+*.log
