@@ -1,14 +1,86 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 
 namespace Miniscuplter;
 
 public partial class Main
 {
+    Timer? _v095LibraryGuardTimer;
+    DateTime _v095LibrarySeenWriteUtc;
+
     public void InstallV095LibraryGuards()
     {
         ReplaceV095Button("Import STL to Library", OpenV095ImportPartDialog);
+        RecoverV095LibraryIndexIfNeeded();
+        _v095LibraryGuardTimer = new Timer { WaitTime = .5, OneShot = false, Autostart = true };
+        _v095LibraryGuardTimer.Timeout += GuardV095LibraryIndex;
+        AddChild(_v095LibraryGuardTimer);
+    }
+
+    static bool V095LibraryJsonValid(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return true;
+            string json = File.ReadAllText(path);
+            if (string.IsNullOrWhiteSpace(json)) return false;
+            return JsonSerializer.Deserialize<List<V07PartDefinition>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) != null;
+        }
+        catch { return false; }
+    }
+
+    void RecoverV095LibraryIndexIfNeeded()
+    {
+        string path = V07LibraryIndex();
+        string backup = path + ".bak";
+        try
+        {
+            if (File.Exists(path) && V095LibraryJsonValid(path))
+            {
+                File.Copy(path, backup, true);
+                _v095LibrarySeenWriteUtc = File.GetLastWriteTimeUtc(path);
+                return;
+            }
+            if (File.Exists(backup) && V095LibraryJsonValid(backup))
+            {
+                File.Copy(backup, path, true);
+                _v095LibrarySeenWriteUtc = File.GetLastWriteTimeUtc(path);
+                LoadV07Library();
+                RebuildV07LibraryList();
+                SetStatus("Recovered the reusable parts library from its last validated index backup.");
+            }
+        }
+        catch (Exception ex) { SetStatus("Parts-library recovery check failed: " + ex.Message); }
+    }
+
+    void GuardV095LibraryIndex()
+    {
+        string path = V07LibraryIndex();
+        if (!File.Exists(path)) return;
+        DateTime write = File.GetLastWriteTimeUtc(path);
+        if (write == _v095LibrarySeenWriteUtc) return;
+        _v095LibrarySeenWriteUtc = write;
+        try
+        {
+            if (V095LibraryJsonValid(path))
+            {
+                File.Copy(path, path + ".bak", true);
+            }
+            else
+            {
+                string backup = path + ".bak";
+                if (!File.Exists(backup) || !V095LibraryJsonValid(backup)) throw new InvalidDataException("parts.json is invalid and no valid backup is available.");
+                File.Copy(backup, path, true);
+                _v095LibrarySeenWriteUtc = File.GetLastWriteTimeUtc(path);
+                LoadV07Library();
+                RebuildV07LibraryList();
+                SetStatus("Invalid parts-library index detected and automatically restored from the last validated backup.");
+            }
+        }
+        catch (Exception ex) { SetStatus("Parts-library integrity guard: " + ex.Message); }
     }
 
     void OpenV095ImportPartDialog()
@@ -50,7 +122,11 @@ public partial class Main
                 DefaultScale = 1f
             };
             _v07Parts.Add(def);
-            try { SaveV095LibraryIndexAtomic(); }
+            try
+            {
+                SaveV095LibraryIndexAtomic();
+                if (V095LibraryJsonValid(V07LibraryIndex())) File.Copy(V07LibraryIndex(), V07LibraryIndex() + ".bak", true);
+            }
             catch
             {
                 _v07Parts.Remove(def);
