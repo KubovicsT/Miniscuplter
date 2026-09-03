@@ -21,6 +21,7 @@ public partial class Main
     Node3D? _v08BrushCursor;
     int _v08CompletedStrokes;
     bool _v08RemeshRunning;
+    bool _v08StrokeArmed;
 
     public void InstallV08Extras()
     {
@@ -176,10 +177,20 @@ public partial class Main
         if (_camera == null || _selected == null) return;
         Vector2? pos = ev switch { InputEventMouseMotion mm => mm.Position, InputEventMouseButton mb => mb.Position, _ => null };
         if (pos.HasValue) UpdateV08Cursor(pos.Value);
-        if (ev is InputEventMouseButton release && release.ButtonIndex == MouseButton.Left && !release.Pressed)
+
+        if (ev is InputEventMouseButton press && press.ButtonIndex == MouseButton.Left && press.Pressed)
         {
-            _v08CompletedStrokes++;
-            if (_v08AutoRemesh?.ButtonPressed == true && _v08CompletedStrokes % 12 == 0 && !_v08MaskPaintMode) _ = V08RemeshSelectedAsync();
+            Vector3 ro = _camera.ProjectRayOrigin(press.Position), rd = _camera.ProjectRayNormal(press.Position);
+            _v08StrokeArmed = !_v07SocketPlacementMode && !_v07MountPointMode && !_regionMode && RayMeshDetailedV055(ro, rd, _selected, out _, out _);
+        }
+        else if (ev is InputEventMouseButton release && release.ButtonIndex == MouseButton.Left && !release.Pressed)
+        {
+            if (_v08StrokeArmed && !_v08MaskPaintMode)
+            {
+                _v08CompletedStrokes++;
+                if (_v08AutoRemesh?.ButtonPressed == true && _v08CompletedStrokes % 12 == 0) _ = V08RemeshSelectedAsync();
+            }
+            _v08StrokeArmed = false;
         }
     }
 
@@ -203,19 +214,29 @@ public partial class Main
     async Task V08RemeshSelectedAsync()
     {
         if (_v08RemeshRunning || _selected?.Mesh is not ArrayMesh mesh) return;
-        MeshInstance3D target = _selected; _v08RemeshRunning = true;
+        MeshInstance3D target = _selected;
+        string? dir = null;
+        _v08RemeshRunning = true;
         try
         {
-            string dir = ProjectSettings.GlobalizePath($"user://sculpt_remesh/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}"); Directory.CreateDirectory(dir);
+            dir = ProjectSettings.GlobalizePath($"user://sculpt_remesh/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}"); Directory.CreateDirectory(dir);
             string input = Path.Combine(dir, "input.stl"), output = Path.Combine(dir, "output.stl");
-            MeshIO.SaveBinaryStl(mesh, input); PushUndo(mesh);
+            MeshIO.SaveBinaryStl(mesh, input);
             SetStatus("v0.8 detail remesh running…");
             string result = await _ai.VoxelRemeshAsync(new[] { input }, output, _v08RemeshVoxel?.Value ?? .28);
-            if (target != _selected && !_objects.Contains(target)) return;
-            target.Mesh = MeshIO.LoadStl(result); _v08Masks.Remove(target.Name.ToString());
+            if (!GodotObject.IsInstanceValid(target) || !_objects.Contains(target)) { SetStatus("Remesh result discarded because the source object no longer exists."); return; }
+            var loaded = MeshIO.LoadStl(result);
+            if (loaded.GetSurfaceCount() == 0) throw new InvalidDataException("Remesh result contains no surfaces.");
+            if (target.Mesh is ArrayMesh previous) PushUndo(previous);
+            target.Mesh = loaded;
+            _v08Masks.Remove(target.Name.ToString());
             SetStatus($"Detail remesh complete at {_v08RemeshVoxel?.Value ?? .28:0.00} mm voxels. Sculpt mask cleared because topology changed.");
         }
-        catch (Exception ex) { SetStatus("Detail remesh failed: " + ex.Message); }
-        finally { _v08RemeshRunning = false; }
+        catch (Exception ex) { SetStatus("Detail remesh failed without replacing the source mesh: " + ex.Message); }
+        finally
+        {
+            _v08RemeshRunning = false;
+            if (dir != null) { try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { } }
+        }
     }
 }
