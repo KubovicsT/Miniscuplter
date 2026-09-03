@@ -25,5 +25,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV08Hook();
         main.InstallV09Extras();
         main.InstallV09Thickness();
+        main.InstallV095Stability();
     }
 }
