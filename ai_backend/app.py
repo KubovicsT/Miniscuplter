@@ -12,9 +12,11 @@ from pydantic import BaseModel
 
 from model_manager import install_component, uninstall_component, status as component_status, component_path
 from geometry_api import router as geometry_router
+from rig_api import router as rig_router
 
-app = FastAPI(title="Miniscuplter AI Backend", version="0.5.5")
+app = FastAPI(title="Miniscuplter AI Backend", version="0.6.0")
 app.include_router(geometry_router)
+app.include_router(rig_router)
 
 SD_WEBUI_URL = os.getenv("MINISCULPTER_SD_URL", "").rstrip("/")
 THREED_COMMAND = os.getenv("MINISCULPTER_3D_COMMAND", "")
@@ -61,10 +63,11 @@ def health():
     local_3d = component_path("hunyuan21-shape") is not None
     return {
         "ok": True,
-        "version": "0.5.5",
+        "version": "0.6.0",
         "image_provider": "local-sd21" if local_image else ("automatic1111" if SD_WEBUI_URL else "not-configured"),
         "three_d_provider": "hunyuan3d-2.1" if local_3d else ("command" if THREED_COMMAND else "not-configured"),
         "geometry_provider": "trimesh-voxel",
+        "rig_provider": "adaptive-quick + optional-universal-command",
         "internet": True,
         "components": component_status(),
     }
