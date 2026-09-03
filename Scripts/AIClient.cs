@@ -5,6 +5,7 @@ using NetHttpClient = System.Net.Http.HttpClient;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Miniscuplter;
@@ -17,8 +18,15 @@ public record AiComponentStatus(AiHardwareInfo Hardware, List<AiComponentInfo> C
 public sealed class AIClient
 {
     readonly NetHttpClient _http = new() { Timeout = TimeSpan.FromMinutes(90) };
+    readonly object _cancelLock = new();
+    CancellationTokenSource? _activeRequest;
     public string BackendUrl { get; set; } = "http://127.0.0.1:7868";
     public bool InternetReferencesEnabled { get; set; } = true;
+
+    public void CancelCurrentRequest()
+    {
+        lock (_cancelLock) _activeRequest?.Cancel();
+    }
 
     public async Task<bool> HealthAsync()
     {
@@ -40,12 +48,37 @@ public sealed class AIClient
 
     async Task<string> PostForFileAsync(string route, object payload)
     {
-        var json = JsonSerializer.Serialize(payload);
-        using var response = await _http.PostAsync(BackendUrl + route, new StringContent(json, Encoding.UTF8, "application/json"));
-        var body = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
-        using var doc = JsonDocument.Parse(body);
-        return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("AI backend returned no file path.");
+        CancellationTokenSource cts = new();
+        lock (_cancelLock)
+        {
+            _activeRequest?.Dispose();
+            _activeRequest = cts;
+        }
+        try
+        {
+            var json = JsonSerializer.Serialize(payload);
+            using var request = new HttpRequestMessage(HttpMethod.Post, BackendUrl + route)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts.Token);
+            var body = await response.Content.ReadAsStringAsync(cts.Token);
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("AI backend returned no file path.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw new InvalidOperationException("Generation cancelled by user.");
+        }
+        finally
+        {
+            lock (_cancelLock)
+            {
+                if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null;
+            }
+            cts.Dispose();
+        }
     }
 
     public async Task<AiComponentStatus> GetComponentsAsync()
