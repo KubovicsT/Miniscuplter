@@ -35,6 +35,9 @@ public sealed class AIClient
     public async Task<string> Generate3DAsync(string imagePath, string prompt, string outputPath)
         => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath });
 
+    public async Task<string> VoxelRemeshAsync(IReadOnlyList<string> inputPaths, string outputPath, double voxelSize)
+        => await PostForFileAsync("/geometry/voxel-remesh", new { input_paths = inputPaths, output_path = outputPath, voxel_size = voxelSize });
+
     async Task<string> PostForFileAsync(string route, object payload)
     {
         var json = JsonSerializer.Serialize(payload);
