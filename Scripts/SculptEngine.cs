@@ -10,8 +10,14 @@ public enum SculptAlpha { None, HardCenter, Pinpoint, Ring, Noise }
 
 public static class SculptEngine
 {
+    public delegate ArrayMesh SculptOverride(ArrayMesh mesh, Vector3 hitLocal, Vector3 dragLocal, float radius, float strength, SculptBrush brush);
+    public static SculptOverride? ApplyOverride { get; set; }
+
     public static ArrayMesh Apply(ArrayMesh mesh, Vector3 hitLocal, Vector3 dragLocal, float radius, float strength, SculptBrush brush)
-        => ApplyAdvanced(mesh, new[] { hitLocal }, dragLocal, radius, strength, brush, SculptFalloff.Smooth, SculptAlpha.None, null);
+    {
+        if (ApplyOverride != null) return ApplyOverride(mesh, hitLocal, dragLocal, radius, strength, brush);
+        return ApplyAdvanced(mesh, new[] { hitLocal }, dragLocal, radius, strength, brush, SculptFalloff.Smooth, SculptAlpha.None, null);
+    }
 
     public static ArrayMesh ApplyAdvanced(ArrayMesh mesh, IReadOnlyList<Vector3> centers, Vector3 dragLocal, float radius, float strength,
         SculptBrush brush, SculptFalloff falloff, SculptAlpha alpha, float[]? mask)
