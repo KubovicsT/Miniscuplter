@@ -33,6 +33,8 @@ public partial class Main
         {
             var def = _v07Parts.FirstOrDefault(p => p.Id == id);
             if (def == null) continue;
+            float[] mountPoint = def.MountPoint is { Length: >= 3 } ? (float[])def.MountPoint.Clone() : new float[3];
+            float[] mountNormal = def.MountNormal is { Length: >= 3 } ? (float[])def.MountNormal.Clone() : new float[] { 0, 1, 0 };
             state.Mounts.Add(new V095MountSnapshot
             {
                 LibraryId = def.Id,
@@ -40,8 +42,8 @@ public partial class Main
                 Category = def.Category,
                 SocketType = def.SocketType,
                 DefaultScale = def.DefaultScale,
-                MountPoint = def.MountPoint?.Length >= 3 ? (float[])def.MountPoint.Clone() : new float[3],
-                MountNormal = def.MountNormal?.Length >= 3 ? (float[])def.MountNormal.Clone() : new float[] { 0, 1, 0 },
+                MountPoint = mountPoint,
+                MountNormal = mountNormal,
                 MountRollDeg = def.MountRollDeg
             });
         }
@@ -59,7 +61,9 @@ public partial class Main
             if (state?.Mounts == null) return;
             foreach (var snap in state.Mounts)
             {
-                if (string.IsNullOrWhiteSpace(snap.LibraryId) || snap.MountPoint?.Length < 3 || snap.MountNormal?.Length < 3) continue;
+                if (string.IsNullOrWhiteSpace(snap.LibraryId) || snap.MountPoint is not { Length: >= 3 } || snap.MountNormal is not { Length: >= 3 }) continue;
+                float[] mountPoint = (float[])snap.MountPoint.Clone();
+                float[] mountNormal = (float[])snap.MountNormal.Clone();
                 var def = _v07Parts.FirstOrDefault(p => p.Id == snap.LibraryId);
                 if (def == null)
                 {
@@ -71,8 +75,8 @@ public partial class Main
                         SocketType = snap.SocketType,
                         DefaultScale = snap.DefaultScale,
                         MeshPath = "",
-                        MountPoint = (float[])snap.MountPoint.Clone(),
-                        MountNormal = (float[])snap.MountNormal.Clone(),
+                        MountPoint = mountPoint,
+                        MountNormal = mountNormal,
                         MountRollDeg = snap.MountRollDeg
                     };
                     _v07Parts.Add(def);
@@ -80,12 +84,12 @@ public partial class Main
                 else
                 {
                     def.DefaultScale = snap.DefaultScale;
-                    def.MountPoint = (float[])snap.MountPoint.Clone();
-                    def.MountNormal = (float[])snap.MountNormal.Clone();
+                    def.MountPoint = mountPoint;
+                    def.MountNormal = mountNormal;
                     def.MountRollDeg = snap.MountRollDeg;
                 }
             }
-            RefreshV07Attachments();
+            RefreshV095Attachments();
         }
         catch (Exception ex)
         {
