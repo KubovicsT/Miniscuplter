@@ -108,7 +108,7 @@ public partial class Main
                 colors[i] = V09ThicknessColor(thickness, _v09ThicknessTargetValue, _v09ThicknessOnlyBelow?.ButtonPressed ?? false);
             }
             arrays[(int)Mesh.ArrayType.Color] = colors;
-            mesh.AddSurfaceFromArrays(source.Mesh.SurfaceGetPrimitiveType(s), arrays);
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
         }
 
         var mat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 1f, Transparency = BaseMaterial3D.TransparencyEnum.Alpha };
