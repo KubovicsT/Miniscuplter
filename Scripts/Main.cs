@@ -42,7 +42,8 @@ public partial class Main : Node
 
     void BuildUi()
     {
-        var root = new VBoxContainer { SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect) };
+        var root = new VBoxContainer();
+        root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         AddChild(root);
 
         var toolbar = new HBoxContainer { CustomMinimumSize = new Vector2(0, 46) };
@@ -150,7 +151,7 @@ public partial class Main : Node
         _camera = new Camera3D { Current = true, Near = 0.05f, Far = 5000f, Fov = 45 }; _world.AddChild(_camera);
         var light = new DirectionalLight3D { RotationDegrees = new Vector3(-55,-30,0), ShadowEnabled = true, LightEnergy = 1.3f }; _world.AddChild(light);
         var fill = new OmniLight3D { Position = new Vector3(-60,70,70), OmniRange = 250, LightEnergy = 2.0f }; _world.AddChild(fill);
-        var env = new WorldEnvironment(); var e = new Environment(); e.BackgroundMode = Environment.BGMode.Color; e.BackgroundColor = new Color(0.055f,0.06f,0.07f); e.AmbientLightSource = Environment.AmbientSource.Color; e.AmbientLightColor = new Color(0.35f,0.36f,0.4f); e.AmbientLightEnergy = 0.8f; env.Environment = e; _world.AddChild(env);
+        var env = new WorldEnvironment(); var e = new Godot.Environment(); e.BackgroundMode = Godot.Environment.BGMode.Color; e.BackgroundColor = new Color(0.055f,0.06f,0.07f); e.AmbientLightSource = Godot.Environment.AmbientSource.Color; e.AmbientLightColor = new Color(0.35f,0.36f,0.4f); e.AmbientLightEnergy = 0.8f; env.Environment = e; _world.AddChild(env);
         var grid = new GridMap(); _world.AddChild(grid);
         AddGroundGuide();
     }
@@ -241,7 +242,12 @@ public partial class Main : Node
             {
                 var v0 = gt * verts[idx.Length > 0 ? idx[i] : i]; var v1 = gt * verts[idx.Length > 0 ? idx[i+1] : i+1]; var v2 = gt * verts[idx.Length > 0 ? idx[i+2] : i+2];
                 var p = Geometry3D.RayIntersectsTriangle(ro, rd, v0, v1, v2);
-                if (p is Vector3 point) { float d = ro.DistanceSquaredTo(point); if (d < best) { best = d; hit = point; found = true; } }
+                if (p.VariantType == Variant.Type.Vector3)
+                {
+                    var point = p.AsVector3();
+                    float d = ro.DistanceSquaredTo(point);
+                    if (d < best) { best = d; hit = point; found = true; }
+                }
             }
         }
         return found;
@@ -270,7 +276,7 @@ public partial class Main : Node
         var outMesh = new ArrayMesh(); if (obj.Mesh == null) return outMesh;
         for (int s=0;s<obj.Mesh.GetSurfaceCount();s++)
         {
-            var arrays=obj.Mesh.SurfaceGetArrays(s); var verts=arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array(); for(int i=0;i<verts.Length;i++) verts[i]=obj.Transform*verts[i]; arrays[(int)Mesh.ArrayType.Vertex]=verts; outMesh.AddSurfaceFromArrays(obj.Mesh.SurfaceGetPrimitiveType(s),arrays);
+            var arrays=obj.Mesh.SurfaceGetArrays(s); var verts=arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array(); for(int i=0;i<verts.Length;i++) verts[i]=obj.Transform*verts[i]; arrays[(int)Mesh.ArrayType.Vertex]=verts; outMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles,arrays);
         }
         return outMesh;
     }
@@ -304,12 +310,12 @@ public partial class Main : Node
 
     async Task GenerateConcept()
     {
-        string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Enter a prompt first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://concept_{DateTime.Now:yyyyMMdd_HHmmss}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.GenerateConceptAsync(prompt,outPath); SetStatus("Concept generated: "+_lastEditedImage);});
+        string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Enter a prompt first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://concept_{DateTime.Now:yyyyMMdd_HHmmss}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.GenerateConceptAsync(prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("Concept generated: "+_lastEditedImage);});
     }
 
     async Task AiEditCapture()
     {
-        if(string.IsNullOrEmpty(_lastCapture)) CaptureView(); string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Describe the desired change first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://edit_{DateTime.Now:yyyyMMdd_HHmmss}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.EditImageAsync(_lastCapture,null,prompt,outPath); SetStatus("2D edit generated. Review file: "+_lastEditedImage);});
+        if(string.IsNullOrEmpty(_lastCapture)) CaptureView(); string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Describe the desired change first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://edit_{DateTime.Now:yyyyMMdd_HHmmss}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.EditImageAsync(_lastCapture,null,prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("2D edit generated. Review file: "+_lastEditedImage);});
     }
 
     async Task Generate3DPart()
@@ -324,7 +330,7 @@ public partial class Main : Node
 
     async Task RunAi(Func<Task> action)
     {
-        try{SetStatus("Checking local AI service…");if(!await _ai.HealthAsync()){SetStatus("AI service is not running. Start ai_backend/start_backend.bat first (packaged builds will start it automatically).");return;}SetStatus("AI working…");await action();}catch(Exception ex){SetStatus("AI error: "+ex.Message);}
+        try{SetStatus("Checking local AI service…");if(!await _ai.HealthAsync()){SetStatus("AI service is not running. Run setup_ai_backend.bat once; Miniscuplter auto-starts it on future launches.");return;}SetStatus("AI working…");await action();}catch(Exception ex){SetStatus("AI error: "+ex.Message);}
     }
 
     static Label Heading(string text)=>new(){Text=text,ThemeTypeVariation="HeaderSmall"};
