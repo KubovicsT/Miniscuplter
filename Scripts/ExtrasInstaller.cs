@@ -11,6 +11,8 @@ public partial class ExtrasInstaller : Node
 
     void Install()
     {
-        if (GetParent() is Main main) main.InstallV01Extras();
+        if (GetParent() is not Main main) return;
+        main.InstallV01Extras();
+        main.InstallV02Extras();
     }
 }
