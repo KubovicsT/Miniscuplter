@@ -17,12 +17,14 @@ public partial class Main
     MeshInstance3D? _v09ThicknessSource;
     readonly List<Vector3> _v09ThicknessPositions = new();
     readonly List<float> _v09ThicknessValues = new();
+    readonly Dictionary<Vector3I, List<int>> _v095ThicknessGrid = new();
+    float _v095ThicknessCell = 1f;
     float _v09ThicknessTargetValue = .8f;
 
     public void InstallV09Thickness()
     {
         var panel = FindChild("Print Repair v0.9", true, false) as ScrollContainer;
-        if (panel?.GetChildCount() == 0 || panel.GetChild(0) is not VBoxContainer box) return;
+        if (panel == null || panel.GetChildCount() == 0 || panel.GetChild(0) is not VBoxContainer box) return;
 
         box.AddChild(new HSeparator());
         box.AddChild(new Label { Text = "THICKNESS HEATMAP", ThemeTypeVariation = "HeaderSmall" });
@@ -61,13 +63,15 @@ public partial class Main
             int samples = (int)(_v09ThicknessSamples?.Value ?? 12000);
             SetStatus($"Analyzing local wall thickness at up to {samples:N0} surface samples…");
             string json = await _ai.ThicknessMapAsync(input, target, samples);
+            if (!GodotObject.IsInstanceValid(source) || !_objects.Contains(source)) { SetStatus("Thickness result discarded because the source object no longer exists."); return; }
             ParseV09Thickness(json);
             _v09ThicknessSource = source;
             _v09ThicknessTargetValue = (float)target;
+            BuildV095ThicknessGrid();
             RebuildV09ThicknessOverlay();
             SetStatus("Thickness heatmap ready. Hover the model to inspect local values.");
         }
-        catch (Exception ex) { SetStatus("Thickness analysis failed: " + ex.Message); }
+        catch (Exception ex) { ClearV09ThicknessHeatmap(); SetStatus("Thickness analysis failed without changing the model: " + ex.Message); }
     }
 
     void ParseV09Thickness(string json)
@@ -79,14 +83,34 @@ public partial class Main
         for (int i = 0; i < count; i++)
         {
             var p = pos[i];
-            _v09ThicknessPositions.Add(new Vector3(p[0].GetSingle(), p[1].GetSingle(), p[2].GetSingle()));
-            _v09ThicknessValues.Add(vals[i].GetSingle());
+            float value = vals[i].GetSingle();
+            if (p.GetArrayLength() < 3 || !float.IsFinite(value)) continue;
+            Vector3 point = new(p[0].GetSingle(), p[1].GetSingle(), p[2].GetSingle());
+            if (!point.IsFinite()) continue;
+            _v09ThicknessPositions.Add(point);
+            _v09ThicknessValues.Add(value);
         }
+        if (_v09ThicknessPositions.Count == 0) throw new InvalidDataException("Thickness backend returned no finite resolved surface samples.");
         string min = r.TryGetProperty("minimum_mm", out var mn) && mn.ValueKind == JsonValueKind.Number ? $"{mn.GetDouble():0.000} mm" : "unresolved";
         string max = r.TryGetProperty("maximum_mm", out var mx) && mx.ValueKind == JsonValueKind.Number ? $"{mx.GetDouble():0.000} mm" : "unresolved";
         int below = r.GetProperty("below_target_samples").GetInt32();
         int resolved = r.GetProperty("resolved_samples").GetInt32();
         if (_v09ThicknessSummary != null) _v09ThicknessSummary.Text = $"Resolved samples: {resolved:N0} · Below target: {below:N0} · Min: {min} · Max: {max}";
+    }
+
+    static Vector3I V095ThicknessCell(Vector3 p, float size) => new((int)MathF.Floor(p.X / size), (int)MathF.Floor(p.Y / size), (int)MathF.Floor(p.Z / size));
+
+    void BuildV095ThicknessGrid()
+    {
+        _v095ThicknessGrid.Clear();
+        if (_v09ThicknessPositions.Count == 0) return;
+        _v095ThicknessCell = Math.Max(.05f, _v09ThicknessTargetValue * .55f);
+        for (int i = 0; i < _v09ThicknessPositions.Count; i++)
+        {
+            Vector3I key = V095ThicknessCell(_v09ThicknessPositions[i], _v095ThicknessCell);
+            if (!_v095ThicknessGrid.TryGetValue(key, out var list)) _v095ThicknessGrid[key] = list = new List<int>();
+            list.Add(i);
+        }
     }
 
     void RebuildV09ThicknessOverlay()
@@ -108,22 +132,36 @@ public partial class Main
                 colors[i] = V09ThicknessColor(thickness, _v09ThicknessTargetValue, _v09ThicknessOnlyBelow?.ButtonPressed ?? false);
             }
             arrays[(int)Mesh.ArrayType.Color] = colors;
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            mesh.AddSurfaceFromArrays(source.Mesh.SurfaceGetPrimitiveType(s), arrays);
         }
 
         var mat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 1f, Transparency = BaseMaterial3D.TransparencyEnum.Alpha };
-        _v09ThicknessOverlay = new MeshInstance3D { Name = "Thickness Heatmap v0.9", Mesh = mesh, MaterialOverride = mat, Transform = source.Transform };
+        _v09ThicknessOverlay = new MeshInstance3D { Name = "Thickness Heatmap v0.9", Mesh = mesh, MaterialOverride = mat, GlobalTransform = source.GlobalTransform };
         _world.AddChild(_v09ThicknessOverlay);
         source.Visible = false;
     }
 
     float NearestV09Thickness(Vector3 world)
     {
+        if (_v095ThicknessGrid.Count == 0) return float.NaN;
+        Vector3I center = V095ThicknessCell(world, _v095ThicknessCell);
         float best = float.PositiveInfinity, value = float.NaN;
-        for (int i = 0; i < _v09ThicknessPositions.Count; i++)
+        for (int radius = 0; radius <= 12; radius++)
         {
-            float d = world.DistanceSquaredTo(_v09ThicknessPositions[i]);
-            if (d < best) { best = d; value = _v09ThicknessValues[i]; }
+            bool found = false;
+            for (int x = -radius; x <= radius; x++)
+            for (int y = -radius; y <= radius; y++)
+            for (int z = -radius; z <= radius; z++)
+            {
+                if (radius > 0 && Math.Abs(x) != radius && Math.Abs(y) != radius && Math.Abs(z) != radius) continue;
+                if (!_v095ThicknessGrid.TryGetValue(center + new Vector3I(x, y, z), out var ids)) continue;
+                foreach (int id in ids)
+                {
+                    float d = world.DistanceSquaredTo(_v09ThicknessPositions[id]);
+                    if (d < best) { best = d; value = _v09ThicknessValues[id]; found = true; }
+                }
+            }
+            if (found) return value;
         }
         return value;
     }
@@ -153,7 +191,7 @@ public partial class Main
     {
         if (_v09ThicknessOverlay != null) { _v09ThicknessOverlay.QueueFree(); _v09ThicknessOverlay = null; }
         if (_v09ThicknessSource != null && GodotObject.IsInstanceValid(_v09ThicknessSource)) _v09ThicknessSource.Visible = true;
-        _v09ThicknessSource = null; _v09ThicknessPositions.Clear(); _v09ThicknessValues.Clear();
+        _v09ThicknessSource = null; _v09ThicknessPositions.Clear(); _v09ThicknessValues.Clear(); _v095ThicknessGrid.Clear();
         if (_v09ThicknessHover != null) _v09ThicknessHover.Text = "Hover model: —";
     }
 }
