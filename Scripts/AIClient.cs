@@ -46,6 +46,9 @@ public sealed class AIClient
     public async Task<string> VoxelRemeshAsync(IReadOnlyList<string> inputPaths, string outputPath, double voxelSize)
         => await PostForFileAsync("/geometry/voxel-remesh", new { input_paths = inputPaths, output_path = outputPath, voxel_size = voxelSize });
 
+    public async Task<string> PredictRigAsync(string inputPath, string outputPath, string mode = "quick", int seed = 0, double branchThreshold = 0.28)
+        => await PostForFileAsync("/rig/predict-skeleton", new { input_path = inputPath, output_path = outputPath, mode, seed, branch_threshold = branchThreshold });
+
     async Task<string> PostForFileAsync(string route, object payload)
     {
         CancellationTokenSource cts = new();
