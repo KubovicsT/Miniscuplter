@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -101,9 +102,10 @@ public partial class Main
 
     sealed class ProjectDto
     {
-        public int Version { get; set; } = 2;
+        public int Version { get; set; } = 3;
         public List<ObjectDto> Objects { get; set; } = new();
         public List<AiLayerDto> AiLayers { get; set; } = new();
+        public List<RigRecordDto> Rigs { get; set; } = new();
     }
 
     sealed class ObjectDto
@@ -128,19 +130,22 @@ public partial class Main
         {
             string full = Path.GetFullPath(projectPath);
             string dir = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "_assets");
-            Directory.CreateDirectory(dir); var dto = new ProjectDto { AiLayers = ExportV055AiLayers() };
+            Directory.CreateDirectory(dir); var dto = new ProjectDto { AiLayers = ExportV055AiLayers(), Rigs = ExportV06Rigs() };
             for (int i = 0; i < _objects.Count; i++)
             {
                 var obj = _objects[i]; if (obj.Mesh == null) continue;
                 string meshFile = $"mesh_{i:000}.stl"; MeshIO.SaveBinaryStl(obj.Mesh, Path.Combine(dir, meshFile));
+                string name = obj.Name.ToString();
+                string role = V06RoleFor(name);
+                if (role == "mesh" && name.StartsWith("AI Edit Layer")) role = "ai_edit_layer";
                 dto.Objects.Add(new ObjectDto
                 {
-                    Name = obj.Name, Mesh = meshFile, Role = obj.Name.ToString().StartsWith("AI Edit Layer") ? "ai_edit_layer" : "mesh",
+                    Name = name, Mesh = meshFile, Role = role,
                     Position = new[] { obj.Position.X, obj.Position.Y, obj.Position.Z }, Rotation = new[] { obj.Rotation.X, obj.Rotation.Y, obj.Rotation.Z }, Scale = new[] { obj.Scale.X, obj.Scale.Y, obj.Scale.Z }
                 });
             }
             File.WriteAllText(full, JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true }));
-            SetStatus($"Saved v{dto.Version} project with {dto.Objects.Count} objects and {dto.AiLayers.Count} AI edit layer record(s): {full}");
+            SetStatus($"Saved v{dto.Version} project with {dto.Objects.Count} objects, {dto.AiLayers.Count} AI edit layer record(s), and {dto.Rigs.Count} rig(s): {full}");
         }
         catch (Exception ex) { SetStatus("Project save failed: " + ex.Message); }
     }
@@ -168,10 +173,14 @@ public partial class Main
                 {
                     _selected.Rotation = new Vector3(item.Rotation[0], item.Rotation[1], item.Rotation[2]);
                     _selected.Scale = new Vector3(item.Scale[0], item.Scale[1], item.Scale[2]);
+                    ImportV06Role(_selected.Name.ToString(), item.Role);
                 }
             }
-            ImportV055AiLayers(dto.AiLayers); RebuildSceneList(); FrameSelected();
-            SetStatus($"Loaded project with {_objects.Count} objects and {_v055AiLayers.Count} AI edit layer record(s).");
+            ImportV055AiLayers(dto.AiLayers); ImportV06Rigs(dto.Rigs); RebuildSceneList();
+            var rigObject = _objects.FirstOrDefault(o => dto.Rigs.Any(r => r.ObjectName == o.Name.ToString()));
+            if (rigObject != null) { Select(rigObject); RestoreV06RigForObject(rigObject); }
+            FrameSelected();
+            SetStatus($"Loaded project with {_objects.Count} objects, {_v055AiLayers.Count} AI edit layer record(s), and {dto.Rigs.Count} rig(s).");
         }
         catch (Exception ex) { SetStatus("Project load failed: " + ex.Message); }
     }
