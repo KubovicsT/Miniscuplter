@@ -21,5 +21,7 @@ public partial class ExtrasInstaller : Node
         main.InstallV06Extras();
         main.InstallV07Extras();
         main.InstallV07Follow();
+        main.InstallV08Extras();
+        main.InstallV08Hook();
     }
 }
