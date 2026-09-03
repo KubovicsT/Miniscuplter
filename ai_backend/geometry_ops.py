@@ -5,9 +5,11 @@ import os
 from pathlib import Path
 from typing import Iterable
 
+import numpy as np
 import trimesh
 
 MAX_VOXEL_CELLS = int(os.getenv("MINISCULPTER_MAX_VOXEL_CELLS", "100000000"))
+MAX_INTERSECTION_PAIRS = int(os.getenv("MINISCULPTER_MAX_INTERSECTION_PAIRS", "200000"))
 
 
 def _load_mesh(path: str) -> trimesh.Trimesh:
@@ -36,6 +38,103 @@ def estimate_voxel_cells(mesh: trimesh.Trimesh, voxel_size: float) -> int:
         raise ValueError("Mesh bounds are invalid")
     dims = [max(1, int(math.ceil(float(v) / voxel_size)) + 3) for v in extents]
     return dims[0] * dims[1] * dims[2]
+
+
+def _edge_incidence(mesh: trimesh.Trimesh) -> tuple[int, int]:
+    edges = np.sort(mesh.edges, axis=1)
+    if len(edges) == 0:
+        return 0, 0
+    _, counts = np.unique(edges, axis=0, return_counts=True)
+    return int(np.count_nonzero(counts == 1)), int(np.count_nonzero(counts > 2))
+
+
+def _degenerate_faces(mesh: trimesh.Trimesh) -> int:
+    tri = mesh.triangles
+    if len(tri) == 0:
+        return 0
+    cross = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    area2 = np.linalg.norm(cross, axis=1)
+    scale = max(float(np.max(mesh.extents)), 1.0)
+    eps = max(scale * scale * 1e-12, 1e-12)
+    return int(np.count_nonzero(area2 <= eps))
+
+
+def _feature_size_heuristic(mesh: trimesh.Trimesh, threshold_mm: float) -> dict:
+    tri = mesh.triangles
+    if len(tri) == 0:
+        return {"threshold_mm": threshold_mm, "flagged_triangles": 0, "sampled_triangles": 0, "minimum_altitude_mm": None}
+    a = np.linalg.norm(tri[:, 1] - tri[:, 0], axis=1)
+    b = np.linalg.norm(tri[:, 2] - tri[:, 1], axis=1)
+    c = np.linalg.norm(tri[:, 0] - tri[:, 2], axis=1)
+    area2 = np.linalg.norm(np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]), axis=1)
+    longest = np.maximum(np.maximum(a, b), c)
+    alt = np.divide(area2, longest, out=np.zeros_like(area2), where=longest > 1e-12)
+    positive = alt[alt > 1e-9]
+    minimum = float(np.min(positive)) if len(positive) else None
+    flagged = int(np.count_nonzero((alt > 0) & (alt < threshold_mm)))
+    return {
+        "threshold_mm": float(threshold_mm),
+        "flagged_triangles": flagged,
+        "sampled_triangles": int(len(tri)),
+        "minimum_altitude_mm": minimum,
+        "meaning": "triangle-altitude feature-size heuristic; this is not a true wall-thickness measurement",
+    }
+
+
+def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
+    # Broad-phase triangle AABB overlap count. Adjacent triangles are excluded.
+    # It intentionally does not claim exact triangle/triangle intersection.
+    tri = mesh.triangles
+    n = len(tri)
+    if n < 2:
+        return {"candidate_pairs": 0, "tested_pairs": 0, "truncated": False}
+    mins = tri.min(axis=1)
+    maxs = tri.max(axis=1)
+    faces = mesh.faces
+    candidates = 0
+    tested = 0
+    truncated = False
+    for i in range(n):
+        overlap = np.where(np.all(maxs[i + 1:] >= mins[i], axis=1) & np.all(mins[i + 1:] <= maxs[i], axis=1))[0]
+        for rel in overlap:
+            j = i + 1 + int(rel)
+            if len(set(faces[i].tolist()).intersection(faces[j].tolist())) > 0:
+                continue
+            candidates += 1
+            tested += 1
+            if tested >= MAX_INTERSECTION_PAIRS:
+                truncated = True
+                return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": truncated,
+                        "meaning": "non-adjacent triangle AABB-overlap heuristic; candidates are not guaranteed intersections"}
+    return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": truncated,
+            "meaning": "non-adjacent triangle AABB-overlap heuristic; candidates are not guaranteed intersections"}
+
+
+def analyze_mesh(input_path: str, feature_threshold_mm: float = 0.6) -> dict:
+    mesh = _load_mesh(input_path)
+    open_edges, nonmanifold_edges = _edge_incidence(mesh)
+    components = mesh.split(only_watertight=False)
+    ext = [float(v) for v in mesh.extents]
+    result = {
+        "vertices": int(len(mesh.vertices)),
+        "triangles": int(len(mesh.faces)),
+        "bounds_mm": ext,
+        "watertight": bool(mesh.is_watertight),
+        "winding_consistent": bool(mesh.is_winding_consistent),
+        "open_edges": open_edges,
+        "nonmanifold_edges": nonmanifold_edges,
+        "connected_shells": int(len(components)),
+        "degenerate_faces": _degenerate_faces(mesh),
+        "volume_mm3": float(abs(mesh.volume)) if mesh.is_watertight and math.isfinite(float(mesh.volume)) else None,
+        "surface_area_mm2": float(mesh.area) if math.isfinite(float(mesh.area)) else None,
+        "feature_size": _feature_size_heuristic(mesh, feature_threshold_mm),
+        "self_intersection": _self_intersection_heuristic(mesh),
+    }
+    result["structurally_printable"] = bool(
+        result["watertight"] and result["winding_consistent"] and result["open_edges"] == 0
+        and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0
+    )
+    return result
 
 
 def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float = 0.35) -> str:
@@ -75,3 +174,11 @@ def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float
     if not out.exists() or out.stat().st_size == 0:
         raise RuntimeError("Voxel reconstruction finished but no STL was written")
     return str(out)
+
+
+def repair_mesh(input_path: str, output_path: str, voxel_size: float = 0.30) -> dict:
+    before = analyze_mesh(input_path)
+    path = voxel_remesh([input_path], output_path, voxel_size)
+    after = analyze_mesh(path)
+    return {"path": path, "voxel_size": float(voxel_size), "before": before, "after": after,
+            "method": "filled voxel reconstruction; destructive and may soften details below the selected voxel pitch"}
