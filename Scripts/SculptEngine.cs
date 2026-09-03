@@ -51,7 +51,7 @@ public static class SculptEngine
                     break;
                 case SculptBrush.Smooth:
                     var edges = mdt.GetVertexEdges(i);
-                    if (edges.Count > 0)
+                    if (edges.Length > 0)
                     {
                         Vector3 avg = Vector3.Zero; int count = 0;
                         foreach (int edgeId in edges)
