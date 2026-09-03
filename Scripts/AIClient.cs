@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using NetHttpClient = System.Net.Http.HttpClient;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -12,7 +13,7 @@ public record ReferenceResult(string Title, string PageUrl, string? ThumbnailUrl
 
 public sealed class AIClient
 {
-    readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(30) };
+    readonly NetHttpClient _http = new() { Timeout = TimeSpan.FromMinutes(30) };
     public string BackendUrl { get; set; } = "http://127.0.0.1:7868";
     public bool InternetReferencesEnabled { get; set; } = true;
 
