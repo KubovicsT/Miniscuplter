@@ -1,8 +1,26 @@
-# Miniscuplter v0.1
+# Miniscuplter v0.2
+
+> **Isolation:** v0.1 remains on the `main` branch. This version lives on the separate `v0.2` branch so both builds can be tested independently.
 
 Miniscuplter is an experimental single-application workflow for AI-assisted miniature sculpting and STL preparation.
 
-## Current v0.1 scope
+## What v0.2 adds
+
+v0.2 keeps every v0.1 editor feature and adds a managed local-AI layer:
+
+- Hardware detection through NVIDIA `nvidia-smi`
+- GTX 1080 / 8 GB-class GPUs automatically receive the `low-vram` profile
+- In-app **AI Components** panel
+- Install/remove/status controls for local AI components
+- Official-provider model downloads rather than committing model weights into this repository
+- Built-in local Stable Diffusion 2.1 concept generation
+- Built-in local 2D viewport-edit generation
+- Built-in Hunyuan3D 2.1 Shape adapter for approved-image -> 3D generation
+- 2D models are unloaded before Hunyuan loads on constrained GPUs
+- Manual Automatic1111/Forge and custom 3D command adapters remain as fallbacks
+- v0.2-specific CI checks both C# compilation and Python backend syntax
+
+## Existing editor workflow inherited from v0.1
 
 - Desktop 3D viewport with orbit, pan, zoom and framing
 - Multiple mesh objects for non-destructive kitbashing
@@ -10,111 +28,105 @@ Miniscuplter is an experimental single-application workflow for AI-assisted mini
 - Sculpt brushes: Draw, Smooth, Inflate, Grab, Crease and Flatten
 - Undo/redo for sculpt operations
 - Object duplicate/delete, move, rotate, scale and transform baking
+- Project save/load
 - View capture for AI editing
-- AI concept generation hook
+- Rectangular selected-region mask creation
 - Capture -> 2D AI edit -> approved image -> 3D part workflow
+- In-app 2D result preview
 - AI-generated parts are added as separate scene objects first
-- Internet reference search from the AI panel (Wikimedia Commons)
+- Internet reference search from the AI panel
 - Basic print-prep mesh statistics and build-plane placement
-- Local AI backend that starts with the app when Python is available
-- Provider adapters rather than hard-coding one AI model
 
-## Important v0.1 limitations
+## AI model sources
 
-This is the first functional editor prototype, not a production sculpting package. The UI exposes the complete intended workflow, but two computationally heavy systems are intentionally adapter-based in v0.1:
+The installer/model manager downloads weights only when you choose to install them.
 
-1. **2D generation/editing** requires an Automatic1111/Forge-compatible local API configured with `MINISCULPTER_SD_URL`.
-2. **Image-to-3D generation** requires a local generator command configured with `MINISCULPTER_3D_COMMAND`.
+### 2D AI
 
-Voxel remeshing/boolean union and advanced rig posing are represented in the editor but require the planned native geometry backend. Until then, AI parts remain separate and editable, which is also the preferred non-destructive editing workflow.
+Default model:
 
-## Requirements for source testing
+`stabilityai/stable-diffusion-2-1-base`
+
+Source: Hugging Face / Stability AI model repository.
+
+Used for:
+
+- concept images
+- viewport image refinement
+- selected-region design changes
+
+### 3D AI
+
+Default model:
+
+`tencent/Hunyuan3D-2.1`
+
+Code source:
+
+`https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1`
+
+Only the **shape** model is targeted. The texture/PBR model is intentionally not installed by default because Miniscuplter's primary output is geometry/STL.
+
+Tencent documents roughly 10 GB VRAM for Hunyuan3D 2.1 shape generation. An 8 GB GTX 1080 is therefore treated as a low-VRAM/offload system and should be expected to run substantially more slowly than the reference hardware.
+
+## Source test setup
+
+Requirements:
 
 - Windows 10/11 64-bit
 - Godot Engine 4.7.2 .NET edition
 - .NET 8 SDK
-- Python 3.11+ for the AI service
+- Python 3.10 x64
+- Git
+- NVIDIA driver for local CUDA generation
 
-Godot 4.7.2 .NET is the version targeted by the project file.
+Steps:
 
-## First run
+1. Clone the repository.
+2. Checkout the v0.2 branch:
 
-1. Clone this repository.
-2. Run `setup_ai_backend.bat` once.
-3. Open `project.godot` with **Godot 4.7.2 .NET**.
-4. Press **F6/F5** to run Miniscuplter.
-5. The editor should open with a starter sphere in the viewport.
+   `git checkout v0.2`
 
-The core editor works without an AI provider. AI buttons will report that a provider is not configured instead of crashing.
+3. Run `setup_ai_backend.bat` once.
+4. Open `project.godot` with Godot 4.7.2 .NET.
+5. Press F5.
+6. Open the AI panel and locate **AI Components — v0.2**.
+7. Verify that your GPU and VRAM are detected correctly.
+8. Install the 2D AI component first.
+9. Test concept generation and selected-region editing.
+10. Install the 3D AI component and test approved-image -> 3D generation.
 
-## Configure 2D AI
+Model downloads are stored under `ai_backend/data/` and are intentionally excluded from source control.
 
-Run an Automatic1111/Forge-compatible Stable Diffusion API locally and set, for example:
+## Important v0.2 testing caveat
 
-```bat
-setx MINISCULPTER_SD_URL http://127.0.0.1:7860
-```
+Hunyuan3D 2.1 has a large official dependency stack and its reference environment is significantly more powerful than a GTX 1080. v0.2 deliberately keeps its integration behind an adapter instead of merging Tencent's entire environment into the Miniscuplter backend. The first hardware test is expected to tell us which shape-only dependencies and memory settings are actually required on this machine.
 
-Restart Miniscuplter after setting the variable.
+That is specifically why v0.1 is being kept intact during this phase.
 
-The backend uses `/sdapi/v1/txt2img` for concepts and `/sdapi/v1/img2img` for viewport edits.
+## Recommended first test order
 
-## Configure image-to-3D
+1. Application startup
+2. Viewport navigation
+3. STL import/export
+4. Sculpt brushes
+5. Save/load
+6. Internet reference search
+7. AI backend status
+8. GPU/VRAM detection
+9. Install 2D AI
+10. Generate concept
+11. Capture model view
+12. Select AI edit region
+13. Generate 2D edit
+14. Approve/regenerate result
+15. Install Hunyuan3D Shape
+16. Generate 3D part
+17. Position/sculpt the returned part
 
-`MINISCULPTER_3D_COMMAND` is a command template. It must accept the input image and write an STL to the requested output path.
+When reporting an issue, include the exact action, expected behavior, actual behavior, and any Godot console or Python backend error text.
 
-Available placeholders:
+## Branches
 
-- `{image}` - approved 2D image path
-- `{output}` - requested STL output path
-- `{prompt}` - current text prompt
-
-Example shape:
-
-```bat
-setx MINISCULPTER_3D_COMMAND "python C:\AI\my_3d_adapter.py --image \"{image}\" --output \"{output}\" --prompt \"{prompt}\""
-```
-
-The point of this adapter is that Miniscuplter can later ship Hunyuan3D, TripoSR or another backend without changing the editor workflow.
-
-## Internet/reference access
-
-Internet access is **explicit and separable from local generation**. In the AI tab, enable **Allow internet reference search**, enter a reference request in the prompt field, and select **Search references from prompt**. v0.1 searches Wikimedia Commons and opens chosen references in the system browser.
-
-This is intentional: a local model can remain offline while Miniscuplter itself retrieves references only when the user requests them. A future provider can also consume the returned reference images as conditioning inputs.
-
-## AI detail-edit workflow
-
-1. Rotate the model to the desired view.
-2. Select **Capture View**.
-3. Describe the desired change.
-4. Select **Capture -> 2D AI Edit**.
-5. Review/regenerate the 2D result until satisfied.
-6. Select **Approved 2D -> Generate 3D Part**.
-7. The returned STL is added as a separate object.
-8. Move/rotate/scale/sculpt it before a future bake/remesh operation.
-
-The architecture deliberately postpones expensive 3D generation until after the 2D design is approved.
-
-## Controls
-
-- Left mouse: sculpt
-- Right mouse: orbit
-- Middle mouse: pan
-- Mouse wheel: zoom
-- `Frame`: focus camera on selected object
-
-## Repository layout
-
-```text
-Scenes/              Godot scenes
-Scripts/             C# editor, mesh IO, sculpting and AI client
-ai_backend/          Local Python AI gateway
-.github/workflows/   Windows .NET build check
-```
-
-## v0.1 testing priorities
-
-Please test startup first, then viewport navigation, STL import/export, each sculpt brush, undo/redo, object transforms, captures, reference search, and finally AI-provider integration if you have one configured.
-
-When reporting a problem, include what you clicked, what you expected, what happened, and any Godot console error text.
+- `main` — frozen v0.1 test version
+- `v0.2` — managed local-AI test version
