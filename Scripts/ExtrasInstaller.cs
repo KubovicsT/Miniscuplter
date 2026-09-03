@@ -31,5 +31,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV095RigGuards();
         main.InstallV095LibraryGuards();
         main.InstallV095AttachmentGuards();
+        main.InstallV095LoadGuards();
     }
 }
