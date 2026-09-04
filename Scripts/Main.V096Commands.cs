@@ -19,8 +19,8 @@ public partial class Main
     static readonly string[] V096Commands =
     {
         "/s ", "/s+ ", "/s- ", "/clear", "/invert",
-        "/hide", "/show", "/isolate", "/frame", "/duplicate", "/delete",
-        "/remesh ", "/analyze", "/thickness ", "/rig quick", "/rig universal",
+        "/hide", "/hide selection", "/show", "/isolate", "/isolate selection", "/frame", "/duplicate", "/delete",
+        "/remesh ", "/remesh selection", "/analyze", "/thickness ", "/rig quick", "/rig universal",
         "/pose preview", "/pose reset", "/pose apply", "/savepart", "/edit ", "/help"
     };
 
@@ -65,9 +65,9 @@ public partial class Main
     {
         if (_v096CommandPopup == null || _v096CommandInput == null) return;
         Vector2 mouse = GetViewport().GetMousePosition();
-        Vector2I vp = GetViewport().GetVisibleRect().Size;
-        int x = Math.Clamp((int)mouse.X + 12, 0, Math.Max(0, vp.X - _v096CommandPopup.Size.X));
-        int y = Math.Clamp((int)mouse.Y + 12, 0, Math.Max(0, vp.Y - _v096CommandPopup.Size.Y));
+        Vector2 vpSize = GetViewport().GetVisibleRect().Size;
+        int x = Math.Clamp((int)mouse.X + 12, 0, Math.Max(0, (int)vpSize.X - _v096CommandPopup.Size.X));
+        int y = Math.Clamp((int)mouse.Y + 12, 0, Math.Max(0, (int)vpSize.Y - _v096CommandPopup.Size.Y));
         _v096CommandPopup.Position = new Vector2I(x, y);
         _v096CommandInput.Text = "/"; _v096CommandInput.CaretColumn = 1;
         RefreshV096Suggestions(); _v096CommandPopup.Popup(); _v096CommandInput.GrabFocus();
@@ -105,9 +105,10 @@ public partial class Main
     async Task ExecuteV096CommandAsync(string raw)
     {
         string text = (raw ?? "").Trim(); if (text.Length == 0) return;
-        if (!_v096CommandHistory.LastOrDefault()?.Equals(text, StringComparison.OrdinalIgnoreCase) ?? false) _v096CommandHistory.Add(text);
+        string? last = _v096CommandHistory.LastOrDefault();
+        if (last == null || !last.Equals(text, StringComparison.OrdinalIgnoreCase)) _v096CommandHistory.Add(text);
         while (_v096CommandHistory.Count > 50) _v096CommandHistory.RemoveAt(0);
-        _v096CommandPopup?.Hide(); GetViewport().GuiReleaseFocus();
+        _v096CommandPopup?.Hide();
         try
         {
             if (text.StartsWith("/s+", StringComparison.OrdinalIgnoreCase)) { await SmartSelectV096Async(text[3..].Trim(), '+'); return; }
@@ -118,9 +119,9 @@ public partial class Main
             {
                 case "/clear": ClearV096Selection(); break;
                 case "/invert": InvertV096Selection(); break;
-                case "/hide": if (_selected != null) { _selected.Visible = false; SetStatus($"Hidden {_selected.Name}."); } break;
-                case "/show": foreach (var o in _objects.Where(GodotObject.IsInstanceValid)) o.Visible = true; SetStatus("All scene objects shown."); break;
-                case "/isolate": if (_selected != null) { foreach (var o in _objects.Where(GodotObject.IsInstanceValid)) o.Visible = o == _selected; SetStatus($"Isolated {_selected.Name}."); } break;
+                case "/hide": V096HideCommand(arg); break;
+                case "/show": V096RestoreSelectionView(); foreach (var o in _objects.Where(GodotObject.IsInstanceValid)) o.Visible = true; SetStatus("All scene objects shown."); break;
+                case "/isolate": V096IsolateCommand(arg); break;
                 case "/frame": FrameSelected(); break;
                 case "/duplicate": DuplicateSelected(); break;
                 case "/delete": DeleteSelected(); break;
@@ -131,15 +132,31 @@ public partial class Main
                 case "/pose": V096PoseCommand(arg); break;
                 case "/savepart": V096SavePartCommand(arg); break;
                 case "/edit": await V096EditCommand(arg); break;
-                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /hide, /show, /isolate, /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>."); break;
+                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>."); break;
                 default: SetStatus($"Unknown command '{cmd}'. Type /help."); break;
             }
         }
         catch (Exception ex) { SetStatus("Command failed safely: " + ex.Message); }
     }
 
+    void V096HideCommand(string arg)
+    {
+        if (arg.Equals("selection", StringComparison.OrdinalIgnoreCase)) { V096SetSelectionView(showSelected: false); return; }
+        if (_selected != null) { _selected.Visible = false; SetStatus($"Hidden {_selected.Name}."); }
+    }
+
+    void V096IsolateCommand(string arg)
+    {
+        if (arg.Equals("selection", StringComparison.OrdinalIgnoreCase)) { V096SetSelectionView(showSelected: true); return; }
+        if (_selected != null) { V096RestoreSelectionView(); foreach (var o in _objects.Where(GodotObject.IsInstanceValid)) o.Visible = o == _selected; SetStatus($"Isolated {_selected.Name}."); }
+    }
+
     async Task V096CommandRemesh(string arg)
     {
+        if (arg.Equals("selection", StringComparison.OrdinalIgnoreCase))
+        {
+            SetStatus("Selection-local topology replacement is intentionally not performed because it cannot yet reconnect the remeshed boundary safely. Use /remesh [mm] on the object."); return;
+        }
         if (double.TryParse(arg, NumberStyles.Float, CultureInfo.InvariantCulture, out double pitch))
         {
             if (pitch < .08 || pitch > 2.0) throw new ArgumentOutOfRangeException(nameof(arg), "Remesh pitch must be 0.08–2.0 mm.");
@@ -155,7 +172,7 @@ public partial class Main
             if (target <= 0 || target > 100) throw new ArgumentOutOfRangeException(nameof(arg), "Thickness target must be >0 and <=100 mm.");
             if (_v09ThicknessTarget != null) _v09ThicknessTarget.Value = target;
         }
-        await GenerateV09ThicknessHeatmapAsync();
+        await AnalyzeThicknessV09Async();
     }
 
     void V096PoseCommand(string arg)
@@ -173,9 +190,8 @@ public partial class Main
     {
         if (_selected == null) { SetStatus("Select an object first."); return; }
         string old = _selected.Name.ToString();
-        if (!string.IsNullOrWhiteSpace(arg)) _selected.Name = arg.Trim();
-        SafeV095SaveSelectedAsPart();
-        if (!string.IsNullOrWhiteSpace(arg)) _selected.Name = old;
+        try { if (!string.IsNullOrWhiteSpace(arg)) _selected.Name = arg.Trim(); SafeV095SaveSelectedAsPart(); }
+        finally { if (!string.IsNullOrWhiteSpace(arg) && GodotObject.IsInstanceValid(_selected)) _selected.Name = old; }
     }
 
     async Task V096EditCommand(string prompt)
