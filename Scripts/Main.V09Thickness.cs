@@ -24,7 +24,8 @@ public partial class Main
 
     public void InstallV09Thickness()
     {
-        var panel = FindChild("Print Repair v0.9", true, false) as ScrollContainer;
+        var panel = FindChild("Model Integrity", true, false) as ScrollContainer
+            ?? FindChild("Print Repair v0.9", true, false) as ScrollContainer;
         if (panel == null || panel.GetChildCount() == 0 || panel.GetChild(0) is not VBoxContainer box) return;
 
         box.AddChild(new HSeparator());
@@ -33,7 +34,7 @@ public partial class Main
 
         var row = new HBoxContainer();
         _v09ThicknessTarget = new SpinBox { MinValue = .01, MaxValue = 100, Step = .05, Value = .80, Suffix = " mm", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        _v09ThicknessSamples = new SpinBox { MinValue = 500, MaxValue = 50000, Step = 500, Value = 12000, Suffix = " samples", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _v09ThicknessSamples = new SpinBox { MinValue = 100, MaxValue = 100000, Step = 500, Value = 12000, Suffix = " samples", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         row.AddChild(_v09ThicknessTarget); row.AddChild(_v09ThicknessSamples); box.AddChild(row);
         box.AddChild(new Label { Text = "Target minimum thickness · analysis sample budget" });
 
@@ -137,7 +138,7 @@ public partial class Main
         }
 
         var mat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 1f, Transparency = BaseMaterial3D.TransparencyEnum.Alpha };
-        _v09ThicknessOverlay = new MeshInstance3D { Name = "Thickness Heatmap v0.9", Mesh = mesh, MaterialOverride = mat, GlobalTransform = source.GlobalTransform };
+        _v09ThicknessOverlay = new MeshInstance3D { Name = "Thickness Heatmap", Mesh = mesh, MaterialOverride = mat, GlobalTransform = source.GlobalTransform };
         _world.AddChild(_v09ThicknessOverlay);
         source.Visible = false;
     }
