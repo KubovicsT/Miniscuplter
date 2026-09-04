@@ -62,3 +62,35 @@ jobs:
           python-version: '3.10'
       - name: Compile backend sources
         run: python -m compileall -q ai_backend
+
+  packaging:
+    if: github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build portable update package without Godot export
+        shell: pwsh
+        run: ./build_release.ps1 -SkipGodotExport
+      - name: Verify package layout
+        shell: pwsh
+        run: |
+          $required = @(
+            'dist/package/Miniscuplter.Launcher.exe',
+            'dist/package/Miniscuplter.Updater.exe',
+            'dist/package/App/ai_backend/launcher_bridge.py',
+            'dist/package/setup_ai_backend.bat',
+            'dist/Miniscuplter-win-x64.zip'
+          )
+          foreach ($file in $required) { if (-not (Test-Path $file)) { throw "Missing package output: $file" } }
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Compile installer definition
+        shell: pwsh
+        run: |
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw 'ISCC.exe not found after Inno Setup installation.' }
+          & $iscc installer/Miniscuplter.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
