@@ -22,10 +22,12 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ChangesEnvironment=no
+CloseApplications=yes
+RestartApplications=no
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
-Name: "airuntime"; Description: "Set up the local AI Python environment after installation"; GroupDescription: "Local AI:"; Flags: checkedonce
+Name: "airuntime"; Description: "Set up the local AI Python environment after installation (requires Python 3.10 x64)"; GroupDescription: "Local AI:"; Flags: checkedonce
 
 [Dirs]
 Name: "{app}\AIData"
@@ -41,11 +43,14 @@ Name: "{autodesktop}\Miniscuplter"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 Filename: "{app}\setup_ai_backend.bat"; Parameters: "/quiet"; WorkingDir: "{app}"; StatusMsg: "Preparing local AI runtime..."; Flags: runhidden waituntilterminated skipifsilent; Tasks: airuntime
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Miniscuplter"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
-[UninstallDelete]
-; Program files are removed by the normal uninstaller. AIData is intentionally NOT listed here:
-; downloaded models may be tens of gigabytes and are user-managed from the launcher.
-
 [Code]
+function JsonEscapePath(Value: string): string;
+begin
+  StringChangeEx(Value, '\', '\\', True);
+  StringChangeEx(Value, '"', '\"', True);
+  Result := Value;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Settings: string;
@@ -54,7 +59,7 @@ begin
   begin
     Settings :=
       '{' + #13#10 +
-      '  "InstallRoot": "' + StringChangeEx(ExpandConstant('{app}'), '\', '\\', True) + '",' + #13#10 +
+      '  "InstallRoot": "' + JsonEscapePath(ExpandConstant('{app}')) + '",' + #13#10 +
       '  "AppExecutable": "App\\Miniscuplter.exe",' + #13#10 +
       '  "DataRoot": "AIData",' + #13#10 +
       '  "CheckApplicationUpdates": true,' + #13#10 +
@@ -69,5 +74,5 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
   if DirExists(ExpandConstant('{app}\AIData')) then
-    Log('Existing AIData folder detected and will be preserved.');
+    Log('Existing AIData folder detected; downloaded AI models will be preserved.');
 end;
