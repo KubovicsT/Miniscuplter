@@ -27,12 +27,16 @@ if (-not $SkipGodotExport) {
     if ([string]::IsNullOrWhiteSpace($GodotExe) -or -not (Test-Path $GodotExe)) {
         throw 'Godot .NET executable not found. Pass -GodotExe or set GODOT_EXE to Godot 4.7.2 .NET.'
     }
-    Write-Host 'Building C# project before Godot export...'
-    dotnet build (Join-Path $root 'Miniscuplter.csproj') -c $Configuration
-    if ($LASTEXITCODE -ne 0) { throw 'Miniscuplter C# build failed.' }
+    $solution = Join-Path $root 'Miniscuplter.sln'
+    if (-not (Test-Path $solution)) { throw 'Miniscuplter.sln is required for Godot .NET export.' }
+    Write-Host 'Building C# solution before Godot export...'
+    dotnet build $solution -c $Configuration
+    if ($LASTEXITCODE -ne 0) { throw 'Miniscuplter C# solution build failed.' }
     Write-Host 'Exporting Godot application...'
     & $GodotExe --headless --path $root --export-release 'Windows Desktop' (Join-Path $appDir 'Miniscuplter.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Godot Windows export failed.' }
+    $exportedExe = Join-Path $appDir 'Miniscuplter.exe'
+    if (-not (Test-Path $exportedExe) -or (Get-Item $exportedExe).Length -eq 0) { throw 'Godot reported success but did not produce a usable Miniscuplter.exe.' }
 }
 
 # Backend source and setup live with the exported app but model weights never ship in releases.
@@ -61,11 +65,15 @@ Compress-Archive -Path (Join-Path $package '*') -DestinationPath $zip -Compressi
 Write-Host "Release ZIP: $zip"
 
 if ($BuildInstaller) {
-    $iscc = @(
-        "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
-        "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    $candidates = @()
+    $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $candidates += $cmd.Source }
+    if (${env:ProgramFiles(x86)}) { $candidates += (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe') }
+    if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe') }
+    if ($env:ChocolateyInstall) { $candidates += (Join-Path $env:ChocolateyInstall 'bin\ISCC.exe') }
+    $iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
     if (-not $iscc) { throw 'Inno Setup 6 is required to build the installer.' }
+    Write-Host "Using Inno Setup compiler: $iscc"
     & $iscc (Join-Path $root 'installer/Miniscuplter.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 }
