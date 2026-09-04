@@ -50,6 +50,17 @@ internal sealed class ApplicationUpdateService
         return new AppUpdateInfo(available, current, latest, download, page, notes);
     }
 
+    public bool IsMainApplicationRunning()
+    {
+        try
+        {
+            string app = InstallLayout.ResolveApp(_settings);
+            string processName = Path.GetFileNameWithoutExtension(app);
+            return Process.GetProcessesByName(processName).Any(p => p.Id != Environment.ProcessId && !p.HasExited);
+        }
+        catch { return false; }
+    }
+
     public async Task<string> DownloadPackageAsync(AppUpdateInfo info, IProgress<int>? progress = null)
     {
         if (string.IsNullOrWhiteSpace(info.DownloadUrl)) throw new InvalidOperationException("The latest release has no Windows ZIP asset. Publish a Miniscuplter-win-x64.zip asset to enable in-launcher updating.");
@@ -70,10 +81,13 @@ internal sealed class ApplicationUpdateService
 
     public void StartStagedUpdate(string package)
     {
-        string updater = FindUpdater();
-        if (!File.Exists(updater)) throw new FileNotFoundException("Miniscuplter updater executable is missing.", updater);
+        string installedUpdater = FindUpdater();
+        if (!File.Exists(installedUpdater)) throw new FileNotFoundException("Miniscuplter updater executable is missing.", installedUpdater);
+        string tempUpdater = Path.Combine(Path.GetTempPath(), $"Miniscuplter.Updater.{Guid.NewGuid():N}.exe");
+        File.Copy(installedUpdater, tempUpdater, true);
+
         string launcher = Environment.ProcessPath ?? Path.Combine(_settings.InstallRoot, "Miniscuplter.Launcher.exe");
-        var psi = new ProcessStartInfo(updater) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(updater) ?? _settings.InstallRoot };
+        var psi = new ProcessStartInfo(tempUpdater) { UseShellExecute = true, WorkingDirectory = Path.GetTempPath() };
         psi.ArgumentList.Add("--package"); psi.ArgumentList.Add(package);
         psi.ArgumentList.Add("--target"); psi.ArgumentList.Add(_settings.InstallRoot);
         psi.ArgumentList.Add("--wait-pid"); psi.ArgumentList.Add(Environment.ProcessId.ToString());
