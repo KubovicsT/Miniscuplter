@@ -20,7 +20,7 @@ public partial class Main
     {
         "/s ", "/s+ ", "/s- ", "/clear", "/invert", "/grow", "/shrink", "/smooth",
         "/hide", "/hide selection", "/show", "/isolate", "/isolate selection", "/frame", "/duplicate", "/delete",
-        "/remesh ", "/remesh selection", "/analyze", "/thickness ", "/rig quick", "/rig universal",
+        "/remesh ", "/analyze", "/thickness ", "/rig quick", "/rig universal",
         "/pose preview", "/pose reset", "/pose apply", "/savepart", "/edit ",
         "/detail2d ", "/detail3d ", "/detail apply", "/detail discard", "/ai routes", "/help"
     };
@@ -28,7 +28,7 @@ public partial class Main
     public void InstallV096CommandPalette()
     {
         if (_v096CommandPopup != null) return;
-        var popup = new PopupPanel { Name = "Command Palette v0.9.6", Size = new Vector2I(430, 220) };
+        var popup = new PopupPanel { Name = "Command Palette", Size = new Vector2I(430, 220) };
         var box = new VBoxContainer();
         box.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         box.AddThemeConstantOverride("separation", 4);
@@ -147,7 +147,7 @@ public partial class Main
                     if (arg.Equals("routes", StringComparison.OrdinalIgnoreCase)) { await RefreshV098RoutingOnly(); SetStatus(_v098Routing?.Text ?? "AI routing refreshed."); }
                     else SetStatus("Use /ai routes to inspect automatic model routing.");
                     break;
-                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /grow [1-10], /shrink [1-10], /smooth [1-10], /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>, /detail2d <prompt>, /detail3d <prompt>, /detail apply|discard, /ai routes."); break;
+                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /grow [1-10], /shrink [1-10], /smooth [1-10], /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [0.04-5 mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>, /detail2d <prompt>, /detail3d <prompt>, /detail apply|discard, /ai routes."); break;
                 default: SetStatus($"Unknown command '{cmd}'. Type /help."); break;
             }
         }
@@ -176,13 +176,11 @@ public partial class Main
 
     async Task V096CommandRemesh(string arg)
     {
-        if (arg.Equals("selection", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(arg))
         {
-            SetStatus("Selection-local topology replacement is intentionally not performed because it cannot yet reconnect the remeshed boundary safely. Use /remesh [mm] on the object."); return;
-        }
-        if (double.TryParse(arg, NumberStyles.Float, CultureInfo.InvariantCulture, out double pitch))
-        {
-            if (pitch < .08 || pitch > 2.0) throw new ArgumentOutOfRangeException(nameof(arg), "Remesh pitch must be 0.08–2.0 mm.");
+            if (!double.TryParse(arg, NumberStyles.Float, CultureInfo.InvariantCulture, out double pitch))
+                throw new ArgumentException("Use /remesh by itself for the active preset pitch, or /remesh <0.04-5 mm>.", nameof(arg));
+            if (pitch < .04 || pitch > 5.0) throw new ArgumentOutOfRangeException(nameof(arg), "Remesh pitch must be 0.04–5.0 mm.");
             if (_v08RemeshVoxel != null) _v08RemeshVoxel.Value = pitch;
         }
         await V08RemeshSelectedAsync();
