@@ -58,7 +58,7 @@ pip check
 if errorlevel 1 exit /b 1
 
 set "RUNTIME_HASH="
-for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "$a=[IO.File]::ReadAllBytes((Resolve-Path 'requirements.txt')); $b=[IO.File]::ReadAllBytes('%SETUP_SCRIPT%'); $all=New-Object byte[] ($a.Length+$b.Length); [Array]::Copy($a,0,$all,0,$a.Length); [Array]::Copy($b,0,$all,$a.Length,$b.Length); ([BitConverter]::ToString([Security.Cryptography.SHA256]::HashData($all))).Replace('-','').ToLowerInvariant()"`) do set "RUNTIME_HASH=%%H"
+for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "$a=[IO.File]::ReadAllBytes((Resolve-Path 'requirements.txt')); $b=[IO.File]::ReadAllBytes('%SETUP_SCRIPT%'); $all=New-Object byte[] ($a.Length+$b.Length); [Array]::Copy($a,0,$all,0,$a.Length); [Array]::Copy($b,0,$all,$a.Length,$b.Length); $sha=[Security.Cryptography.SHA256]::Create(); ([BitConverter]::ToString($sha.ComputeHash($all))).Replace('-','').ToLowerInvariant()"`) do set "RUNTIME_HASH=%%H"
 if not defined RUNTIME_HASH (
   echo Could not calculate the AI runtime fingerprint.
   exit /b 1
