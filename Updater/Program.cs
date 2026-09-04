@@ -6,6 +6,7 @@ namespace Miniscuplter.Updater;
 internal static class Program
 {
     static readonly string[] PreserveTopLevel = { "AIData", "Projects", "PartsLibrary", "Exports", "UserData", "launcher.settings.json" };
+    static readonly string[] PreserveNested = { Path.Combine("App", "ai_backend", ".venv") };
 
     static int Main(string[] args)
     {
@@ -36,6 +37,7 @@ internal static class Program
             {
                 RemoveManagedTree(target);
                 CopyTree(source, target);
+                RestorePreservedNested(backup, target);
                 ValidateInstalledTree(target);
             }
             catch
@@ -133,13 +135,25 @@ internal static class Program
         if (!Directory.Exists(target)) return;
         foreach (string file in Directory.GetFiles(target))
         {
-            string rel = Path.GetFileName(file); if (IsPreserved(rel)) continue;
+            string rel = Path.GetFileName(file); if (IsPreservedTopLevel(rel)) continue;
             File.Copy(file, Path.Combine(backup, rel), true);
         }
         foreach (string dir in Directory.GetDirectories(target))
         {
-            string rel = Path.GetFileName(dir); if (IsPreserved(rel)) continue;
+            string rel = Path.GetFileName(dir); if (IsPreservedTopLevel(rel)) continue;
             CopyDirectory(dir, Path.Combine(backup, rel));
+        }
+    }
+
+    static void RestorePreservedNested(string backup, string target)
+    {
+        foreach (string relative in PreserveNested)
+        {
+            string source = Path.Combine(backup, relative);
+            if (!Directory.Exists(source)) continue;
+            string destination = Path.Combine(target, relative);
+            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+            CopyDirectory(source, destination);
         }
     }
 
@@ -154,12 +168,12 @@ internal static class Program
         if (!Directory.Exists(target)) return;
         foreach (string file in Directory.GetFiles(target))
         {
-            string rel = Path.GetFileName(file); if (IsPreserved(rel)) continue;
+            string rel = Path.GetFileName(file); if (IsPreservedTopLevel(rel)) continue;
             DeleteFileWithRetry(file);
         }
         foreach (string dir in Directory.GetDirectories(target))
         {
-            string rel = Path.GetFileName(dir); if (IsPreserved(rel)) continue;
+            string rel = Path.GetFileName(dir); if (IsPreservedTopLevel(rel)) continue;
             DeleteDirectoryWithRetry(dir);
         }
     }
@@ -169,12 +183,12 @@ internal static class Program
         Directory.CreateDirectory(target);
         foreach (string dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
         {
-            string rel = Path.GetRelativePath(source, dir); if (IsPreserved(rel)) continue;
+            string rel = Path.GetRelativePath(source, dir); if (IsPreservedTopLevel(rel)) continue;
             Directory.CreateDirectory(Path.Combine(target, rel));
         }
         foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
         {
-            string rel = Path.GetRelativePath(source, file); if (IsPreserved(rel)) continue;
+            string rel = Path.GetRelativePath(source, file); if (IsPreservedTopLevel(rel)) continue;
             string dest = Path.Combine(target, rel); Directory.CreateDirectory(Path.GetDirectoryName(dest)!); CopyWithRetry(file, dest);
         }
     }
@@ -191,7 +205,7 @@ internal static class Program
         }
     }
 
-    static bool IsPreserved(string rel)
+    static bool IsPreservedTopLevel(string rel)
     {
         string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
         return PreserveTopLevel.Any(p => top.Equals(p, StringComparison.OrdinalIgnoreCase));
