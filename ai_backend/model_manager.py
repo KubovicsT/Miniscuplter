@@ -223,13 +223,32 @@ def _pip_install(packages: list[str], extra_args: list[str] | None = None) -> No
         raise RuntimeError("Python dependency installation failed without changing component state: " + detail) from exc
 
 
-def _verify_tool_import(code_dir: Path, statement: str, label: str) -> None:
-    probe = f"import sys; sys.path.insert(0, {str(code_dir)!r}); {statement}"
+def _verify_tool_import(code_dir: Path, statement: str, label: str, extra_path: Path | None = None) -> None:
+    prefixes = [str(code_dir)]
+    if extra_path is not None: prefixes.insert(0, str(extra_path))
+    probe = "import sys; " + "".join(f"sys.path.insert(0, {p!r}); " for p in prefixes) + statement
     try:
         _run([sys.executable, "-c", probe], cwd=code_dir, timeout=120)
     except Exception as exc:
         detail = getattr(exc, "stderr", None) or getattr(exc, "stdout", None) or str(exc)
         raise RuntimeError(f"{label} dependencies installed but its inference code cannot be imported: {str(detail)[-3000:]}") from exc
+
+
+def _install_hunyuan_dependencies(code_dir: Path) -> None:
+    # Miniscuplter uses the Hunyuan shape pipeline only. Do not install Tencent's full
+    # requirements file because it pins older Diffusers/Transformers versions and includes
+    # paint/training/render packages unrelated to shape inference. The core runtime already
+    # supplies torch, diffusers, transformers, accelerate, trimesh, numpy, Pillow and rembg.
+    _pip_install([
+        "PyYAML>=6.0",
+        "tqdm>=4.66",
+    ])
+    _verify_tool_import(
+        code_dir,
+        "from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline",
+        "Hunyuan3D 2.1 Shape",
+        code_dir / "hy3dshape",
+    )
 
 
 def _install_triposr_dependencies(code_dir: Path) -> None:
@@ -292,7 +311,7 @@ def install_component(component_id: str, update: bool = False) -> dict[str, Any]
         target = MODELS_ROOT / "FLUX.2-klein-4B"
         _download_hf(snapshot_download, spec["repo_id"], target, hf_revision)
     elif component_id == "hunyuan21-shape":
-        code_dir = TOOLS_ROOT / "Hunyuan3D-2.1"; _clone_or_update(spec["code_url"], code_dir, update)
+        code_dir = TOOLS_ROOT / "Hunyuan3D-2.1"; _clone_or_update(spec["code_url"], code_dir, update); _install_hunyuan_dependencies(code_dir)
         target = MODELS_ROOT / "Hunyuan3D-2.1"
         _download_hf(snapshot_download, spec["repo_id"], target, hf_revision,
             ["hunyuan3d-dit-v2-1/**", "hunyuan3d-vae-v2-1/**", "README.md", "LICENSE", "Notice.txt"])
