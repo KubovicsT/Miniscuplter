@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9 ]
+    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9, v1.0 ]
   pull_request:
 
 permissions:
@@ -20,10 +20,10 @@ jobs:
       - name: Restore main app
         run: dotnet restore Miniscuplter.csproj
       - name: Restore launcher
-        if: github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+        if: github.ref_name == 'v0.9.9' || github.ref_name == 'v1.0' || github.event_name == 'pull_request'
         run: dotnet restore Launcher/Miniscuplter.Launcher.csproj
       - name: Restore updater
-        if: github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+        if: github.ref_name == 'v0.9.9' || github.ref_name == 'v1.0' || github.event_name == 'pull_request'
         run: dotnet restore Updater/Miniscuplter.Updater.csproj
       - name: Build all C# targets
         shell: pwsh
@@ -31,7 +31,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $projects = @('Miniscuplter.csproj')
-          if ('${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.event_name }}' -eq 'pull_request') {
+          if ('${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.ref_name }}' -eq 'v1.0' -or '${{ github.event_name }}' -eq 'pull_request') {
             $projects += 'Launcher/Miniscuplter.Launcher.csproj'
             $projects += 'Updater/Miniscuplter.Updater.csproj'
           }
@@ -61,10 +61,13 @@ jobs:
         with:
           python-version: '3.10'
       - name: Compile backend sources
-        run: python -m compileall -q ai_backend
+        run: python -m compileall -q ai_backend tools
+      - name: Run v1.0 release audit
+        if: github.ref_name == 'v1.0' || github.event_name == 'pull_request'
+        run: python tools/release_audit.py
 
   packaging:
-    if: github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+    if: github.ref_name == 'v0.9.9' || github.ref_name == 'v1.0' || github.event_name == 'pull_request'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
