@@ -40,15 +40,21 @@ internal sealed class ModelService
         psi.Environment["MINISCULPTER_ROOT"] = _settings.InstallRoot;
         psi.Environment["MINISCULPTER_DATA"] = _settings.DataRoot;
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the AI model manager.");
-        string stdoutTask = await process.StandardOutput.ReadToEndAsync();
-        string stderrTask = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
+
+        // Read both redirected streams concurrently. Model downloads and git operations can emit
+        // enough stderr/stdout to fill an OS pipe; sequential reads can otherwise deadlock the launcher.
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+        await Task.WhenAll(process.WaitForExitAsync(), stdoutTask, stderrTask);
+        string stdout = await stdoutTask;
+        string stderr = await stderrTask;
+
         if (process.ExitCode != 0)
         {
-            string detail = string.IsNullOrWhiteSpace(stderrTask) ? stdoutTask : stderrTask;
+            string detail = string.IsNullOrWhiteSpace(stderr) ? stdout : stderr;
             throw new InvalidOperationException(detail.Trim());
         }
-        string text = stdoutTask.Trim();
+        string text = stdout.Trim();
         if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Model manager returned an empty response.");
         return JsonDocument.Parse(text);
     }
