@@ -4,4 +4,8 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Launcher\**\*.cs" />
+    <Compile Remove="Updater\**\*.cs" />
+  </ItemGroup>
 </Project>
