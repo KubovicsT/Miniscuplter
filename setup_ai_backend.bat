@@ -11,7 +11,7 @@ if not exist "%BACKEND_DIR%\requirements.txt" (
 )
 cd /d "%BACKEND_DIR%"
 
-echo Miniscuplter v0.9.9 AI runtime setup
+echo Miniscuplter v1.0 AI runtime setup
 
 echo.
 set "PYTHON_CMD="
