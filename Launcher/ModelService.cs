@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Miniscuplter.Launcher;
@@ -12,16 +13,50 @@ internal sealed class ModelService
     readonly LauncherSettings _settings;
     readonly string? _python;
     readonly string _bridge;
+    readonly bool _runtimeCurrent;
+    readonly string _runtimeMessage;
 
     public ModelService(LauncherSettings settings)
     {
         _settings = settings;
         _python = InstallLayout.ResolvePython(settings);
         _bridge = Path.Combine(InstallLayout.ResolveBackendRoot(settings), "launcher_bridge.py");
+        (_runtimeCurrent, _runtimeMessage) = CheckRuntimeFingerprint();
     }
 
-    public bool IsAvailable => _python != null && File.Exists(_bridge);
-    public string AvailabilityMessage => _python == null ? "Python runtime was not found." : !File.Exists(_bridge) ? $"Launcher bridge was not found: {_bridge}" : "Ready";
+    public bool IsAvailable => _python != null && File.Exists(_bridge) && _runtimeCurrent;
+    public string AvailabilityMessage => _python == null ? "Python runtime was not found. Click Repair AI Runtime."
+        : !File.Exists(_bridge) ? $"Launcher bridge was not found: {_bridge}"
+        : !_runtimeCurrent ? _runtimeMessage
+        : "Ready";
+
+    (bool Current, string Message) CheckRuntimeFingerprint()
+    {
+        try
+        {
+            string backend = InstallLayout.ResolveBackendRoot(_settings);
+            string requirements = Path.Combine(backend, "requirements.txt");
+            string setup = Path.Combine(_settings.InstallRoot, "setup_ai_backend.bat");
+            string marker = Path.Combine(backend, ".venv", "miniscuplter_runtime.sha256");
+            if (!File.Exists(requirements) || !File.Exists(setup))
+                return (false, "AI runtime source files are incomplete. Repair or reinstall Miniscuplter.");
+            if (!File.Exists(marker))
+                return (false, "AI runtime has no v1.0 compatibility fingerprint. Click Repair AI Runtime before managing or using local models.");
+
+            byte[] a = File.ReadAllBytes(requirements), b = File.ReadAllBytes(setup);
+            byte[] combined = new byte[a.Length + b.Length];
+            Buffer.BlockCopy(a, 0, combined, 0, a.Length); Buffer.BlockCopy(b, 0, combined, a.Length, b.Length);
+            string expected = Convert.ToHexString(SHA256.HashData(combined)).ToLowerInvariant();
+            string installed = File.ReadAllText(marker).Trim().ToLowerInvariant();
+            return expected.Equals(installed, StringComparison.OrdinalIgnoreCase)
+                ? (true, "Ready")
+                : (false, "AI runtime belongs to a different application/backend revision. Click Repair AI Runtime to update dependencies; downloaded model weights are preserved.");
+        }
+        catch (Exception ex)
+        {
+            return (false, "AI runtime compatibility could not be verified. Click Repair AI Runtime. " + ex.Message);
+        }
+    }
 
     void EnsureEditorClosedForMutation()
     {
@@ -49,6 +84,7 @@ internal sealed class ModelService
     {
         if (_python == null) throw new InvalidOperationException("Python runtime is not installed or could not be located.");
         if (!File.Exists(_bridge)) throw new FileNotFoundException("AI launcher bridge is missing.", _bridge);
+        if (!_runtimeCurrent) throw new InvalidOperationException(_runtimeMessage);
         var psi = new ProcessStartInfo(_python)
         {
             UseShellExecute = false,
