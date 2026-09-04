@@ -211,12 +211,58 @@ def _clone_or_update(url: str, target: Path, update: bool) -> None:
     _run([git, "reset", "--hard", "FETCH_HEAD"], cwd=target)
 
 
-def _pip_requirements(path: Path) -> None:
-    if not path.exists(): return
-    try: _run([sys.executable, "-m", "pip", "install", "-r", str(path)])
+def _pip_install(packages: list[str], extra_args: list[str] | None = None) -> None:
+    if not packages: return
+    command = [sys.executable, "-m", "pip", "install", *packages]
+    if extra_args: command.extend(extra_args)
+    try:
+        _run(command)
+        _run([sys.executable, "-m", "pip", "check"])
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or str(exc))[-4000:]
-        raise RuntimeError("Python dependency installation failed: " + detail) from exc
+        raise RuntimeError("Python dependency installation failed without changing component state: " + detail) from exc
+
+
+def _verify_tool_import(code_dir: Path, statement: str, label: str) -> None:
+    probe = f"import sys; sys.path.insert(0, {str(code_dir)!r}); {statement}"
+    try:
+        _run([sys.executable, "-c", probe], cwd=code_dir, timeout=120)
+    except Exception as exc:
+        detail = getattr(exc, "stderr", None) or getattr(exc, "stdout", None) or str(exc)
+        raise RuntimeError(f"{label} dependencies installed but its inference code cannot be imported: {str(detail)[-3000:]}") from exc
+
+
+def _install_triposr_dependencies(code_dir: Path) -> None:
+    # TripoSR's upstream requirements pin old shared packages (for example Transformers 4.35)
+    # that conflict with the modern SDXL/FLUX backend. Install only its inference-only extras;
+    # the compatible newer shared dependencies are supplied by Miniscuplter's core runtime.
+    _pip_install([
+        "git+https://github.com/tatsy/torchmcubes.git",
+        "imageio[ffmpeg]",
+        "xatlas==0.0.9",
+        "moderngl==5.10.0",
+    ])
+    _verify_tool_import(code_dir, "from tsr.system import TSR; from tsr.utils import remove_background, resize_foreground", "TripoSR")
+
+
+def _install_partcrafter_dependencies(code_dir: Path) -> None:
+    # The official setup script also installs training/monitoring/VLM packages and Linux EGL
+    # system libraries. Miniscuplter uses only local inference without rendering or VLM calls,
+    # so install the actual inference dependencies while preserving the shared AI runtime.
+    _pip_install([
+        "numpy==1.26.4",
+        "scikit-learn",
+        "opencv-python",
+        "peft",
+        "jaxtyping",
+        "typeguard",
+        "matplotlib",
+        "imageio-ffmpeg",
+        "pyrender",
+        "colormaps",
+    ])
+    _pip_install(["torch-cluster"], ["-f", "https://data.pyg.org/whl/torch-2.5.1+cu124.html"])
+    _verify_tool_import(code_dir, "from src.pipelines.pipeline_partcrafter import PartCrafterPipeline; from src.models.briarmbg import BriaRMBG", "PartCrafter")
 
 
 def _download_hf(snapshot_download, repo_id: str, target: Path, revision: str, allow_patterns: list[str] | None = None) -> None:
@@ -251,15 +297,13 @@ def install_component(component_id: str, update: bool = False) -> dict[str, Any]
         _download_hf(snapshot_download, spec["repo_id"], target, hf_revision,
             ["hunyuan3d-dit-v2-1/**", "hunyuan3d-vae-v2-1/**", "README.md", "LICENSE", "Notice.txt"])
     elif component_id == "triposr":
-        code_dir = TOOLS_ROOT / "TripoSR"; _clone_or_update(spec["code_url"], code_dir, update); _pip_requirements(code_dir / "requirements.txt")
+        code_dir = TOOLS_ROOT / "TripoSR"; _clone_or_update(spec["code_url"], code_dir, update); _install_triposr_dependencies(code_dir)
         target = MODELS_ROOT / "TripoSR"
         _download_hf(snapshot_download, spec["repo_id"], target, hf_revision, ["config.yaml", "model.ckpt", "README.md", "LICENSE*"])
     elif component_id == "partcrafter":
-        code_dir = TOOLS_ROOT / "PartCrafter"; _clone_or_update(spec["code_url"], code_dir, update); _pip_requirements(code_dir / "requirements.txt")
+        code_dir = TOOLS_ROOT / "PartCrafter"; _clone_or_update(spec["code_url"], code_dir, update); _install_partcrafter_dependencies(code_dir)
         target = code_dir
         _download_hf(snapshot_download, spec["repo_id"], code_dir / "pretrained_weights" / "PartCrafter", hf_revision)
-        # Background removal is part of the managed PartCrafter preprocessing path. A failed
-        # download must fail the installation instead of silently marking a half-install as ready.
         rmbg_revision = _hf_revision("briaai/RMBG-1.4")
         _download_hf(snapshot_download, "briaai/RMBG-1.4", code_dir / "pretrained_weights" / "RMBG-1.4", rmbg_revision)
     elif component_id == "clipseg-smart-select":
