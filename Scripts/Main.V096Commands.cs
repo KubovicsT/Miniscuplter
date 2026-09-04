@@ -18,7 +18,7 @@ public partial class Main
 
     static readonly string[] V096Commands =
     {
-        "/s ", "/s+ ", "/s- ", "/clear", "/invert",
+        "/s ", "/s+ ", "/s- ", "/clear", "/invert", "/grow", "/shrink", "/smooth",
         "/hide", "/hide selection", "/show", "/isolate", "/isolate selection", "/frame", "/duplicate", "/delete",
         "/remesh ", "/remesh selection", "/analyze", "/thickness ", "/rig quick", "/rig universal",
         "/pose preview", "/pose reset", "/pose apply", "/savepart", "/edit ", "/help"
@@ -119,6 +119,9 @@ public partial class Main
             {
                 case "/clear": ClearV096Selection(); break;
                 case "/invert": InvertV096Selection(); break;
+                case "/grow": RefineV096Selection("grow", V096ParseRefineIterations(arg)); break;
+                case "/shrink": RefineV096Selection("shrink", V096ParseRefineIterations(arg)); break;
+                case "/smooth": RefineV096Selection("smooth", V096ParseRefineIterations(arg)); break;
                 case "/hide": V096HideCommand(arg); break;
                 case "/show": V096RestoreSelectionView(); foreach (var o in _objects.Where(GodotObject.IsInstanceValid)) o.Visible = true; SetStatus("All scene objects shown."); break;
                 case "/isolate": V096IsolateCommand(arg); break;
@@ -132,11 +135,19 @@ public partial class Main
                 case "/pose": V096PoseCommand(arg); break;
                 case "/savepart": V096SavePartCommand(arg); break;
                 case "/edit": await V096EditCommand(arg); break;
-                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>."); break;
+                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /grow [1-10], /shrink [1-10], /smooth [1-10], /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>."); break;
                 default: SetStatus($"Unknown command '{cmd}'. Type /help."); break;
             }
         }
         catch (Exception ex) { SetStatus("Command failed safely: " + ex.Message); }
+    }
+
+    int V096ParseRefineIterations(string arg)
+    {
+        if (string.IsNullOrWhiteSpace(arg)) return 1;
+        if (!int.TryParse(arg, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) || n < 1 || n > 10)
+            throw new ArgumentOutOfRangeException(nameof(arg), "Selection refinement passes must be 1–10.");
+        return n;
     }
 
     void V096HideCommand(string arg)
