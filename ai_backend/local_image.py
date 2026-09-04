@@ -19,15 +19,26 @@ QUALITY = {
 
 
 def _q(name: str):
-    # v0.9.7 central presets override the legacy v0.5 quality labels. The labels are
-    # still accepted for backwards compatibility and ETA history grouping.
+    """Return active v1.0 runtime settings while preserving preview as a cheap candidate pass.
+
+    The central preset remains authoritative for normal/high operations. A request explicitly marked
+    preview is capped at the historical preview workload so four-candidate generation does not turn
+    into four Ultra-quality jobs. It never raises a low custom preset above the user's selected values.
+    """
     runtime = get_config()
-    return {
+    result = {
         "steps": int(runtime["image_steps"]),
         "size": int(runtime["image_size"]),
         "guidance": float(runtime["image_guidance"]),
         "strength": float(runtime["image_edit_strength"]),
     }
+    if (str(name or "").lower() == "preview"):
+        preview = QUALITY["preview"]
+        result["steps"] = min(result["steps"], int(preview["steps"]))
+        result["size"] = min(result["size"], int(preview["size"]))
+        result["guidance"] = min(result["guidance"], float(preview["guidance"]))
+        result["strength"] = min(result["strength"], float(preview["strength"]))
+    return result
 
 
 def _limit_input(image: Image.Image) -> Image.Image:
@@ -45,11 +56,11 @@ def _torch_and_model():
         from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, EulerDiscreteScheduler
     except Exception as exc:
         raise RuntimeError(
-            "Local 2D AI dependencies are not installed. Run setup_ai_backend.bat and install the SD 2.1 component from Miniscuplter."
+            "Local 2D AI dependencies are not installed. Use Miniscuplter Launcher -> Repair AI Runtime, then install Stable Diffusion 2.1 if you want the legacy fallback."
         ) from exc
     model = component_path("sd21")
     if model is None:
-        raise RuntimeError("Stable Diffusion 2.1 is not installed. Use AI Components -> Install 2D AI.")
+        raise RuntimeError("Stable Diffusion 2.1 is not installed. Install it from Miniscuplter Launcher or the AI Models panel.")
     return torch, StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, EulerDiscreteScheduler, model
 
 
