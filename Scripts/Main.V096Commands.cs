@@ -44,11 +44,11 @@ public partial class Main
     public override void _UnhandledKeyInput(InputEvent @event)
     {
         if (@event is not InputEventKey key || !key.Pressed || key.Echo) return;
-        if (key.Keycode == Key.Space && !V096TextInputHasFocus())
+        if (key.Keycode == Godot.Key.Space && !V096TextInputHasFocus())
         {
             OpenV096CommandPalette(); GetViewport().SetInputAsHandled(); return;
         }
-        if (key.Keycode == Key.Escape && _v096CommandPopup?.Visible == true)
+        if (key.Keycode == Godot.Key.Escape && _v096CommandPopup?.Visible == true)
         {
             _v096CommandPopup.Hide(); GetViewport().SetInputAsHandled();
         }
@@ -76,17 +76,17 @@ public partial class Main
     void OnV096CommandInput(InputEvent ev)
     {
         if (ev is not InputEventKey key || !key.Pressed || key.Echo || _v096CommandInput == null) return;
-        if (key.Keycode == Key.Up && _v096CommandHistory.Count > 0)
+        if (key.Keycode == Godot.Key.Up && _v096CommandHistory.Count > 0)
         {
             _v096HistoryIndex = Math.Clamp(_v096HistoryIndex < 0 ? _v096CommandHistory.Count - 1 : _v096HistoryIndex - 1, 0, _v096CommandHistory.Count - 1);
             _v096CommandInput.Text = _v096CommandHistory[_v096HistoryIndex]; _v096CommandInput.CaretColumn = _v096CommandInput.Text.Length; GetViewport().SetInputAsHandled();
         }
-        else if (key.Keycode == Key.Down && _v096CommandHistory.Count > 0)
+        else if (key.Keycode == Godot.Key.Down && _v096CommandHistory.Count > 0)
         {
             _v096HistoryIndex = Math.Min(_v096CommandHistory.Count - 1, Math.Max(0, _v096HistoryIndex + 1));
             _v096CommandInput.Text = _v096CommandHistory[_v096HistoryIndex]; _v096CommandInput.CaretColumn = _v096CommandInput.Text.Length; GetViewport().SetInputAsHandled();
         }
-        else if (key.Keycode == Key.Escape) { _v096CommandPopup?.Hide(); GetViewport().SetInputAsHandled(); }
+        else if (key.Keycode == Godot.Key.Escape) { _v096CommandPopup?.Hide(); GetViewport().SetInputAsHandled(); }
     }
 
     void RefreshV096Suggestions()
