@@ -6,6 +6,7 @@ from typing import Optional
 from PIL import Image, ImageFilter
 
 from model_manager import component_path, hardware_info
+from quality_runtime import get_config
 
 _PIPE = None
 _IMG_PIPE = None
@@ -18,7 +19,24 @@ QUALITY = {
 
 
 def _q(name: str):
-    return QUALITY.get((name or "standard").lower(), QUALITY["standard"])
+    # v0.9.7 central presets override the legacy v0.5 quality labels. The labels are
+    # still accepted for backwards compatibility and ETA history grouping.
+    runtime = get_config()
+    return {
+        "steps": int(runtime["image_steps"]),
+        "size": int(runtime["image_size"]),
+        "guidance": float(runtime["image_guidance"]),
+        "strength": float(runtime["image_edit_strength"]),
+    }
+
+
+def _limit_input(image: Image.Image) -> Image.Image:
+    max_px = int(get_config()["max_input_px"])
+    if max(image.size) <= max_px:
+        return image
+    work = image.copy()
+    work.thumbnail((max_px, max_px), Image.Resampling.LANCZOS)
+    return work
 
 
 def _torch_and_model():
@@ -94,7 +112,7 @@ def generate_concept(prompt: str, output_path: str, quality: str = "standard") -
 def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_path: str, quality: str = "standard") -> str:
     cfg = _q(quality)
     pipe = _img_pipe()
-    original = Image.open(image_path).convert("RGB")
+    original = _limit_input(Image.open(image_path).convert("RGB"))
     work = original.resize((cfg["size"], cfg["size"]), Image.Resampling.LANCZOS)
     result = pipe(
         prompt=prompt,
