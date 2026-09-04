@@ -33,5 +33,7 @@ public partial class ExtrasInstaller : Node
         main.InstallV095AttachmentGuards();
         main.InstallV095LoadGuards();
         main.InstallV095ExportGuards();
+        main.InstallV096SmartSelect();
+        main.InstallV096CommandPalette();
     }
 }
