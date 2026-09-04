@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import trimesh
@@ -11,46 +10,96 @@ import trimesh
 from model_manager import component_path, TOOLS_ROOT
 
 
-def generate_parts(image_path: str, output_dir: str, num_parts: int = 4, tag: str = "miniscuplter") -> dict:
-    """Invoke the official PartCrafter inference script and normalize its outputs.
+def _load_part_mesh(source: Path) -> list[trimesh.Trimesh]:
+    loaded = trimesh.load(source, force="scene", process=False)
+    geoms = list(loaded.geometry.values()) if isinstance(loaded, trimesh.Scene) else [loaded]
+    result: list[trimesh.Trimesh] = []
+    for mesh in geoms:
+        if not isinstance(mesh, trimesh.Trimesh) or mesh.is_empty:
+            continue
+        if len(mesh.faces) == 0 or len(mesh.vertices) == 0:
+            continue
+        result.append(mesh)
+    return result
 
-    PartCrafter intentionally remains a separate process: its official dependency stack is
-    much heavier than the editor backend and this prevents its CUDA allocations/imports
-    from contaminating the long-running Miniscuplter process.
+
+def generate_parts(image_path: str, output_dir: str, num_parts: int = 4, tag: str = "miniscuplter") -> dict:
+    """Invoke official PartCrafter inference and import only manifest-declared parts.
+
+    PartCrafter remains a separate process so its model allocations are released when the
+    process exits. The official manifest is authoritative; the merged object output is not
+    re-imported as a duplicate part.
     """
     installed = component_path("partcrafter")
     code_dir = TOOLS_ROOT / "PartCrafter"
-    if installed is None or not code_dir.exists(): raise RuntimeError("PartCrafter is not installed")
+    if installed is None or not code_dir.exists():
+        raise RuntimeError("PartCrafter is not installed")
     script = code_dir / "scripts" / "inference_partcrafter.py"
-    if not script.exists(): raise RuntimeError("PartCrafter inference script is missing")
-    out = Path(output_dir).resolve(); out.mkdir(parents=True, exist_ok=True)
+    if not script.exists():
+        raise RuntimeError("PartCrafter inference script is missing")
+    image = Path(image_path).resolve()
+    if not image.is_file() or image.stat().st_size == 0:
+        raise RuntimeError(f"PartCrafter input image does not exist or is empty: {image}")
+
+    out = Path(output_dir).resolve()
+    out.mkdir(parents=True, exist_ok=True)
     clean_tag = "".join(c if c.isalnum() or c in "-_" else "_" for c in tag)[:64] or "miniscuplter"
-    started = time.time()
-    cmd = [sys.executable, str(script), "--image_path", str(Path(image_path).resolve()), "--num_parts", str(max(1,min(16,int(num_parts)))), "--tag", clean_tag, "--rmbg"]
+    requested = max(1, min(16, int(num_parts)))
+    cmd = [
+        sys.executable, str(script),
+        "--image_path", str(image),
+        "--num_parts", str(requested),
+        "--output_dir", str(out),
+        "--tag", clean_tag,
+        "--rmbg",
+    ]
     p = subprocess.run(cmd, cwd=str(code_dir), capture_output=True, text=True, timeout=3600)
-    if p.returncode != 0: raise RuntimeError("PartCrafter failed: " + (p.stderr or p.stdout)[-5000:])
+    if p.returncode != 0:
+        raise RuntimeError("PartCrafter failed: " + (p.stderr or p.stdout or "unknown error")[-5000:])
 
-    # Official releases have changed exact result subfolder names. Discover only fresh
-    # geometry created by this invocation rather than baking a brittle filename assumption.
-    candidates=[]
-    for ext in ("*.glb","*.gltf","*.obj","*.ply","*.stl"):
-        for f in (code_dir / "results").rglob(ext):
-            try:
-                if f.stat().st_mtime >= started - 2: candidates.append(f)
-            except OSError: pass
-    if not candidates: raise RuntimeError("PartCrafter completed but no generated geometry was found")
+    official_manifest = out / clean_tag / "manifest.json"
+    if not official_manifest.is_file():
+        raise RuntimeError(f"PartCrafter completed but did not write its expected manifest: {official_manifest}")
+    try:
+        data = json.loads(official_manifest.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError("PartCrafter wrote an unreadable result manifest") from exc
+    declared = data.get("parts")
+    if not isinstance(declared, list) or not declared:
+        raise RuntimeError("PartCrafter manifest contains no generated parts")
 
-    normalized=[]
-    for i, source in enumerate(sorted(set(candidates))):
-        try:
-            loaded=trimesh.load(source, force="scene", process=False)
-            geoms = list(loaded.geometry.values()) if isinstance(loaded,trimesh.Scene) else [loaded]
-            for j, mesh in enumerate(geoms):
-                if not isinstance(mesh,trimesh.Trimesh) or mesh.is_empty: continue
-                path=out / f"part_{len(normalized)+1:02d}.stl"; mesh.export(path,file_type="stl"); normalized.append(str(path))
-        except Exception:
-            continue
-    if not normalized: raise RuntimeError("PartCrafter outputs could not be converted to STL parts")
-    manifest={"provider":"partcrafter","parts":normalized,"count":len(normalized),"requested_parts":int(num_parts)}
-    (out/"parts_manifest.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+    normalized: list[str] = []
+    result_root = official_manifest.parent.resolve()
+    for item in declared:
+        if not isinstance(item, dict) or not isinstance(item.get("file"), str):
+            raise RuntimeError("PartCrafter manifest contains an invalid part entry")
+        source = (result_root / item["file"]).resolve()
+        if result_root not in source.parents or not source.is_file():
+            raise RuntimeError(f"PartCrafter manifest references an invalid part file: {item['file']}")
+        meshes = _load_part_mesh(source)
+        if not meshes:
+            raise RuntimeError(f"PartCrafter part could not be converted to a non-empty mesh: {source.name}")
+        for mesh in meshes:
+            path = out / f"part_{len(normalized)+1:02d}.stl"
+            mesh.remove_unreferenced_vertices()
+            if not mesh.vertices.shape[0] or not mesh.faces.shape[0]:
+                raise RuntimeError(f"PartCrafter part became empty during cleanup: {source.name}")
+            mesh.export(path, file_type="stl")
+            if not path.is_file() or path.stat().st_size == 0:
+                raise RuntimeError(f"Failed to normalize PartCrafter part to STL: {source.name}")
+            normalized.append(str(path))
+
+    if not normalized:
+        raise RuntimeError("PartCrafter outputs could not be converted to STL parts")
+    if len(normalized) < requested:
+        raise RuntimeError(f"PartCrafter returned only {len(normalized)} usable parts after requesting {requested}")
+
+    manifest = {
+        "provider": "partcrafter",
+        "parts": normalized,
+        "count": len(normalized),
+        "requested_parts": requested,
+        "official_manifest": str(official_manifest),
+    }
+    (out / "parts_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return manifest
