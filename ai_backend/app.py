@@ -17,7 +17,7 @@ from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model
 from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
 from detail_pipeline import detail_2d, detail_3d, apply_detail
 
-app = FastAPI(title="Miniscuplter AI Backend", version="0.9.8")
+app = FastAPI(title="Miniscuplter AI Backend", version="0.9.9")
 app.include_router(geometry_router)
 app.include_router(rig_router)
 
@@ -94,7 +94,7 @@ def health():
     local_select = component_path("clipseg-smart-select") is not None
     return {
         "ok": True,
-        "version": "0.9.8",
+        "version": "0.9.9",
         "routing": routing_status(),
         "geometry_provider": "trimesh-voxel + model-analysis + transactional-detail-union",
         "rig_provider": "adaptive-quick + optional-universal-command",
