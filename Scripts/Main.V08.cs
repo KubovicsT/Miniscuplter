@@ -22,6 +22,7 @@ public partial class Main
     int _v08CompletedStrokes;
     bool _v08RemeshRunning;
     bool _v08StrokeArmed;
+    readonly List<ArrayMesh> _v08MaskRedoBackup = new();
 
     public void InstallV08Extras()
     {
@@ -95,14 +96,31 @@ public partial class Main
     {
         if (_v08MaskPaintMode)
         {
+            if (dragLocal.LengthSquared() < 1e-12f) CancelV08MaskMeshHistoryEntry();
             PaintV08Mask(mesh, hitLocal, radius, _v08MaskErase ? -Math.Max(.15f, strength * .35f) : Math.Max(.15f, strength * .35f));
             return mesh;
         }
+
+        V095PrepareRiggedDirectMeshEdit(mesh);
         var centers = V08SymmetryCenters(hitLocal);
         float[]? mask = GetV08Mask(mesh, false);
         var falloff = (SculptFalloff)(_v08Falloff?.Selected ?? 0);
         var alpha = (SculptAlpha)(_v08Alpha?.Selected ?? 0);
         return SculptEngine.ApplyAdvanced(mesh, centers, dragLocal, radius, strength, brush, falloff, alpha, mask);
+    }
+
+    void CaptureV08MaskRedoHistory()
+    {
+        if (!_v08MaskPaintMode || _sculpting) return;
+        _v08MaskRedoBackup.Clear();
+        foreach (var mesh in _redo.Reverse()) _v08MaskRedoBackup.Add(CloneMesh(mesh));
+    }
+
+    void CancelV08MaskMeshHistoryEntry()
+    {
+        if (_undo.Count > 0) _undo.Pop();
+        _redo.Clear();
+        foreach (var mesh in _v08MaskRedoBackup) _redo.Push(CloneMesh(mesh));
     }
 
     List<Vector3> V08SymmetryCenters(Vector3 p)
@@ -127,6 +145,7 @@ public partial class Main
     void SetV08MaskMode(bool enabled, bool erase)
     {
         _v08MaskPaintMode = enabled; _v08MaskErase = erase;
+        if (enabled) CaptureV08MaskRedoHistory(); else _v08MaskRedoBackup.Clear();
         SetStatus(enabled ? (erase ? "Mask erase mode: LMB removes protection." : "Mask paint mode: LMB paints protected vertices.") : "Sculpt mode restored.");
     }
 
@@ -187,10 +206,12 @@ public partial class Main
         {
             if (_v08StrokeArmed && !_v08MaskPaintMode)
             {
+                V095CommitRiggedSculptRest(_selected);
                 _v08CompletedStrokes++;
                 if (_v08AutoRemesh?.ButtonPressed == true && _v08CompletedStrokes % 12 == 0) _ = V08RemeshSelectedAsync();
             }
             _v08StrokeArmed = false;
+            if (_v08MaskPaintMode) CaptureV08MaskRedoHistory();
         }
     }
 
@@ -230,6 +251,7 @@ public partial class Main
             if (target.Mesh is ArrayMesh previous) PushUndo(previous);
             target.Mesh = loaded;
             _v08Masks.Remove(target.Name.ToString());
+            V095TopologyChanged(target);
             SetStatus($"Detail remesh complete at {_v08RemeshVoxel?.Value ?? .28:0.00} mm voxels. Sculpt mask cleared because topology changed.");
         }
         catch (Exception ex) { SetStatus("Detail remesh failed without replacing the source mesh: " + ex.Message); }
