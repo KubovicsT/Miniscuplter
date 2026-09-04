@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import shlex
 import subprocess
@@ -36,7 +35,6 @@ def _heuristic(vertices: np.ndarray, query: str) -> np.ndarray:
     n = (vertices - lo) / span
     x, y, z = n[:, 0], n[:, 1], n[:, 2]
     center_x = 1.0 - np.minimum(1.0, np.abs(x - 0.5) * 2.0)
-    center_z = 1.0 - np.minimum(1.0, np.abs(z - 0.5) * 2.0)
 
     if any(k in q for k in ("head", "face", "hair", "helmet", "skull", "horn")):
         w = np.clip((y - 0.68) / 0.20, 0, 1) * np.clip(center_x * 1.4, 0, 1)
@@ -67,12 +65,54 @@ def _heuristic(vertices: np.ndarray, query: str) -> np.ndarray:
     return np.asarray(w, dtype=np.float64)
 
 
+def _samples(vertices: np.ndarray, weights: np.ndarray) -> tuple[list[list[float]], list[float]]:
+    merged: dict[tuple[float, float, float], float] = {}
+    for p, w in zip(vertices, weights):
+        if not np.isfinite(w) or w <= 0.001:
+            continue
+        key = (round(float(p[0]), 6), round(float(p[1]), 6), round(float(p[2]), 6))
+        merged[key] = max(merged.get(key, 0.0), float(np.clip(w, 0.0, 1.0)))
+    return [list(k) for k in merged.keys()], list(merged.values())
+
+
+def _normalize_provider_result(data: dict, vertices: np.ndarray) -> dict:
+    method = data.get("method") or "AI semantic provider"
+    if isinstance(data.get("sample_positions_mm"), list) and isinstance(data.get("sample_weights"), list):
+        return {
+            "method": method,
+            "sample_positions_mm": data["sample_positions_mm"],
+            "sample_weights": data["sample_weights"],
+            "ai_provider_available": True,
+        }
+
+    weights = np.zeros(len(vertices), dtype=np.float64)
+    if isinstance(data.get("weights"), list):
+        raw = np.asarray(data["weights"], dtype=np.float64)
+        n = min(len(raw), len(weights))
+        weights[:n] = np.clip(raw[:n], 0.0, 1.0)
+    elif isinstance(data.get("indices"), list):
+        for i in data["indices"]:
+            if isinstance(i, int) and 0 <= i < len(weights):
+                weights[i] = 1.0
+    else:
+        raise RuntimeError("AI Smart Select provider must return sample_positions_mm+sample_weights, weights, or indices")
+
+    positions, sample_weights = _samples(vertices, weights)
+    return {
+        "method": method,
+        "sample_positions_mm": positions,
+        "sample_weights": sample_weights,
+        "ai_provider_available": True,
+    }
+
+
 def semantic_select(input_path: str, query: str) -> dict:
     if not query or not query.strip():
         raise ValueError("Selection query is empty")
     path = str(Path(input_path).resolve())
     if not Path(path).exists():
         raise FileNotFoundError(path)
+    vertices = _load_vertices(path)
 
     if SMART_SELECT_COMMAND:
         with tempfile.TemporaryDirectory(prefix="miniscuplter_select_") as td:
@@ -90,17 +130,17 @@ def semantic_select(input_path: str, query: str) -> dict:
             data = json.loads(Path(output).read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 raise RuntimeError("AI Smart Select provider returned invalid JSON")
-            data.setdefault("method", "AI semantic provider")
-            return data
+            result = _normalize_provider_result(data, vertices)
+            result["query"] = query
+            return result
 
-    vertices = _load_vertices(path)
     weights = _heuristic(vertices, query)
-    selected = int(np.count_nonzero(weights >= 0.35))
+    positions, sample_weights = _samples(vertices, weights)
     return {
         "method": "geometry semantic heuristic (AI provider not configured)",
         "query": query,
-        "vertex_count": int(len(vertices)),
-        "selected_vertices": selected,
-        "weights": [float(x) for x in weights.tolist()],
+        "sample_positions_mm": positions,
+        "sample_weights": sample_weights,
+        "selected_samples": int(sum(1 for w in sample_weights if w >= 0.35)),
         "ai_provider_available": False,
     }
