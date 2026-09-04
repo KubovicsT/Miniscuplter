@@ -25,12 +25,43 @@ public sealed class AIClient
     public string BackendUrl { get; set; } = "http://127.0.0.1:7868";
     public bool InternetReferencesEnabled { get; set; } = true;
 
+    // v0.9.8 role routing. "auto" lets the backend choose from installed specialists.
+    public string ImageGenerateProvider { get; set; } = "auto";
+    public string ImageEditProvider { get; set; } = "auto";
+    public string ImageDetailProvider { get; set; } = "auto";
+    public string Fast3DProvider { get; set; } = "auto";
+    public string Quality3DProvider { get; set; } = "auto";
+    public string Detail3DProvider { get; set; } = "auto";
+    public string Structured3DProvider { get; set; } = "auto";
+
     public void CancelCurrentRequest() { lock (_cancelLock) _activeRequest?.Cancel(); }
     public async Task<bool> HealthAsync() { try { using var r = await _http.GetAsync($"{BackendUrl}/health"); return r.IsSuccessStatusCode; } catch { return false; } }
 
-    public async Task<string> GenerateConceptAsync(string prompt, string outputPath, string quality = "standard") => await PostForFileAsync("/generate-concept", new { prompt, output_path = outputPath, quality });
-    public async Task<string> EditImageAsync(string imagePath, string? maskPath, string prompt, string outputPath, string quality = "standard") => await PostForFileAsync("/edit-image", new { image_path = imagePath, mask_path = maskPath, prompt, output_path = outputPath, quality });
-    public async Task<string> Generate3DAsync(string imagePath, string prompt, string outputPath, string quality = "standard") => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath, quality });
+    public async Task<string> GenerateConceptAsync(string prompt, string outputPath, string quality = "standard")
+        => await PostForFileAsync("/generate-concept", new { prompt, output_path = outputPath, quality, provider = ImageGenerateProvider });
+    public async Task<string> EditImageAsync(string imagePath, string? maskPath, string prompt, string outputPath, string quality = "standard")
+        => await PostForFileAsync("/edit-image", new { image_path = imagePath, mask_path = maskPath, prompt, output_path = outputPath, quality, provider = ImageEditProvider });
+    public async Task<string> Generate3DAsync(string imagePath, string prompt, string outputPath, string quality = "standard")
+        => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath, quality, provider = Quality3DProvider, role = "quality" });
+    public async Task<string> Generate3DRoutedAsync(string imagePath, string prompt, string outputPath, string role, string provider = "auto")
+        => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath, quality = "standard", provider, role });
+    public async Task<string> GeneratePartsAsync(string imagePath, string outputDir, int numParts, string tag = "miniscuplter", string provider = "auto")
+        => await PostJsonTextAsync("/generate-parts", new { image_path = imagePath, output_dir = outputDir, num_parts = numParts, tag, provider }, true);
+    public async Task<string> Detail2DAsync(string imagePath, string maskPath, string prompt, string outputPath)
+        => await PostForFileAsync("/detail-2d", new { image_path = imagePath, mask_path = maskPath, prompt, output_path = outputPath, image_provider = ImageDetailProvider });
+    public async Task<string> Detail3DAsync(string sourceMesh, string imagePath, string maskPath, string prompt, float[] boundsMin, float[] boundsMax,
+        string outputPatch, string outputImage, string outputCrop)
+        => await PostJsonTextAsync("/detail-3d", new { source_mesh = sourceMesh, image_path = imagePath, mask_path = maskPath, prompt,
+            bounds_min = boundsMin, bounds_max = boundsMax, output_patch = outputPatch, output_image = outputImage, output_crop = outputCrop,
+            image_provider = ImageDetailProvider, three_d_provider = Detail3DProvider }, true);
+    public async Task<string> ApplyDetailAsync(string sourceMesh, string patchMesh, string outputPath, double? voxelSize = null)
+        => await PostForFileAsync("/detail-apply", new { source_mesh = sourceMesh, patch_mesh = patchMesh, output_path = outputPath, voxel_size = voxelSize });
+    public async Task<string> GetRoutingAsync()
+    {
+        using var response = await _http.GetAsync(BackendUrl + "/routing"); var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body); return body;
+    }
+
     public async Task<string> VoxelRemeshAsync(IReadOnlyList<string> inputPaths, string outputPath, double voxelSize) => await PostForFileAsync("/geometry/voxel-remesh", new { input_paths = inputPaths, output_path = outputPath, voxel_size = voxelSize });
     public async Task<string> AnalyzeGeometryAsync(string inputPath, double featureThresholdMm) => await PostJsonTextAsync("/geometry/analyze", new { input_path = inputPath, feature_threshold_mm = featureThresholdMm });
     public async Task<string> ThicknessMapAsync(string inputPath, double targetMm, int maxSamples = 12000) => await PostJsonTextAsync("/geometry/thickness-map", new { input_path = inputPath, target_mm = targetMm, max_samples = maxSamples }, true);
@@ -64,16 +95,9 @@ public sealed class AIClient
         {
             if (cancellable)
             {
-                await _jobGate.WaitAsync(cts!.Token);
-                gateHeld = true;
-                lock (_cancelLock)
-                {
-                    _activeRequest?.Cancel();
-                    _activeRequest?.Dispose();
-                    _activeRequest = cts;
-                }
+                await _jobGate.WaitAsync(cts!.Token); gateHeld = true;
+                lock (_cancelLock) { _activeRequest?.Cancel(); _activeRequest?.Dispose(); _activeRequest = cts; }
             }
-
             var json = JsonSerializer.Serialize(payload);
             using var request = new HttpRequestMessage(HttpMethod.Post, BackendUrl + route) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts?.Token ?? CancellationToken.None);
@@ -90,11 +114,7 @@ public sealed class AIClient
         catch (HttpRequestException ex) { throw new InvalidOperationException("Backend connection failed: " + ex.Message, ex); }
         finally
         {
-            if (cts != null)
-            {
-                lock (_cancelLock) { if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null; }
-                cts.Dispose();
-            }
+            if (cts != null) { lock (_cancelLock) { if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null; } cts.Dispose(); }
             if (gateHeld) _jobGate.Release();
         }
     }
