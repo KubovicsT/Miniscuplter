@@ -77,24 +77,53 @@ def _feature_size_heuristic(mesh: trimesh.Trimesh, threshold_mm: float) -> dict:
 
 
 def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
+    """Count non-adjacent triangle AABB overlaps with a sweep broad phase.
+
+    This deliberately remains an advisory candidate count rather than claiming exact triangle
+    intersections. Sorting by minimum X avoids the previous quadratic full-tail comparison on
+    every triangle, which was impractical for detailed meshes.
+    """
     tri = mesh.triangles
     n = len(tri)
     if n < 2:
         return {"candidate_pairs": 0, "tested_pairs": 0, "truncated": False}
-    mins = tri.min(axis=1); maxs = tri.max(axis=1); faces = mesh.faces
-    candidates = 0; tested = 0
-    for i in range(n):
-        overlap = np.where(np.all(maxs[i + 1:] >= mins[i], axis=1) & np.all(mins[i + 1:] <= maxs[i], axis=1))[0]
-        for rel in overlap:
-            j = i + 1 + int(rel)
-            if len(set(faces[i].tolist()).intersection(faces[j].tolist())) > 0:
+    mins = tri.min(axis=1)
+    maxs = tri.max(axis=1)
+    faces = np.asarray(mesh.faces)
+    order = np.argsort(mins[:, 0], kind="stable")
+    sorted_min_x = mins[order, 0]
+    candidates = 0
+    tested = 0
+
+    for pos, face_i in enumerate(order):
+        # Only later triangles whose minimum X lies before this triangle's maximum X can overlap.
+        end = int(np.searchsorted(sorted_min_x, maxs[face_i, 0], side="right"))
+        if end <= pos + 1:
+            continue
+        later = order[pos + 1:end]
+        if len(later) == 0:
+            continue
+        yz = (
+            (maxs[later, 1] >= mins[face_i, 1]) &
+            (mins[later, 1] <= maxs[face_i, 1]) &
+            (maxs[later, 2] >= mins[face_i, 2]) &
+            (mins[later, 2] <= maxs[face_i, 2])
+        )
+        overlaps = later[yz]
+        if len(overlaps) == 0:
+            continue
+        vertices_i = set(faces[face_i].tolist())
+        for face_j in overlaps:
+            # Adjacent triangles legitimately share an AABB boundary and are not candidates.
+            if vertices_i.intersection(faces[face_j].tolist()):
                 continue
-            candidates += 1; tested += 1
+            candidates += 1
+            tested += 1
             if tested >= MAX_INTERSECTION_PAIRS:
                 return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": True,
-                        "meaning": "non-adjacent triangle AABB-overlap heuristic; candidates are not guaranteed intersections"}
+                        "meaning": "non-adjacent triangle AABB-overlap heuristic using an axis-sorted sweep; candidates are not guaranteed intersections"}
     return {"candidate_pairs": candidates, "tested_pairs": tested, "truncated": False,
-            "meaning": "non-adjacent triangle AABB-overlap heuristic; candidates are not guaranteed intersections"}
+            "meaning": "non-adjacent triangle AABB-overlap heuristic using an axis-sorted sweep; candidates are not guaranteed intersections"}
 
 
 def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12000) -> dict:
@@ -187,6 +216,8 @@ def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float
     if grid.shape is None or any(int(v) <= 0 for v in grid.shape): raise RuntimeError("Voxelization produced an invalid occupancy grid")
     result = grid.marching_cubes
     if result.is_empty: raise RuntimeError("Voxel reconstruction produced an empty mesh")
+    # VoxelGrid.marching_cubes returns matrix-index geometry; the grid transform maps it
+    # back to the original world-space pitch/origin exactly once.
     result.apply_transform(grid.transform); result.remove_unreferenced_vertices(); result.merge_vertices()
     if not result.is_finite: raise RuntimeError("Voxel reconstruction produced invalid coordinates")
     out = Path(output_path).resolve(); out.parent.mkdir(parents=True, exist_ok=True); result.export(out, file_type="stl")
