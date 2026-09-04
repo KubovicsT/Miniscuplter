@@ -49,6 +49,7 @@ require("/remesh selection" not in commands, "unfinished /remesh selection comma
 require("pitch < .04 || pitch > 5.0" in commands, "command remesh range is not aligned to 0.04-5.0 mm")
 require("min(int(max_samples), 100000)" in geometry, "thickness backend still caps below 100,000 samples")
 require("structurally_valid" in geometry, "geometry backend lacks canonical structurally_valid result")
+require("np.searchsorted" in geometry and "axis-sorted sweep" in geometry, "self-intersection broad phase is not using the scalable sweep implementation")
 require("native geometry backend is not installed in this source build" not in core, "dead native-backend placeholder remains in core UI")
 require("Bake/union requires the native remesh backend" not in core, "dead bake/union placeholder remains in core UI")
 require("Ready — Miniscuplter v1.0" in core, "core editor is not identified as v1.0")
@@ -62,19 +63,23 @@ if "InstallV099Locations()" in extras and "InstallV100ReleasePolish()" in extras
 # Specialist models share one managed Python runtime. Do not blindly apply upstream requirement
 # files that pin incompatible core packages; each route must use inference-specific dependencies
 # and prove the actual inference module imports before it is marked installed.
-require("_install_hunyuan_dependencies(code_dir)" in model_manager, "Hunyuan installer does not verify shape inference dependencies")
-require("_install_triposr_dependencies(code_dir)" in model_manager, "TripoSR installer does not use isolated inference dependencies")
-require("_install_partcrafter_dependencies(code_dir)" in model_manager, "PartCrafter installer does not use isolated inference dependencies")
-require("_verify_tool_import" in model_manager and "pip", "specialist model import verification is missing")
+require("_install_hunyuan_dependencies(stage_code)" in model_manager, "Hunyuan installer does not verify shape inference dependencies")
+require("_install_triposr_dependencies(stage_code)" in model_manager, "TripoSR installer does not use isolated inference dependencies")
+require("_install_partcrafter_dependencies(staged_target)" in model_manager, "PartCrafter installer does not use isolated inference dependencies")
+require("_verify_tool_import" in model_manager, "specialist model import verification is missing")
 require('code_dir / "requirements.txt"' not in model_manager, "shared runtime can still be modified by an unreviewed specialist requirements.txt")
-require("pip check" in model_manager, "specialist dependency installation does not verify environment consistency")
+require('"pip", "check"' in model_manager, "specialist dependency installation does not verify environment consistency")
+require("STAGING_ROOT" in model_manager and "_swap_staged" in model_manager, "model installation/update is not transactionally staged")
+require("finalize_state" in model_manager, "model state is not committed inside the transactional swap")
 
 # PartCrafter emits both individual parts and a merged object. The wrapper must follow its
 # manifest instead of time-scanning every fresh mesh, otherwise the merged object is imported
-# as a duplicate pseudo-part.
+# as a duplicate pseudo-part. Its official decoder also emits a degenerate fallback triangle;
+# reject that rather than accepting it as a generated part.
 require('"--output_dir"' in partcrafter, "PartCrafter wrapper does not isolate each job output directory")
 require('"manifest.json"' in partcrafter and 'data.get("parts")' in partcrafter, "PartCrafter wrapper does not use the official part manifest")
 require("rglob(" not in partcrafter, "PartCrafter wrapper still scans arbitrary fresh geometry")
+require("mesh.area" in partcrafter and "mesh.extents" in partcrafter, "PartCrafter degenerate decoder outputs are not rejected")
 
 # App updates replace backend source but must preserve the installed AI virtual environment.
 require("PreserveNested" in updater and '".venv"' in updater, "application updater does not preserve the installed AI runtime")
