@@ -2,7 +2,14 @@
 setlocal EnableExtensions
 set "QUIET=0"
 if /I "%~1"=="/quiet" set "QUIET=1"
-cd /d "%~dp0ai_backend"
+set "BACKEND_DIR=%~dp0ai_backend"
+if not exist "%BACKEND_DIR%\requirements.txt" set "BACKEND_DIR=%~dp0App\ai_backend"
+if not exist "%BACKEND_DIR%\requirements.txt" (
+  echo AI backend files were not found under the Miniscuplter installation.
+  if "%QUIET%"=="0" pause
+  exit /b 3
+)
+cd /d "%BACKEND_DIR%"
 
 echo Miniscuplter v0.9.9 AI runtime setup
 
