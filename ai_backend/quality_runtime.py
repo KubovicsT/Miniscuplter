@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import os
 import threading
 from copy import deepcopy
+from pathlib import Path
 
 _DEFAULT = {
     "image_size": 512,
@@ -19,7 +22,8 @@ _DEFAULT = {
 }
 
 _LOCK = threading.RLock()
-_CONFIG = deepcopy(_DEFAULT)
+_DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(__file__).resolve().parent / "data")).resolve()
+_STATE_FILE = _DATA_ROOT / "quality_runtime.json"
 
 
 def _clamp(value, lo, hi):
@@ -44,11 +48,32 @@ def normalize(data: dict | None) -> dict:
     }
 
 
+def _load_persisted() -> dict:
+    try:
+        if _STATE_FILE.is_file():
+            raw = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, dict): return normalize(raw)
+    except Exception:
+        pass
+    return deepcopy(_DEFAULT)
+
+
+def _persist(cfg: dict) -> None:
+    _DATA_ROOT.mkdir(parents=True, exist_ok=True)
+    temp = _STATE_FILE.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    temp.replace(_STATE_FILE)
+
+
+_CONFIG = _load_persisted()
+
+
 def set_config(data: dict) -> dict:
     global _CONFIG
     cfg = normalize(data)
     with _LOCK:
         _CONFIG = cfg
+        _persist(_CONFIG)
         return deepcopy(_CONFIG)
 
 
