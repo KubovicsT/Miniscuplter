@@ -4,10 +4,7 @@ namespace Miniscuplter;
 
 public partial class ExtrasInstaller : Node
 {
-    public override void _Ready()
-    {
-        CallDeferred(MethodName.Install);
-    }
+    public override void _Ready() { CallDeferred(MethodName.Install); }
 
     void Install()
     {
@@ -37,5 +34,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV096CommandPalette();
         main.InstallV096SemanticComponent();
         main.InstallV097QualityPresets();
+        main.InstallV098MultiModelAI();
     }
 }
