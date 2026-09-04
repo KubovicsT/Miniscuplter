@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SELF = Path(__file__).resolve()
 EXPECTED = "1.0.0"
 errors: list[str] = []
 
@@ -47,9 +48,9 @@ require("Bake/union requires the native remesh backend" not in core, "dead bake/
 require("Ready — Miniscuplter v1.0" in core, "core editor is not identified as v1.0")
 require(readme.lstrip().startswith("# Miniscuplter v1.0"), "README is not current for v1.0")
 
-# Reject common release placeholders in active source. Historical branch names and explanatory
-# compatibility comments are permitted; only executable/source TODO markers count here.
-for path in [p for p in ROOT.rglob("*") if p.is_file() and p.suffix.lower() in {".cs", ".py", ".ps1", ".bat", ".iss"} and ".git" not in p.parts]:
+# Reject common unfinished-work markers in active source. The audit file itself contains the
+# marker vocabulary by definition and is excluded from its own scan.
+for path in [p for p in ROOT.rglob("*") if p.is_file() and p.resolve() != SELF and p.suffix.lower() in {".cs", ".py", ".ps1", ".bat", ".iss"} and ".git" not in p.parts]:
     body = path.read_text(encoding="utf-8", errors="replace")
     for line_no, line in enumerate(body.splitlines(), 1):
         if re.search(r"\b(TODO|FIXME|HACK|PLACEHOLDER)\b", line, re.IGNORECASE):
