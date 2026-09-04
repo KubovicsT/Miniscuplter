@@ -12,6 +12,7 @@ import trimesh
 from PIL import Image, ImageDraw
 
 from model_manager import component_path
+from quality_runtime import get_config
 
 SMART_SELECT_COMMAND = os.getenv("MINISCULPTER_SMART_SELECT_COMMAND", "").strip()
 _MODEL = None
@@ -76,7 +77,7 @@ def _face_color_id(face_id: int) -> tuple[int, int, int]:
     return value & 255, (value >> 8) & 255, (value >> 16) & 255
 
 
-def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int = 352) -> tuple[Image.Image, np.ndarray]:
+def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int) -> tuple[Image.Image, np.ndarray]:
     vertices = np.asarray(mesh.vertices, dtype=np.float64)
     faces = np.asarray(mesh.faces, dtype=np.int64)
     right, up, forward = _view_basis(direction)
@@ -94,8 +95,6 @@ def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int = 352) 
     light = forward + up * 0.45 + right * 0.25; light /= max(np.linalg.norm(light), 1e-9)
     depth = pz[faces].mean(axis=1)
 
-    # Painter order: far faces first, near faces last. Pillow performs polygon fill in C,
-    # avoiding a per-pixel Python raster loop on high-poly miniature meshes.
     for fi in np.argsort(depth):
         face = faces[fi]
         pts = [(float(sx[v]), float(sy[v])) for v in face]
@@ -108,18 +107,23 @@ def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int = 352) 
     return image, encoded.astype(np.int32) - 1
 
 
-def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> np.ndarray:
+def _directions(count: int) -> list[np.ndarray]:
+    candidates = [
+        [0,0,1], [0,0,-1], [1,0,0], [-1,0,0], [0,1,0], [0,-1,0],
+        [1,0,1], [-1,0,1], [1,0,-1], [-1,0,-1], [0.7,0.7,0.7], [-0.7,0.7,-0.7],
+    ]
+    return [np.asarray(v, dtype=np.float64) for v in candidates[:max(2, min(12, count))]]
+
+
+def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> tuple[np.ndarray, int, int]:
     loaded = _load_clipseg()
     if loaded is None: raise RuntimeError("CLIPSeg Smart Select is not installed")
     model, processor, device = loaded
     import torch
 
-    directions = [
-        np.array([0, 0, 1.0]), np.array([0, 0, -1.0]),
-        np.array([1.0, 0, 0]), np.array([-1.0, 0, 0]),
-        np.array([0, 1.0, 0]), np.array([0, -1.0, 0]),
-    ]
-    renders, face_maps = zip(*[_render_view(mesh, d) for d in directions])
+    cfg = get_config(); view_count = int(cfg["smart_select_views"]); render_size = int(cfg["smart_select_render_size"])
+    directions = _directions(view_count)
+    renders, face_maps = zip(*[_render_view(mesh, d, render_size) for d in directions])
     inputs = processor(text=[query] * len(renders), images=list(renders), padding=True, return_tensors="pt")
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.inference_mode():
@@ -150,7 +154,7 @@ def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> np.ndarray:
     if positive.size:
         peak = float(np.percentile(positive, 95))
         if peak > 1e-6: vertex_scores = np.clip(vertex_scores / peak, 0.0, 1.0)
-    return vertex_scores
+    return vertex_scores, len(directions), render_size
 
 
 def _heuristic(vertices: np.ndarray, query: str) -> np.ndarray:
@@ -221,8 +225,8 @@ def semantic_select(input_path: str, query: str) -> dict:
             result = _normalize_provider_result(data, vertices); result["query"] = query; return result
 
     if component_path("clipseg-smart-select") is not None:
-        weights = _multi_view_clipseg(mesh, query); positions, sample_weights = _samples(vertices, weights)
-        return {"method": "local CLIPSeg multi-view semantic segmentation", "query": query, "sample_positions_mm": positions, "sample_weights": sample_weights, "selected_samples": int(sum(1 for w in sample_weights if w >= 0.45)), "ai_provider_available": True, "views": 6}
+        weights, views, render_size = _multi_view_clipseg(mesh, query); positions, sample_weights = _samples(vertices, weights)
+        return {"method": "local CLIPSeg multi-view semantic segmentation", "query": query, "sample_positions_mm": positions, "sample_weights": sample_weights, "selected_samples": int(sum(1 for w in sample_weights if w >= 0.45)), "ai_provider_available": True, "views": views, "render_size": render_size}
 
     weights = _heuristic(vertices, query); positions, sample_weights = _samples(vertices, weights)
     return {"method": "geometry semantic fallback (install CLIPSeg Smart Select for arbitrary semantic parts)", "query": query, "sample_positions_mm": positions, "sample_weights": sample_weights, "selected_samples": int(sum(1 for w in sample_weights if w >= 0.35)), "ai_provider_available": False}
