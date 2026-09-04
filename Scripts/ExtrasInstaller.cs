@@ -35,5 +35,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV096SemanticComponent();
         main.InstallV097QualityPresets();
         main.InstallV098MultiModelAI();
+        main.InstallV099Locations();
     }
 }
