@@ -13,6 +13,34 @@ public partial class Main
         ReplaceV095Button("Repair Selected", async () => await SafeV095RepairSelectedAsync());
     }
 
+    void V095PrepareRiggedDirectMeshEdit(ArrayMesh visibleMesh)
+    {
+        if (_selected == null || _v06RiggedObject != _selected || _v06CurrentRig == null) return;
+
+        bool posed = _v06CurrentRig.Joints.Any(j => j.RotationDeg != null && j.RotationDeg.Length >= 3 &&
+            (Math.Abs(j.RotationDeg[0]) > .0001f || Math.Abs(j.RotationDeg[1]) > .0001f || Math.Abs(j.RotationDeg[2]) > .0001f));
+
+        if (posed || _v06RestMesh == null)
+        {
+            _v06RestMesh = CloneMesh(visibleMesh);
+            foreach (var joint in _v06CurrentRig.Joints) joint.RotationDeg = new float[3];
+            _v06WeightCache.Clear();
+            _v06SelectedJoint = Math.Clamp(_v06SelectedJoint, -1, _v06CurrentRig.Joints.Count - 1);
+            RebuildV06RigVisual();
+            LoadV06JointControls();
+            if (posed) SetStatus("Sculpting a posed rig: the visible pose was safely adopted as the new rest mesh and pose rotations were reset before editing.");
+        }
+    }
+
+    void V095CommitRiggedSculptRest(MeshInstance3D target)
+    {
+        if (_v06RiggedObject != target || target.Mesh is not ArrayMesh current) return;
+        _v06RestMesh = CloneMesh(current);
+        _v06WeightCache.Clear();
+        _v095TopologyRigObject = target;
+        _v095RigTopologySignature = V095TopologySignature(current);
+    }
+
     void V095TopologyChanged(MeshInstance3D target)
     {
         _v08Masks.Remove(target.Name.ToString());
@@ -31,6 +59,8 @@ public partial class Main
                     RebuildV06RigVisual();
                     LoadV06JointControls();
                 }
+                _v095TopologyRigObject = target;
+                _v095RigTopologySignature = V095TopologySignature(current);
             }
             SetStatus("Topology changed: sculpt mask and cached skin weights were invalidated; the existing skeleton was kept and pose rotations were reset against the new mesh.");
         }
