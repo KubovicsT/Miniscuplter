@@ -38,6 +38,14 @@ public sealed class AIClient
     public async Task<string> PredictRigAsync(string inputPath, string outputPath, string mode = "quick", int seed = 0, double branchThreshold = 0.28) => await PostForFileAsync("/rig/predict-skeleton", new { input_path = inputPath, output_path = outputPath, mode, seed, branch_threshold = branchThreshold });
     public async Task<string> SemanticSelectAsync(string inputPath, string query) => await PostJsonTextAsync("/semantic-select", new { input_path = inputPath, query }, true);
 
+    public async Task ApplyQualityConfigAsync(int imageSize, int imageSteps, double imageGuidance, double imageEditStrength, int maxInputPx, int shapeSteps,
+        double remeshVoxelMm, double repairVoxelMm, long maxVoxelCells, int thicknessSamples, int smartSelectViews, int smartSelectRenderSize)
+        => await PostJsonAsync("/geometry/quality-config", new {
+            image_size=imageSize, image_steps=imageSteps, image_guidance=imageGuidance, image_edit_strength=imageEditStrength, max_input_px=maxInputPx,
+            shape_steps=shapeSteps, remesh_voxel_mm=remeshVoxelMm, repair_voxel_mm=repairVoxelMm, max_voxel_cells=maxVoxelCells,
+            thickness_samples=thicknessSamples, smart_select_views=smartSelectViews, smart_select_render_size=smartSelectRenderSize
+        });
+
     async Task<string> PostForFileAsync(string route, object payload)
     {
         var body = await PostJsonTextAsync(route, payload, true);
