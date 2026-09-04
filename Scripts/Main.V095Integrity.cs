@@ -35,6 +35,8 @@ public partial class Main
 
     void V095IntegrityTick()
     {
+        if (_v08MaskPaintMode && !_sculpting) CaptureV08MaskRedoHistory();
+
         if (_v09ThicknessOverlay != null && (_v09ThicknessSource == null || !GodotObject.IsInstanceValid(_v09ThicknessSource)))
         {
             ClearV09ThicknessHeatmap();
