@@ -21,7 +21,8 @@ public partial class Main
         "/s ", "/s+ ", "/s- ", "/clear", "/invert", "/grow", "/shrink", "/smooth",
         "/hide", "/hide selection", "/show", "/isolate", "/isolate selection", "/frame", "/duplicate", "/delete",
         "/remesh ", "/remesh selection", "/analyze", "/thickness ", "/rig quick", "/rig universal",
-        "/pose preview", "/pose reset", "/pose apply", "/savepart", "/edit ", "/help"
+        "/pose preview", "/pose reset", "/pose apply", "/savepart", "/edit ",
+        "/detail2d ", "/detail3d ", "/detail apply", "/detail discard", "/ai routes", "/help"
     };
 
     public void InstallV096CommandPalette()
@@ -135,7 +136,18 @@ public partial class Main
                 case "/pose": V096PoseCommand(arg); break;
                 case "/savepart": V096SavePartCommand(arg); break;
                 case "/edit": await V096EditCommand(arg); break;
-                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /grow [1-10], /shrink [1-10], /smooth [1-10], /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>."); break;
+                case "/detail2d": await V098Detail2DAsync(arg); break;
+                case "/detail3d": await V098Detail3DAsync(arg); break;
+                case "/detail":
+                    if (arg.Equals("apply", StringComparison.OrdinalIgnoreCase)) await V098ApplyDetailAsync();
+                    else if (arg.Equals("discard", StringComparison.OrdinalIgnoreCase)) V098DiscardDetail();
+                    else await V098Detail3DAsync(arg);
+                    break;
+                case "/ai":
+                    if (arg.Equals("routes", StringComparison.OrdinalIgnoreCase)) { await RefreshV098RoutingOnly(); SetStatus(_v098Routing?.Text ?? "AI routing refreshed."); }
+                    else SetStatus("Use /ai routes to inspect automatic model routing.");
+                    break;
+                case "/help": SetStatus("Commands: /s, /s+, /s-, /clear, /invert, /grow [1-10], /shrink [1-10], /smooth [1-10], /hide [selection], /show, /isolate [selection], /frame, /duplicate, /delete, /remesh [mm], /analyze, /thickness [mm], /rig quick|universal, /pose preview|reset|apply, /savepart [name], /edit <prompt>, /detail2d <prompt>, /detail3d <prompt>, /detail apply|discard, /ai routes."); break;
                 default: SetStatus($"Unknown command '{cmd}'. Type /help."); break;
             }
         }
