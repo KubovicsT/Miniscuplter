@@ -5,13 +5,15 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", ROOT / "data")).resolve()
 MODELS_ROOT = DATA_ROOT / "models"
 TOOLS_ROOT = DATA_ROOT / "tools"
+STAGING_ROOT = DATA_ROOT / ".staging"
 STATE_FILE = DATA_ROOT / "components.json"
 
 COMPONENTS: dict[str, dict[str, Any]] = {
@@ -120,11 +122,12 @@ def _git_remote_revision(url: str) -> str:
     return out.split()[0]
 
 
-def _tool_dir(component_id: str) -> Path | None:
+def _tool_dir(component_id: str, tools_root: Path | None = None) -> Path | None:
+    root = tools_root or TOOLS_ROOT
     return {
-        "hunyuan21-shape": TOOLS_ROOT / "Hunyuan3D-2.1",
-        "triposr": TOOLS_ROOT / "TripoSR",
-        "partcrafter": TOOLS_ROOT / "PartCrafter",
+        "hunyuan21-shape": root / "Hunyuan3D-2.1",
+        "triposr": root / "TripoSR",
+        "partcrafter": root / "PartCrafter",
     }.get(component_id)
 
 
@@ -146,15 +149,16 @@ def _directory_has_files(path: Path) -> bool:
     except OSError: return False
 
 
-def _component_files_valid(component_id: str, path: Path) -> bool:
+def _component_files_valid(component_id: str, path: Path, tools_root: Path | None = None) -> bool:
     """Reject stale state entries and visibly incomplete managed installations."""
+    tools = tools_root or TOOLS_ROOT
     if not path.exists(): return False
     if component_id in {"sd21", "sdxl-base", "flux2-klein-4b"}:
         return (path / "model_index.json").is_file() and _directory_has_files(path)
     if component_id == "hunyuan21-shape":
-        return _directory_has_files(path / "hunyuan3d-dit-v2-1") and _directory_has_files(path / "hunyuan3d-vae-v2-1") and _directory_has_files(TOOLS_ROOT / "Hunyuan3D-2.1")
+        return _directory_has_files(path / "hunyuan3d-dit-v2-1") and _directory_has_files(path / "hunyuan3d-vae-v2-1") and _directory_has_files(tools / "Hunyuan3D-2.1")
     if component_id == "triposr":
-        return (path / "model.ckpt").is_file() and (path / "config.yaml").is_file() and _directory_has_files(TOOLS_ROOT / "TripoSR")
+        return (path / "model.ckpt").is_file() and (path / "config.yaml").is_file() and _directory_has_files(tools / "TripoSR")
     if component_id == "partcrafter":
         return (_directory_has_files(path / "pretrained_weights" / "PartCrafter") and
                 _directory_has_files(path / "pretrained_weights" / "RMBG-1.4") and
@@ -199,16 +203,11 @@ def status(check_updates: bool = False) -> dict[str, Any]:
     return {"hardware": hardware_info(), "components": result, "data_root": str(DATA_ROOT), "disk": _disk_info()}
 
 
-def _clone_or_update(url: str, target: Path, update: bool) -> None:
+def _clone_fresh(url: str, target: Path) -> None:
     git = shutil.which("git")
     if not git: raise RuntimeError("Git is required to install this component")
-    if not target.exists():
-        _run([git, "clone", "--depth", "1", url, str(target)])
-        return
-    if not update: return
-    if not (target / ".git").exists(): raise RuntimeError(f"Managed tool directory is not a Git checkout: {target}")
-    _run([git, "fetch", "--depth", "1", "origin", "HEAD"], cwd=target)
-    _run([git, "reset", "--hard", "FETCH_HEAD"], cwd=target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _run([git, "clone", "--depth", "1", url, str(target)])
 
 
 def _pip_install(packages: list[str], extra_args: list[str] | None = None) -> None:
@@ -239,22 +238,14 @@ def _install_hunyuan_dependencies(code_dir: Path) -> None:
     # requirements file because it pins older Diffusers/Transformers versions and includes
     # paint/training/render packages unrelated to shape inference. The core runtime already
     # supplies torch, diffusers, transformers, accelerate, trimesh, numpy, Pillow and rembg.
-    _pip_install([
-        "PyYAML>=6.0",
-        "tqdm>=4.66",
-    ])
-    _verify_tool_import(
-        code_dir,
-        "from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline",
-        "Hunyuan3D 2.1 Shape",
-        code_dir / "hy3dshape",
-    )
+    _pip_install(["PyYAML>=6.0", "tqdm>=4.66"])
+    _verify_tool_import(code_dir, "from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline", "Hunyuan3D 2.1 Shape", code_dir / "hy3dshape")
 
 
 def _install_triposr_dependencies(code_dir: Path) -> None:
-    # TripoSR's upstream requirements pin old shared packages (for example Transformers 4.35)
-    # that conflict with the modern SDXL/FLUX backend. Install only its inference-only extras;
-    # the compatible newer shared dependencies are supplied by Miniscuplter's core runtime.
+    # TripoSR's upstream requirements pin old shared packages that conflict with the modern
+    # SDXL/FLUX backend. Install only its inference-only extras; compatible shared dependencies
+    # are supplied by Miniscuplter's core runtime.
     _pip_install([
         "git+https://github.com/tatsy/torchmcubes.git",
         "imageio[ffmpeg]",
@@ -266,8 +257,7 @@ def _install_triposr_dependencies(code_dir: Path) -> None:
 
 def _install_partcrafter_dependencies(code_dir: Path) -> None:
     # The official setup script also installs training/monitoring/VLM packages and Linux EGL
-    # system libraries. Miniscuplter uses only local inference without rendering or VLM calls,
-    # so install the actual inference dependencies while preserving the shared AI runtime.
+    # system libraries. Miniscuplter uses local part inference without rendering/VLM calls.
     _pip_install([
         "numpy==1.26.4",
         "scikit-learn",
@@ -290,57 +280,121 @@ def _download_hf(snapshot_download, repo_id: str, target: Path, revision: str, a
     snapshot_download(**kwargs)
 
 
+def _swap_staged(replacements: list[tuple[Path, Path]], finalize: Callable[[], None]) -> None:
+    """Swap validated staged directories into the live store and roll back on any failure."""
+    backup_root = STAGING_ROOT / ("backup-" + uuid.uuid4().hex)
+    backup_root.mkdir(parents=True, exist_ok=True)
+    moved: list[tuple[Path, Path | None]] = []
+    try:
+        for index, (staged, final) in enumerate(replacements):
+            if not staged.exists(): raise RuntimeError(f"Validated staging directory disappeared before commit: {staged}")
+            final.parent.mkdir(parents=True, exist_ok=True)
+            backup: Path | None = None
+            if final.exists():
+                backup = backup_root / f"old-{index:02d}"
+                final.rename(backup)
+            staged.rename(final)
+            moved.append((final, backup))
+        finalize()
+    except Exception:
+        for final, backup in reversed(moved):
+            try:
+                if final.exists(): shutil.rmtree(final)
+                if backup is not None and backup.exists(): backup.rename(final)
+            except Exception:
+                pass
+        raise
+    finally:
+        if all(not p.exists() for p, _ in moved) is False:
+            # Live directories are expected to exist here; backup cleanup happens below only
+            # after finalize completed without raising.
+            pass
+    shutil.rmtree(backup_root, ignore_errors=True)
+
+
 def install_component(component_id: str, update: bool = False) -> dict[str, Any]:
     if component_id not in COMPONENTS: raise ValueError(f"Unknown AI component: {component_id}")
-    spec = COMPONENTS[component_id]; MODELS_ROOT.mkdir(parents=True, exist_ok=True); TOOLS_ROOT.mkdir(parents=True, exist_ok=True)
-    disk = _disk_info(); required = (1.0 if update else float(spec.get("estimated_gb", 0)) * 1.25 + 1.0)
+    spec = COMPONENTS[component_id]
+    MODELS_ROOT.mkdir(parents=True, exist_ok=True); TOOLS_ROOT.mkdir(parents=True, exist_ok=True); STAGING_ROOT.mkdir(parents=True, exist_ok=True)
+    # Transactional staging keeps the existing installation intact until the replacement is
+    # complete, so an update temporarily needs enough room for another copy of the component.
+    required = float(spec.get("estimated_gb", 0)) * 1.25 + 1.0
+    disk = _disk_info()
     if disk["free_gb"] < required:
-        raise RuntimeError(f"Not enough free disk space for {spec['name']}. About {required:.1f} GB free is recommended; only {disk['free_gb']:.1f} GB is available.")
+        raise RuntimeError(f"Not enough free disk space for a safe {'update' if update else 'installation'} of {spec['name']}. About {required:.1f} GB free is recommended for transactional staging; only {disk['free_gb']:.1f} GB is available.")
     try: from huggingface_hub import snapshot_download
     except Exception as exc: raise RuntimeError("huggingface_hub is required. Use Miniscuplter Launcher -> Repair AI Runtime.") from exc
 
+    stage_root = STAGING_ROOT / f"{component_id}-{uuid.uuid4().hex}"
+    stage_models = stage_root / "models"
+    stage_tools = stage_root / "tools"
+    stage_models.mkdir(parents=True); stage_tools.mkdir(parents=True)
+    replacements: list[tuple[Path, Path]] = []
+    final_target: Path
+    staged_target: Path
     hf_revision = _hf_revision(spec["repo_id"]) if spec.get("repo_id") else None
-    if component_id == "sd21":
-        target = MODELS_ROOT / "stable-diffusion-2-1-base"
-        _download_hf(snapshot_download, spec["repo_id"], target, hf_revision)
-    elif component_id == "sdxl-base":
-        target = MODELS_ROOT / "stable-diffusion-xl-base-1.0"
-        _download_hf(snapshot_download, spec["repo_id"], target, hf_revision,
-            ["model_index.json", "scheduler/**", "text_encoder/**", "text_encoder_2/**", "tokenizer/**", "tokenizer_2/**", "unet/**", "vae/**", "*.safetensors", "LICENSE*", "README.md"])
-    elif component_id == "flux2-klein-4b":
-        target = MODELS_ROOT / "FLUX.2-klein-4B"
-        _download_hf(snapshot_download, spec["repo_id"], target, hf_revision)
-    elif component_id == "hunyuan21-shape":
-        code_dir = TOOLS_ROOT / "Hunyuan3D-2.1"; _clone_or_update(spec["code_url"], code_dir, update); _install_hunyuan_dependencies(code_dir)
-        target = MODELS_ROOT / "Hunyuan3D-2.1"
-        _download_hf(snapshot_download, spec["repo_id"], target, hf_revision,
-            ["hunyuan3d-dit-v2-1/**", "hunyuan3d-vae-v2-1/**", "README.md", "LICENSE", "Notice.txt"])
-    elif component_id == "triposr":
-        code_dir = TOOLS_ROOT / "TripoSR"; _clone_or_update(spec["code_url"], code_dir, update); _install_triposr_dependencies(code_dir)
-        target = MODELS_ROOT / "TripoSR"
-        _download_hf(snapshot_download, spec["repo_id"], target, hf_revision, ["config.yaml", "model.ckpt", "README.md", "LICENSE*"])
-    elif component_id == "partcrafter":
-        code_dir = TOOLS_ROOT / "PartCrafter"; _clone_or_update(spec["code_url"], code_dir, update); _install_partcrafter_dependencies(code_dir)
-        target = code_dir
-        _download_hf(snapshot_download, spec["repo_id"], code_dir / "pretrained_weights" / "PartCrafter", hf_revision)
-        rmbg_revision = _hf_revision("briaai/RMBG-1.4")
-        _download_hf(snapshot_download, "briaai/RMBG-1.4", code_dir / "pretrained_weights" / "RMBG-1.4", rmbg_revision)
-    elif component_id == "clipseg-smart-select":
-        target = MODELS_ROOT / "clipseg-rd64-refined"
-        _download_hf(snapshot_download, spec["repo_id"], target, hf_revision,
-            ["config.json", "preprocessor_config.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "model.safetensors", "README.md"])
-    else:
-        raise RuntimeError(f"No installer implemented for {component_id}")
+    tool_revision: str | None = None
 
-    if not _component_files_valid(component_id, target):
-        raise RuntimeError(f"{spec['name']} download completed but required runtime files are missing. The component was not marked installed.")
+    try:
+        if component_id == "sd21":
+            staged_target = stage_models / "stable-diffusion-2-1-base"; final_target = MODELS_ROOT / "stable-diffusion-2-1-base"
+            _download_hf(snapshot_download, spec["repo_id"], staged_target, hf_revision)
+            replacements.append((staged_target, final_target))
+        elif component_id == "sdxl-base":
+            staged_target = stage_models / "stable-diffusion-xl-base-1.0"; final_target = MODELS_ROOT / "stable-diffusion-xl-base-1.0"
+            _download_hf(snapshot_download, spec["repo_id"], staged_target, hf_revision,
+                ["model_index.json", "scheduler/**", "text_encoder/**", "text_encoder_2/**", "tokenizer/**", "tokenizer_2/**", "unet/**", "vae/**", "*.safetensors", "LICENSE*", "README.md"])
+            replacements.append((staged_target, final_target))
+        elif component_id == "flux2-klein-4b":
+            staged_target = stage_models / "FLUX.2-klein-4B"; final_target = MODELS_ROOT / "FLUX.2-klein-4B"
+            _download_hf(snapshot_download, spec["repo_id"], staged_target, hf_revision)
+            replacements.append((staged_target, final_target))
+        elif component_id == "hunyuan21-shape":
+            stage_code = stage_tools / "Hunyuan3D-2.1"; final_code = TOOLS_ROOT / "Hunyuan3D-2.1"
+            _clone_fresh(spec["code_url"], stage_code); _install_hunyuan_dependencies(stage_code)
+            staged_target = stage_models / "Hunyuan3D-2.1"; final_target = MODELS_ROOT / "Hunyuan3D-2.1"
+            _download_hf(snapshot_download, spec["repo_id"], staged_target, hf_revision,
+                ["hunyuan3d-dit-v2-1/**", "hunyuan3d-vae-v2-1/**", "README.md", "LICENSE", "Notice.txt"])
+            tool_revision = _git_local_revision(stage_code)
+            replacements.extend([(stage_code, final_code), (staged_target, final_target)])
+        elif component_id == "triposr":
+            stage_code = stage_tools / "TripoSR"; final_code = TOOLS_ROOT / "TripoSR"
+            _clone_fresh(spec["code_url"], stage_code); _install_triposr_dependencies(stage_code)
+            staged_target = stage_models / "TripoSR"; final_target = MODELS_ROOT / "TripoSR"
+            _download_hf(snapshot_download, spec["repo_id"], staged_target, hf_revision, ["config.yaml", "model.ckpt", "README.md", "LICENSE*"])
+            tool_revision = _git_local_revision(stage_code)
+            replacements.extend([(stage_code, final_code), (staged_target, final_target)])
+        elif component_id == "partcrafter":
+            staged_target = stage_tools / "PartCrafter"; final_target = TOOLS_ROOT / "PartCrafter"
+            _clone_fresh(spec["code_url"], staged_target); _install_partcrafter_dependencies(staged_target)
+            _download_hf(snapshot_download, spec["repo_id"], staged_target / "pretrained_weights" / "PartCrafter", hf_revision)
+            rmbg_revision = _hf_revision("briaai/RMBG-1.4")
+            _download_hf(snapshot_download, "briaai/RMBG-1.4", staged_target / "pretrained_weights" / "RMBG-1.4", rmbg_revision)
+            tool_revision = _git_local_revision(staged_target)
+            replacements.append((staged_target, final_target))
+        elif component_id == "clipseg-smart-select":
+            staged_target = stage_models / "clipseg-rd64-refined"; final_target = MODELS_ROOT / "clipseg-rd64-refined"
+            _download_hf(snapshot_download, spec["repo_id"], staged_target, hf_revision,
+                ["config.json", "preprocessor_config.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "model.safetensors", "README.md"])
+            replacements.append((staged_target, final_target))
+        else:
+            raise RuntimeError(f"No installer implemented for {component_id}")
 
-    tool_path = _tool_dir(component_id); tool_revision = _git_local_revision(tool_path) if tool_path else None
-    state = load_state(); state.setdefault("installed", {})[component_id] = {
-        "installed": True, "path": str(target), "hf_revision": hf_revision, "tool_revision": tool_revision
-    }
-    state.setdefault("settings", {})["profile"] = hardware_info()["recommended_profile"]; save_state(state)
-    return {"id": component_id, "installed": True, "path": str(target), "installed_revision": _combined_revision(hf_revision, tool_revision), "hardware": hardware_info()}
+        if not _component_files_valid(component_id, staged_target, stage_tools):
+            raise RuntimeError(f"{spec['name']} staging completed but required runtime files are missing. The live component was not changed.")
+
+        def finalize_state() -> None:
+            state = load_state()
+            state.setdefault("installed", {})[component_id] = {
+                "installed": True, "path": str(final_target), "hf_revision": hf_revision, "tool_revision": tool_revision
+            }
+            state.setdefault("settings", {})["profile"] = hardware_info()["recommended_profile"]
+            save_state(state)
+
+        _swap_staged(replacements, finalize_state)
+        return {"id": component_id, "installed": True, "path": str(final_target), "installed_revision": _combined_revision(hf_revision, tool_revision), "hardware": hardware_info()}
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
 
 
 def update_component(component_id: str) -> dict[str, Any]:
