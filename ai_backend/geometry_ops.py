@@ -73,7 +73,7 @@ def _feature_size_heuristic(mesh: trimesh.Trimesh, threshold_mm: float) -> dict:
     minimum = float(np.min(positive)) if len(positive) else None
     flagged = int(np.count_nonzero((alt > 0) & (alt < threshold_mm)))
     return {"threshold_mm": float(threshold_mm), "flagged_triangles": flagged, "sampled_triangles": int(len(tri)), "minimum_altitude_mm": minimum,
-            "meaning": "triangle-altitude feature-size heuristic; this is not a true wall-thickness measurement"}
+            "meaning": "triangle-altitude feature-size heuristic; this is not a true wall-thickness measurement and is advisory only"}
 
 
 def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
@@ -106,7 +106,7 @@ def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12
     mesh = _load_mesh(input_path)
     if not math.isfinite(target_mm) or target_mm <= 0:
         raise ValueError("target_mm must be greater than zero")
-    max_samples = max(100, min(int(max_samples), 50000))
+    max_samples = max(100, min(int(max_samples), 100000))
     vertices = np.asarray(mesh.vertices, dtype=float)
     normals = np.asarray(mesh.vertex_normals, dtype=float)
     count = len(vertices)
@@ -166,7 +166,10 @@ def analyze_mesh(input_path: str, feature_threshold_mm: float = 0.6) -> dict:
               "volume_mm3": float(abs(mesh.volume)) if mesh.is_watertight and math.isfinite(float(mesh.volume)) else None,
               "surface_area_mm2": float(mesh.area) if math.isfinite(float(mesh.area)) else None,
               "feature_size": _feature_size_heuristic(mesh, feature_threshold_mm), "self_intersection": _self_intersection_heuristic(mesh)}
-    result["structurally_printable"] = bool(result["watertight"] and result["winding_consistent"] and result["open_edges"] == 0 and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0)
+    structurally_valid = bool(result["watertight"] and result["winding_consistent"] and result["open_edges"] == 0 and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0)
+    result["structurally_valid"] = structurally_valid
+    # Compatibility alias for project/backend clients from pre-v1.0 builds. It is not used as a printability requirement in v1.0.
+    result["structurally_printable"] = structurally_valid
     return result
 
 
@@ -179,7 +182,7 @@ def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float
     cells = estimate_voxel_cells(combined, float(voxel_size))
     if cells > MAX_VOXEL_CELLS:
         recommended = max(float(combined.extents.max()) / 450.0, voxel_size)
-        raise MemoryError(f"Requested voxel grid is approximately {cells:,} cells, above the safety limit of {MAX_VOXEL_CELLS:,}. Increase voxel size (try about {recommended:.2f} mm or larger), reduce model size, or raise MINISCULPTER_MAX_VOXEL_CELLS if the machine has enough RAM.")
+        raise MemoryError(f"Requested voxel grid is approximately {cells:,} cells, above the safety limit of {MAX_VOXEL_CELLS:,}. Increase voxel size (try about {recommended:.2f} mm or larger), reduce model size, or raise the configured voxel safety budget if the machine has enough RAM.")
     grid = combined.voxelized(pitch=float(voxel_size)).fill()
     if grid.shape is None or any(int(v) <= 0 for v in grid.shape): raise RuntimeError("Voxelization produced an invalid occupancy grid")
     result = grid.marching_cubes
