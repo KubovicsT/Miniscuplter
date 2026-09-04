@@ -1,132 +1,188 @@
-# Miniscuplter v0.2
+# Miniscuplter v1.0
 
-> **Isolation:** v0.1 remains on the `main` branch. This version lives on the separate `v0.2` branch so both builds can be tested independently.
+Miniscuplter is a Windows desktop application for AI-assisted 3D model creation, kitbashing, posing, sculpting, local detail refinement, model validation, repair, and STL export.
 
-Miniscuplter is an experimental single-application workflow for AI-assisted miniature sculpting and STL preparation.
+The v1.0 product goal is deliberately narrower than a slicer: Miniscuplter produces the finished 3D model. It does **not** generate print supports, slice models, manage printer profiles, optimize exposure settings, or export printer toolpaths. A finished STL may be used for 3D printing, rendering, archival, another modeling package, or any other geometry workflow.
 
-## What v0.2 adds
+## v1.0 workflow
 
-v0.2 keeps every v0.1 editor feature and adds a managed local-AI layer:
+Typical workflow:
 
-- Hardware detection through NVIDIA `nvidia-smi`
-- GTX 1080 / 8 GB-class GPUs automatically receive the `low-vram` profile
-- In-app **AI Components** panel
-- Install/remove/status controls for local AI components
-- Official-provider model downloads rather than committing model weights into this repository
-- Built-in local Stable Diffusion 2.1 concept generation
-- Built-in local 2D viewport-edit generation
-- Built-in Hunyuan3D 2.1 Shape adapter for approved-image -> 3D generation
-- 2D models are unloaded before Hunyuan loads on constrained GPUs
-- Manual Automatic1111/Forge and custom 3D command adapters remain as fallbacks
-- v0.2-specific CI checks both C# compilation and Python backend syntax
+1. Start from an imported STL, starter mesh, saved `.msculpt` project, user image, AI concept, or reusable part.
+2. Build the scene non-destructively with separate objects, sockets, attachments, and reusable library parts.
+3. Optionally create or edit a rig and pose the model.
+4. Sculpt with the advanced brush set and masks.
+5. Use Smart Select to identify semantic regions and route selected areas to local AI refinement.
+6. Inspect structural model integrity and optional thickness information.
+7. Repair or finalize/union geometry only when required.
+8. Export the finished model as a validated STL.
 
-## Existing editor workflow inherited from v0.1
+A valid single mesh does not have to be voxel-remeshed before export. Avoiding unnecessary final remeshing preserves the source mesh's original detail.
 
-- Desktop 3D viewport with orbit, pan, zoom and framing
-- Multiple mesh objects for non-destructive kitbashing
-- STL import and binary STL export
-- Sculpt brushes: Draw, Smooth, Inflate, Grab, Crease and Flatten
-- Undo/redo for sculpt operations
-- Object duplicate/delete, move, rotate, scale and transform baking
-- Project save/load
-- View capture for AI editing
-- Rectangular selected-region mask creation
-- Capture -> 2D AI edit -> approved image -> 3D part workflow
-- In-app 2D result preview
-- AI-generated parts are added as separate scene objects first
-- Internet reference search from the AI panel
-- Basic print-prep mesh statistics and build-plane placement
+## Major systems
 
-## AI model sources
+### Core editor
 
-The installer/model manager downloads weights only when you choose to install them.
+- Persistent 3D viewport and multi-object scene
+- STL import/export
+- Object transform, duplicate, delete, framing, and transform baking
+- Undo/redo for destructive mesh operations
+- `.msculpt` project save/load with transactional validation and recovery safeguards
+- Configurable project, reusable model-library, and STL-export locations
 
-### 2D AI
+### Sculpting
 
-Default model:
+Brushes include Draw, Smooth, Inflate, Grab, Crease, Flatten, Pinch, Scrape, Clay, and SnakeHook, with falloff, symmetry, masks, cursor feedback, and optional voxel remeshing.
 
-`stabilityai/stable-diffusion-2-1-base`
+### Rigging and posing
 
-Source: Hugging Face / Stability AI model repository.
+- Quick rig generation
+- Optional universal external rig provider
+- Editable skeleton visualization
+- Pose preview/reset/apply
+- Approximate CPU skinning
+- IK support
+- Rig-aware project persistence and topology invalidation
 
-Used for:
+### Parts, sockets, and kitbashing
 
-- concept images
-- viewport image refinement
-- selected-region design changes
+- Reusable parts library
+- Categories and attachment sockets
+- Mount points, normals, roll, offsets, rotation, and scale
+- Portable library metadata in saved projects
+- User-configurable library location
 
-### 3D AI
+### Smart Select and command palette
 
-Default model:
+Press **Space** to open the command palette. Smart Select can combine metadata/rig evidence, local CLIPSeg multi-view semantic segmentation, and geometry fallback selection.
 
-`tencent/Hunyuan3D-2.1`
+Important commands include:
 
-Code source:
+- `/s <region>`, `/s+ <region>`, `/s- <region>`
+- `/grow`, `/shrink`, `/smooth`, `/invert`, `/clear`
+- `/hide`, `/show`, `/isolate`, `/frame`
+- `/remesh [0.04-5 mm]`
+- `/analyze`, `/thickness [target]`
+- `/rig quick`, `/rig universal`
+- `/pose preview|reset|apply`
+- `/edit <prompt>`
+- `/detail2d <prompt>`, `/detail3d <prompt>`
+- `/detail apply`, `/detail discard`
+- `/ai routes`
 
-`https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1`
+### Multi-model local AI
 
-Only the **shape** model is targeted. The texture/PBR model is intentionally not installed by default because Miniscuplter's primary output is geometry/STL.
+The AI router uses specialist models rather than assuming one model should do every job. Models are installed independently and loaded sequentially so they do not all remain resident in VRAM.
 
-Tencent documents roughly 10 GB VRAM for Hunyuan3D 2.1 shape generation. An 8 GB GTX 1080 is therefore treated as a low-VRAM/offload system and should be expected to run substantially more slowly than the reference hardware.
+Supported managed components:
 
-## Source test setup
+- Stable Diffusion 2.1 — legacy 2D fallback
+- Stable Diffusion XL Base 1.0 — primary modern 2D generation/editing route for 8 GB-class hardware
+- FLUX.2 Klein 4B — optional heavier 2D specialist
+- TripoSR — fast/rough image-to-3D route
+- Hunyuan3D 2.1 Shape — quality whole-object and selected-detail 3D route
+- PartCrafter — structured multi-part generation
+- CLIPSeg — semantic Smart Select
 
-Requirements:
+The recommended stack for an 8 GB NVIDIA GPU is SDXL + TripoSR + Hunyuan3D Shape + CLIPSeg. The launcher recommendation is advisory; users may install or select any supported specialist.
 
-- Windows 10/11 64-bit
-- Godot Engine 4.7.2 .NET edition
-- .NET 8 SDK
-- Python 3.10 x64
-- Git
-- NVIDIA driver for local CUDA generation
+### Local detail refinement
 
-Steps:
+2D detail refinement crops the selected region with context, spends the configured model resolution on that crop, and composites it back through the selection mask.
 
-1. Clone the repository.
-2. Checkout the v0.2 branch:
+3D detail refinement creates an isolated selected-region reference, reconstructs a detail patch, aligns it to the selected 3D bounds, and imports it as a non-destructive preview. Applying the patch uses a transactional watertight volumetric union; the source mesh is not replaced until the operation succeeds, and Undo remains available.
 
-   `git checkout v0.2`
+### Quality presets
 
-3. Run `setup_ai_backend.bat` once.
-4. Open `project.godot` with Godot 4.7.2 .NET.
-5. Press F5.
-6. Open the AI panel and locate **AI Components — v0.2**.
-7. Verify that your GPU and VRAM are detected correctly.
-8. Install the 2D AI component first.
-9. Test concept generation and selected-region editing.
-10. Install the 3D AI component and test approved-image -> 3D generation.
+Built-in Low, Medium, High, and Ultra presets plus unlimited custom presets configure:
 
-Model downloads are stored under `ai_backend/data/` and are intentionally excluded from source control.
+- 2D image resolution, inference steps, guidance, and edit strength
+- maximum input-image dimension
+- Hunyuan shape steps
+- sculpt/remesh voxel pitch
+- repair/finalization voxel pitch
+- voxel safety budget
+- thickness sample budget
+- Smart Select view count and render resolution
 
-## Important v0.2 testing caveat
+Hardware detection recommends a starting preset, but never prevents the user from selecting another preset. Explicit user choice persists.
 
-Hunyuan3D 2.1 has a large official dependency stack and its reference environment is significantly more powerful than a GTX 1080. v0.2 deliberately keeps its integration behind an adapter instead of merging Tencent's entire environment into the Miniscuplter backend. The first hardware test is expected to tell us which shape-only dependencies and memory settings are actually required on this machine.
+### Model validation and finalization
 
-That is specifically why v0.1 is being kept intact during this phase.
+Structural validation reports:
 
-## Recommended first test order
+- watertightness
+- winding consistency
+- open edges
+- non-manifold edges
+- connected shells
+- degenerate faces
+- bounds, surface area, and volume when closed
 
-1. Application startup
-2. Viewport navigation
-3. STL import/export
-4. Sculpt brushes
-5. Save/load
-6. Internet reference search
-7. AI backend status
-8. GPU/VRAM detection
-9. Install 2D AI
-10. Generate concept
-11. Capture model view
-12. Select AI edit region
-13. Generate 2D edit
-14. Approve/regenerate result
-15. Install Hunyuan3D Shape
-16. Generate 3D part
-17. Position/sculpt the returned part
+Feature-size and self-intersection results are explicitly advisory heuristics. Optional thickness analysis is application-agnostic and is not a hard printability rule.
 
-When reporting an issue, include the exact action, expected behavior, actual behavior, and any Godot console or Python backend error text.
+Repair/finalization uses filled voxel reconstruction and can soften details smaller than the selected pitch. It is therefore opt-in rather than mandatory.
 
-## Branches
+## Launcher and installation management
 
-- `main` — frozen v0.1 test version
-- `v0.2` — managed local-AI test version
+`Miniscuplter.Launcher.exe` is the normal application entry point.
+
+The launcher provides:
+
+- native CPU/RAM/GPU/VRAM hardware detection
+- hardware-based starting recommendation
+- installed/missing AI model status
+- explicit model installation and removal
+- upstream model revision checks
+- warnings when model updates are available
+- user-approved model updates only; model updates are never automatic
+- application update checks through GitHub Releases
+- user-approved staged application updates
+- AI-runtime repair
+- application launch
+
+The Windows installer lets the user select the installation location. The chosen folder contains the application, AI runtime, and AI model store and must remain writable by the normal Windows user so the launcher can manage models and updates.
+
+Default install location:
+
+`%LOCALAPPDATA%\Programs\Miniscuplter`
+
+Projects, the reusable model library, and STL exports have independent locations configured inside Miniscuplter and can live on other drives.
+
+## Release/update layout
+
+Typical installed layout:
+
+```text
+Miniscuplter/
+├── Miniscuplter.Launcher.exe
+├── Miniscuplter.Updater.exe
+├── launcher.settings.json
+├── App/
+│   ├── Miniscuplter.exe
+│   └── ai_backend/
+│       └── .venv/
+└── AIData/
+    ├── models/
+    ├── tools/
+    └── components.json
+```
+
+Application updates preserve the managed AI data and user data. Model updates are tracked independently by their Hugging Face revision and, where relevant, companion Git inference-code revision.
+
+## Source/build requirements
+
+Development/runtime components currently target:
+
+- Windows 10/11 x64
+- Godot 4.7.2 .NET
+- .NET 8
+- Python 3.10 x64 for the local AI backend
+- Git for AI components that use companion source repositories
+- NVIDIA CUDA GPU recommended for local AI inference
+
+`build_release.ps1` publishes the self-contained launcher and updater, copies the backend source, optionally exports the Godot Windows application, and creates `Miniscuplter-win-x64.zip`. The Inno Setup definition under `installer/` builds the Windows installer.
+
+## v1.0 validation boundary
+
+The v1.0 branch is intended as the first code-stabilized release candidate. CI verifies C# compilation, Python syntax, release invariants, update-package layout, and installer compilation. GPU inference quality, driver/CUDA behavior, real model download/install behavior, UI interaction, and performance still require runtime testing on target hardware before a public release is declared production-ready.
