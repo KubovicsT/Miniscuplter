@@ -25,6 +25,11 @@ COMPONENTS: dict[str, dict[str, Any]] = {
         "repo_id": "tencent/Hunyuan3D-2.1", "code_url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git",
         "description": "Official Tencent image-to-shape model. Texture generation is intentionally omitted for miniature/STL use.", "estimated_gb": 10.0,
     },
+    "clipseg-smart-select": {
+        "name": "CLIPSeg Smart Select", "kind": "segmentation", "source": "huggingface",
+        "repo_id": "CIDAS/clipseg-rd64-refined",
+        "description": "Local text-guided semantic segmentation used by Smart Select on multi-view renders.", "estimated_gb": 0.7,
+    },
 }
 
 
@@ -92,7 +97,7 @@ def install_component(component_id: str) -> dict[str, Any]:
     try:
         from huggingface_hub import snapshot_download
     except Exception as exc:
-        raise RuntimeError("huggingface_hub is required. Run setup_ai_backend.bat again for v0.5.5 dependencies.") from exc
+        raise RuntimeError("huggingface_hub is required. Run setup_ai_backend.bat again for the current backend dependencies.") from exc
 
     if component_id == "sd21":
         target = MODELS_ROOT / "stable-diffusion-2-1-base"
@@ -107,6 +112,12 @@ def install_component(component_id: str) -> dict[str, Any]:
         snapshot_download(
             repo_id=spec["repo_id"], local_dir=target, local_dir_use_symlinks=False, resume_download=True,
             allow_patterns=["hunyuan3d-dit-v2-1/**", "hunyuan3d-vae-v2-1/**", "README.md", "LICENSE", "Notice.txt"],
+        )
+    elif component_id == "clipseg-smart-select":
+        target = MODELS_ROOT / "clipseg-rd64-refined"
+        snapshot_download(
+            repo_id=spec["repo_id"], local_dir=target, local_dir_use_symlinks=False, resume_download=True,
+            allow_patterns=["config.json", "preprocessor_config.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "model.safetensors", "README.md"],
         )
     else:
         raise RuntimeError(f"No installer implemented for {component_id}")
