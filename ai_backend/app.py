@@ -13,8 +13,9 @@ from pydantic import BaseModel
 from model_manager import install_component, uninstall_component, status as component_status, component_path
 from geometry_api import router as geometry_router
 from rig_api import router as rig_router
+from semantic_select import semantic_select, SMART_SELECT_COMMAND
 
-app = FastAPI(title="Miniscuplter AI Backend", version="0.9.5")
+app = FastAPI(title="Miniscuplter AI Backend", version="0.9.6")
 app.include_router(geometry_router)
 app.include_router(rig_router)
 
@@ -57,17 +58,23 @@ class ComponentRequest(BaseModel):
     id: str
 
 
+class SemanticSelectRequest(BaseModel):
+    input_path: str
+    query: str
+
+
 @app.get("/health")
 def health():
     local_image = component_path("sd21") is not None
     local_3d = component_path("hunyuan21-shape") is not None
     return {
         "ok": True,
-        "version": "0.9.5",
+        "version": "0.9.6",
         "image_provider": "local-sd21" if local_image else ("automatic1111" if SD_WEBUI_URL else "not-configured"),
         "three_d_provider": "hunyuan3d-2.1" if local_3d else ("command" if THREED_COMMAND else "not-configured"),
-        "geometry_provider": "trimesh-voxel + print-analysis",
+        "geometry_provider": "trimesh-voxel + model-analysis",
         "rig_provider": "adaptive-quick + optional-universal-command",
+        "smart_select_provider": "ai-command" if SMART_SELECT_COMMAND else "geometry-semantic-fallback",
         "internet": True,
         "components": component_status(),
     }
@@ -107,6 +114,14 @@ def release_models():
     except Exception:
         pass
     return {"ok": True}
+
+
+@app.post("/semantic-select")
+def semantic_select_endpoint(req: SemanticSelectRequest):
+    try:
+        return semantic_select(req.input_path, req.query)
+    except Exception as exc:
+        raise HTTPException(502, f"Smart Select provider failed: {exc}") from exc
 
 
 def _write_b64_image(data: str, output_path: str) -> str:
