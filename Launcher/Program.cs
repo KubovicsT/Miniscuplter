@@ -9,6 +9,7 @@ internal static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new LauncherForm());
+        var form = new LauncherForm { Text = "Miniscuplter Launcher v1.0" };
+        Application.Run(form);
     }
 }
