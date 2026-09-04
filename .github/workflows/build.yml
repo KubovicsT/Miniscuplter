@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9, v1.0 ]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -100,3 +101,75 @@ jobs:
           if (-not $iscc) { throw 'ISCC.exe not found after Inno Setup installation.' }
           & $iscc installer/Miniscuplter.iss
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
+
+  full-windows-release:
+    if: github.ref_name == 'v1.0' && github.event_name != 'pull_request'
+    needs: [dotnet, python-syntax, packaging]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Download and verify Godot 4.7.2 .NET and export templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $godotUrl = 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip'
+          $templatesUrl = 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_export_templates.tpz'
+          $godotSha = 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0'
+          $templatesSha = '92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d'
+          New-Item '.ci/godot' -ItemType Directory -Force | Out-Null
+          Invoke-WebRequest $godotUrl -OutFile '.ci/godot.zip'
+          Invoke-WebRequest $templatesUrl -OutFile '.ci/templates.tpz'
+          if ((Get-FileHash '.ci/godot.zip' -Algorithm SHA256).Hash.ToLowerInvariant() -ne $godotSha) { throw 'Godot editor SHA-256 mismatch.' }
+          if ((Get-FileHash '.ci/templates.tpz' -Algorithm SHA256).Hash.ToLowerInvariant() -ne $templatesSha) { throw 'Godot export-template SHA-256 mismatch.' }
+          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force
+          $templateExtract = '.ci/template-extract'
+          Expand-Archive '.ci/templates.tpz' $templateExtract -Force
+          $templateHome = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
+          New-Item $templateHome -ItemType Directory -Force | Out-Null
+          Copy-Item (Join-Path $templateExtract 'templates\*') $templateHome -Recurse -Force
+          $godotExe = Get-ChildItem '.ci/godot' -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse | Select-Object -First 1
+          if (-not $godotExe) { throw 'Godot .NET executable not found after extraction.' }
+          "GODOT_EXE=$($godotExe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify Godot and templates
+        shell: pwsh
+        run: |
+          & $env:GODOT_EXE --headless --version
+          if ($LASTEXITCODE -ne 0) { throw 'Godot failed to start.' }
+          $releaseTemplate = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono\windows_release_x86_64.exe'
+          if (-not (Test-Path $releaseTemplate)) { throw 'Windows .NET release export template is missing.' }
+      - name: Build full v1.0 Windows release and installer
+        shell: pwsh
+        run: ./build_release.ps1 -GodotExe $env:GODOT_EXE -BuildInstaller
+      - name: Verify full release outputs
+        shell: pwsh
+        run: |
+          $required = @(
+            'dist/package/Miniscuplter.Launcher.exe',
+            'dist/package/Miniscuplter.Updater.exe',
+            'dist/package/App/Miniscuplter.exe',
+            'dist/package/App/ai_backend/app.py',
+            'dist/package/App/ai_backend/launcher_bridge.py',
+            'dist/Miniscuplter-win-x64.zip',
+            'dist/installer/Miniscuplter-Setup-1.0.0.exe'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing full release output: $file" }
+            if ((Get-Item $file).PSIsContainer -eq $false -and (Get-Item $file).Length -eq 0) { throw "Empty full release output: $file" }
+          }
+          Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256 | Format-List
+          Get-FileHash 'dist/installer/Miniscuplter-Setup-1.0.0.exe' -Algorithm SHA256 | Format-List
+      - name: Upload installable v1.0 Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Miniscuplter-v1.0-Windows-x64-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/installer/Miniscuplter-Setup-1.0.0.exe
+            dist/Miniscuplter-win-x64.zip
