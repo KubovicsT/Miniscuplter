@@ -8,36 +8,28 @@ from typing import Optional
 
 import requests
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from model_manager import install_component, uninstall_component, status as component_status, component_path
 from geometry_api import router as geometry_router
 from rig_api import router as rig_router
 from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model as release_smart_select
+from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
+from detail_pipeline import detail_2d, detail_3d, apply_detail
 
-app = FastAPI(title="Miniscuplter AI Backend", version="0.9.6")
+app = FastAPI(title="Miniscuplter AI Backend", version="0.9.8")
 app.include_router(geometry_router)
 app.include_router(rig_router)
 
 SD_WEBUI_URL = os.getenv("MINISCULPTER_SD_URL", "").rstrip("/")
 THREED_COMMAND = os.getenv("MINISCULPTER_3D_COMMAND", "")
 
-QUALITY_2D = {
-    "preview": {"steps": 12, "size": 384, "cfg": 6.0},
-    "standard": {"steps": 24, "size": 512, "cfg": 6.5},
-    "high": {"steps": 36, "size": 640, "cfg": 7.0},
-}
-
-
-def q2d(name: str):
-    return QUALITY_2D.get((name or "standard").lower(), QUALITY_2D["standard"])
-
 
 class ConceptRequest(BaseModel):
     prompt: str
     output_path: str
     quality: str = "standard"
-
+    provider: str = "auto"
 
 class EditRequest(BaseModel):
     image_path: str
@@ -45,199 +37,232 @@ class EditRequest(BaseModel):
     prompt: str
     output_path: str
     quality: str = "standard"
-
+    provider: str = "auto"
+    detail: bool = False
 
 class Generate3DRequest(BaseModel):
     image_path: str
     prompt: str = ""
     output_path: str
     quality: str = "standard"
+    provider: str = "auto"
+    role: str = "quality"
 
+class GeneratePartsRequest(BaseModel):
+    image_path: str
+    output_dir: str
+    num_parts: int = Field(default=4, ge=1, le=16)
+    tag: str = "miniscuplter"
+    provider: str = "auto"
 
 class ComponentRequest(BaseModel):
     id: str
-
 
 class SemanticSelectRequest(BaseModel):
     input_path: str
     query: str
 
+class Detail2DRequest(BaseModel):
+    image_path: str
+    mask_path: str
+    prompt: str
+    output_path: str
+    image_provider: str = "auto"
+
+class Detail3DRequest(BaseModel):
+    source_mesh: str
+    image_path: str
+    mask_path: str
+    prompt: str
+    bounds_min: list[float]
+    bounds_max: list[float]
+    output_patch: str
+    output_image: str
+    output_crop: str
+    image_provider: str = "auto"
+    three_d_provider: str = "auto"
+
+class DetailApplyRequest(BaseModel):
+    source_mesh: str
+    patch_mesh: str
+    output_path: str
+    voxel_size: Optional[float] = None
+
 
 @app.get("/health")
 def health():
-    local_image = component_path("sd21") is not None
-    local_3d = component_path("hunyuan21-shape") is not None
     local_select = component_path("clipseg-smart-select") is not None
     return {
         "ok": True,
-        "version": "0.9.6",
-        "image_provider": "local-sd21" if local_image else ("automatic1111" if SD_WEBUI_URL else "not-configured"),
-        "three_d_provider": "hunyuan3d-2.1" if local_3d else ("command" if THREED_COMMAND else "not-configured"),
-        "geometry_provider": "trimesh-voxel + model-analysis",
+        "version": "0.9.8",
+        "routing": routing_status(),
+        "geometry_provider": "trimesh-voxel + model-analysis + transactional-detail-union",
         "rig_provider": "adaptive-quick + optional-universal-command",
         "smart_select_provider": "external-ai-command" if SMART_SELECT_COMMAND else ("local-clipseg-multiview" if local_select else "geometry-semantic-fallback"),
         "internet": True,
         "components": component_status(),
     }
 
+@app.get("/routing")
+def routing():
+    return routing_status()
 
 @app.get("/components")
 def components():
     return component_status()
 
-
 @app.post("/components/install")
 def install(req: ComponentRequest):
     try:
+        release_all_models()
         return install_component(req.id)
     except Exception as exc:
         raise HTTPException(500, f"Component installation failed: {exc}") from exc
 
-
 @app.post("/components/uninstall")
 def uninstall(req: ComponentRequest):
     try:
+        release_all_models()
         if req.id == "clipseg-smart-select": release_smart_select()
         return uninstall_component(req.id)
     except Exception as exc:
         raise HTTPException(500, f"Component removal failed: {exc}") from exc
 
-
 @app.post("/release-models")
 def release_models():
-    try:
-        from local_image import release_models as release_image
-        release_image()
-    except Exception:
-        pass
-    try:
-        from hunyuan_shape import release_model as release_3d
-        release_3d()
-    except Exception:
-        pass
-    try:
-        release_smart_select()
-    except Exception:
-        pass
-    return {"ok": True}
+    release_all_models(); return {"ok": True}
 
 
 def _write_b64_image(data: str, output_path: str) -> str:
-    if "," in data:
-        data = data.split(",", 1)[1]
-    p = Path(output_path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_bytes(base64.b64decode(data))
-    return str(p)
+    if "," in data: data = data.split(",", 1)[1]
+    p=Path(output_path); p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(base64.b64decode(data)); return str(p)
 
 
 def _a1111_concept(req: ConceptRequest) -> str:
-    cfg = q2d(req.quality)
-    payload = {
-        "prompt": req.prompt,
-        "negative_prompt": "blurry, low detail, text, watermark",
-        "steps": cfg["steps"],
-        "width": cfg["size"],
-        "height": cfg["size"],
-        "cfg_scale": cfg["cfg"],
-        "sampler_name": "DPM++ 2M Karras",
-    }
-    r = requests.post(f"{SD_WEBUI_URL}/sdapi/v1/txt2img", json=payload, timeout=600)
-    r.raise_for_status()
-    images = r.json().get("images", [])
-    if not images:
-        raise RuntimeError("Image provider returned no images")
-    return _write_b64_image(images[0], req.output_path)
+    from quality_runtime import get_config
+    cfg=get_config(); size=int(cfg["image_size"])
+    payload={"prompt":req.prompt,"negative_prompt":"blurry, low detail, text, watermark","steps":int(cfg["image_steps"]),"width":size,"height":size,
+             "cfg_scale":float(cfg["image_guidance"]),"sampler_name":"DPM++ 2M Karras"}
+    r=requests.post(f"{SD_WEBUI_URL}/sdapi/v1/txt2img",json=payload,timeout=900); r.raise_for_status(); images=r.json().get("images",[])
+    if not images: raise RuntimeError("Image provider returned no images")
+    return _write_b64_image(images[0],req.output_path)
 
 
 def _a1111_edit(req: EditRequest) -> str:
-    image_path = Path(req.image_path)
-    if not image_path.exists():
-        raise RuntimeError(f"Input image does not exist: {image_path}")
-    cfg = q2d(req.quality)
-    payload = {
-        "prompt": req.prompt,
-        "negative_prompt": "blurry, low detail, text, watermark",
-        "init_images": [base64.b64encode(image_path.read_bytes()).decode("ascii")],
-        "denoising_strength": 0.55,
-        "steps": cfg["steps"],
-        "cfg_scale": cfg["cfg"],
-        "width": cfg["size"],
-        "height": cfg["size"],
-    }
+    from quality_runtime import get_config
+    image_path=Path(req.image_path)
+    if not image_path.exists(): raise RuntimeError(f"Input image does not exist: {image_path}")
+    cfg=get_config(); size=int(cfg["image_size"])
+    payload={"prompt":req.prompt,"negative_prompt":"blurry, low detail, text, watermark","init_images":[base64.b64encode(image_path.read_bytes()).decode("ascii")],
+             "denoising_strength":float(cfg["image_edit_strength"]),"steps":int(cfg["image_steps"]),"cfg_scale":float(cfg["image_guidance"]),"width":size,"height":size}
     if req.mask_path and Path(req.mask_path).exists():
-        payload["mask"] = base64.b64encode(Path(req.mask_path).read_bytes()).decode("ascii")
-        payload["inpainting_fill"] = 1
-        payload["inpaint_full_res"] = True
-    r = requests.post(f"{SD_WEBUI_URL}/sdapi/v1/img2img", json=payload, timeout=600)
-    r.raise_for_status()
-    images = r.json().get("images", [])
-    if not images:
-        raise RuntimeError("Image provider returned no images")
-    return _write_b64_image(images[0], req.output_path)
+        payload["mask"]=base64.b64encode(Path(req.mask_path).read_bytes()).decode("ascii"); payload["inpainting_fill"]=1; payload["inpaint_full_res"]=True
+    r=requests.post(f"{SD_WEBUI_URL}/sdapi/v1/img2img",json=payload,timeout=900); r.raise_for_status(); images=r.json().get("images",[])
+    if not images: raise RuntimeError("Image provider returned no images")
+    return _write_b64_image(images[0],req.output_path)
+
+
+def _image_generate(provider: str, req: ConceptRequest) -> str:
+    if provider == "sdxl":
+        from sdxl_image import generate_concept; return generate_concept(req.prompt,req.output_path)
+    if provider == "flux":
+        from flux_klein import generate_concept; return generate_concept(req.prompt,req.output_path)
+    if provider == "sd21":
+        from local_image import generate_concept; return generate_concept(req.prompt,req.output_path,req.quality)
+    raise RuntimeError(f"Unsupported image provider: {provider}")
+
+
+def _image_edit(provider: str, req: EditRequest) -> str:
+    if provider == "sdxl":
+        from sdxl_image import edit_image; return edit_image(req.image_path,req.mask_path,req.prompt,req.output_path,detail=req.detail)
+    if provider == "flux":
+        from flux_klein import edit_image; return edit_image(req.image_path,req.mask_path,req.prompt,req.output_path,detail=req.detail)
+    if provider == "sd21":
+        from local_image import edit_image; return edit_image(req.image_path,req.mask_path,req.prompt,req.output_path,req.quality)
+    raise RuntimeError(f"Unsupported image provider: {provider}")
 
 
 @app.post("/generate-concept")
 def generate_concept(req: ConceptRequest):
     try:
-        if component_path("sd21") is not None:
-            from local_image import generate_concept as local_generate
-            return {"path": local_generate(req.prompt, req.output_path, req.quality), "provider": "local-sd21", "quality": req.quality}
-        if SD_WEBUI_URL:
-            return {"path": _a1111_concept(req), "provider": "automatic1111", "quality": req.quality}
-        raise RuntimeError("No 2D generator is installed. Open AI Components in Miniscuplter and install Stable Diffusion 2.1.")
+        if req.provider == "automatic1111" and SD_WEBUI_URL: return {"path":_a1111_concept(req),"provider":"automatic1111"}
+        decision=choose_image_provider("generate",req.provider); release_all_models()
+        return {"path":_image_generate(decision.provider,req),"provider":decision.provider,"routing_reason":decision.reason,"quality":req.quality}
     except Exception as exc:
-        raise HTTPException(502, f"2D image provider failed: {exc}") from exc
-
+        if req.provider == "auto" and SD_WEBUI_URL:
+            try: return {"path":_a1111_concept(req),"provider":"automatic1111","routing_reason":"local model route failed; explicit external fallback"}
+            except Exception: pass
+        raise HTTPException(502,f"2D image provider failed: {exc}") from exc
 
 @app.post("/edit-image")
 def edit_image(req: EditRequest):
     try:
-        if component_path("sd21") is not None:
-            from local_image import edit_image as local_edit
-            return {"path": local_edit(req.image_path, req.mask_path, req.prompt, req.output_path, req.quality), "provider": "local-sd21", "quality": req.quality}
-        if SD_WEBUI_URL:
-            return {"path": _a1111_edit(req), "provider": "automatic1111", "quality": req.quality}
-        raise RuntimeError("No 2D generator is installed. Open AI Components in Miniscuplter and install Stable Diffusion 2.1.")
+        if req.provider == "automatic1111" and SD_WEBUI_URL: return {"path":_a1111_edit(req),"provider":"automatic1111"}
+        decision=choose_image_provider("detail" if req.detail else "edit",req.provider); release_all_models()
+        return {"path":_image_edit(decision.provider,req),"provider":decision.provider,"routing_reason":decision.reason,"quality":req.quality}
     except Exception as exc:
-        raise HTTPException(502, f"2D image edit provider failed: {exc}") from exc
+        if req.provider == "auto" and SD_WEBUI_URL:
+            try: return {"path":_a1111_edit(req),"provider":"automatic1111","routing_reason":"local model route failed; external fallback"}
+            except Exception: pass
+        raise HTTPException(502,f"2D image edit provider failed: {exc}") from exc
 
+
+def _generate_shape(provider: str, req: Generate3DRequest, image: str, output: str) -> str:
+    if provider == "hunyuan":
+        from hunyuan_shape import generate_shape; return generate_shape(image,output,req.prompt,req.quality)
+    if provider == "triposr":
+        from quality_runtime import get_config
+        cfg=get_config(); resolution=192 if req.role in {"fast","rough","draft"} else 320
+        return __import__("triposr_shape",fromlist=["generate_shape"]).generate_shape(image,output,mc_resolution=resolution)
+    raise RuntimeError(f"Provider {provider} is not a single-mesh generator")
 
 @app.post("/generate-3d")
 def generate_3d(req: Generate3DRequest):
-    image = str(Path(req.image_path).resolve())
-    output = str(Path(req.output_path).resolve())
-    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    image=str(Path(req.image_path).resolve()); output=str(Path(req.output_path).resolve()); Path(output).parent.mkdir(parents=True,exist_ok=True)
     try:
-        if component_path("hunyuan21-shape") is not None:
-            try:
-                from local_image import release_models
-                release_models()
-            except Exception:
-                pass
-            from hunyuan_shape import generate_shape
-            return {"path": generate_shape(image, output, req.prompt, req.quality), "provider": "hunyuan3d-2.1", "quality": req.quality}
-        if THREED_COMMAND:
-            command = THREED_COMMAND.format(image=image, output=output, prompt=req.prompt.replace('"', '\\"'))
-            completed = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=3600)
-            if completed.returncode != 0:
-                raise RuntimeError(completed.stderr[-3000:])
-            if not Path(output).exists():
-                raise RuntimeError("3D provider completed but did not create the requested STL output.")
-            return {"path": output, "provider": "command", "quality": req.quality}
-        raise RuntimeError("No 3D generator is installed. Open AI Components in Miniscuplter and install Hunyuan3D 2.1 Shape.")
+        decision=choose_3d_provider(req.role,req.provider); release_all_models()
+        if decision.provider == "partcrafter": raise RuntimeError("PartCrafter returns multiple parts; use /generate-parts")
+        path=_generate_shape(decision.provider,req,image,output); release_all_models()
+        return {"path":path,"provider":decision.provider,"routing_reason":decision.reason,"role":req.role,"quality":req.quality}
     except Exception as exc:
-        raise HTTPException(502, f"3D provider failed: {exc}") from exc
+        if req.provider == "auto" and THREED_COMMAND:
+            command=THREED_COMMAND.format(image=image,output=output,prompt=req.prompt.replace('"','\\"'))
+            completed=subprocess.run(command,shell=True,capture_output=True,text=True,timeout=3600)
+            if completed.returncode == 0 and Path(output).exists(): return {"path":output,"provider":"command","role":req.role}
+        raise HTTPException(502,f"3D provider failed: {exc}") from exc
 
+@app.post("/generate-parts")
+def generate_parts(req: GeneratePartsRequest):
+    try:
+        decision=choose_3d_provider("structured",req.provider); release_all_models()
+        if decision.provider != "partcrafter": raise RuntimeError("PartCrafter is required for structured part generation")
+        from partcrafter_shape import generate_parts as run
+        result=run(req.image_path,req.output_dir,req.num_parts,req.tag); release_all_models(); result["routing_reason"]=decision.reason; return result
+    except Exception as exc: raise HTTPException(502,f"Structured 3D generation failed: {exc}") from exc
+
+@app.post("/detail-2d")
+def detail_2d_route(req: Detail2DRequest):
+    try: return detail_2d(req.image_path,req.mask_path,req.prompt,req.output_path,req.image_provider)
+    except Exception as exc: raise HTTPException(502,f"2D detail refinement failed: {exc}") from exc
+
+@app.post("/detail-3d")
+def detail_3d_route(req: Detail3DRequest):
+    try:
+        if len(req.bounds_min)!=3 or len(req.bounds_max)!=3: raise ValueError("Selection bounds must contain exactly 3 coordinates")
+        return detail_3d(req.source_mesh,req.image_path,req.mask_path,req.prompt,req.bounds_min,req.bounds_max,req.output_patch,req.output_image,req.output_crop,req.image_provider,req.three_d_provider)
+    except Exception as exc: raise HTTPException(502,f"3D detail refinement failed: {exc}") from exc
+
+@app.post("/detail-apply")
+def detail_apply_route(req: DetailApplyRequest):
+    try: return apply_detail(req.source_mesh,req.patch_mesh,req.output_path,req.voxel_size)
+    except MemoryError as exc: raise HTTPException(413,f"Detail apply memory guard stopped the job: {exc}") from exc
+    except Exception as exc: raise HTTPException(502,f"Detail apply failed: {exc}") from exc
 
 @app.post("/semantic-select")
 def semantic_select_route(req: SemanticSelectRequest):
-    try:
-        return semantic_select(req.input_path, req.query)
-    except Exception as exc:
-        raise HTTPException(502, f"Smart Select failed: {exc}") from exc
-
+    try: return semantic_select(req.input_path,req.query)
+    except Exception as exc: raise HTTPException(502,f"Smart Select failed: {exc}") from exc
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=7868, log_level="info")
+    uvicorn.run(app,host="127.0.0.1",port=7868,log_level="info")
