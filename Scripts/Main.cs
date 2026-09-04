@@ -37,7 +37,7 @@ public partial class Main : Node
         BuildWorld();
         AddStarterMesh();
         UpdateCamera();
-        SetStatus("Ready — Miniscuplter v0.1");
+        SetStatus("Ready — Miniscuplter v1.0");
     }
 
     void BuildUi()
@@ -127,20 +127,21 @@ public partial class Main : Node
         AddButton(p, "Scale -5%", () => ScaleSelected(0.95f));
         p.AddChild(new HSeparator());
         p.AddChild(Heading("POSE"));
-        p.AddChild(new Label { Text = "Rigged GLB characters can be posed through Skeleton3D bones. v0.1 keeps STL kitbash parts separate until you choose to bake/remesh.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        p.AddChild(new Label { Text = "Rigged models can be posed through the rig tools. STL and kitbash parts remain separate until you deliberately finalize or remesh them.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
         AddButton(p, "Bake selected transforms", BakeSelectedTransform);
         return p;
     }
 
     Control BuildPrintTab()
     {
-        var p = new VBoxContainer { Name = "Print" };
-        p.AddChild(Heading("PRINT PREP"));
-        AddButton(p, "Analyze selected mesh", AnalyzeMesh);
-        AddButton(p, "Auto center on build plane", CenterOnBuildPlane);
-        AddButton(p, "Voxel/Boolean Remesh", () => SetStatus("Voxel remesh hook is ready; native geometry backend is not installed in this source build."));
-        AddButton(p, "Bake / Union AI parts", () => SetStatus("Bake/union requires the native remesh backend; objects remain non-destructive in v0.1."));
-        p.AddChild(new Label { Text = "Target units: millimeters. STL export preserves scene scale. Thin-feature analysis is conservative and intended as a warning, not slicer validation.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        var p = new VBoxContainer { Name = "Model" };
+        p.AddChild(Heading("MODEL / FINALIZE"));
+        AddButton(p, "Basic mesh statistics", AnalyzeMesh);
+        AddButton(p, "Place selected on Y=0", CenterOnBuildPlane);
+        AddButton(p, "Analyze structural integrity", async () => await AnalyzeSelectedV09Async());
+        AddButton(p, "Repair selected model", async () => await RepairSelectedV09Async());
+        AddButton(p, "Finalize visible scene", async () => await BakeSceneV09Async());
+        p.AddChild(new Label { Text = "Scene units are millimeters. Finalization and repair are optional: a valid mesh can be exported directly without voxel reconstruction, preserving its original detail.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
         return p;
     }
 
@@ -276,22 +277,34 @@ public partial class Main : Node
         var outMesh = new ArrayMesh(); if (obj.Mesh == null) return outMesh;
         for (int s=0;s<obj.Mesh.GetSurfaceCount();s++)
         {
-            var arrays=obj.Mesh.SurfaceGetArrays(s); var verts=arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array(); for(int i=0;i<verts.Length;i++) verts[i]=obj.Transform*verts[i]; arrays[(int)Mesh.ArrayType.Vertex]=verts; outMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles,arrays);
+            var arrays=obj.Mesh.SurfaceGetArrays(s); var verts=arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array(); for(int i=0;i<verts.Length;i++) verts[i]=obj.GlobalTransform*verts[i]; arrays[(int)Mesh.ArrayType.Vertex]=verts; outMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles,arrays);
         }
         return outMesh;
     }
 
     void NewScene() { foreach(var o in _objects) o.QueueFree(); _objects.Clear(); _selected=null; _undo.Clear(); _redo.Clear(); AddStarterMesh(); SetStatus("New scene"); }
-    void DuplicateSelected() { if (_selected?.Mesh is not ArrayMesh m) return; AddMeshObject(CloneMesh(m), _selected.Name+" copy", _selected.Position + new Vector3(5,0,0)); }
+    void DuplicateSelected()
+    {
+        if (_selected?.Mesh is not ArrayMesh m) return;
+        var source = _selected;
+        string role = V06RoleFor(source.Name.ToString());
+        AddMeshObject(CloneMesh(m), source.Name+" copy", source.Position + new Vector3(5,0,0));
+        if (_selected != null)
+        {
+            _selected.Rotation = source.Rotation;
+            _selected.Scale = source.Scale;
+            ImportV06Role(_selected.Name.ToString(), role);
+        }
+    }
     void DeleteSelected() { if (_selected==null) return; var x=_selected; _objects.Remove(x); x.QueueFree(); _selected=_objects.LastOrDefault(); if(_selected!=null) Select(_selected); RebuildSceneList(); }
     void Nudge(Vector3 v) { if(_selected==null)return; _selected.Position+=v; }
     void RotateSelected(Vector3 axis,float deg){ if(_selected==null)return; _selected.Rotate(axis,Mathf.DegToRad(deg)); }
     void ScaleSelected(float f){ if(_selected==null)return; _selected.Scale*=f; }
-    void BakeSelectedTransform(){ if(_selected?.Mesh==null)return; _selected.Mesh=BakeToWorldMesh(_selected); _selected.Transform=Transform3D.Identity; SetStatus("Transforms baked into mesh."); }
+    void BakeSelectedTransform(){ if(_selected?.Mesh==null)return; _selected.Mesh=BakeToWorldMesh(_selected); _selected.Transform=Transform3D.Identity; V095TopologyChanged(_selected); SetStatus("Transforms baked into mesh."); }
 
     void CenterOnBuildPlane()
     {
-        if(_selected?.Mesh==null)return; var aabb=_selected.GetAabb(); var bottom=(_selected.Transform*aabb.Position).Y; _selected.Position-=new Vector3(0,bottom,0); SetStatus("Placed on Y=0 build plane.");
+        if(_selected?.Mesh==null)return; var aabb=_selected.GetAabb(); var bottom=(_selected.Transform*aabb.Position).Y; _selected.Position-=new Vector3(0,bottom,0); SetStatus("Placed selected object on Y=0.");
     }
 
     void AnalyzeMesh()
@@ -305,22 +318,22 @@ public partial class Main : Node
 
     void CaptureView()
     {
-        var sub=GetNode<SubViewport>("VBoxContainer/HSplitContainer/HSplitContainer/ViewportHost/Viewport"); var img=sub.GetTexture().GetImage(); Directory.CreateDirectory(ProjectSettings.GlobalizePath("user://captures")); _lastCapture=ProjectSettings.GlobalizePath($"user://captures/capture_{DateTime.Now:yyyyMMdd_HHmmss}.png"); img.SavePng(_lastCapture); SetStatus("Captured viewport: "+_lastCapture);
+        var sub=GetNode<SubViewport>("VBoxContainer/HSplitContainer/HSplitContainer/ViewportHost/Viewport"); var img=sub.GetTexture().GetImage(); Directory.CreateDirectory(ProjectSettings.GlobalizePath("user://captures")); _lastCapture=ProjectSettings.GlobalizePath($"user://captures/capture_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); img.SavePng(_lastCapture); SetStatus("Captured viewport: "+_lastCapture);
     }
 
     async Task GenerateConcept()
     {
-        string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Enter a prompt first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://concept_{DateTime.Now:yyyyMMdd_HHmmss}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.GenerateConceptAsync(prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("Concept generated: "+_lastEditedImage);});
+        string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Enter a prompt first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://concept_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.GenerateConceptAsync(prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("Concept generated: "+_lastEditedImage);});
     }
 
     async Task AiEditCapture()
     {
-        if(string.IsNullOrEmpty(_lastCapture)) CaptureView(); string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Describe the desired change first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://edit_{DateTime.Now:yyyyMMdd_HHmmss}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.EditImageAsync(_lastCapture,null,prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("2D edit generated. Review file: "+_lastEditedImage);});
+        if(string.IsNullOrEmpty(_lastCapture)) CaptureView(); string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Describe the desired change first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.EditImageAsync(_lastCapture,null,prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("2D edit generated. Review file: "+_lastEditedImage);});
     }
 
     async Task Generate3DPart()
     {
-        string image=string.IsNullOrEmpty(_lastEditedImage)?_lastCapture:_lastEditedImage; if(string.IsNullOrEmpty(image)){SetStatus("Generate or capture an approved 2D image first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://ai_part_{DateTime.Now:yyyyMMdd_HHmmss}.stl"); string prompt=_prompt?.Text.Trim()??""; await RunAi(async()=>{var p=await _ai.Generate3DAsync(image,prompt,outPath); AddMeshObject(MeshIO.LoadStl(p),"AI part"); SetStatus("AI 3D part added non-destructively.");});
+        string image=string.IsNullOrEmpty(_lastEditedImage)?_lastCapture:_lastEditedImage; if(string.IsNullOrEmpty(image)){SetStatus("Generate or capture an approved 2D image first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"); string prompt=_prompt?.Text.Trim()??""; await RunAi(async()=>{var p=await _ai.Generate3DAsync(image,prompt,outPath); AddMeshObject(MeshIO.LoadStl(p),"AI part"); SetStatus("AI 3D part added non-destructively.");});
     }
 
     async Task SearchReferences()
@@ -330,7 +343,19 @@ public partial class Main : Node
 
     async Task RunAi(Func<Task> action)
     {
-        try{SetStatus("Checking local AI service…");if(!await _ai.HealthAsync()){SetStatus("AI service is not running. Run setup_ai_backend.bat once; Miniscuplter auto-starts it on future launches.");return;}SetStatus("AI working…");await action();}catch(Exception ex){SetStatus("AI error: "+ex.Message);}
+        try
+        {
+            SetStatus("Checking local AI service…");
+            if(!await _ai.HealthAsync())
+            {
+                SetStatus("AI service is not running. Open Miniscuplter Launcher and use Repair AI Runtime, then restart the editor.");
+                return;
+            }
+            if (_v097ActivePreset != null) await PushV097PresetToBackendAsync(_v097ActivePreset);
+            SetStatus("AI working…");
+            await action();
+        }
+        catch(Exception ex){SetStatus("AI error: "+ex.Message);}
     }
 
     static Label Heading(string text)=>new(){Text=text,ThemeTypeVariation="HeaderSmall"};
