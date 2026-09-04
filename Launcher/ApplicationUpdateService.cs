@@ -78,7 +78,7 @@ internal sealed class ApplicationUpdateService
         psi.ArgumentList.Add("--target"); psi.ArgumentList.Add(_settings.InstallRoot);
         psi.ArgumentList.Add("--wait-pid"); psi.ArgumentList.Add(Environment.ProcessId.ToString());
         psi.ArgumentList.Add("--restart"); psi.ArgumentList.Add(launcher);
-        Process.Start(psi) ?? throw new InvalidOperationException("Could not start the staged updater.");
+        _ = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the staged updater.");
     }
 
     string FindUpdater()
