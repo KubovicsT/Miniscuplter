@@ -8,6 +8,9 @@ from geometry_ops import analyze_mesh, repair_mesh, thickness_map, voxel_remesh
 from quality_runtime import get_config, set_config
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
+# quality_runtime is persisted in v1.0, so the geometry guard must inherit the restored value
+# immediately at process startup rather than waiting for the first UI config POST.
+geometry_ops.MAX_VOXEL_CELLS = int(get_config()["max_voxel_cells"])
 
 
 class VoxelRequest(BaseModel):
@@ -15,19 +18,23 @@ class VoxelRequest(BaseModel):
     output_path: str
     voxel_size: float = Field(default=0.35, ge=0.04, le=5.0)
 
+
 class AnalyzeRequest(BaseModel):
     input_path: str
     feature_threshold_mm: float = Field(default=0.60, ge=0.05, le=10.0)
+
 
 class RepairRequest(BaseModel):
     input_path: str
     output_path: str
     voxel_size: float = Field(default=0.30, ge=0.04, le=5.0)
 
+
 class ThicknessRequest(BaseModel):
     input_path: str
     target_mm: float = Field(default=0.80, ge=0.01, le=100.0)
     max_samples: int = Field(default=12000, ge=100, le=100000)
+
 
 class QualityConfigRequest(BaseModel):
     image_size: int = Field(default=512, ge=256, le=1536)
@@ -43,15 +50,18 @@ class QualityConfigRequest(BaseModel):
     smart_select_views: int = Field(default=6, ge=2, le=12)
     smart_select_render_size: int = Field(default=352, ge=128, le=1024)
 
+
 @router.get("/quality-config")
 def quality_config_get():
     return get_config()
+
 
 @router.post("/quality-config")
 def quality_config_set(req: QualityConfigRequest):
     cfg = set_config(req.model_dump())
     geometry_ops.MAX_VOXEL_CELLS = int(cfg["max_voxel_cells"])
     return {"ok": True, "config": cfg}
+
 
 @router.post("/voxel-remesh")
 def remesh(req: VoxelRequest):
@@ -62,17 +72,20 @@ def remesh(req: VoxelRequest):
     except MemoryError as exc: raise HTTPException(413, f"Voxel remesh memory safety check stopped the job: {exc}") from exc
     except Exception as exc: raise HTTPException(500, f"Voxel remesh failed: {exc}") from exc
 
+
 @router.post("/analyze")
 def analyze(req: AnalyzeRequest):
     try: return analyze_mesh(req.input_path, req.feature_threshold_mm)
     except (ValueError, FileNotFoundError) as exc: raise HTTPException(400, f"Mesh analysis input rejected: {exc}") from exc
     except Exception as exc: raise HTTPException(500, f"Mesh analysis failed: {exc}") from exc
 
+
 @router.post("/thickness-map")
 def thickness(req: ThicknessRequest):
     try: return thickness_map(req.input_path, req.target_mm, req.max_samples)
     except (ValueError, FileNotFoundError) as exc: raise HTTPException(400, f"Thickness analysis input rejected: {exc}") from exc
     except Exception as exc: raise HTTPException(500, f"Thickness analysis failed: {exc}") from exc
+
 
 @router.post("/repair")
 def repair(req: RepairRequest):
