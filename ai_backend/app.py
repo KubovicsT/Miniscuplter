@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from model_manager import install_component, uninstall_component, status as component_status, component_path
 from geometry_api import router as geometry_router
 from rig_api import router as rig_router
-from semantic_select import semantic_select, SMART_SELECT_COMMAND
+from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model as release_smart_select
 
 app = FastAPI(title="Miniscuplter AI Backend", version="0.9.6")
 app.include_router(geometry_router)
@@ -67,6 +67,7 @@ class SemanticSelectRequest(BaseModel):
 def health():
     local_image = component_path("sd21") is not None
     local_3d = component_path("hunyuan21-shape") is not None
+    local_select = component_path("clipseg-smart-select") is not None
     return {
         "ok": True,
         "version": "0.9.6",
@@ -74,7 +75,7 @@ def health():
         "three_d_provider": "hunyuan3d-2.1" if local_3d else ("command" if THREED_COMMAND else "not-configured"),
         "geometry_provider": "trimesh-voxel + model-analysis",
         "rig_provider": "adaptive-quick + optional-universal-command",
-        "smart_select_provider": "ai-command" if SMART_SELECT_COMMAND else "geometry-semantic-fallback",
+        "smart_select_provider": "external-ai-command" if SMART_SELECT_COMMAND else ("local-clipseg-multiview" if local_select else "geometry-semantic-fallback"),
         "internet": True,
         "components": component_status(),
     }
@@ -96,6 +97,7 @@ def install(req: ComponentRequest):
 @app.post("/components/uninstall")
 def uninstall(req: ComponentRequest):
     try:
+        if req.id == "clipseg-smart-select": release_smart_select()
         return uninstall_component(req.id)
     except Exception as exc:
         raise HTTPException(500, f"Component removal failed: {exc}") from exc
@@ -113,15 +115,11 @@ def release_models():
         release_3d()
     except Exception:
         pass
-    return {"ok": True}
-
-
-@app.post("/semantic-select")
-def semantic_select_endpoint(req: SemanticSelectRequest):
     try:
-        return semantic_select(req.input_path, req.query)
-    except Exception as exc:
-        raise HTTPException(502, f"Smart Select provider failed: {exc}") from exc
+        release_smart_select()
+    except Exception:
+        pass
+    return {"ok": True}
 
 
 def _write_b64_image(data: str, output_path: str) -> str:
@@ -219,7 +217,6 @@ def generate_3d(req: Generate3DRequest):
                 pass
             from hunyuan_shape import generate_shape
             return {"path": generate_shape(image, output, req.prompt, req.quality), "provider": "hunyuan3d-2.1", "quality": req.quality}
-
         if THREED_COMMAND:
             command = THREED_COMMAND.format(image=image, output=output, prompt=req.prompt.replace('"', '\\"'))
             completed = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=3600)
@@ -228,10 +225,17 @@ def generate_3d(req: Generate3DRequest):
             if not Path(output).exists():
                 raise RuntimeError("3D provider completed but did not create the requested STL output.")
             return {"path": output, "provider": "command", "quality": req.quality}
-
         raise RuntimeError("No 3D generator is installed. Open AI Components in Miniscuplter and install Hunyuan3D 2.1 Shape.")
     except Exception as exc:
         raise HTTPException(502, f"3D provider failed: {exc}") from exc
+
+
+@app.post("/semantic-select")
+def semantic_select_route(req: SemanticSelectRequest):
+    try:
+        return semantic_select(req.input_path, req.query)
+    except Exception as exc:
+        raise HTTPException(502, f"Smart Select failed: {exc}") from exc
 
 
 if __name__ == "__main__":
