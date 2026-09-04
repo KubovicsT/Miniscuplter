@@ -49,8 +49,8 @@ public partial class Main
         if (target.Mesh is not ArrayMesh mesh || mesh.GetSurfaceCount() == 0) { SetStatus("Smart Select target has no editable mesh."); return; }
         if (target != _selected) Select(target);
 
-        float[]? found = TryV096MetadataSelection(target, mesh, query) ?? TryV096RigSelection(target, mesh, query) ?? TryV096GeometrySelection(mesh, query);
-        string method = found != null ? "scene/rig/geometry context" : "semantic backend";
+        float[]? found = TryV096MetadataSelection(target, mesh, query) ?? TryV096RigSelection(target, mesh, query);
+        string method = found != null ? "scene/rig context" : "semantic backend";
         if (found == null)
         {
             try
@@ -63,7 +63,7 @@ public partial class Main
             }
             catch (Exception ex) { SetStatus("Smart Select failed without changing the current selection: " + ex.Message); return; }
         }
-        if (found == null || found.Length == 0 || !found.Any(v => v >= .05f)) { SetStatus($"Smart Select could not confidently identify '{query}'. Configure an AI Smart Select provider or refine the query."); return; }
+        if (found == null || found.Length == 0 || !found.Any(v => v >= .05f)) { SetStatus($"Smart Select could not confidently identify '{query}'. Install Smart Select AI or refine the query."); return; }
 
         int count = found.Length;
         if (mode != '=' && (_v096SelectionObject != target || _v096Selection == null || _v096Selection.Length != count)) mode = '=';
