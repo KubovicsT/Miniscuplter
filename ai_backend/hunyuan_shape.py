@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -9,12 +10,6 @@ from model_manager import component_path, hardware_info, TOOLS_ROOT
 from quality_runtime import get_config
 
 _PIPE = None
-
-QUALITY_STEPS = {
-    "preview": 18,
-    "standard": 30,
-    "high": 45,
-}
 
 
 def _load_pipeline():
@@ -25,15 +20,15 @@ def _load_pipeline():
     weights = component_path("hunyuan21-shape")
     code_root = TOOLS_ROOT / "Hunyuan3D-2.1"
     if weights is None or not code_root.exists():
-        raise RuntimeError("Hunyuan3D 2.1 Shape is not installed. Use AI Components -> Install 3D AI.")
+        raise RuntimeError("Hunyuan3D 2.1 Shape is not installed. Install it from Miniscuplter Launcher or the AI Models panel.")
 
-    sys.path.insert(0, str(code_root))
-    sys.path.insert(0, str(code_root / "hy3dshape"))
+    if str(code_root) not in sys.path: sys.path.insert(0, str(code_root))
+    if str(code_root / "hy3dshape") not in sys.path: sys.path.insert(0, str(code_root / "hy3dshape"))
     try:
         from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
     except Exception as exc:
         raise RuntimeError(
-            "The Hunyuan3D Python dependencies are not ready. Run setup_v02_ai.bat after installing the component."
+            "The Hunyuan3D Python dependencies are not ready. Use Miniscuplter Launcher -> Repair AI Runtime, then reinstall/update Hunyuan if necessary."
         ) from exc
 
     model_dir = weights / "hunyuan3d-dit-v2-1"
@@ -55,43 +50,50 @@ def _load_pipeline():
     return _PIPE
 
 
-def _prepare_image(image_path: str) -> str:
+def _prepare_image(image_path: str) -> tuple[str, bool]:
     cfg = get_config(); max_px = int(cfg["max_input_px"])
-    src = Path(image_path)
-    image = Image.open(src).convert("RGB")
-    if max(image.size) <= max_px:
-        return str(src)
-    image.thumbnail((max_px, max_px), Image.Resampling.LANCZOS)
-    out = src.with_name(src.stem + "_v097_input.png")
-    image.save(out)
-    return str(out)
+    src = Path(image_path).resolve()
+    if not src.is_file(): raise FileNotFoundError(f"Input image does not exist: {src}")
+    with Image.open(src) as opened:
+        image = opened.convert("RGB")
+        if max(image.size) <= max_px:
+            return str(src), False
+        image.thumbnail((max_px, max_px), Image.Resampling.LANCZOS)
+        tmp = tempfile.NamedTemporaryFile(prefix="miniscuplter_hunyuan_", suffix=".png", delete=False)
+        tmp.close()
+        image.save(tmp.name)
+        return tmp.name, True
 
 
 def generate_shape(image_path: str, output_path: str, prompt: str = "", quality: str = "standard") -> str:
     pipe = _load_pipeline()
-    prepared = _prepare_image(image_path)
-    kwargs = {"image": prepared}
-    steps = int(get_config()["shape_steps"])
-
+    prepared, temporary = _prepare_image(image_path)
     try:
-        result = pipe(**kwargs, num_inference_steps=steps)
-    except TypeError:
-        result = pipe(**kwargs)
+        kwargs = {"image": prepared}
+        steps = int(get_config()["shape_steps"])
+        try:
+            result = pipe(**kwargs, num_inference_steps=steps)
+        except TypeError:
+            result = pipe(**kwargs)
 
-    mesh = result[0] if isinstance(result, (list, tuple)) else result
-    out = Path(output_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
+        mesh = result[0] if isinstance(result, (list, tuple)) else result
+        out = Path(output_path).resolve()
+        out.parent.mkdir(parents=True, exist_ok=True)
 
-    if hasattr(mesh, "export"):
-        mesh.export(str(out))
-    elif hasattr(mesh, "save"):
-        mesh.save(str(out))
-    else:
-        raise RuntimeError(f"Hunyuan returned an unsupported mesh object: {type(mesh)!r}")
+        if hasattr(mesh, "export"):
+            mesh.export(str(out))
+        elif hasattr(mesh, "save"):
+            mesh.save(str(out))
+        else:
+            raise RuntimeError(f"Hunyuan returned an unsupported mesh object: {type(mesh)!r}")
 
-    if not out.exists():
-        raise RuntimeError("Hunyuan generation completed but no STL was produced.")
-    return str(out)
+        if not out.exists() or out.stat().st_size == 0:
+            raise RuntimeError("Hunyuan generation completed but no usable STL was produced.")
+        return str(out)
+    finally:
+        if temporary:
+            try: Path(prepared).unlink(missing_ok=True)
+            except Exception: pass
 
 
 def release_model() -> None:
