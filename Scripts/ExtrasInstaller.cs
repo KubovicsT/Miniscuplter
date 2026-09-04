@@ -36,5 +36,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV096SmartSelect();
         main.InstallV096CommandPalette();
         main.InstallV096SemanticComponent();
+        main.InstallV097QualityPresets();
     }
 }
