@@ -5,6 +5,10 @@ on:
     branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8 ]
   pull_request:
 
+permissions:
+  contents: read
+  statuses: write
+
 jobs:
   dotnet:
     runs-on: windows-latest
@@ -16,7 +20,23 @@ jobs:
       - name: Restore
         run: dotnet restore Miniscuplter.csproj
       - name: Build
-        run: dotnet build Miniscuplter.csproj --configuration Release --no-restore
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dotnet build Miniscuplter.csproj --configuration Release --no-restore 2>&1 | Tee-Object -FilePath build.log
+          $exit = $LASTEXITCODE
+          if ($exit -ne 0) {
+            $errors = @(Select-String -Path build.log -Pattern 'error CS[0-9]+' | ForEach-Object { $_.Line.Trim() } | Select-Object -Unique -First 5)
+            if ($errors.Count -eq 0) { $errors = @('dotnet build failed; no C# diagnostic line was captured') }
+            for ($i = 0; $i -lt $errors.Count; $i++) {
+              $d = $errors[$i]
+              if ($d.Length -gt 135) { $d = $d.Substring(0,135) }
+              $body = @{ state='failure'; context="compile-diagnostic-$($i+1)"; description=$d } | ConvertTo-Json -Compress
+              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.sha }}" -Headers @{ Authorization="Bearer $env:GH_TOKEN"; Accept='application/vnd.github+json'; 'X-GitHub-Api-Version'='2022-11-28' } -ContentType 'application/json' -Body $body
+            }
+            exit $exit
+          }
 
   python-syntax:
     runs-on: windows-latest
