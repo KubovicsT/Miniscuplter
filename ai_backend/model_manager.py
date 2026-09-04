@@ -225,7 +225,8 @@ def _pip_install(packages: list[str], extra_args: list[str] | None = None) -> No
 def _verify_tool_import(code_dir: Path, statement: str, label: str, extra_path: Path | None = None) -> None:
     prefixes = [str(code_dir)]
     if extra_path is not None: prefixes.insert(0, str(extra_path))
-    probe = "import sys; " + "".join(f"sys.path.insert(0, {p!r}); " for p in prefixes) + statement
+    # Insert in reverse so the requested first search path remains first in sys.path.
+    probe = "import sys; " + "".join(f"sys.path.insert(0, {p!r}); " for p in reversed(prefixes)) + statement
     try:
         _run([sys.executable, "-c", probe], cwd=code_dir, timeout=120)
     except Exception as exc:
@@ -287,29 +288,37 @@ def _swap_staged(replacements: list[tuple[Path, Path]], finalize: Callable[[], N
     moved: list[tuple[Path, Path | None]] = []
     try:
         for index, (staged, final) in enumerate(replacements):
-            if not staged.exists(): raise RuntimeError(f"Validated staging directory disappeared before commit: {staged}")
+            if not staged.exists():
+                raise RuntimeError(f"Validated staging directory disappeared before commit: {staged}")
             final.parent.mkdir(parents=True, exist_ok=True)
             backup: Path | None = None
             if final.exists():
                 backup = backup_root / f"old-{index:02d}"
                 final.rename(backup)
-            staged.rename(final)
+            try:
+                staged.rename(final)
+            except Exception:
+                # The current replacement has not entered `moved` yet. Restore its just-created
+                # backup immediately before the outer rollback handles earlier replacements.
+                if backup is not None and backup.exists() and not final.exists():
+                    backup.rename(final)
+                raise
             moved.append((final, backup))
         finalize()
     except Exception:
+        rollback_ok = True
         for final, backup in reversed(moved):
             try:
                 if final.exists(): shutil.rmtree(final)
                 if backup is not None and backup.exists(): backup.rename(final)
             except Exception:
-                pass
+                rollback_ok = False
+        if rollback_ok:
+            shutil.rmtree(backup_root, ignore_errors=True)
+        # If rollback itself fails, deliberately preserve backup_root for manual recovery.
         raise
-    finally:
-        if all(not p.exists() for p, _ in moved) is False:
-            # Live directories are expected to exist here; backup cleanup happens below only
-            # after finalize completed without raising.
-            pass
-    shutil.rmtree(backup_root, ignore_errors=True)
+    else:
+        shutil.rmtree(backup_root, ignore_errors=True)
 
 
 def install_component(component_id: str, update: bool = False) -> dict[str, Any]:
