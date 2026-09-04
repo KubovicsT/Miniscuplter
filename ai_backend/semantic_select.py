@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shlex
 import subprocess
@@ -108,11 +109,32 @@ def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int) -> tup
 
 
 def _directions(count: int) -> list[np.ndarray]:
-    candidates = [
-        [0,0,1], [0,0,-1], [1,0,0], [-1,0,0], [0,1,0], [0,-1,0],
-        [1,0,1], [-1,0,1], [1,0,-1], [-1,0,-1], [0.7,0.7,0.7], [-0.7,0.7,-0.7],
-    ]
-    return [np.asarray(v, dtype=np.float64) for v in candidates[:max(2, min(12, count))]]
+    """Return progressively well-distributed camera directions for 2-12 views."""
+    count = max(2, min(12, int(count)))
+    if count == 2:
+        raw = [[0, 0, 1], [0, 0, -1]]
+    elif count == 4:
+        # Tetrahedral coverage is substantially more balanced than four horizontal views.
+        raw = [[1, 1, 1], [-1, -1, 1], [-1, 1, -1], [1, -1, -1]]
+    elif count == 6:
+        # Preserve intuitive cardinal coverage for the default Medium preset.
+        raw = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
+    else:
+        # Fibonacci-sphere samples avoid the old prefix-list bias for High, Ultra, and
+        # arbitrary custom view counts while remaining deterministic between runs.
+        raw = []
+        golden = math.pi * (3.0 - math.sqrt(5.0))
+        for i in range(count):
+            y = 1.0 - (2.0 * (i + 0.5) / count)
+            radius = math.sqrt(max(0.0, 1.0 - y * y))
+            theta = golden * i
+            raw.append([math.cos(theta) * radius, y, math.sin(theta) * radius])
+    result = []
+    for value in raw:
+        direction = np.asarray(value, dtype=np.float64)
+        direction /= max(np.linalg.norm(direction), 1e-9)
+        result.append(direction)
+    return result
 
 
 def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> tuple[np.ndarray, int, int]:
