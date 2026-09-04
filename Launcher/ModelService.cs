@@ -23,6 +23,28 @@ internal sealed class ModelService
     public bool IsAvailable => _python != null && File.Exists(_bridge);
     public string AvailabilityMessage => _python == null ? "Python runtime was not found." : !File.Exists(_bridge) ? $"Launcher bridge was not found: {_bridge}" : "Ready";
 
+    void EnsureEditorClosedForMutation()
+    {
+        try
+        {
+            string app = InstallLayout.ResolveApp(_settings);
+            string processName = Path.GetFileNameWithoutExtension(app);
+            var processes = Process.GetProcessesByName(processName);
+            try
+            {
+                if (processes.Any(p => p.Id != Environment.ProcessId && !p.HasExited))
+                    throw new InvalidOperationException("Close the Miniscuplter editor before installing, removing, or updating AI models. This prevents changing model files while the backend may be using them.");
+            }
+            finally { foreach (var p in processes) p.Dispose(); }
+        }
+        catch (InvalidOperationException) { throw; }
+        catch
+        {
+            // If process enumeration itself is unavailable, let the model manager's transactional
+            // file operations provide the final safety boundary rather than blocking the launcher.
+        }
+    }
+
     async Task<JsonDocument> RunAsync(params string[] args)
     {
         if (_python == null) throw new InvalidOperationException("Python runtime is not installed or could not be located.");
@@ -93,7 +115,7 @@ internal sealed class ModelService
             disk.TryGetProperty("total_gb", out var t) ? t.GetDouble() : 0);
     }
 
-    public async Task InstallAsync(string id) { using var _ = await RunAsync("install", id); }
-    public async Task RemoveAsync(string id) { using var _ = await RunAsync("remove", id); }
-    public async Task UpdateAsync(string id) { using var _ = await RunAsync("update", id); }
+    public async Task InstallAsync(string id) { EnsureEditorClosedForMutation(); using var _ = await RunAsync("install", id); }
+    public async Task RemoveAsync(string id) { EnsureEditorClosedForMutation(); using var _ = await RunAsync("remove", id); }
+    public async Task UpdateAsync(string id) { EnsureEditorClosedForMutation(); using var _ = await RunAsync("update", id); }
 }
