@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import shlex
 import subprocess
@@ -10,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import trimesh
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from model_manager import component_path
 
@@ -47,10 +46,8 @@ def _load_clipseg():
         raise RuntimeError("CLIPSeg dependencies are unavailable. Run setup_ai_backend.bat again.") from exc
     _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     _PROCESSOR = CLIPSegProcessor.from_pretrained(str(model_dir), local_files_only=True)
-    dtype = torch.float16 if _DEVICE == "cuda" else torch.float32
-    _MODEL = CLIPSegForImageSegmentation.from_pretrained(str(model_dir), local_files_only=True, torch_dtype=dtype)
-    _MODEL.to(_DEVICE)
-    _MODEL.eval()
+    _MODEL = CLIPSegForImageSegmentation.from_pretrained(str(model_dir), local_files_only=True, torch_dtype=torch.float32)
+    _MODEL.to(_DEVICE); _MODEL.eval()
     return _MODEL, _PROCESSOR, _DEVICE
 
 
@@ -59,8 +56,7 @@ def release_model() -> None:
     _MODEL = None; _PROCESSOR = None; _DEVICE = None
     try:
         import torch
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if torch.cuda.is_available(): torch.cuda.empty_cache()
     except Exception:
         pass
 
@@ -75,6 +71,11 @@ def _view_basis(direction: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarr
     return right, up, forward
 
 
+def _face_color_id(face_id: int) -> tuple[int, int, int]:
+    value = face_id + 1
+    return value & 255, (value >> 8) & 255, (value >> 16) & 255
+
+
 def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int = 352) -> tuple[Image.Image, np.ndarray]:
     vertices = np.asarray(mesh.vertices, dtype=np.float64)
     faces = np.asarray(mesh.faces, dtype=np.int64)
@@ -85,48 +86,31 @@ def _render_view(mesh: trimesh.Trimesh, direction: np.ndarray, size: int = 352) 
     extent = max(float(np.ptp(px)), float(np.ptp(py)), 1e-6) * 0.56
     sx = (px / extent * 0.5 + 0.5) * (size - 1)
     sy = (0.5 - py / extent * 0.5) * (size - 1)
-    depth = pz
 
-    zbuf = np.full((size, size), -np.inf, dtype=np.float32)
-    face_ids = np.full((size, size), -1, dtype=np.int32)
-    image = np.full((size, size), 24, dtype=np.uint8)
+    image = Image.new("RGB", (size, size), (24, 24, 24))
+    ids = Image.new("RGB", (size, size), (0, 0, 0))
+    draw = ImageDraw.Draw(image); id_draw = ImageDraw.Draw(ids)
     normals = np.asarray(mesh.face_normals, dtype=np.float64)
-    light = (-forward + up * 0.45 + right * 0.25)
-    light /= max(np.linalg.norm(light), 1e-9)
+    light = forward + up * 0.45 + right * 0.25; light /= max(np.linalg.norm(light), 1e-9)
+    depth = pz[faces].mean(axis=1)
 
-    for fi, (ia, ib, ic) in enumerate(faces):
-        xs = np.array([sx[ia], sx[ib], sx[ic]], dtype=np.float64)
-        ys = np.array([sy[ia], sy[ib], sy[ic]], dtype=np.float64)
-        minx = max(0, int(math.floor(xs.min()))); maxx = min(size - 1, int(math.ceil(xs.max())))
-        miny = max(0, int(math.floor(ys.min()))); maxy = min(size - 1, int(math.ceil(ys.max())))
-        if minx > maxx or miny > maxy:
-            continue
-        ax, ay = xs[0], ys[0]; bx, by = xs[1], ys[1]; cx, cy = xs[2], ys[2]
-        denom = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
-        if abs(denom) < 1e-8:
-            continue
-        shade = int(np.clip(95 + 145 * max(0.0, float(np.dot(normals[fi], light))), 45, 240))
-        for y in range(miny, maxy + 1):
-            for x in range(minx, maxx + 1):
-                fx, fy = x + 0.5, y + 0.5
-                w1 = ((by - cy) * (fx - cx) + (cx - bx) * (fy - cy)) / denom
-                w2 = ((cy - ay) * (fx - cx) + (ax - cx) * (fy - cy)) / denom
-                w3 = 1.0 - w1 - w2
-                if w1 < -1e-5 or w2 < -1e-5 or w3 < -1e-5:
-                    continue
-                z = w1 * depth[ia] + w2 * depth[ib] + w3 * depth[ic]
-                if z > zbuf[y, x]:
-                    zbuf[y, x] = z
-                    face_ids[y, x] = fi
-                    image[y, x] = shade
-    rgb = np.stack([image, image, image], axis=-1)
-    return Image.fromarray(rgb, mode="RGB"), face_ids
+    # Painter order: far faces first, near faces last. Pillow performs polygon fill in C,
+    # avoiding a per-pixel Python raster loop on high-poly miniature meshes.
+    for fi in np.argsort(depth):
+        face = faces[fi]
+        pts = [(float(sx[v]), float(sy[v])) for v in face]
+        shade = int(np.clip(85 + 155 * max(0.0, float(np.dot(normals[fi], light))), 40, 240))
+        draw.polygon(pts, fill=(shade, shade, shade))
+        id_draw.polygon(pts, fill=_face_color_id(int(fi)))
+
+    id_rgb = np.asarray(ids, dtype=np.int32)
+    encoded = id_rgb[:, :, 0] + (id_rgb[:, :, 1] << 8) + (id_rgb[:, :, 2] << 16)
+    return image, encoded.astype(np.int32) - 1
 
 
 def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> np.ndarray:
     loaded = _load_clipseg()
-    if loaded is None:
-        raise RuntimeError("CLIPSeg Smart Select is not installed")
+    if loaded is None: raise RuntimeError("CLIPSeg Smart Select is not installed")
     model, processor, device = loaded
     import torch
 
@@ -139,8 +123,7 @@ def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> np.ndarray:
     inputs = processor(text=[query] * len(renders), images=list(renders), padding=True, return_tensors="pt")
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.inference_mode():
-        logits = model(**inputs).logits
-        probs = torch.sigmoid(logits).float().cpu().numpy()
+        probs = torch.sigmoid(model(**inputs).logits).float().cpu().numpy()
 
     face_scores = np.zeros(len(mesh.faces), dtype=np.float64)
     face_hits = np.zeros(len(mesh.faces), dtype=np.int32)
@@ -149,27 +132,24 @@ def _multi_view_clipseg(mesh: trimesh.Trimesh, query: str) -> np.ndarray:
             prob_img = Image.fromarray(np.uint8(np.clip(prob, 0, 1) * 255)).resize((fmap.shape[1], fmap.shape[0]), Image.Resampling.BILINEAR)
             prob = np.asarray(prob_img, dtype=np.float32) / 255.0
         valid = fmap >= 0
-        ids = fmap[valid]
-        vals = prob[valid]
-        for fi in np.unique(ids):
-            score = float(np.percentile(vals[ids == fi], 70))
-            face_scores[fi] += score
-            face_hits[fi] += 1
-    nz = face_hits > 0
-    face_scores[nz] /= face_hits[nz]
+        ids = fmap[valid]; vals = prob[valid]
+        if ids.size == 0: continue
+        order = np.argsort(ids); ids = ids[order]; vals = vals[order]
+        unique, starts = np.unique(ids, return_index=True)
+        ends = np.r_[starts[1:], len(ids)]
+        for fi, a, b in zip(unique, starts, ends):
+            face_scores[fi] += float(np.percentile(vals[a:b], 70)); face_hits[fi] += 1
+    nz = face_hits > 0; face_scores[nz] /= face_hits[nz]
 
     vertex_scores = np.zeros(len(mesh.vertices), dtype=np.float64)
     counts = np.zeros(len(mesh.vertices), dtype=np.int32)
-    for fi, face in enumerate(mesh.faces):
-        for vi in face:
-            vertex_scores[vi] += face_scores[fi]
-            counts[vi] += 1
-    good = counts > 0
-    vertex_scores[good] /= counts[good]
-    if vertex_scores.max(initial=0.0) > 0:
-        peak = float(np.percentile(vertex_scores[vertex_scores > 0], 95))
-        if peak > 1e-6:
-            vertex_scores = np.clip(vertex_scores / peak, 0.0, 1.0)
+    np.add.at(vertex_scores, mesh.faces.reshape(-1), np.repeat(face_scores, 3))
+    np.add.at(counts, mesh.faces.reshape(-1), 1)
+    good = counts > 0; vertex_scores[good] /= counts[good]
+    positive = vertex_scores[vertex_scores > 0]
+    if positive.size:
+        peak = float(np.percentile(positive, 95))
+        if peak > 1e-6: vertex_scores = np.clip(vertex_scores / peak, 0.0, 1.0)
     return vertex_scores
 
 
@@ -182,7 +162,19 @@ def _heuristic(vertices: np.ndarray, query: str) -> np.ndarray:
         if "face" in q: w *= np.clip((z - 0.42) / 0.35, 0, 1)
     elif any(k in q for k in ("torso", "body", "chest", "waist", "abdomen")):
         w = np.clip(1 - np.abs(y - 0.55) / 0.32, 0, 1) * np.clip(center_x * 1.5, 0, 1)
+    elif "left hand" in q or "left arm" in q:
+        w = np.clip((0.40 - x) / 0.30, 0, 1) * np.clip(1 - np.abs(y - (0.45 if "hand" in q else 0.60)) / 0.40, 0, 1)
+    elif "right hand" in q or "right arm" in q:
+        w = np.clip((x - 0.60) / 0.30, 0, 1) * np.clip(1 - np.abs(y - (0.45 if "hand" in q else 0.60)) / 0.40, 0, 1)
+    elif "left leg" in q or "left foot" in q:
+        w = np.clip((0.52 - x) / 0.35, 0, 1) * np.clip((0.55 - y) / 0.45, 0, 1)
+        if "foot" in q: w *= np.clip((0.22 - y) / 0.22, 0, 1)
+    elif "right leg" in q or "right foot" in q:
+        w = np.clip((x - 0.48) / 0.35, 0, 1) * np.clip((0.55 - y) / 0.45, 0, 1)
+        if "foot" in q: w *= np.clip((0.22 - y) / 0.22, 0, 1)
     elif "base" in q or "ground" in q: w = np.clip((0.18 - y) / 0.18, 0, 1)
+    elif "wing" in q: w = np.clip((np.abs(x - 0.5) - 0.20) / 0.30, 0, 1) * np.clip((y - 0.35) / 0.40, 0, 1)
+    elif "tail" in q: w = np.clip((0.38 - y) / 0.35, 0, 1) * np.clip(np.abs(z - 0.5) * 2.0 - 0.20, 0, 1)
     else: w = np.zeros(len(vertices), dtype=np.float64)
     return np.asarray(w, dtype=np.float64)
 
@@ -206,8 +198,7 @@ def _normalize_provider_result(data: dict, vertices: np.ndarray) -> dict:
     elif isinstance(data.get("indices"), list):
         for i in data["indices"]:
             if isinstance(i, int) and 0 <= i < len(weights): weights[i] = 1.0
-    else:
-        raise RuntimeError("AI Smart Select provider must return sample_positions_mm+sample_weights, weights, or indices")
+    else: raise RuntimeError("AI Smart Select provider must return sample_positions_mm+sample_weights, weights, or indices")
     positions, sample_weights = _samples(vertices, weights)
     return {"method": method, "sample_positions_mm": positions, "sample_weights": sample_weights, "ai_provider_available": True}
 
@@ -230,24 +221,8 @@ def semantic_select(input_path: str, query: str) -> dict:
             result = _normalize_provider_result(data, vertices); result["query"] = query; return result
 
     if component_path("clipseg-smart-select") is not None:
-        weights = _multi_view_clipseg(mesh, query)
-        positions, sample_weights = _samples(vertices, weights)
-        return {
-            "method": "local CLIPSeg multi-view semantic segmentation",
-            "query": query,
-            "sample_positions_mm": positions,
-            "sample_weights": sample_weights,
-            "selected_samples": int(sum(1 for w in sample_weights if w >= 0.45)),
-            "ai_provider_available": True,
-            "views": 6,
-        }
+        weights = _multi_view_clipseg(mesh, query); positions, sample_weights = _samples(vertices, weights)
+        return {"method": "local CLIPSeg multi-view semantic segmentation", "query": query, "sample_positions_mm": positions, "sample_weights": sample_weights, "selected_samples": int(sum(1 for w in sample_weights if w >= 0.45)), "ai_provider_available": True, "views": 6}
 
     weights = _heuristic(vertices, query); positions, sample_weights = _samples(vertices, weights)
-    return {
-        "method": "geometry semantic fallback (install CLIPSeg Smart Select for arbitrary semantic parts)",
-        "query": query,
-        "sample_positions_mm": positions,
-        "sample_weights": sample_weights,
-        "selected_samples": int(sum(1 for w in sample_weights if w >= 0.35)),
-        "ai_provider_available": False,
-    }
+    return {"method": "geometry semantic fallback (install CLIPSeg Smart Select for arbitrary semantic parts)", "query": query, "sample_positions_mm": positions, "sample_weights": sample_weights, "selected_samples": int(sum(1 for w in sample_weights if w >= 0.35)), "ai_provider_available": False}
