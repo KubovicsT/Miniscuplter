@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import trimesh
 
 from model_manager import component_path, TOOLS_ROOT
@@ -18,6 +19,13 @@ def _load_part_mesh(source: Path) -> list[trimesh.Trimesh]:
         if not isinstance(mesh, trimesh.Trimesh) or mesh.is_empty:
             continue
         if len(mesh.faces) == 0 or len(mesh.vertices) == 0:
+            continue
+        if not np.isfinite(mesh.vertices).all():
+            continue
+        # PartCrafter's official script substitutes a single zero-area triangle when its
+        # decoder fails for a requested part. Reject that sentinel instead of importing it
+        # as a successful STL part.
+        if not np.isfinite(mesh.area) or float(mesh.area) <= 1e-10 or float(np.max(mesh.extents)) <= 1e-6:
             continue
         result.append(mesh)
     return result
@@ -78,12 +86,12 @@ def generate_parts(image_path: str, output_dir: str, num_parts: int = 4, tag: st
             raise RuntimeError(f"PartCrafter manifest references an invalid part file: {item['file']}")
         meshes = _load_part_mesh(source)
         if not meshes:
-            raise RuntimeError(f"PartCrafter part could not be converted to a non-empty mesh: {source.name}")
+            raise RuntimeError(f"PartCrafter returned an empty or degenerate part: {source.name}")
         for mesh in meshes:
             path = out / f"part_{len(normalized)+1:02d}.stl"
             mesh.remove_unreferenced_vertices()
-            if not mesh.vertices.shape[0] or not mesh.faces.shape[0]:
-                raise RuntimeError(f"PartCrafter part became empty during cleanup: {source.name}")
+            if not mesh.vertices.shape[0] or not mesh.faces.shape[0] or not np.isfinite(mesh.vertices).all():
+                raise RuntimeError(f"PartCrafter part became invalid during cleanup: {source.name}")
             mesh.export(path, file_type="stl")
             if not path.is_file() or path.stat().st_size == 0:
                 raise RuntimeError(f"Failed to normalize PartCrafter part to STL: {source.name}")
