@@ -3,7 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from PIL import Image
+
 from model_manager import component_path, hardware_info, TOOLS_ROOT
+from quality_runtime import get_config
 
 _PIPE = None
 
@@ -52,10 +55,23 @@ def _load_pipeline():
     return _PIPE
 
 
+def _prepare_image(image_path: str) -> str:
+    cfg = get_config(); max_px = int(cfg["max_input_px"])
+    src = Path(image_path)
+    image = Image.open(src).convert("RGB")
+    if max(image.size) <= max_px:
+        return str(src)
+    image.thumbnail((max_px, max_px), Image.Resampling.LANCZOS)
+    out = src.with_name(src.stem + "_v097_input.png")
+    image.save(out)
+    return str(out)
+
+
 def generate_shape(image_path: str, output_path: str, prompt: str = "", quality: str = "standard") -> str:
     pipe = _load_pipeline()
-    kwargs = {"image": image_path}
-    steps = QUALITY_STEPS.get((quality or "standard").lower(), QUALITY_STEPS["standard"])
+    prepared = _prepare_image(image_path)
+    kwargs = {"image": prepared}
+    steps = int(get_config()["shape_steps"])
 
     try:
         result = pipe(**kwargs, num_inference_steps=steps)
