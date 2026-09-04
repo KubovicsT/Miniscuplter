@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8 ]
+    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9 ]
   pull_request:
 
 permissions:
@@ -17,15 +17,30 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Restore
+      - name: Restore main app
         run: dotnet restore Miniscuplter.csproj
-      - name: Build
+      - name: Restore launcher
+        if: github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+        run: dotnet restore Launcher/Miniscuplter.Launcher.csproj
+      - name: Restore updater
+        if: github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+        run: dotnet restore Updater/Miniscuplter.Updater.csproj
+      - name: Build all C# targets
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dotnet build Miniscuplter.csproj --configuration Release --no-restore 2>&1 | Tee-Object -FilePath build.log
-          $exit = $LASTEXITCODE
+          $projects = @('Miniscuplter.csproj')
+          if ('${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.event_name }}' -eq 'pull_request') {
+            $projects += 'Launcher/Miniscuplter.Launcher.csproj'
+            $projects += 'Updater/Miniscuplter.Updater.csproj'
+          }
+          $exit = 0
+          foreach ($project in $projects) {
+            dotnet build $project --configuration Release --no-restore 2>&1 | Tee-Object -FilePath build-one.log
+            if ($LASTEXITCODE -ne 0) { $exit = $LASTEXITCODE; Get-Content build-one.log | Add-Content build.log; break }
+            Get-Content build-one.log | Add-Content build.log
+          }
           if ($exit -ne 0) {
             $errors = @(Select-String -Path build.log -Pattern 'error CS[0-9]+' | ForEach-Object { $_.Line.Trim() } | Select-Object -Unique -First 5)
             if ($errors.Count -eq 0) { $errors = @('dotnet build failed; no C# diagnostic line was captured') }
