@@ -27,13 +27,25 @@ if (-not $SkipGodotExport) {
     if ([string]::IsNullOrWhiteSpace($GodotExe) -or -not (Test-Path $GodotExe)) {
         throw 'Godot .NET executable not found. Pass -GodotExe or set GODOT_EXE to Godot 4.7.2 .NET.'
     }
+    # The normal Windows Godot executable is a GUI-subsystem process and PowerShell can return
+    # before it finishes. Prefer the sibling console executable so release automation blocks
+    # until export completes and receives the real exit code.
+    $godotCommand = $GodotExe
+    if ($GodotExe -notmatch '_console\.exe$') {
+        $consoleCandidate = [System.IO.Path]::Combine(
+            [System.IO.Path]::GetDirectoryName($GodotExe),
+            ([System.IO.Path]::GetFileNameWithoutExtension($GodotExe) + '_console.exe'))
+        if (Test-Path $consoleCandidate) { $godotCommand = $consoleCandidate }
+    }
+    Write-Host "Using Godot exporter: $godotCommand"
+
     $solution = Join-Path $root 'Miniscuplter.sln'
     if (-not (Test-Path $solution)) { throw 'Miniscuplter.sln is required for Godot .NET export.' }
     Write-Host 'Building C# solution before Godot export...'
     dotnet build $solution -c $Configuration
     if ($LASTEXITCODE -ne 0) { throw 'Miniscuplter C# solution build failed.' }
     Write-Host 'Exporting Godot application...'
-    & $GodotExe --headless --path $root --export-release 'Windows Desktop' (Join-Path $appDir 'Miniscuplter.exe')
+    & $godotCommand --headless --path $root --export-release 'Windows Desktop' (Join-Path $appDir 'Miniscuplter.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Godot Windows export failed.' }
     $exportedExe = Join-Path $appDir 'Miniscuplter.exe'
     if (-not (Test-Path $exportedExe) -or (Get-Item $exportedExe).Length -eq 0) { throw 'Godot reported success but did not produce a usable Miniscuplter.exe.' }
