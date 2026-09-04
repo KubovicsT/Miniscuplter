@@ -36,6 +36,7 @@ public sealed class AIClient
     public async Task<string> ThicknessMapAsync(string inputPath, double targetMm, int maxSamples = 12000) => await PostJsonTextAsync("/geometry/thickness-map", new { input_path = inputPath, target_mm = targetMm, max_samples = maxSamples }, true);
     public async Task<string> RepairGeometryAsync(string inputPath, string outputPath, double voxelSize) => await PostForFileAsync("/geometry/repair", new { input_path = inputPath, output_path = outputPath, voxel_size = voxelSize });
     public async Task<string> PredictRigAsync(string inputPath, string outputPath, string mode = "quick", int seed = 0, double branchThreshold = 0.28) => await PostForFileAsync("/rig/predict-skeleton", new { input_path = inputPath, output_path = outputPath, mode, seed, branch_threshold = branchThreshold });
+    public async Task<string> SemanticSelectAsync(string inputPath, string query) => await PostJsonTextAsync("/semantic-select", new { input_path = inputPath, query }, true);
 
     async Task<string> PostForFileAsync(string route, object payload)
     {
