@@ -39,13 +39,17 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch Miniscuplter"; Flags: no
 
 [Code]
 function IsInstallDirWritable(Dir: string): Boolean;
-var TestFile: string;
+var
+  TestFile: string;
+  TestData: AnsiString;
 begin
   Result := False;
   if not ForceDirectories(Dir) then Exit;
   TestFile := AddBackslash(Dir) + '.miniscuplter-write-test-' + GetDateTimeString('yyyymmddhhnnss', '', '');
-  if SaveStringToFile(TestFile, 'write-test', False) then begin
-    DeleteFile(TestFile); Result := True;
+  TestData := 'write-test';
+  if SaveStringToFile(TestFile, TestData, False) then begin
+    DeleteFile(TestFile);
+    Result := True;
   end;
 end;
 
