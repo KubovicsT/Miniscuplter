@@ -12,8 +12,7 @@ internal static class Program
         OwnedChildProcessJob.Initialize();
         try
         {
-            var form = new LauncherForm { Text = "Miniscuplter Launcher v1.0" };
-            Application.Run(form);
+            Application.Run(new LauncherForm());
         }
         finally
         {
