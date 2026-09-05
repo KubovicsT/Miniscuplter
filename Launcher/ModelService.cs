@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Miniscuplter.Launcher;
@@ -7,6 +8,7 @@ namespace Miniscuplter.Launcher;
 internal sealed record HardwareSnapshot(string? Gpu, int VramMb, bool CudaAvailable, string RecommendedProfile, string Platform, string Python);
 internal sealed record ModelSnapshot(string Id, string Name, string Kind, bool Installed, bool UpdateAvailable, string? InstalledRevision, string? RemoteRevision, double EstimatedGb, string Description, string? Path, string? UpdateError);
 internal sealed record ModelStatusSnapshot(HardwareSnapshot Hardware, List<ModelSnapshot> Models, string DataRoot, double FreeGb, double TotalGb);
+internal sealed record ModelOperationEvent(DateTimeOffset Timestamp, string Stream, string Message);
 
 internal sealed class ModelService
 {
@@ -80,7 +82,7 @@ internal sealed class ModelService
         }
     }
 
-    async Task<JsonDocument> RunAsync(params string[] args)
+    ProcessStartInfo CreateBridgeStartInfo(params string[] args)
     {
         if (_python == null) throw new InvalidOperationException("Python runtime is not installed or could not be located.");
         if (!File.Exists(_bridge)) throw new FileNotFoundException("AI launcher bridge is missing.", _bridge);
@@ -97,10 +99,15 @@ internal sealed class ModelService
         foreach (var a in args) psi.ArgumentList.Add(a);
         psi.Environment["MINISCULPTER_ROOT"] = _settings.InstallRoot;
         psi.Environment["MINISCULPTER_DATA"] = _settings.DataRoot;
+        psi.Environment["PYTHONUNBUFFERED"] = "1";
+        return psi;
+    }
+
+    async Task<JsonDocument> RunAsync(params string[] args)
+    {
+        var psi = CreateBridgeStartInfo(args);
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the AI model manager.");
 
-        // Read both redirected streams concurrently. Model downloads and git operations can emit
-        // enough stderr/stdout to fill an OS pipe; sequential reads can otherwise deadlock the launcher.
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
         await Task.WhenAll(process.WaitForExitAsync(), stdoutTask, stderrTask);
@@ -112,9 +119,87 @@ internal sealed class ModelService
             string detail = string.IsNullOrWhiteSpace(stderr) ? stdout : stderr;
             throw new InvalidOperationException(detail.Trim());
         }
-        string text = stdout.Trim();
+        string text = LastJsonLine(stdout);
         if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Model manager returned an empty response.");
         return JsonDocument.Parse(text);
+    }
+
+    public async Task RunModelOperationAsync(string action, string id, IProgress<ModelOperationEvent>? progress = null, CancellationToken cancellationToken = default)
+    {
+        if (action is not ("install" or "remove" or "update")) throw new ArgumentOutOfRangeException(nameof(action));
+        EnsureEditorClosedForMutation();
+        var psi = CreateBridgeStartInfo(action, id);
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the AI model manager.");
+        var stdoutLines = new List<string>();
+        var stderrLines = new List<string>();
+        object gate = new();
+
+        async Task PumpAsync(StreamReader reader, string stream, List<string> sink)
+        {
+            char[] buffer = new char[1024];
+            var line = new StringBuilder();
+            while (true)
+            {
+                int n = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+                if (n <= 0) break;
+                for (int i = 0; i < n; i++)
+                {
+                    char c = buffer[i];
+                    if (c == '\r' || c == '\n')
+                    {
+                        if (line.Length == 0) continue;
+                        string text = line.ToString(); line.Clear();
+                        lock (gate) { sink.Add(text); if (sink.Count > 250) sink.RemoveRange(0, sink.Count - 250); }
+                        if (!LooksLikeResultJson(text)) progress?.Report(new ModelOperationEvent(DateTimeOffset.Now, stream, text));
+                    }
+                    else line.Append(c);
+                }
+            }
+            if (line.Length > 0)
+            {
+                string text = line.ToString();
+                lock (gate) { sink.Add(text); }
+                if (!LooksLikeResultJson(text)) progress?.Report(new ModelOperationEvent(DateTimeOffset.Now, stream, text));
+            }
+        }
+
+        Task stdoutTask = PumpAsync(process.StandardOutput, "stdout", stdoutLines);
+        Task stderrTask = PumpAsync(process.StandardError, "stderr", stderrLines);
+        try
+        {
+            await Task.WhenAll(process.WaitForExitAsync(cancellationToken), stdoutTask, stderrTask);
+        }
+        catch (OperationCanceledException)
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            throw;
+        }
+
+        if (process.ExitCode != 0)
+        {
+            string detail;
+            lock (gate)
+            {
+                IEnumerable<string> source = stderrLines.Count > 0 ? stderrLines : stdoutLines;
+                detail = string.Join(Environment.NewLine, source.TakeLast(60));
+            }
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(detail) ? $"Model manager exited with code {process.ExitCode}." : detail.Trim());
+        }
+    }
+
+    static bool LooksLikeResultJson(string line)
+    {
+        string t = line.Trim();
+        return t.StartsWith('{') && t.EndsWith('}');
+    }
+
+    static string LastJsonLine(string stdout)
+    {
+        foreach (string line in stdout.Replace("\r", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Reverse())
+        {
+            if (LooksLikeResultJson(line)) return line;
+        }
+        return stdout.Trim();
     }
 
     public async Task<ModelStatusSnapshot> GetStatusAsync(bool checkUpdates)
@@ -151,7 +236,7 @@ internal sealed class ModelService
             disk.TryGetProperty("total_gb", out var t) ? t.GetDouble() : 0);
     }
 
-    public async Task InstallAsync(string id) { EnsureEditorClosedForMutation(); using var _ = await RunAsync("install", id); }
-    public async Task RemoveAsync(string id) { EnsureEditorClosedForMutation(); using var _ = await RunAsync("remove", id); }
-    public async Task UpdateAsync(string id) { EnsureEditorClosedForMutation(); using var _ = await RunAsync("update", id); }
+    public Task InstallAsync(string id) => RunModelOperationAsync("install", id);
+    public Task RemoveAsync(string id) => RunModelOperationAsync("remove", id);
+    public Task UpdateAsync(string id) => RunModelOperationAsync("update", id);
 }
