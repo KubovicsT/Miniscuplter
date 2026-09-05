@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 set "QUIET=0"
 if /I "%~1"=="/quiet" set "QUIET=1"
 set "SETUP_SCRIPT=%~f0"
@@ -40,7 +40,7 @@ if not exist .venv (
 )
 call .venv\Scripts\activate.bat
 
-rem Keep large runtime downloads out of the Windows user TEMP folder.  The
+rem Keep large runtime downloads out of the Windows user TEMP folder. The
 rem cache survives Repair retries, so interrupted multi-gigabyte downloads can
 rem resume instead of starting from scratch.
 if defined MINISCULPTER_DATA (
@@ -69,8 +69,8 @@ if errorlevel 1 (
   if errorlevel 1 exit /b 1
 ) else (
   echo NVIDIA GPU detected. Installing CUDA 12.4 PyTorch runtime.
-  set "TORCH_WHEEL=%RUNTIME_DOWNLOADS%\torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
-  set "VISION_WHEEL=%RUNTIME_DOWNLOADS%\torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
+  set "TORCH_WHEEL=!RUNTIME_DOWNLOADS!\torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
+  set "VISION_WHEEL=!RUNTIME_DOWNLOADS!\torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
   set "TORCH_URL=https://download.pytorch.org/whl/cu124/torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
   set "VISION_URL=https://download.pytorch.org/whl/cu124/torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
 
@@ -81,20 +81,32 @@ if errorlevel 1 (
   )
 
   echo Downloading PyTorch wheel to persistent cache. Interrupted downloads will resume on the next Repair.
-  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "%TORCH_WHEEL%" "%TORCH_URL%"
+  echo Destination: !TORCH_WHEEL!
+  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!TORCH_WHEEL!" "!TORCH_URL!"
   if errorlevel 1 (
     echo PyTorch download did not finish. Run Repair AI Runtime again to resume it.
     exit /b 1
   )
+  python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); ok=p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p); print(f'PyTorch wheel: {p.stat().st_size/1024/1024:.1f} MiB' if p.is_file() else 'PyTorch wheel missing'); raise SystemExit(0 if ok else 1)" "!TORCH_WHEEL!"
+  if errorlevel 1 (
+    echo Downloaded PyTorch file is incomplete or invalid. Delete !TORCH_WHEEL! and run Repair AI Runtime again.
+    exit /b 1
+  )
 
   echo Downloading torchvision wheel to persistent cache.
-  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "%VISION_WHEEL%" "%VISION_URL%"
+  echo Destination: !VISION_WHEEL!
+  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!VISION_WHEEL!" "!VISION_URL!"
   if errorlevel 1 (
     echo torchvision download did not finish. Run Repair AI Runtime again to resume it.
     exit /b 1
   )
+  python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); ok=p.is_file() and p.stat().st_size>5000000 and zipfile.is_zipfile(p); print(f'torchvision wheel: {p.stat().st_size/1024/1024:.1f} MiB' if p.is_file() else 'torchvision wheel missing'); raise SystemExit(0 if ok else 1)" "!VISION_WHEEL!"
+  if errorlevel 1 (
+    echo Downloaded torchvision file is incomplete or invalid. Delete !VISION_WHEEL! and run Repair AI Runtime again.
+    exit /b 1
+  )
 
-  python -m pip install "%TORCH_WHEEL%" "%VISION_WHEEL%" --timeout 180 --retries 20
+  python -m pip install "!TORCH_WHEEL!" "!VISION_WHEEL!" --timeout 180 --retries 20
   if errorlevel 1 exit /b 1
 )
 
