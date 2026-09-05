@@ -36,30 +36,3 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Miniscuplter"; Flags: nowait postinstall skipifsilent
-
-[Code]
-function IsInstallDirWritable(Dir: string): Boolean;
-var
-  TestFile: string;
-  TestData: AnsiString;
-begin
-  Result := False;
-  if not ForceDirectories(Dir) then Exit;
-  TestFile := AddBackslash(Dir) + '.miniscuplter-write-test-' + GetDateTimeString('yyyymmddhhnnss', '', '');
-  TestData := 'write-test';
-  if SaveStringToFile(TestFile, TestData, False) then begin
-    DeleteFile(TestFile);
-    Result := True;
-  end;
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-  if CurPageID = wpSelectDir then begin
-    if not IsInstallDirWritable(WizardDirValue) then begin
-      MsgBox('Miniscuplter needs a writable installation folder so its launcher can manage updates and the local AI runtime. Choose a folder your Windows account can write to.', mbError, MB_OK);
-      Result := False;
-    end;
-  end;
-end;
