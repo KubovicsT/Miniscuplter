@@ -17,23 +17,24 @@ internal sealed class RuntimeSetupService
         }
         if (!File.Exists(script)) throw new FileNotFoundException("AI runtime setup script is missing.", script);
 
+        // Runtime repair can download multi-gigabyte PyTorch wheels and install many Python
+        // packages. Keep a real console visible so users can see progress instead of staring
+        // at a frozen-looking launcher. The child is still contained by the launcher Job Object.
         var psi = new ProcessStartInfo("cmd.exe")
         {
             UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            CreateNoWindow = false,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
             WorkingDirectory = Path.GetDirectoryName(script) ?? _settings.InstallRoot
         };
         psi.ArgumentList.Add("/c"); psi.ArgumentList.Add(script); psi.ArgumentList.Add("/quiet");
         psi.Environment["MINISCULPTER_ROOT"] = _settings.InstallRoot;
         psi.Environment["MINISCULPTER_DATA"] = _settings.DataRoot;
         using var process = OwnedChildProcessJob.Start(psi);
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(); Task<string> stderr = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
-        string output = await stdout; string error = await stderr;
         if (process.ExitCode == 2) throw new InvalidOperationException("Python 3.10 x64 is required for the current local-AI runtime. Install Python 3.10 x64, then click Repair AI Runtime again.");
-        if (process.ExitCode != 0) throw new InvalidOperationException((string.IsNullOrWhiteSpace(error) ? output : error).Trim());
-        return string.IsNullOrWhiteSpace(output) ? "AI runtime repaired successfully." : output.Trim().Split('\n').LastOrDefault(s => !string.IsNullOrWhiteSpace(s))?.Trim() ?? "AI runtime repaired successfully.";
+        if (process.ExitCode != 0) throw new InvalidOperationException($"AI runtime setup exited with code {process.ExitCode}. See the setup console above for the failing command.");
+        return "AI runtime repaired successfully. Xet/model download support and runtime dependencies were verified.";
     }
 }
