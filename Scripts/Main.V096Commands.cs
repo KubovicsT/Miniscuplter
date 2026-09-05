@@ -132,7 +132,7 @@ public partial class Main
                 case "/remesh": await V096CommandRemesh(arg); break;
                 case "/analyze": await AnalyzeSelectedV09Async(); break;
                 case "/thickness": await V096CommandThickness(arg); break;
-                case "/rig": await GenerateV06Rig(arg.Equals("universal", StringComparison.OrdinalIgnoreCase) ? "universal" : "quick"); break;
+                case "/rig": await SafeV095GenerateRigAsync(arg.Equals("universal", StringComparison.OrdinalIgnoreCase) ? "universal" : "quick"); break;
                 case "/pose": V096PoseCommand(arg); break;
                 case "/savepart": V096SavePartCommand(arg); break;
                 case "/edit": await V096EditCommand(arg); break;
