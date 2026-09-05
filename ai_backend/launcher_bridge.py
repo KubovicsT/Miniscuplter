@@ -4,7 +4,8 @@ import argparse
 import json
 import sys
 
-from model_manager import install_component, uninstall_component, update_component, status
+from model_manager import install_component, uninstall_component, update_component
+from model_manager_v105 import status
 
 
 def main() -> int:
