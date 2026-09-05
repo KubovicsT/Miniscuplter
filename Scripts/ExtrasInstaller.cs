@@ -9,6 +9,15 @@ public partial class ExtrasInstaller : Node
     void Install()
     {
         if (GetParent() is not Main main) return;
+
+        // The release-facing tab is called "Model", but all additive version installers from
+        // v0.4 onward target the stable internal node name "Print". A base-UI rename in v1.0
+        // accidentally changed the node itself to "Model", causing those installers to skip
+        // their controls silently. Restore the compatibility name before any extras install;
+        // InstallV100ReleasePolish() still presents the tab to users as "Model".
+        if (main.FindChild("Print", true, false) == null && main.FindChild("Model", true, false) is Control modelTab)
+            modelTab.Name = "Print";
+
         main.InstallV01Extras();
         main.InstallV02Extras();
         main.InstallV03Extras();
