@@ -53,16 +53,21 @@ internal static class Program
             string source = NormalizePackageRoot(stage);
             ValidateReleasePackage(source, expectedVersion);
 
-            ParkPreservedNested(target, parked);
+            // Park expensive nested runtime data by same-volume directory move before copying
+            // the old managed tree. This avoids duplicating a multi-GB virtual environment.
             parkedNeedsRestore = true;
+            ParkPreservedNested(target, parked);
             BackupManagedTree(target, backup);
             try
             {
                 RemoveManagedTree(target);
                 CopyTree(source, target);
+                // Validate the new managed application before putting the parked runtime back.
+                // If validation fails, rollback can restore the old tree while the runtime is
+                // still safely outside the destructive area.
+                ValidateInstalledTree(target, expectedVersion);
                 RestoreParkedNested(parked, target);
                 parkedNeedsRestore = false;
-                ValidateInstalledTree(target, expectedVersion);
             }
             catch
             {
@@ -227,15 +232,38 @@ internal static class Program
 
     static void RestoreParkedNested(string parking, string target)
     {
-        foreach (string relative in PreserveNested)
+        var restored = new List<(string Source, string Destination)>();
+        try
         {
-            string source = Path.Combine(parking, relative);
-            if (!Directory.Exists(source)) continue;
-            string destination = Path.Combine(target, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
-            try { Directory.Move(source, destination); }
-            catch (IOException) { CopyDirectory(source, destination); DeleteDirectoryWithRetry(source); }
+            foreach (string relative in PreserveNested)
+            {
+                string source = Path.Combine(parking, relative);
+                if (!Directory.Exists(source)) continue;
+                string destination = Path.Combine(target, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+                Directory.Move(source, destination);
+                restored.Add((source, destination));
+            }
+        }
+        catch
+        {
+            // Put already-restored directories back into the parking area so the caller can
+            // safely roll back the application tree without deleting the preserved runtime.
+            for (int i = restored.Count - 1; i >= 0; i--)
+            {
+                var item = restored[i];
+                try
+                {
+                    if (Directory.Exists(item.Destination) && !Directory.Exists(item.Source))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(item.Source)!);
+                        Directory.Move(item.Destination, item.Source);
+                    }
+                }
+                catch { }
+            }
+            throw;
         }
     }
 
