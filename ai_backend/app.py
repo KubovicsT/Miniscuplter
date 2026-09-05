@@ -12,7 +12,8 @@ from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model
 from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
 from detail_pipeline import detail_2d, detail_3d, apply_detail
 
-app=FastAPI(title="Miniscuplter AI Backend",version="1.0.5");app.include_router(geometry_router);app.include_router(rig_router)
+APP_VERSION="1.0.6"
+app=FastAPI(title="Miniscuplter AI Backend",version=APP_VERSION);app.include_router(geometry_router);app.include_router(rig_router)
 SD_WEBUI_URL=os.getenv("MINISCULPTER_SD_URL","").rstrip("/");THREED_COMMAND=os.getenv("MINISCULPTER_3D_COMMAND","")
 class ConceptRequest(BaseModel):prompt:str;output_path:str;quality:str="standard";provider:str="auto"
 class EditRequest(BaseModel):image_path:str;mask_path:Optional[str]=None;prompt:str;output_path:str;quality:str="standard";provider:str="auto";detail:bool=False
@@ -24,7 +25,7 @@ class Detail2DRequest(BaseModel):image_path:str;mask_path:str;prompt:str;output_
 class Detail3DRequest(BaseModel):source_mesh:str;image_path:str;mask_path:str;prompt:str;bounds_min:list[float];bounds_max:list[float];output_patch:str;output_image:str;output_crop:str;image_provider:str="auto";three_d_provider:str="auto"
 class DetailApplyRequest(BaseModel):source_mesh:str;patch_mesh:str;output_path:str;voxel_size:Optional[float]=None
 @app.get("/health")
-def health():return {"ok":True,"version":"1.0.5","routing":routing_status(),"geometry_provider":"trimesh-voxel + model-analysis + transactional-detail-union","rig_provider":"adaptive-quick + optional-universal-command","smart_select_provider":"local-clipseg-or-geometry","components":component_status()}
+def health():return {"ok":True,"version":APP_VERSION,"routing":routing_status(),"geometry_provider":"trimesh-voxel + model-analysis + transactional-detail-union","rig_provider":"adaptive-quick + optional-universal-command","smart_select_provider":"local-clipseg-or-geometry","components":component_status()}
 @app.get("/routing")
 def routing():return routing_status()
 @app.get("/components")
