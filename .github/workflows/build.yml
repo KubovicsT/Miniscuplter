@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9, v1.0, v1.0.5 ]
+    branches: [ main, 'v*' ]
   pull_request:
   workflow_dispatch:
 
@@ -62,7 +62,21 @@ jobs:
       - name: Verify package layout
         shell: pwsh
         run: |
-          @('dist/package/Miniscuplter.Launcher.exe','dist/package/Miniscuplter.Updater.exe','dist/package/App/ai_backend/launcher_bridge.py','dist/package/setup_ai_backend.bat','dist/Miniscuplter-win-x64.zip') | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing package output: $_" } }
+          @(
+            'dist/package/Miniscuplter.Launcher.exe',
+            'dist/package/Miniscuplter.Updater.exe',
+            'dist/package/App/ai_backend/launcher_bridge.py',
+            'dist/package/setup_ai_backend.bat',
+            'dist/package/release.json',
+            'dist/Miniscuplter-win-x64.zip',
+            'dist/Miniscuplter-win-x64.zip.sha256'
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing package output: $_" } }
+      - name: Verify portable ZIP SHA-256 sidecar
+        shell: pwsh
+        run: |
+          $expected = ((Get-Content 'dist/Miniscuplter-win-x64.zip.sha256' -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw "Portable ZIP SHA-256 mismatch: $actual != $expected" }
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Compile installer definition
@@ -95,31 +109,95 @@ jobs:
       - name: Build full Windows release
         shell: pwsh
         run: ./build_release.ps1 -GodotExe $env:GODOT_EXE -BuildInstaller
-      - name: Verify v1.0.5 outputs
+      - name: Verify versioned release outputs
         shell: pwsh
         run: |
-          @('dist/package/App/Miniscuplter.exe','dist/Miniscuplter-win-x64.zip','dist/installer/Miniscuplter-Setup-1.0.5.exe') | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing full release output: $_" } }
-      - name: Smoke-install generated v1.0.5 installer
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          @(
+            'dist/package/App/Miniscuplter.exe',
+            'dist/package/release.json',
+            'dist/Miniscuplter-win-x64.zip',
+            'dist/Miniscuplter-win-x64.zip.sha256',
+            "dist/installer/Miniscuplter-Setup-$version.exe"
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing full release output: $_" } }
+          $manifest = Get-Content 'dist/package/release.json' -Raw | ConvertFrom-Json
+          if ([string]$manifest.version -ne $version) { throw "release.json version $($manifest.version) != branch version $version" }
+          $expected = ((Get-Content 'dist/Miniscuplter-win-x64.zip.sha256' -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw "Release ZIP SHA-256 mismatch: $actual != $expected" }
+      - name: Smoke-install generated installer
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $version = '${{ github.ref_name }}'.TrimStart('v')
           $target = Join-Path $env:RUNNER_TEMP 'MiniscuplterInstallerSmoke'
           if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-          $setup = (Resolve-Path 'dist/installer/Miniscuplter-Setup-1.0.5.exe').Path
+          $setup = (Resolve-Path "dist/installer/Miniscuplter-Setup-$version.exe").Path
           $args = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/DIR=$target",'/NOICONS','/TASKS=')
           $process = Start-Process -FilePath $setup -ArgumentList $args -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer smoke test exited with code $($process.ExitCode)." }
           @(
             (Join-Path $target 'Miniscuplter.Launcher.exe'),
             (Join-Path $target 'Miniscuplter.Updater.exe'),
-            (Join-Path $target 'App\Miniscuplter.exe')
+            (Join-Path $target 'App\Miniscuplter.exe'),
+            (Join-Path $target 'release.json')
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Installer smoke test missing installed file: $_" } }
-      - name: Upload installable v1.0.5 Windows artifacts
+      - name: Stage immutable release assets
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          New-Item 'dist/release' -ItemType Directory -Force | Out-Null
+          Copy-Item 'dist/Miniscuplter-win-x64.zip' 'dist/release/Miniscuplter-win-x64.zip' -Force
+          Copy-Item 'dist/Miniscuplter-win-x64.zip.sha256' 'dist/release/Miniscuplter-win-x64.zip.sha256' -Force
+          Copy-Item "dist/installer/Miniscuplter-Setup-$version.exe" "dist/release/Miniscuplter-Setup-$version.exe" -Force
+      - name: Upload installable Windows release assets
         uses: actions/upload-artifact@v4
         with:
-          name: Miniscuplter-v1.0.5-Windows-x64-${{ github.sha }}
+          name: release-package
           if-no-files-found: error
           retention-days: 30
-          path: |
-            dist/installer/Miniscuplter-Setup-1.0.5.exe
-            dist/Miniscuplter-win-x64.zip
+          path: dist/release/*
+
+  publish-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/v1.')
+    needs: [full-windows-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package
+          path: release
+      - name: Verify release ZIP before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release
+          sha256sum -c Miniscuplter-win-x64.zip.sha256
+      - name: Publish immutable GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          installer="release/Miniscuplter-Setup-${version}.exe"
+          test -f release/Miniscuplter-win-x64.zip
+          test -f release/Miniscuplter-win-x64.zip.sha256
+          test -f "$installer"
+
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; published release versions are immutable, so no assets will be replaced."
+            exit 0
+          fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            release/Miniscuplter-win-x64.zip \
+            release/Miniscuplter-win-x64.zip.sha256 \
+            "$installer" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Miniscuplter $GITHUB_REF_NAME" \
+            --notes "Verified Windows release for $GITHUB_REF_NAME. The launcher self-updater uses the exact ZIP size and SHA-256 before transactional installation and preserves AI models, interrupted downloads, runtime caches and user data."
