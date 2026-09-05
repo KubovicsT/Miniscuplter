@@ -38,7 +38,7 @@ internal sealed class LauncherForm : Form
         heading.Controls.Add(new Label { Text = "MINISCULPTER", Font = new Font(Font.FontFamily, 20, FontStyle.Bold), AutoSize = true }); heading.Controls.Add(new Label { Text = "Hardware, AI models, updates and launch", AutoSize = true, Margin = new Padding(0, 0, 0, 10) }); root.Controls.Add(heading);
         var info = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 0, 0, 10) };
         info.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); info.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); info.Controls.Add(_hardware, 0, 0); info.Controls.Add(_storage, 1, 0); info.Controls.Add(_appVersion, 0, 1); info.Controls.Add(new Label { AutoSize = true, Text = "Install location: " + _settings.InstallRoot }, 1, 1); root.Controls.Add(info);
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Id", Visible = false }); _grid.Columns.Add("Model", "Model"); _grid.Columns.Add("Role", "Role"); _grid.Columns.Add("Installed", "Installed"); _grid.Columns.Add("Size", "Approx. size"); _grid.Columns.Add("Version", "Installed revision"); _grid.Columns.Add("Update", "Update"); _grid.SelectionChanged += (_, _) => UpdateButtons(); root.Controls.Add(_grid);
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Id", Visible = false }); _grid.Columns.Add("Model", "Model"); _grid.Columns.Add("Role", "Role"); _grid.Columns.Add("Installed", "Installed"); _grid.Columns.Add("Size", "Audited model payload"); _grid.Columns.Add("Version", "Installed revision"); _grid.Columns.Add("Update", "Status / update"); _grid.SelectionChanged += (_, _) => UpdateButtons(); root.Controls.Add(_grid);
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 8, 0, 8) };
         _install.Click += async (_, _) => await ModelActionAsync("install"); _remove.Click += async (_, _) => await ModelActionAsync("remove"); _updateModel.Click += async (_, _) => await ModelActionAsync("update"); _refresh.Click += async (_, _) => await RefreshAllAsync(false); _repairRuntime.Click += async (_, _) => await RepairRuntimeAsync();
         var openModels = new Button { Text = "Open model folder" }; openModels.Click += (_, _) => OpenFolder(_settings.DataRoot); var openInstall = new Button { Text = "Open install folder" }; openInstall.Click += (_, _) => OpenFolder(_settings.InstallRoot); buttons.Controls.AddRange(new Control[] { _install, _remove, _updateModel, _refresh, _repairRuntime, openModels, openInstall }); root.Controls.Add(buttons);
@@ -48,7 +48,7 @@ internal sealed class LauncherForm : Form
 
     async Task RefreshAllAsync(bool initial)
     {
-        if (_busy) return; SetBusy(true, "Checking hardware and installed AI models…");
+        if (_busy) return; SetBusy(true, "Checking hardware, installed models and interrupted downloads…");
         try
         {
             LauncherHardware native = HardwareProbe.Detect();
@@ -56,13 +56,15 @@ internal sealed class LauncherForm : Form
             var modelService = new ModelService(_settings);
             if (!modelService.IsAvailable)
             {
-                _storage.Text = modelService.AvailabilityMessage; _grid.Rows.Clear(); _status.Text = "Hardware check complete. Local AI management needs its Python environment; click Repair AI Runtime. The editor can still launch without AI.";
+                _storage.Text = modelService.AvailabilityMessage; _grid.Rows.Clear(); _status.Text = "Hardware check complete. Local AI management needs its Python environment; click Repair AI Runtime. Setup progress will be shown in a separate console. Existing model weights and partial downloads are preserved.";
             }
             else
             {
                 var snapshot = await modelService.GetStatusAsync(_settings.CheckModelUpdates); _storage.Text = $"AI data: {snapshot.DataRoot} · {snapshot.FreeGb:0.0} GB free / {snapshot.TotalGb:0.0} GB"; PopulateModels(snapshot.Models);
-                int updates = snapshot.Models.Count(m => m.Installed && m.UpdateAvailable); int missing = RecommendedFor(native.VramMb).Count(id => snapshot.Models.Any(m => m.Id == id && !m.Installed));
-                _status.Text = updates > 0 ? $"{updates} installed AI model update{(updates == 1 ? "" : "s")} available. Updates are never installed automatically." : missing > 0 ? $"Hardware check complete. {missing} recommended model{(missing == 1 ? " is" : "s are")} not installed." : "Hardware and AI model checks complete.";
+                var resumable = snapshot.Models.Where(m => m.ResumeAvailable).ToList(); int updates = snapshot.Models.Count(m => m.Installed && m.UpdateAvailable); int missing = RecommendedFor(native.VramMb).Count(id => snapshot.Models.Any(m => m.Id == id && !m.Installed));
+                _status.Text = resumable.Count > 0 ? $"{resumable.Count} interrupted model operation{(resumable.Count == 1 ? " is" : "s are")} ready to resume. Select the highlighted model; Miniscuplter will verify the upstream revision and exact file manifest before continuing."
+                    : updates > 0 ? $"{updates} installed AI model update{(updates == 1 ? "" : "s")} available. Updates are never installed automatically."
+                    : missing > 0 ? $"Hardware check complete. {missing} recommended model{(missing == 1 ? " is" : "s are")} not installed." : "Hardware and AI model checks complete.";
             }
             if (_settings.CheckApplicationUpdates)
             {
@@ -78,7 +80,12 @@ internal sealed class LauncherForm : Form
     void PopulateModels(IEnumerable<ModelSnapshot> models)
     {
         string? selected = SelectedId(); _grid.Rows.Clear();
-        foreach (var m in models) { int index = _grid.Rows.Add(m.Id, m.Name, m.Kind, m.Installed ? "Yes" : "No", $"~{m.EstimatedGb:0.0} GB", ShortRevision(m.InstalledRevision), m.UpdateAvailable ? "AVAILABLE" : m.UpdateError != null ? "Check unavailable" : m.Installed ? "Current" : "—"); var row = _grid.Rows[index]; row.Tag = m; if (m.UpdateAvailable) row.DefaultCellStyle.Font = new Font(_grid.Font, FontStyle.Bold); if (m.Id == selected) row.Selected = true; }
+        foreach (var m in models)
+        {
+            string status = m.ResumeAvailable ? $"RESUME {m.ResumeAction?.ToUpperInvariant() ?? "INSTALL"} · {m.StagedGb:0.00} GB staged" : m.UpdateAvailable ? "AVAILABLE" : m.UpdateError != null ? "Check unavailable" : m.Installed ? "Current" : "—";
+            int index = _grid.Rows.Add(m.Id, m.Name, m.Kind, m.Installed ? "Yes" : m.ResumeAvailable ? "Partial" : "No", m.EstimatedGb > 0 ? $"~{m.EstimatedGb:0.0} GB" : "External runtime", ShortRevision(m.InstalledRevision), status);
+            var row = _grid.Rows[index]; row.Tag = m; if (m.UpdateAvailable || m.ResumeAvailable) row.DefaultCellStyle.Font = new Font(_grid.Font, FontStyle.Bold); if (m.Id == selected) row.Selected = true;
+        }
         if (_grid.SelectedRows.Count == 0 && _grid.Rows.Count > 0) _grid.Rows[0].Selected = true;
     }
 
@@ -86,16 +93,12 @@ internal sealed class LauncherForm : Form
     {
         if (_busy || _grid.SelectedRows.Count == 0 || _grid.SelectedRows[0].Tag is not ModelSnapshot model) return;
         if (action == "remove" && MessageBox.Show(this, $"Delete {model.Name} from the model store?\n\nThis removes its installed files. It does not affect projects.", "Remove AI model", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-        if (action == "update" && MessageBox.Show(this, $"A newer upstream revision of {model.Name} is available.\n\nUpdate this model now? Model updates can change output quality or compatibility and are never automatic.", "Update AI model", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-
-        SetBusy(true, action switch { "install" => $"Installing {model.Name}…", "remove" => $"Removing {model.Name}…", _ => $"Updating {model.Name}…" });
+        if (action == "update" && !model.ResumeAvailable && MessageBox.Show(this, $"A newer upstream revision of {model.Name} is available.\n\nUpdate this model now? Model updates can change output quality or compatibility and are never automatic.", "Update AI model", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        SetBusy(true, model.ResumeAvailable ? $"Resuming {model.Name}…" : action switch { "install" => $"Installing {model.Name}…", "remove" => $"Removing {model.Name}…", _ => $"Updating {model.Name}…" });
         try
         {
-            using var dialog = new ModelOperationDialog(_settings, model, action);
-            dialog.ShowDialog(this);
-            _status.Text = dialog.Succeeded
-                ? $"{model.Name}: {action} completed."
-                : $"{model.Name}: {action} failed. Open the operation dialog log for details.";
+            using var dialog = new ModelOperationDialog(_settings, model, action); dialog.ShowDialog(this);
+            _status.Text = dialog.Succeeded ? $"{model.Name}: {action} completed and verified." : dialog.Cancelled ? $"{model.Name}: cancelled. Partial files were preserved and can be resumed." : $"{model.Name}: {action} failed. Safe partial files were preserved where possible; refresh to see resume status.";
         }
         finally { SetBusy(false); }
         await RefreshAllAsync(false);
@@ -103,8 +106,8 @@ internal sealed class LauncherForm : Form
 
     async Task RepairRuntimeAsync()
     {
-        if (_busy || MessageBox.Show(this, "Repair/install the local AI Python environment now?\n\nRuntime packages are installed inside the selected Miniscuplter installation. Model weights are downloaded only when you explicitly install a model.", "Repair AI runtime", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        SetBusy(true, "Preparing local AI runtime…"); try { _status.Text = await _runtime.RepairAsync(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "AI runtime setup failed", MessageBoxButtons.OK, MessageBoxIcon.Error); } finally { SetBusy(false); } await RefreshAllAsync(false);
+        if (_busy || MessageBox.Show(this, "Repair/install the local AI Python environment now?\n\nA setup console will open and show package/download progress. Model weights are not downloaded by runtime repair. Existing model weights and interrupted downloads are preserved.", "Repair AI runtime", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        SetBusy(true, "Preparing local AI runtime… watch the setup console for progress."); try { _status.Text = await _runtime.RepairAsync(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "AI runtime setup failed", MessageBoxButtons.OK, MessageBoxIcon.Error); } finally { SetBusy(false); } await RefreshAllAsync(false);
     }
 
     async Task ApplyApplicationUpdateAsync()
@@ -125,9 +128,16 @@ internal sealed class LauncherForm : Form
     }
 
     void SetBusy(bool busy, string? text = null) { _busy = busy; _install.Enabled = !busy; _remove.Enabled = !busy; _refresh.Enabled = !busy; _repairRuntime.Enabled = !busy; _launch.Enabled = !busy; if (text != null) _status.Text = text; Cursor = busy ? Cursors.WaitCursor : Cursors.Default; UpdateButtons(); }
-    void UpdateButtons() { if (_grid.SelectedRows.Count == 0 || _grid.SelectedRows[0].Tag is not ModelSnapshot m) { _install.Enabled = _remove.Enabled = _updateModel.Enabled = false; return; } _install.Enabled = !_busy && !m.Installed; _remove.Enabled = !_busy && m.Installed; _updateModel.Enabled = !_busy && m.Installed && m.UpdateAvailable; }
+    void UpdateButtons()
+    {
+        if (_grid.SelectedRows.Count == 0 || _grid.SelectedRows[0].Tag is not ModelSnapshot m) { _install.Enabled = _remove.Enabled = _updateModel.Enabled = false; return; }
+        bool resumeInstall = m.ResumeAvailable && !m.Installed && !string.Equals(m.ResumeAction, "update", StringComparison.OrdinalIgnoreCase);
+        bool resumeUpdate = m.ResumeAvailable && m.Installed && string.Equals(m.ResumeAction, "update", StringComparison.OrdinalIgnoreCase);
+        _install.Text = resumeInstall ? "Resume selected" : "Install selected"; _updateModel.Text = resumeUpdate ? "Resume update" : "Update selected";
+        _install.Enabled = !_busy && !m.Installed; _remove.Enabled = !_busy && m.Installed; _updateModel.Enabled = !_busy && m.Installed && (m.UpdateAvailable || resumeUpdate);
+    }
     string? SelectedId() => _grid.SelectedRows.Count > 0 && _grid.SelectedRows[0].Tag is ModelSnapshot m ? m.Id : null;
     static string ShortRevision(string? revision) => string.IsNullOrWhiteSpace(revision) ? "—" : revision.Length > 24 ? revision[..24] : revision;
-    static string[] RecommendedFor(int vramMb) => vramMb >= 6144 ? new[] { "sdxl-base", "triposr", "hunyuan21-shape", "clipseg-smart-select" } : new[] { "sd21", "triposr", "clipseg-smart-select" };
+    static string[] RecommendedFor(int vramMb) => vramMb >= 12288 ? new[] { "qwen-image-2512", "hunyuan21-shape", "partcrafter", "clipseg-smart-select" } : vramMb >= 6144 ? new[] { "sdxl-base", "sf3d", "hunyuan2mini", "clipseg-smart-select" } : new[] { "sd21", "triposr", "clipseg-smart-select" };
     static void OpenFolder(string path) { try { Directory.CreateDirectory(path); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); } catch { } }
 }
