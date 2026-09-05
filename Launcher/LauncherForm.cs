@@ -21,11 +21,12 @@ internal sealed class LauncherForm : Form
     readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Visible = false };
     AppUpdateInfo? _latestApp;
     bool _busy;
+    bool _updatePromptShown;
 
     public LauncherForm()
     {
         _settings = InstallLayout.Load(); _updates = new ApplicationUpdateService(_settings);
-        Text = "Miniscuplter Launcher v1.0.5"; Width = 1080; Height = 720; MinimumSize = new Size(850, 560); StartPosition = FormStartPosition.CenterScreen;
+        Text = "Miniscuplter Launcher v1.0.6"; Width = 1080; Height = 720; MinimumSize = new Size(850, 560); StartPosition = FormStartPosition.CenterScreen;
         BuildUi(); Shown += async (_, _) => await RefreshAllAsync(initial: true);
     }
 
@@ -47,7 +48,9 @@ internal sealed class LauncherForm : Form
 
     async Task RefreshAllAsync(bool initial)
     {
-        if (_busy) return; SetBusy(true, "Checking hardware, installed models and interrupted downloads…");
+        if (_busy) return;
+        bool offerUpdate = false;
+        SetBusy(true, "Checking hardware, installed models and interrupted downloads…");
         try
         {
             LauncherHardware native = HardwareProbe.Detect();
@@ -67,13 +70,47 @@ internal sealed class LauncherForm : Form
             }
             if (_settings.CheckApplicationUpdates)
             {
-                try { _latestApp = await _updates.CheckAsync(); _appVersion.Text = _latestApp.Available ? $"Application: v{_latestApp.CurrentVersion} · v{_latestApp.LatestVersion} available" : $"Application: v{_latestApp.CurrentVersion} · up to date"; _appUpdate.Enabled = _latestApp.Available && !string.IsNullOrWhiteSpace(_latestApp.DownloadUrl); if (_latestApp.Available && string.IsNullOrWhiteSpace(_latestApp.DownloadUrl)) _status.Text += " The release has no Windows ZIP update asset, so use its installer/release page."; }
-                catch (Exception ex) { _appVersion.Text = "Application update check unavailable"; if (!initial) _status.Text = "Update check failed: " + ex.Message; }
+                try
+                {
+                    _latestApp = await _updates.CheckAsync();
+                    if (_latestApp.Available)
+                    {
+                        _appVersion.Text = $"Application: v{_latestApp.CurrentVersion} · v{_latestApp.LatestVersion} available";
+                        if (_latestApp.Installable)
+                        {
+                            _appUpdate.Enabled = true;
+                            offerUpdate = initial;
+                        }
+                        else
+                        {
+                            _appUpdate.Enabled = false;
+                            _status.Text += " A newer release exists, but its exact Windows ZIP/size/SHA-256 is incomplete, so automatic update is disabled for safety.";
+                        }
+                    }
+                    else
+                    {
+                        _appVersion.Text = $"Application: v{_latestApp.CurrentVersion} · up to date";
+                        _appUpdate.Enabled = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _latestApp = null; _appUpdate.Enabled = false; _appVersion.Text = "Application update check unavailable";
+                    if (!initial) _status.Text = "Update check failed: " + ex.Message;
+                }
             }
-            else _appVersion.Text = "Application update checks disabled";
+            else { _latestApp = null; _appUpdate.Enabled = false; _appVersion.Text = "Application update checks disabled"; }
         }
         catch (Exception ex) { _status.Text = "Check failed: " + ex.Message; }
         finally { SetBusy(false); UpdateButtons(); }
+
+        // Check automatically on launcher open, but never replace executable code without an
+        // explicit user confirmation. If declined, the Update application button remains available.
+        if (offerUpdate && !_updatePromptShown && _latestApp is { Installable: true })
+        {
+            _updatePromptShown = true;
+            await ApplyApplicationUpdateAsync();
+        }
     }
 
     void PopulateModels(IEnumerable<ModelSnapshot> models)
@@ -124,11 +161,20 @@ internal sealed class LauncherForm : Form
 
     async Task ApplyApplicationUpdateAsync()
     {
-        if (_busy || _latestApp is not { Available: true } info) return;
+        if (_busy || _latestApp is not { Installable: true } info) return;
         if (_updates.IsMainApplicationRunning()) { MessageBox.Show(this, "Close the Miniscuplter editor before updating the application. Projects and models are not affected.", "Miniscuplter is running", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-        if (MessageBox.Show(this, $"Update Miniscuplter from v{info.CurrentVersion} to v{info.LatestVersion}?\n\nThe update downloads only after you approve it. AI models, projects, exports and user data are preserved.", "Application update", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        SetBusy(true, $"Downloading Miniscuplter v{info.LatestVersion}…"); _progress.Visible = true; _progress.Value = 0;
-        try { var progress = new Progress<int>(p => _progress.Value = Math.Clamp(p, 0, 100)); string package = await _updates.DownloadPackageAsync(info, progress); _status.Text = "Update downloaded. Starting staged updater…"; _updates.StartStagedUpdate(package); BeginInvoke(Close); }
+        if (MessageBox.Show(this,
+            $"Update Miniscuplter from v{info.CurrentVersion} to v{info.LatestVersion}?\n\nThe release ZIP is SHA-256 verified before installation. Existing AI models, interrupted model downloads, Python runtime/cache, projects, parts, exports, user data and launcher settings are preserved.\n\nIf an earlier application-update download was interrupted, it will resume from the persistent update cache.",
+            "Application update", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        SetBusy(true, $"Downloading/verifying Miniscuplter v{info.LatestVersion}…"); _progress.Visible = true; _progress.Value = 0;
+        try
+        {
+            var progress = new Progress<int>(p => _progress.Value = Math.Clamp(p, 0, 100));
+            string package = await _updates.DownloadPackageAsync(info, progress);
+            _status.Text = "Update verified. Starting transactional updater…";
+            _updates.StartStagedUpdate(package, info);
+            BeginInvoke(Close);
+        }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Application update failed", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         finally { if (!IsDisposed) { _progress.Visible = false; SetBusy(false); } }
     }
@@ -139,9 +185,16 @@ internal sealed class LauncherForm : Form
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not start Miniscuplter", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
-    void SetBusy(bool busy, string? text = null) { _busy = busy; _install.Enabled = !busy; _remove.Enabled = !busy; _refresh.Enabled = !busy; _repairRuntime.Enabled = !busy; _launch.Enabled = !busy; if (text != null) _status.Text = text; Cursor = busy ? Cursors.WaitCursor : Cursors.Default; UpdateButtons(); }
+    void SetBusy(bool busy, string? text = null)
+    {
+        _busy = busy; _install.Enabled = !busy; _remove.Enabled = !busy; _refresh.Enabled = !busy; _repairRuntime.Enabled = !busy; _launch.Enabled = !busy;
+        _appUpdate.Enabled = !busy && _latestApp is { Installable: true };
+        if (text != null) _status.Text = text; Cursor = busy ? Cursors.WaitCursor : Cursors.Default; UpdateButtons();
+    }
+
     void UpdateButtons()
     {
+        _appUpdate.Enabled = !_busy && _latestApp is { Installable: true };
         if (_grid.SelectedRows.Count == 0 || _grid.SelectedRows[0].Tag is not ModelSnapshot m) { _install.Enabled = _remove.Enabled = _updateModel.Enabled = false; return; }
         bool resumeInstall = m.ResumeAvailable && !m.Installed && !string.Equals(m.ResumeAction, "update", StringComparison.OrdinalIgnoreCase);
         bool resumeUpdate = m.ResumeAvailable && m.Installed && string.Equals(m.ResumeAction, "update", StringComparison.OrdinalIgnoreCase);
