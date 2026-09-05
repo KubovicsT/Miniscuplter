@@ -6,7 +6,6 @@ internal sealed class LauncherForm : Form
 {
     readonly LauncherSettings _settings;
     readonly ApplicationUpdateService _updates;
-    readonly RuntimeSetupService _runtime;
     readonly Label _hardware = new() { AutoSize = true };
     readonly Label _storage = new() { AutoSize = true };
     readonly Label _appVersion = new() { AutoSize = true };
@@ -25,7 +24,7 @@ internal sealed class LauncherForm : Form
 
     public LauncherForm()
     {
-        _settings = InstallLayout.Load(); _updates = new ApplicationUpdateService(_settings); _runtime = new RuntimeSetupService(_settings);
+        _settings = InstallLayout.Load(); _updates = new ApplicationUpdateService(_settings);
         Text = "Miniscuplter Launcher v1.0.5"; Width = 1080; Height = 720; MinimumSize = new Size(850, 560); StartPosition = FormStartPosition.CenterScreen;
         BuildUi(); Shown += async (_, _) => await RefreshAllAsync(initial: true);
     }
@@ -56,7 +55,7 @@ internal sealed class LauncherForm : Form
             var modelService = new ModelService(_settings);
             if (!modelService.IsAvailable)
             {
-                _storage.Text = modelService.AvailabilityMessage; _grid.Rows.Clear(); _status.Text = "Hardware check complete. Local AI management needs its Python environment; click Repair AI Runtime. Setup progress will be shown in a separate console. Existing model weights and partial downloads are preserved.";
+                _storage.Text = modelService.AvailabilityMessage; _grid.Rows.Clear(); _status.Text = "Hardware check complete. Local AI management needs its Python environment; click Repair AI Runtime. Setup progress will be shown in a dedicated window. Existing model weights and partial downloads are preserved.";
             }
             else
             {
@@ -106,8 +105,21 @@ internal sealed class LauncherForm : Form
 
     async Task RepairRuntimeAsync()
     {
-        if (_busy || MessageBox.Show(this, "Repair/install the local AI Python environment now?\n\nA setup console will open and show package/download progress. Model weights are not downloaded by runtime repair. Existing model weights and interrupted downloads are preserved.", "Repair AI runtime", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        SetBusy(true, "Preparing local AI runtime… watch the setup console for progress."); try { _status.Text = await _runtime.RepairAsync(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "AI runtime setup failed", MessageBoxButtons.OK, MessageBoxIcon.Error); } finally { SetBusy(false); } await RefreshAllAsync(false);
+        if (_busy || MessageBox.Show(this, "Repair/install the local AI Python environment now?\n\nA setup progress window will show package and download progress. Model weights are not downloaded by runtime repair. Existing model weights and interrupted downloads are preserved.", "Repair AI runtime", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        SetBusy(true, "Preparing local AI runtime setup…");
+        try
+        {
+            using var dialog = new RuntimeSetupDialog(_settings); dialog.ShowDialog(this);
+            if (dialog.Succeeded) _status.Text = "AI runtime repaired successfully. Xet/model download support and runtime dependencies were verified.";
+            else if (dialog.Cancelled) _status.Text = "AI runtime setup cancelled. Cached runtime downloads were preserved for the next Repair attempt.";
+            else
+            {
+                _status.Text = "AI runtime setup failed. Cached downloads were preserved for retry.";
+                if (!string.IsNullOrWhiteSpace(dialog.FailureMessage)) MessageBox.Show(this, dialog.FailureMessage, "AI runtime setup failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        finally { SetBusy(false); }
+        await RefreshAllAsync(false);
     }
 
     async Task ApplyApplicationUpdateAsync()
