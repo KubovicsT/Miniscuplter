@@ -96,6 +96,21 @@ jobs:
         shell: pwsh
         run: |
           @('dist/package/App/Miniscuplter.exe','dist/Miniscuplter-win-x64.zip','dist/installer/Miniscuplter-Setup-1.0.5.exe') | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing full release output: $_" } }
+      - name: Smoke-install generated v1.0.5 installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $target = Join-Path $env:RUNNER_TEMP 'MiniscuplterInstallerSmoke'
+          if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+          $setup = (Resolve-Path 'dist/installer/Miniscuplter-Setup-1.0.5.exe').Path
+          $args = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/DIR=$target",'/NOICONS','/TASKS=')
+          $process = Start-Process -FilePath $setup -ArgumentList $args -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer smoke test exited with code $($process.ExitCode)." }
+          @(
+            (Join-Path $target 'Miniscuplter.Launcher.exe'),
+            (Join-Path $target 'Miniscuplter.Updater.exe'),
+            (Join-Path $target 'App\Miniscuplter.exe')
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Installer smoke test missing installed file: $_" } }
       - name: Upload installable v1.0.5 Windows artifacts
         uses: actions/upload-artifact@v4
         with:
