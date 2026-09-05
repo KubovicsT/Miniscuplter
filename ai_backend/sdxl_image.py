@@ -31,8 +31,6 @@ def _configure(pipe, torch):
     try: pipe.enable_vae_tiling()
     except Exception: pass
     if torch.cuda.is_available():
-        # 8GB hardware is supported through sequential CPU offload. This is slower,
-        # but avoids pretending SDXL fits entirely in VRAM on the GTX 1080 class.
         if vram <= 10240:
             try: pipe.enable_sequential_cpu_offload()
             except Exception:
@@ -49,8 +47,9 @@ def _text_pipe():
     if _TXT is not None: return _TXT
     torch, Txt, _, Scheduler, model = _deps()
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler")
-    _TXT = Txt.from_pretrained(str(model), scheduler=scheduler, torch_dtype=dtype, use_safetensors=True)
+    scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler", local_files_only=True)
+    _TXT = Txt.from_pretrained(str(model), scheduler=scheduler, torch_dtype=dtype,
+                               variant="fp16", use_safetensors=True, local_files_only=True)
     return _configure(_TXT, torch)
 
 
@@ -59,13 +58,13 @@ def _img_pipe():
     if _IMG is not None: return _IMG
     torch, _, Img, Scheduler, model = _deps()
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler")
-    _IMG = Img.from_pretrained(str(model), scheduler=scheduler, torch_dtype=dtype, use_safetensors=True)
+    scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler", local_files_only=True)
+    _IMG = Img.from_pretrained(str(model), scheduler=scheduler, torch_dtype=dtype,
+                               variant="fp16", use_safetensors=True, local_files_only=True)
     return _configure(_IMG, torch)
 
 
 def _size() -> int:
-    # SDXL is native around 1024, but allow lower values for constrained hardware.
     cfg = get_config(); raw = int(cfg.get("image_size", 1024))
     return max(512, min(1536, (raw // 64) * 64))
 
@@ -82,25 +81,17 @@ def generate_concept(prompt: str, output_path: str) -> str:
 
 def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_path: str, *, detail: bool = False) -> str:
     cfg = get_config(); pipe = _img_pipe(); source = Image.open(image_path).convert("RGB")
-    size = _size()
-    # For detail passes we crop around the mask so the selected feature occupies most of
-    # the model's receptive field, then composite back into the original image.
-    mask = Image.open(mask_path).convert("L") if mask_path and Path(mask_path).exists() else None
+    size = _size(); mask = Image.open(mask_path).convert("L") if mask_path and Path(mask_path).exists() else None
     box = None
     if detail and mask is not None:
         bbox = mask.getbbox()
         if bbox:
-            l,t,r,b = bbox; pad = max(24, int(max(r-l,b-t) * .35));
-            box = (max(0,l-pad), max(0,t-pad), min(source.width,r+pad), min(source.height,b+pad))
-    work_src = source.crop(box) if box else source
-    work = work_src.resize((size,size), Image.Resampling.LANCZOS)
+            l,t,r,b = bbox; pad = max(24, int(max(r-l,b-t) * .35)); box = (max(0,l-pad), max(0,t-pad), min(source.width,r+pad), min(source.height,b+pad))
+    work_src = source.crop(box) if box else source; work = work_src.resize((size,size), Image.Resampling.LANCZOS)
     strength = float(cfg["image_edit_strength"])
     if detail: strength = min(.72, max(.28, strength * .82))
-    generated = pipe(prompt=prompt,
-                     negative_prompt="blurry, low detail, text, watermark, malformed anatomy",
-                     image=work,
-                     strength=strength,
-                     guidance_scale=float(cfg["image_guidance"]),
+    generated = pipe(prompt=prompt, negative_prompt="blurry, low detail, text, watermark, malformed anatomy",
+                     image=work, strength=strength, guidance_scale=float(cfg["image_guidance"]),
                      num_inference_steps=int(cfg["image_steps"])).images[0]
     generated = generated.resize(work_src.size, Image.Resampling.LANCZOS)
     if box:
