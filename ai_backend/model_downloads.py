@@ -95,13 +95,34 @@ def _write_meta(stage: Path, data: dict) -> None:
     stage.mkdir(parents=True, exist_ok=True); tmp = stage / (STAGE_META + ".tmp"); tmp.write_text(json.dumps(data, indent=2), encoding="utf-8"); tmp.replace(stage / STAGE_META)
 
 
+def _legacy_stages(staging_root: Path, component_id: str, deterministic: Path) -> list[Path]:
+    return [p for p in staging_root.glob(f"{component_id}-*") if p.is_dir() and p != deterministic]
+
+
+def _stage_rank(path: Path) -> tuple[int, float]:
+    """Prefer the partial with the most reusable bytes, then the newest one."""
+    try: modified = path.stat().st_mtime
+    except OSError: modified = 0.0
+    return directory_size(path, exclude_stage_meta=True), modified
+
+
+def _remove_redundant_legacy_stages(staging_root: Path, component_id: str, deterministic: Path) -> None:
+    for redundant in _legacy_stages(staging_root, component_id, deterministic):
+        size_gib = directory_size(redundant, exclude_stage_meta=True) / 1024**3
+        print(f"Removing redundant interrupted legacy stage: {redundant.name} ({size_gib:.2f} GiB)", flush=True)
+        shutil.rmtree(redundant, ignore_errors=True)
+
+
 def prepare_stage(staging_root: Path, component_id: str, revision: str | None, signature: str, action: str) -> Path:
-    """Create/reuse a deterministic stage, including migration from v1.0.5 UUID stages."""
+    """Create/reuse one deterministic stage and migrate the best legacy partial when possible."""
     staging_root.mkdir(parents=True, exist_ok=True); stage = staging_root / f"{component_id}-partial"
     if not stage.exists():
-        legacy = [p for p in staging_root.glob(f"{component_id}-*") if p.is_dir() and p.name != stage.name]
+        legacy = _legacy_stages(staging_root, component_id, stage)
         if legacy:
-            candidate = max(legacy, key=lambda p: p.stat().st_mtime)
+            # Old v1.0.5 retries created a fresh UUID stage each time. Keep the stage with the
+            # most reusable bytes rather than merely the newest one, then remove the abandoned
+            # siblings so they cannot silently consume another model's worth of disk space.
+            candidate = max(legacy, key=_stage_rank)
             try: candidate.rename(stage); print(f"Recovered interrupted v1.0.5 stage: {candidate.name}", flush=True)
             except OSError: pass
     if stage.exists():
@@ -110,6 +131,7 @@ def prepare_stage(staging_root: Path, component_id: str, revision: str | None, s
             print("Discarding stale partial stage because the upstream revision or download manifest changed.", flush=True); shutil.rmtree(stage, ignore_errors=True)
     stage.mkdir(parents=True, exist_ok=True)
     _write_meta(stage, {"schema":STAGE_SCHEMA,"component_id":component_id,"revision":revision,"signature":signature,"action":action})
+    _remove_redundant_legacy_stages(staging_root, component_id, stage)
     return stage
 
 
