@@ -87,7 +87,7 @@ jobs:
           New-Item '.ci/godot' -ItemType Directory -Force|Out-Null; Invoke-WebRequest $g -OutFile '.ci/godot.zip'; Invoke-WebRequest $t -OutFile '.ci/templates.tpz'
           if ((Get-FileHash '.ci/godot.zip' -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0') { throw 'Godot SHA mismatch' }
           if ((Get-FileHash '.ci/templates.tpz' -Algorithm SHA256).Hash.ToLowerInvariant() -ne '92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d') { throw 'Template SHA mismatch' }
-          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force; Expand-Archive '.ci/templates.tpz' '.ci/templates' -Force; $home=Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'; New-Item $home -ItemType Directory -Force|Out-Null; Copy-Item '.ci/templates/templates/*' $home -Recurse -Force
+          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force; Expand-Archive '.ci/templates.tpz' '.ci/templates' -Force; $templateHome=Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'; New-Item $templateHome -ItemType Directory -Force|Out-Null; Copy-Item '.ci/templates/templates/*' $templateHome -Recurse -Force
           $exe=Get-ChildItem '.ci/godot' -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse|Select-Object -First 1; "GODOT_EXE=$($exe.FullName)"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Build full Windows release
         shell: pwsh
