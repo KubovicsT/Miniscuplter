@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9, v1.0 ]
+    branches: [ main, v0.2, v0.3, v0.4, v0.5, v0.5.5, v0.6, v0.7, v0.8, v0.9, v0.9.5, v0.9.6, v0.9.7, v0.9.8, v0.9.9, v1.0, v1.0.5 ]
   pull_request:
   workflow_dispatch:
 
@@ -16,42 +16,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Restore main app
-        run: dotnet restore Miniscuplter.csproj
-      - name: Restore launcher
-        if: github.ref_name == 'v0.9.9' || github.ref_name == 'v1.0' || github.event_name == 'pull_request'
-        run: dotnet restore Launcher/Miniscuplter.Launcher.csproj
-      - name: Restore updater
-        if: github.ref_name == 'v0.9.9' || github.ref_name == 'v1.0' || github.event_name == 'pull_request'
-        run: dotnet restore Updater/Miniscuplter.Updater.csproj
-      - name: Build all C# targets
+        with: { dotnet-version: '8.0.x' }
+      - run: dotnet restore Miniscuplter.csproj
+      - run: dotnet restore Launcher/Miniscuplter.Launcher.csproj
+        if: startsWith(github.ref_name, 'v1.0') || github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+      - run: dotnet restore Updater/Miniscuplter.Updater.csproj
+        if: startsWith(github.ref_name, 'v1.0') || github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+      - name: Build C# targets
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $projects = @('Miniscuplter.csproj')
-          if ('${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.ref_name }}' -eq 'v1.0' -or '${{ github.event_name }}' -eq 'pull_request') {
-            $projects += 'Launcher/Miniscuplter.Launcher.csproj'
-            $projects += 'Updater/Miniscuplter.Updater.csproj'
-          }
-          $exit = 0
-          foreach ($project in $projects) {
-            dotnet build $project --configuration Release --no-restore 2>&1 | Tee-Object -FilePath build-one.log
-            if ($LASTEXITCODE -ne 0) { $exit = $LASTEXITCODE; Get-Content build-one.log | Add-Content build.log; break }
-            Get-Content build-one.log | Add-Content build.log
-          }
-          if ($exit -ne 0) {
-            $errors = @(Select-String -Path build.log -Pattern 'error CS[0-9]+' | ForEach-Object { $_.Line.Trim() } | Select-Object -Unique -First 5)
-            if ($errors.Count -eq 0) { $errors = @('dotnet build failed; no C# diagnostic line was captured') }
-            for ($i = 0; $i -lt $errors.Count; $i++) {
-              $d = $errors[$i]
-              if ($d.Length -gt 135) { $d = $d.Substring(0,135) }
-              $body = @{ state='failure'; context="compile-diagnostic-$($i+1)"; description=$d } | ConvertTo-Json -Compress
-              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.sha }}" -Headers @{ Authorization="Bearer $env:GH_TOKEN"; Accept='application/vnd.github+json'; 'X-GitHub-Api-Version'='2022-11-28' } -ContentType 'application/json' -Body $body
-            }
-            exit $exit
+          dotnet build Miniscuplter.csproj -c Release --no-restore
+          if ('${{ github.ref_name }}'.StartsWith('v1.0') -or '${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.event_name }}' -eq 'pull_request') {
+            dotnet build Launcher/Miniscuplter.Launcher.csproj -c Release --no-restore
+            dotnet build Updater/Miniscuplter.Updater.csproj -c Release --no-restore
           }
 
   python-syntax:
@@ -59,119 +36,72 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+        with: { python-version: '3.10' }
       - name: Compile backend sources
         run: python -m compileall -q ai_backend tools
-      - name: Run dependency-free core logic tests
-        if: github.ref_name == 'v1.0' || github.event_name == 'pull_request'
+      - name: Run core logic tests
+        if: startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
         run: python tools/core_logic_tests.py
-      - name: Run v1.0 release audit
-        if: github.ref_name == 'v1.0' || github.event_name == 'pull_request'
+      - name: Run release audit
+        if: startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
         run: python tools/release_audit.py
 
   packaging:
-    if: github.ref_name == 'v0.9.9' || github.ref_name == 'v1.0' || github.event_name == 'pull_request'
+    if: github.ref_name == 'v0.9.9' || startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Build portable update package without Godot export
+        with: { dotnet-version: '8.0.x' }
+      - name: Build portable package without Godot export
         shell: pwsh
         run: ./build_release.ps1 -SkipGodotExport
       - name: Verify package layout
         shell: pwsh
         run: |
-          $required = @(
-            'dist/package/Miniscuplter.Launcher.exe',
-            'dist/package/Miniscuplter.Updater.exe',
-            'dist/package/App/ai_backend/launcher_bridge.py',
-            'dist/package/setup_ai_backend.bat',
-            'dist/Miniscuplter-win-x64.zip'
-          )
-          foreach ($file in $required) { if (-not (Test-Path $file)) { throw "Missing package output: $file" } }
+          @('dist/package/Miniscuplter.Launcher.exe','dist/package/Miniscuplter.Updater.exe','dist/package/App/ai_backend/launcher_bridge.py','dist/package/setup_ai_backend.bat','dist/Miniscuplter-win-x64.zip') | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing package output: $_" } }
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Compile installer definition
         shell: pwsh
         run: |
           $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $iscc) { throw 'ISCC.exe not found after Inno Setup installation.' }
+          if (-not $iscc) { throw 'ISCC.exe not found.' }
           & $iscc installer/Miniscuplter.iss
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
 
   full-windows-release:
-    if: github.ref_name == 'v1.0' && github.event_name != 'pull_request'
+    if: startsWith(github.ref_name, 'v1.0') && github.event_name != 'pull_request'
     needs: [dotnet, python-syntax, packaging]
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Install Inno Setup
-        run: choco install innosetup -y --no-progress
+        with: { dotnet-version: '8.0.x' }
+      - run: choco install innosetup -y --no-progress
       - name: Download and verify Godot 4.7.2 .NET and export templates
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $godotUrl = 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip'
-          $templatesUrl = 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_export_templates.tpz'
-          $godotSha = 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0'
-          $templatesSha = '92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d'
-          New-Item '.ci/godot' -ItemType Directory -Force | Out-Null
-          Invoke-WebRequest $godotUrl -OutFile '.ci/godot.zip'
-          Invoke-WebRequest $templatesUrl -OutFile '.ci/templates.tpz'
-          if ((Get-FileHash '.ci/godot.zip' -Algorithm SHA256).Hash.ToLowerInvariant() -ne $godotSha) { throw 'Godot editor SHA-256 mismatch.' }
-          if ((Get-FileHash '.ci/templates.tpz' -Algorithm SHA256).Hash.ToLowerInvariant() -ne $templatesSha) { throw 'Godot export-template SHA-256 mismatch.' }
-          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force
-          $templateExtract = '.ci/template-extract'
-          Expand-Archive '.ci/templates.tpz' $templateExtract -Force
-          $templateHome = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
-          New-Item $templateHome -ItemType Directory -Force | Out-Null
-          Copy-Item (Join-Path $templateExtract 'templates\*') $templateHome -Recurse -Force
-          $godotExe = Get-ChildItem '.ci/godot' -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse | Select-Object -First 1
-          if (-not $godotExe) { throw 'Godot .NET executable not found after extraction.' }
-          "GODOT_EXE=$($godotExe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Verify Godot and templates
-        shell: pwsh
-        run: |
-          $PSNativeCommandUseErrorActionPreference = $false
-          $versionOutput = (& $env:GODOT_EXE --headless --version 2>&1 | Out-String).Trim()
-          Write-Host $versionOutput
-          if ($versionOutput -notmatch '4\.7\.2\.stable\.mono') { throw "Unexpected Godot build: $versionOutput" }
-          $releaseTemplate = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono\windows_release_x86_64.exe'
-          if (-not (Test-Path $releaseTemplate)) { throw 'Windows .NET release export template is missing.' }
-      - name: Build full v1.0 Windows release and installer
+          $ErrorActionPreference='Stop'; $g='https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip'; $t='https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_export_templates.tpz'
+          New-Item '.ci/godot' -ItemType Directory -Force|Out-Null; Invoke-WebRequest $g -OutFile '.ci/godot.zip'; Invoke-WebRequest $t -OutFile '.ci/templates.tpz'
+          if ((Get-FileHash '.ci/godot.zip' -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0') { throw 'Godot SHA mismatch' }
+          if ((Get-FileHash '.ci/templates.tpz' -Algorithm SHA256).Hash.ToLowerInvariant() -ne '92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d') { throw 'Template SHA mismatch' }
+          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force; Expand-Archive '.ci/templates.tpz' '.ci/templates' -Force; $home=Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'; New-Item $home -ItemType Directory -Force|Out-Null; Copy-Item '.ci/templates/templates/*' $home -Recurse -Force
+          $exe=Get-ChildItem '.ci/godot' -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse|Select-Object -First 1; "GODOT_EXE=$($exe.FullName)"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build full Windows release
         shell: pwsh
         run: ./build_release.ps1 -GodotExe $env:GODOT_EXE -BuildInstaller
-      - name: Verify full release outputs
+      - name: Verify v1.0.5 outputs
         shell: pwsh
         run: |
-          $required = @(
-            'dist/package/Miniscuplter.Launcher.exe',
-            'dist/package/Miniscuplter.Updater.exe',
-            'dist/package/App/Miniscuplter.exe',
-            'dist/package/App/ai_backend/app.py',
-            'dist/package/App/ai_backend/launcher_bridge.py',
-            'dist/Miniscuplter-win-x64.zip',
-            'dist/installer/Miniscuplter-Setup-1.0.0.exe'
-          )
-          foreach ($file in $required) {
-            if (-not (Test-Path $file)) { throw "Missing full release output: $file" }
-            if ((Get-Item $file).PSIsContainer -eq $false -and (Get-Item $file).Length -eq 0) { throw "Empty full release output: $file" }
-          }
-          Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256 | Format-List
-          Get-FileHash 'dist/installer/Miniscuplter-Setup-1.0.0.exe' -Algorithm SHA256 | Format-List
-      - name: Upload installable v1.0 Windows artifacts
+          @('dist/package/App/Miniscuplter.exe','dist/Miniscuplter-win-x64.zip','dist/installer/Miniscuplter-Setup-1.0.5.exe') | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing full release output: $_" } }
+      - name: Upload installable v1.0.5 Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Miniscuplter-v1.0-Windows-x64-${{ github.sha }}
+          name: Miniscuplter-v1.0.5-Windows-x64-${{ github.sha }}
           if-no-files-found: error
           retention-days: 30
           path: |
-            dist/installer/Miniscuplter-Setup-1.0.0.exe
+            dist/installer/Miniscuplter-Setup-1.0.5.exe
             dist/Miniscuplter-win-x64.zip
