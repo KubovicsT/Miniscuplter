@@ -2,7 +2,7 @@ from __future__ import annotations
 import tempfile,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/"ai_backend"))
-import model_manager,model_router,model_capabilities,quality_runtime
+import model_manager,model_router,model_capabilities,quality_runtime,model_downloads
 def check(c,m):
     if not c:raise AssertionError(m)
 def test_quality_clamps():
@@ -27,4 +27,10 @@ def test_component_file_validation():
 def test_uninstall_path_guard():
     try:model_manager._managed_path(ROOT);raise AssertionError("path guard accepted repo")
     except RuntimeError:pass
-if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_component_file_validation();test_uninstall_path_guard();print("v1.0.5 core logic tests passed")
+def test_resumable_stage_recovery():
+    with tempfile.TemporaryDirectory() as t:
+        root=Path(t);old=root/"sdxl-base-deadbeef";(old/"models"/"stable-diffusion-xl-base-1.0").mkdir(parents=True);(old/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").write_bytes(b"partial")
+        stage=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check(stage.name=="sdxl-base-partial","deterministic stage name");check(not old.exists(),"legacy UUID stage not migrated");s=model_downloads.stage_status(root,"sdxl-base");check(s["resume_available"] and s["resume_action"]=="install","partial install not reported")
+        same=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check((same/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").exists(),"matching stage was not preserved")
+        fresh=model_downloads.prepare_stage(root,"sdxl-base","rev-b","manifest-a","install");check(not (fresh/"models").exists(),"stale revision payload was reused");check(not model_downloads.stage_status(root,"sdxl-base")["resume_available"],"metadata-only stage incorrectly reported as resumable")
+if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_component_file_validation();test_uninstall_path_guard();test_resumable_stage_recovery();print("v1.0.5 core logic tests passed")
