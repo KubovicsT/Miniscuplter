@@ -26,7 +26,7 @@ internal sealed class LauncherForm : Form
     public LauncherForm()
     {
         _settings = InstallLayout.Load(); _updates = new ApplicationUpdateService(_settings); _runtime = new RuntimeSetupService(_settings);
-        Text = "Miniscuplter Launcher v0.9.9"; Width = 1080; Height = 720; MinimumSize = new Size(850, 560); StartPosition = FormStartPosition.CenterScreen;
+        Text = "Miniscuplter Launcher v1.0.5"; Width = 1080; Height = 720; MinimumSize = new Size(850, 560); StartPosition = FormStartPosition.CenterScreen;
         BuildUi(); Shown += async (_, _) => await RefreshAllAsync(initial: true);
     }
 
@@ -87,10 +87,18 @@ internal sealed class LauncherForm : Form
         if (_busy || _grid.SelectedRows.Count == 0 || _grid.SelectedRows[0].Tag is not ModelSnapshot model) return;
         if (action == "remove" && MessageBox.Show(this, $"Delete {model.Name} from the model store?\n\nThis removes its installed files. It does not affect projects.", "Remove AI model", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
         if (action == "update" && MessageBox.Show(this, $"A newer upstream revision of {model.Name} is available.\n\nUpdate this model now? Model updates can change output quality or compatibility and are never automatic.", "Update AI model", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+
         SetBusy(true, action switch { "install" => $"Installing {model.Name}…", "remove" => $"Removing {model.Name}…", _ => $"Updating {model.Name}…" });
-        try { var service = new ModelService(_settings); if (action == "install") await service.InstallAsync(model.Id); else if (action == "remove") await service.RemoveAsync(model.Id); else await service.UpdateAsync(model.Id); _status.Text = $"{model.Name}: {action} completed."; }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, $"{model.Name} {action} failed", MessageBoxButtons.OK, MessageBoxIcon.Error); }
-        finally { SetBusy(false); } await RefreshAllAsync(false);
+        try
+        {
+            using var dialog = new ModelOperationDialog(_settings, model, action);
+            dialog.ShowDialog(this);
+            _status.Text = dialog.Succeeded
+                ? $"{model.Name}: {action} completed."
+                : $"{model.Name}: {action} failed. Open the operation dialog log for details.";
+        }
+        finally { SetBusy(false); }
+        await RefreshAllAsync(false);
     }
 
     async Task RepairRuntimeAsync()
