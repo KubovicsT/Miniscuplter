@@ -83,12 +83,27 @@ if errorlevel 1 (
     exit /b 1
   )
 
-  echo Downloading PyTorch wheel to persistent cache. Interrupted downloads will resume on the next Repair.
-  echo Destination: !TORCH_WHEEL!
-  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!TORCH_WHEEL!" "!TORCH_URL!"
-  if errorlevel 1 (
-    echo PyTorch download did not finish. Run Repair AI Runtime again to resume it.
-    exit /b 1
+  set "TORCH_VALID=0"
+  if exist "!TORCH_WHEEL!" (
+    python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); raise SystemExit(0 if p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p) else 1)" "!TORCH_WHEEL!" >nul 2>nul
+    if not errorlevel 1 set "TORCH_VALID=1"
+  )
+  if "!TORCH_VALID!"=="1" (
+    echo Cached PyTorch wheel is already complete; skipping download.
+  ) else (
+    echo Downloading PyTorch wheel to persistent cache. Interrupted downloads will resume on the next Repair.
+    echo Destination: !TORCH_WHEEL!
+    curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!TORCH_WHEEL!" "!TORCH_URL!"
+    if errorlevel 1 (
+      rem A 416 can mean curl attempted to resume a file that is already complete.
+      python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); raise SystemExit(0 if p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p) else 1)" "!TORCH_WHEEL!" >nul 2>nul
+      if errorlevel 1 (
+        echo PyTorch download did not finish. Run Repair AI Runtime again to resume it.
+        exit /b 1
+      ) else (
+        echo Curl reported a resume error, but the cached PyTorch wheel is already complete.
+      )
+    )
   )
   python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); ok=p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p); print(f'PyTorch wheel: {p.stat().st_size/1024/1024:.1f} MiB' if p.is_file() else 'PyTorch wheel missing'); raise SystemExit(0 if ok else 1)" "!TORCH_WHEEL!"
   if errorlevel 1 (
@@ -96,12 +111,26 @@ if errorlevel 1 (
     exit /b 1
   )
 
-  echo Downloading torchvision wheel to persistent cache.
-  echo Destination: !VISION_WHEEL!
-  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!VISION_WHEEL!" "!VISION_URL!"
-  if errorlevel 1 (
-    echo torchvision download did not finish. Run Repair AI Runtime again to resume it.
-    exit /b 1
+  set "VISION_VALID=0"
+  if exist "!VISION_WHEEL!" (
+    python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); raise SystemExit(0 if p.is_file() and p.stat().st_size>5000000 and zipfile.is_zipfile(p) else 1)" "!VISION_WHEEL!" >nul 2>nul
+    if not errorlevel 1 set "VISION_VALID=1"
+  )
+  if "!VISION_VALID!"=="1" (
+    echo Cached torchvision wheel is already complete; skipping download.
+  ) else (
+    echo Downloading torchvision wheel to persistent cache.
+    echo Destination: !VISION_WHEEL!
+    curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!VISION_WHEEL!" "!VISION_URL!"
+    if errorlevel 1 (
+      python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); raise SystemExit(0 if p.is_file() and p.stat().st_size>5000000 and zipfile.is_zipfile(p) else 1)" "!VISION_WHEEL!" >nul 2>nul
+      if errorlevel 1 (
+        echo torchvision download did not finish. Run Repair AI Runtime again to resume it.
+        exit /b 1
+      ) else (
+        echo Curl reported a resume error, but the cached torchvision wheel is already complete.
+      )
+    )
   )
   python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); ok=p.is_file() and p.stat().st_size>5000000 and zipfile.is_zipfile(p); print(f'torchvision wheel: {p.stat().st_size/1024/1024:.1f} MiB' if p.is_file() else 'torchvision wheel missing'); raise SystemExit(0 if ok else 1)" "!VISION_WHEEL!"
   if errorlevel 1 (
