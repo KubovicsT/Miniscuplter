@@ -15,13 +15,13 @@ from model_downloads import clear_stage, directory_size, download_verified, prep
 # virtual environments/source trees can add extra disk usage and are intentionally not
 # represented as model-weight size.
 AUDITED_PAYLOAD_GB: dict[str, float] = {
-    "sd21": 2.5,
+    "sd21": 2.6,
     "sdxl-base": 7.0,
     "flux2-klein-4b": 16.0,
     "hunyuan21-shape": 7.4,
     "triposr": 1.7,
-    "partcrafter": 4.2,
-    "clipseg-smart-select": 0.7,
+    "partcrafter": 4.8,
+    "clipseg-smart-select": 0.6,
     "z-image-turbo": 33.0,
     "qwen-image-2512": 58.0,
     "qwen-image-edit": 58.0,
