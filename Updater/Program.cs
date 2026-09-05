@@ -18,6 +18,7 @@ internal static class Program
     };
 
     static HashSet<string> _preserveTop = new(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
+    static string? _nestedDataRoot;
 
     static int Main(string[] args)
     {
@@ -53,8 +54,8 @@ internal static class Program
             string source = NormalizePackageRoot(stage);
             ValidateReleasePackage(source, expectedVersion);
 
-            // Park expensive nested runtime data by same-volume directory move before copying
-            // the old managed tree. This avoids duplicating a multi-GB virtual environment.
+            // Park expensive nested runtime/data directories by same-volume directory move
+            // before copying the old managed tree. This avoids duplicating multi-GB assets.
             parkedNeedsRestore = true;
             ParkPreservedNested(target, parked);
             BackupManagedTree(target, backup);
@@ -62,9 +63,7 @@ internal static class Program
             {
                 RemoveManagedTree(target);
                 CopyTree(source, target);
-                // Validate the new managed application before putting the parked runtime back.
-                // If validation fails, rollback can restore the old tree while the runtime is
-                // still safely outside the destructive area.
+                // Validate the new managed application before returning parked runtime/data.
                 ValidateInstalledTree(target, expectedVersion);
                 RestoreParkedNested(parked, target);
                 parkedNeedsRestore = false;
@@ -143,17 +142,45 @@ internal static class Program
     static HashSet<string> BuildPreserveSet(string target, string dataRoot)
     {
         var result = new HashSet<string>(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
-        try
+        _nestedDataRoot = null;
+        string rel;
+        try { rel = Path.GetRelativePath(target, dataRoot); }
+        catch { return result; }
+        if (rel == ".") throw new InvalidOperationException("The configured AI DataRoot cannot be the application installation root during self-update.");
+        if (Path.IsPathRooted(rel) || rel.StartsWith(".." + Path.DirectorySeparatorChar) || rel.Equals("..", StringComparison.Ordinal)) return result;
+
+        string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
+        if (top.Equals("App", StringComparison.OrdinalIgnoreCase) || top.Equals("ai_backend", StringComparison.OrdinalIgnoreCase))
         {
-            string rel = Path.GetRelativePath(target, dataRoot);
-            if (rel != "." && !rel.StartsWith(".." + Path.DirectorySeparatorChar) && !Path.IsPathRooted(rel))
+            string normalized = NormalizeRelative(rel);
+            if (normalized.Equals("App", StringComparison.OrdinalIgnoreCase) || normalized.Equals("App/ai_backend", StringComparison.OrdinalIgnoreCase) || normalized.Equals("ai_backend", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The configured AI DataRoot overlaps the managed application/backend root. Move AI data to a dedicated subfolder before self-update.");
+            _nestedDataRoot = rel;
+        }
+        else if (!string.IsNullOrWhiteSpace(top) && top != ".") result.Add(top);
+        return result;
+    }
+
+    static IEnumerable<string> PreservedNestedPaths()
+    {
+        var paths = PreserveNested.ToList();
+        if (!string.IsNullOrWhiteSpace(_nestedDataRoot))
+        {
+            string dynamicPath = _nestedDataRoot!;
+            if (!paths.Any(existing => SameOrParent(existing, dynamicPath)))
             {
-                string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
-                if (!string.IsNullOrWhiteSpace(top) && top != ".") result.Add(top);
+                paths.RemoveAll(existing => SameOrParent(dynamicPath, existing));
+                paths.Add(dynamicPath);
             }
         }
-        catch { }
-        return result;
+        return paths.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    static string NormalizeRelative(string value) => value.Replace('\\', '/').Trim('/');
+    static bool SameOrParent(string parent, string child)
+    {
+        string p = NormalizeRelative(parent), c = NormalizeRelative(child);
+        return c.Equals(p, StringComparison.OrdinalIgnoreCase) || c.StartsWith(p + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     static bool VerifySha256(string path, string expected)
@@ -219,7 +246,7 @@ internal static class Program
 
     static void ParkPreservedNested(string target, string parking)
     {
-        foreach (string relative in PreserveNested)
+        foreach (string relative in PreservedNestedPaths())
         {
             string source = Path.Combine(target, relative);
             if (!Directory.Exists(source)) continue;
@@ -235,7 +262,7 @@ internal static class Program
         var restored = new List<(string Source, string Destination)>();
         try
         {
-            foreach (string relative in PreserveNested)
+            foreach (string relative in PreservedNestedPaths())
             {
                 string source = Path.Combine(parking, relative);
                 if (!Directory.Exists(source)) continue;
@@ -248,8 +275,6 @@ internal static class Program
         }
         catch
         {
-            // Put already-restored directories back into the parking area so the caller can
-            // safely roll back the application tree without deleting the preserved runtime.
             for (int i = restored.Count - 1; i >= 0; i--)
             {
                 var item = restored[i];
