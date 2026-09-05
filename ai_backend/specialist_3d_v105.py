@@ -16,11 +16,16 @@ def _to_stl(source,output):
     if mesh is None or len(mesh.faces)==0:raise RuntimeError("Provider returned an empty mesh")
     mesh.export(out);return str(out)
 def generate_sf3d(image,output):
-    code=TOOLS_ROOT/"stable-fast-3d";component_path("sf3d") or (_ for _ in ()).throw(RuntimeError("Stable Fast 3D is not installed"));work=Path(output).resolve().parent/".sf3d-output";shutil.rmtree(work,ignore_errors=True);work.mkdir(parents=True);_run([_py(code),"run.py",str(Path(image).resolve()),"--output-dir",str(work)],code);c=sorted(work.rglob("*.glb"),key=lambda p:p.stat().st_mtime,reverse=True)
+    code=TOOLS_ROOT/"stable-fast-3d";component_path("sf3d") or (_ for _ in ()).throw(RuntimeError("Stable Fast 3D is not installed"));model=code/"miniscuplter-model"
+    if not (model/"model.safetensors").is_file():raise RuntimeError("Stable Fast 3D local weights are incomplete. Resume/reinstall the component.")
+    work=Path(output).resolve().parent/".sf3d-output";shutil.rmtree(work,ignore_errors=True);work.mkdir(parents=True)
+    _run([_py(code),"run.py",str(Path(image).resolve()),"--output-dir",str(work),"--pretrained-model",str(model)],code);c=sorted(work.rglob("*.glb"),key=lambda p:p.stat().st_mtime,reverse=True)
     if not c:raise RuntimeError("Stable Fast 3D returned no GLB")
     return _to_stl(c[0],output)
 def generate_spar3d(image,output,low_vram=False):
-    code=TOOLS_ROOT/"stable-point-aware-3d";component_path("spar3d") or (_ for _ in ()).throw(RuntimeError("SPAR3D is not installed"));work=Path(output).resolve().parent/".spar3d-output";shutil.rmtree(work,ignore_errors=True);work.mkdir(parents=True);args=[_py(code),"run.py",str(Path(image).resolve()),"--output-dir",str(work)];args+=(["--low-vram-mode"] if low_vram else []);_run(args,code);c=sorted(work.rglob("*.glb"),key=lambda p:p.stat().st_mtime,reverse=True)
+    code=TOOLS_ROOT/"stable-point-aware-3d";component_path("spar3d") or (_ for _ in ()).throw(RuntimeError("SPAR3D is not installed"));model=code/"miniscuplter-model"
+    if not (model/"model.safetensors").is_file():raise RuntimeError("SPAR3D local weights are incomplete. Resume/reinstall the component.")
+    work=Path(output).resolve().parent/".spar3d-output";shutil.rmtree(work,ignore_errors=True);work.mkdir(parents=True);args=[_py(code),"run.py",str(Path(image).resolve()),"--output-dir",str(work),"--pretrained-model",str(model)];args+=(["--low-vram-mode"] if low_vram else []);_run(args,code);c=sorted(work.rglob("*.glb"),key=lambda p:p.stat().st_mtime,reverse=True)
     if not c:raise RuntimeError("SPAR3D returned no GLB")
     return _to_stl(c[0],output)
 def generate_hunyuan_mini(image,output):
@@ -29,7 +34,7 @@ def generate_hunyuan_mini(image,output):
     sys.path.insert(0,str(code))
     try:
         from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
-        pipe=Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(str(model),subfolder="hunyuan3d-dit-v2-mini");mesh=pipe(image=str(Path(image).resolve()))[0];out=Path(output).resolve();out.parent.mkdir(parents=True,exist_ok=True);mesh.export(out);return str(out)
+        pipe=Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(str(model),subfolder="hunyuan3d-dit-v2-mini",use_safetensors=True);mesh=pipe(image=str(Path(image).resolve()))[0];out=Path(output).resolve();out.parent.mkdir(parents=True,exist_ok=True);mesh.export(out);return str(out)
     finally:
         try:sys.path.remove(str(code))
         except ValueError:pass
