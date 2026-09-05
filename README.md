@@ -1,8 +1,8 @@
-# Miniscuplter v1.0.5
+# Miniscuplter v1.0.6
 
 Miniscuplter is a Windows desktop application for **AI-assisted 3D model creation, kitbashing, posing, sculpting, local detail refinement, model validation/repair and final STL export**.
 
-v1.0.5 builds on the validated v1.0 release candidate and expands the local AI layer into a hardware-aware provider system. Existing v1.0 providers remain supported; new models are optional installs rather than replacements.
+v1.0.6 is a reliability/update release on top of the v1.0.5 hardware-aware local-AI stack. It fixes cross-version editor integration seams found during the v1.0.5 audit and turns the launcher self-updater into a verified, resumable, data-preserving update path.
 
 ## Product boundary
 
@@ -19,7 +19,7 @@ Miniscuplter creates the finished 3D model. It is not a slicer: support generati
 | Structured parts | PartCrafter | PartCrafter | PartPacker |
 | Smart Select | CLIPSeg + rig/metadata/geometry | same hybrid selector | same hybrid selector |
 
-The launcher/backend component status now exposes role, tier, VRAM guidance, native-platform support and hardware-fit metadata. Auto routing considers detected VRAM and installed providers. Explicit user selection always wins and unsupported/uninstalled providers fail clearly rather than silently changing models.
+The launcher/backend component status exposes role, tier, VRAM guidance, native-platform support and hardware-fit metadata. Auto routing considers detected VRAM and installed providers. Explicit user selection always wins and unsupported/uninstalled providers fail clearly rather than silently changing models.
 
 ### Windows compatibility boundary
 
@@ -37,25 +37,45 @@ CLIPSeg
 
 SPAR3D low-VRAM mode is available as an additional experiment. Hunyuan3D 2.1 remains useful with offload. Qwen, TRELLIS.2 and PartPacker are intended primarily for larger GPUs.
 
-## Release / update path
+## v1.0.6 reliability fixes
 
-GitHub Actions builds both:
+- Restores the stable internal `Print` panel compatibility name while continuing to display the release-facing tab as **Model**, so older additive geometry/validation controls install again.
+- Routes command-palette `/rig` generation through the same v0.9.5 validation/rollback guard used by the UI buttons.
+- Fixes final 3D-detail apply so the source/patch STL paths are passed to the canonical voxel-remesh API instead of passing an in-memory mesh to a path-based function.
+- Corrects Windows, launcher, updater, backend and installer version metadata to v1.0.6.
+- Keeps the v1.0.5 AI runtime fingerprint compatible when runtime dependencies/setup did not actually change, avoiding a cosmetic multi-GB runtime reinstall.
+
+## Release / self-update path
+
+A finished version branch produces:
 
 ```text
-Miniscuplter-Setup-1.0.5.exe
+Miniscuplter-Setup-1.0.6.exe
 Miniscuplter-win-x64.zip
+Miniscuplter-win-x64.zip.sha256
 ```
 
-The launcher application updater checks the repository's **latest published GitHub Release**, compares its tag against the launcher's assembly version, and accepts only an asset named exactly `Miniscuplter-win-x64.zip`. Therefore an installed v1.0 can update in place to v1.0.5 once v1.0.5 is published as the latest GitHub Release with that ZIP asset. The updater preserves the installed `App/ai_backend/.venv`; if backend runtime requirements change, the launcher's runtime fingerprint intentionally asks for **Repair AI Runtime** rather than using a stale environment.
+On launcher startup, application-update checks are enabled by default. The launcher queries the repository's stable GitHub Releases, selects the highest semantic version, and offers an update when it is newer than the installed launcher. It never installs code silently: the user approves the update first.
+
+Automatic update requires all of the following:
+
+- an asset named exactly `Miniscuplter-win-x64.zip`;
+- an exact release asset byte size;
+- a SHA-256 from GitHub's release-asset digest or the published `.sha256` sidecar;
+- a package-internal `release.json` whose version matches the release being installed.
+
+The ZIP download is stored under the configured AI data root in a persistent `update-cache`, supports HTTP range resume, and is SHA-256 verified before the staged updater starts. The staged updater verifies the SHA-256 and package version again independently before changing installed files.
+
+Application updates preserve existing AI model data, interrupted model stages, a configured `DataRoot`, the Python `.venv`, runtime caches, legacy backend model data, projects, parts library, exports, user data, launcher settings, and a separately installed runtime. Expensive nested runtime directories are parked with same-volume directory moves rather than copied into the update backup. Managed application files are replaced transactionally and the previous tree is restored if validation/copy fails.
 
 ## Documentation
 
 - `docs/ARCHITECTURE.md` — application architecture
 - `docs/AI_MODELS.md` — provider/model architecture and hardware tiers
-- `docs/BUILD_AND_RELEASE.md` — CI and release packaging
+- `docs/BUILD_AND_RELEASE.md` — CI, GitHub Release publishing and self-update packaging
 - `docs/RUNTIME_TESTING.md` — runtime validation protocol
 - `docs/RELEASE_HISTORY.md` — milestone/branch history
 
 ## Validation boundary
 
-CI/static validation is required before v1.0.5 is considered code-green. Actual CUDA inference for every optional model still requires runtime testing on representative hardware; upstream Windows support for some specialist models is explicitly experimental.
+CI/static validation is required before v1.0.6 is considered code-green. Actual CUDA inference for every optional model still requires runtime testing on representative hardware; upstream Windows support for some specialist models is explicitly experimental.
