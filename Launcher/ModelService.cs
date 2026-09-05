@@ -106,7 +106,7 @@ internal sealed class ModelService
     async Task<JsonDocument> RunAsync(params string[] args)
     {
         var psi = CreateBridgeStartInfo(args);
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the AI model manager.");
+        using var process = OwnedChildProcessJob.Start(psi);
 
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
@@ -129,7 +129,7 @@ internal sealed class ModelService
         if (action is not ("install" or "remove" or "update")) throw new ArgumentOutOfRangeException(nameof(action));
         EnsureEditorClosedForMutation();
         var psi = CreateBridgeStartInfo(action, id);
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the AI model manager.");
+        using var process = OwnedChildProcessJob.Start(psi);
         var stdoutLines = new List<string>();
         var stderrLines = new List<string>();
         object gate = new();
