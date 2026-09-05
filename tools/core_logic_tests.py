@@ -29,8 +29,11 @@ def test_uninstall_path_guard():
     except RuntimeError:pass
 def test_resumable_stage_recovery():
     with tempfile.TemporaryDirectory() as t:
-        root=Path(t);old=root/"sdxl-base-deadbeef";(old/"models"/"stable-diffusion-xl-base-1.0").mkdir(parents=True);(old/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").write_bytes(b"partial")
-        stage=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check(stage.name=="sdxl-base-partial","deterministic stage name");check(not old.exists(),"legacy UUID stage not migrated");s=model_downloads.stage_status(root,"sdxl-base");check(s["resume_available"] and s["resume_action"]=="install","partial install not reported")
+        root=Path(t)
+        small=root/"sdxl-base-small";(small/"models"/"stable-diffusion-xl-base-1.0").mkdir(parents=True);(small/"models"/"stable-diffusion-xl-base-1.0"/"small.bin").write_bytes(b"old")
+        large=root/"sdxl-base-large";(large/"models"/"stable-diffusion-xl-base-1.0").mkdir(parents=True);(large/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").write_bytes(b"most-progress"*10)
+        stage=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check(stage.name=="sdxl-base-partial","deterministic stage name");check(not large.exists(),"largest legacy UUID stage not migrated");check(not small.exists(),"redundant legacy UUID stage not cleaned up");check((stage/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").exists(),"largest reusable partial was not retained")
+        s=model_downloads.stage_status(root,"sdxl-base");check(s["resume_available"] and s["resume_action"]=="install","partial install not reported")
         same=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check((same/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").exists(),"matching stage was not preserved")
         fresh=model_downloads.prepare_stage(root,"sdxl-base","rev-b","manifest-a","install");check(not (fresh/"models").exists(),"stale revision payload was reused");check(not model_downloads.stage_status(root,"sdxl-base")["resume_available"],"metadata-only stage incorrectly reported as resumable")
 if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_component_file_validation();test_uninstall_path_guard();test_resumable_stage_recovery();print("v1.0.5 core logic tests passed")
