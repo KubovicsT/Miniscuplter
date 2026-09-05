@@ -46,4 +46,8 @@ def detail_3d(source_mesh,image_path,mask_path,prompt,bounds_min,bounds_max,outp
     finally:release_all_models()
     fit=_fit_patch_to_bounds(patch,bounds_min,bounds_max);return {"patch_path":patch,"enhanced_image":enh,"crop_image":crop,"image_provider":i.provider,"three_d_provider":s.provider,"image_reason":i.reason,"three_d_reason":s.reason,"fit":fit}
 def apply_detail(source_mesh,patch_mesh,output_path,voxel_size=None):
-    source=_load_mesh(source_mesh);patch=_load_mesh(patch_mesh);combined=trimesh.util.concatenate([source,patch]);pitch=float(voxel_size or max(float(np.max(combined.extents))/512.0,.08));result=voxel_remesh(combined,pitch);out=Path(output_path).resolve();out.parent.mkdir(parents=True,exist_ok=True);result.export(out);return {"path":str(out),"voxel_size":pitch}
+    source_path=str(Path(source_mesh).resolve());patch_path=str(Path(patch_mesh).resolve())
+    source=_load_mesh(source_path);patch=_load_mesh(patch_path);combined=trimesh.util.concatenate([source,patch])
+    pitch=float(voxel_size or max(float(np.max(combined.extents))/512.0,.08));out=Path(output_path).resolve();out.parent.mkdir(parents=True,exist_ok=True)
+    result_path=voxel_remesh([source_path,patch_path],str(out),pitch);_load_mesh(result_path)
+    return {"path":str(out),"voxel_size":pitch}
