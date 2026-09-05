@@ -20,6 +20,18 @@ Each release branch is preserved as a historical snapshot. Documentation-only co
 | `v0.9.8` | Multi-model AI | SDXL/FLUX/TripoSR/Hunyuan/PartCrafter routing and detail refinement |
 | `v0.9.9` | Productization | Launcher, model/app updates, installer and configurable storage |
 | `v1.0` | Release candidate | Full code audit, failure-path hardening, reproducible installer artifact |
+| `v1.0.5` | Local-AI expansion | Hardware-aware model matrix, verified/resumable model installs, Xet, process-lifetime hardening |
+| `v1.0.6` | Update/integration hardening | Cross-version editor fixes plus verified, resumable, data-preserving self-update and GitHub Release publishing |
+
+## v1.0.6 integration fixes
+
+The v1.0.6 audit closes several seams discovered while reading the full v1.0.5 codebase:
+
+- the release-facing **Model** tab again uses the stable internal `Print` compatibility name before additive version installers run;
+- `/rig quick|universal` now uses the same guarded/validated rig path as the rig UI buttons;
+- final 3D-detail application now calls the canonical path-based voxel-remesh API correctly;
+- Windows file/product metadata, launcher/updater assemblies, backend and installer all report v1.0.6 consistently;
+- launcher application updates are public-release based, SHA-256 verified, resumable and transactional while preserving AI/model/runtime data.
 
 ## Non-release branches
 
@@ -31,4 +43,4 @@ Miniscuplter creates and finalizes the 3D model. It does not slice, generate pri
 
 ## Current testing target
 
-Use `v1.0` for all current runtime validation. Older release branches exist to preserve milestones and aid regression/history investigation, not because users are expected to choose among them.
+Use `v1.0.6` for current runtime validation. Older release branches exist to preserve milestones and aid regression/history investigation, not because users are expected to choose among them.
