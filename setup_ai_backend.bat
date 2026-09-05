@@ -71,8 +71,11 @@ if errorlevel 1 (
   echo NVIDIA GPU detected. Installing CUDA 12.4 PyTorch runtime.
   set "TORCH_WHEEL=!RUNTIME_DOWNLOADS!\torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
   set "VISION_WHEEL=!RUNTIME_DOWNLOADS!\torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
-  set "TORCH_URL=https://download.pytorch.org/whl/cu124/torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
-  set "VISION_URL=https://download.pytorch.org/whl/cu124/torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
+  rem PyTorch CDN requires the '+' in wheel paths to be URL-encoded as %2B.
+  rem In a .bat file a literal percent is written as %%, therefore %%2B below
+  rem becomes %2B in the URL passed to curl.
+  set "TORCH_URL=https://download.pytorch.org/whl/cu124/torch-2.5.1%%2Bcu124-cp310-cp310-win_amd64.whl"
+  set "VISION_URL=https://download.pytorch.org/whl/cu124/torchvision-0.20.1%%2Bcu124-cp310-cp310-win_amd64.whl"
 
   where curl.exe >nul 2>nul
   if errorlevel 1 (
