@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.5"
+EXPECTED = "1.0.6"
 errors: list[str] = []
 
 
@@ -24,10 +24,15 @@ def require(condition: bool, message: str) -> None:
 
 launcher = text("Launcher/Miniscuplter.Launcher.csproj")
 uproj = text("Updater/Miniscuplter.Updater.csproj")
+app_project = text("Miniscuplter.csproj")
 installer = text("installer/Miniscuplter.iss")
+export_presets = text("export_presets.cfg")
 backend = text("ai_backend/app.py")
 workflow = text(".github/workflows/build.yml")
+build_release = text("build_release.ps1")
+extras = text("Scripts/ExtrasInstaller.cs")
 commands = text("Scripts/Main.V096Commands.cs")
+detail = text("ai_backend/detail_pipeline.py")
 geometry = text("ai_backend/geometry_ops.py")
 manager = text("ai_backend/model_manager.py")
 ext = text("ai_backend/model_manager_v105.py")
@@ -53,9 +58,17 @@ launcher_form = text("Launcher/LauncherForm.cs")
 
 require(f"<Version>{EXPECTED}</Version>" in launcher, "launcher version mismatch")
 require(f"<Version>{EXPECTED}</Version>" in uproj, "updater version mismatch")
+require(f"<Version>{EXPECTED}</Version>" in app_project, "Godot C# assembly version mismatch")
 require(f'#define MyAppVersion "{EXPECTED}"' in installer, "installer version mismatch")
-require('version="1.0.5"' in backend and '"version":"1.0.5"' in backend, "backend version mismatch")
-require("v1.0.5" in workflow, "v1.0.5 missing from CI")
+require('application/file_version="1.0.6.0"' in export_presets and 'application/product_version="1.0.6.0"' in export_presets, "Windows exported file version mismatch")
+require('APP_VERSION="1.0.6"' in backend and '"version":APP_VERSION' in backend, "backend version mismatch")
+require("v1.0.6" in launcher_form, "launcher UI version mismatch")
+
+# Cross-version editor integration fixes discovered during the v1.0.5 audit.
+require('FindChild("Model", true, false)' in extras and 'modelTab.Name = "Print"' in extras, "Model/Print compatibility repair missing")
+require('case "/rig": await SafeV095GenerateRigAsync' in commands, "command-palette rig bypasses guarded rig generation")
+require('voxel_remesh([source_path,patch_path],str(out),pitch)' in detail, "detail apply still violates voxel_remesh path contract")
+require("result.export(out)" not in detail.split("def apply_detail", 1)[-1], "detail apply still treats voxel_remesh path as a mesh object")
 
 require("/remesh selection" not in commands, "unfinished remesh-selection command exposed")
 require("pitch < .04 || pitch > 5.0" in commands, "remesh range mismatch")
@@ -64,7 +77,7 @@ require("structurally_valid" in geometry, "canonical geometry validity missing")
 require("np.searchsorted" in geometry, "scalable intersection sweep missing")
 
 for cid in ("z-image-turbo", "qwen-image-2512", "qwen-image-edit", "sf3d", "spar3d", "hunyuan2mini", "trellis2", "partpacker"):
-    require(cid in caps and cid in ext, f"v1.0.5 provider not registered/installable: {cid}")
+    require(cid in caps and cid in ext, f"v1.x provider not registered/installable: {cid}")
 for provider in ("zimage", "qwen", "qwen-edit", "sf3d", "spar3d", "hunyuan-mini", "trellis2", "partpacker"):
     require(provider in router, f"router missing provider {provider}")
 require("role_options" in router and "hardware-aware auto route" in router, "hardware-aware routing missing")
@@ -87,7 +100,7 @@ require('variant="fp16"' in sd21 and "local_files_only=True" in sd21, "SD2.1 doe
 require('"hunyuan3d-dit-v2-mini/model.fp16.safetensors"' in ext and '"hunyuan3d-vae-v2-mini' not in ext, "Hunyuan2mini manifest is not limited to its self-contained fp16 shape checkpoint")
 require('"hunyuan3d-dit-v2-1/model.fp16.ckpt"' in ext and '"hunyuan3d-vae-v2-1' not in ext, "Hunyuan3D 2.1 manifest downloads a redundant standalone VAE")
 require("directory_size(stage, exclude_stage_meta=True)" in ext, "resume disk preflight does not credit already staged data")
-require("mm._component_files_valid = _component_files_valid_v105" in ext, "component validation is not aligned to audited v1.0.5 layouts")
+require("mm._component_files_valid = _component_files_valid_v105" in ext, "component validation is not aligned to audited v1.x layouts")
 require('"sd21": 2.6' in ext and '"partcrafter": 4.8' in ext and '"clipseg-smart-select": 0.6' in ext, "audited model payload estimates drifted from selected manifests")
 require(special.count('"--pretrained-model"') >= 2, "SF3D/SPAR3D runtime can bypass installed local weights")
 require("use_safetensors=True" in special, "Hunyuan2mini does not enforce selected safetensors weights")
@@ -101,8 +114,19 @@ require("RuntimeSetupDialog" in launcher_form, "launcher does not surface the AI
 
 require('"manifest.json"' in partcrafter and 'data.get("parts")' in partcrafter, "PartCrafter manifest contract missing")
 require("mesh.area" in partcrafter and "mesh.extents" in partcrafter, "PartCrafter degenerate output guard missing")
-require("PreserveNested" in updater and '".venv"' in updater and "RestorePreservedNested" in updater, "application updater AI-runtime preservation missing")
-require("IncrementalHash.CreateHash(HashAlgorithmName.SHA256)" in updates and "Miniscuplter-win-x64.zip" in updates, "application update integrity/exact-asset guard missing")
+
+# Application self-update must be installable from a public release and preserve expensive data.
+require("releases?per_page=100" in updates and "Installable" in updates, "launcher does not discover the newest stable release safely")
+require("RangeHeaderValue" in updates and "update-cache" in updates and ".partial" in updates, "application ZIP downloads are not resumable")
+require("VerifyPackageFileAsync" in updates and "SHA-256" in updates and "AssetSize" in updates, "launcher does not enforce update size/hash integrity")
+require('psi.ArgumentList.Add("--data-root")' in updates and 'psi.ArgumentList.Add("--sha256")' in updates and 'psi.ArgumentList.Add("--version")' in updates, "staged updater is not given preservation/integrity metadata")
+require("_updatePromptShown" in launcher_form and "await ApplyApplicationUpdateAsync()" in launcher_form, "launcher does not automatically offer a discovered update on open")
+require("BuildPreserveSet" in updater and '"AIData"' in updater and '"Runtime"' in updater, "updater does not preserve persistent top-level data")
+require("ParkPreservedNested" in updater and "RestoreParkedNested" in updater and '".venv"' in updater and '".runtime-cache"' in updater, "updater does not preserve expensive nested AI runtime data")
+require("VerifySha256" in updater and "ValidateReleaseManifest" in updater and '"release.json"' in updater, "updater does not independently verify package digest/version")
+require("release.json" in build_release and "Miniscuplter-win-x64.zip.sha256" in build_release, "release package metadata/SHA sidecar missing")
+require("publish-release" in workflow and "gh release create" in workflow and "Miniscuplter-win-x64.zip.sha256" in workflow, "CI does not publish stable self-update assets")
+
 require("JobObjectLimitKillOnJobClose" in backend_launcher and "AssignProcessToJobObject" in backend_launcher and "Kill(entireProcessTree: true)" in backend_launcher, "editor AI backend is not guaranteed process-tree cleanup on close")
 require("JobObjectLimitKillOnJobClose" in launcher_job and "AssignProcessToJobObject" in launcher_job, "launcher-owned subprocess kill-on-close job missing")
 require("OwnedChildProcessJob.Start" in model_service and "OwnedChildProcessJob.Start" in runtime_setup, "launcher child processes bypass lifetime job")
@@ -114,7 +138,7 @@ for path in [p for p in ROOT.rglob("*") if p.is_file() and p.resolve() != SELF a
             errors.append(f"unfinished marker {path.relative_to(ROOT)}:{number}: {line.strip()[:100]}")
 
 if errors:
-    print("v1.0.5 release audit FAILED:")
+    print(f"v{EXPECTED} release audit FAILED:")
     for error in errors: print(" -", error)
     sys.exit(1)
-print("v1.0.5 release audit passed")
+print(f"v{EXPECTED} release audit passed")
