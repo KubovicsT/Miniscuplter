@@ -42,20 +42,27 @@ internal static class OwnedChildProcessJob
     public static Process Start(ProcessStartInfo startInfo)
     {
         Initialize();
-        var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {startInfo.FileName}.");
-        Track(process);
-        return process;
-    }
+        if (OperatingSystem.IsWindows() && _job == IntPtr.Zero)
+            throw new InvalidOperationException("Windows child-process containment could not be initialized. Miniscuplter will not start unmanaged helper processes because they could remain running after the launcher closes.");
 
-    public static void Track(Process process)
-    {
-        if (!OperatingSystem.IsWindows()) return;
+        var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {startInfo.FileName}.");
+        if (!OperatingSystem.IsWindows()) return process;
+
         lock (Gate)
         {
-            if (_job == IntPtr.Zero) return;
-            try { AssignProcessToJobObject(_job, process.Handle); }
+            bool assigned = false;
+            try { assigned = _job != IntPtr.Zero && AssignProcessToJobObject(_job, process.Handle); }
             catch { }
+            if (!assigned)
+            {
+                int error = Marshal.GetLastWin32Error();
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+                try { process.WaitForExit(3000); } catch { }
+                process.Dispose();
+                throw new InvalidOperationException($"Could not attach helper process to the Miniscuplter lifetime job (Windows error {error}). The helper was terminated to prevent an orphaned process.");
+            }
         }
+        return process;
     }
 
     public static void Dispose()
