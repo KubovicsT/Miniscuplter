@@ -46,6 +46,8 @@ Model installs and updates use deterministic staging under `<DataRoot>/.staging`
 
 Resume does not blindly trust staged files. It re-checks the upstream revision and the Miniscuplter manifest signature first. If either changed, the stale partial payload is discarded. If they still match, Hugging Face/Xet reuses valid partial files and continues the transfer. Staged files left by the old v1.0.5 UUID staging layout are migrated when possible.
 
+Older retries could leave several UUID-named partial stages for the same model. The current recovery logic keeps the legacy stage containing the most reusable data, migrates it to the deterministic stage, and removes redundant abandoned siblings so repeated failed attempts do not silently consume multiple copies of a model.
+
 An old over-broad SDXL stage is also pruned against the current audited manifest before more data is downloaded, removing files that are no longer selected.
 
 The model operation window has an explicit Cancel action. Closing the window during an active operation asks whether to cancel; the process tree is terminated through the launcher's owned-process lifetime protection and valid partial data is preserved for a later resume.
@@ -87,7 +89,7 @@ The editor must be closed before model install/remove/update operations so loade
 
 The core backend uses one managed virtual environment under `App/ai_backend/.venv`. Some specialist providers intentionally use isolated environments to prevent upstream dependency conflicts. Those environments can add several gigabytes beyond the model-weight payload shown in the model table.
 
-AI runtime repair does not download model weights. The launcher opens a visible setup console while runtime repair is running so Python/PyTorch/package download and installation progress is observable.
+AI runtime repair does not download model weights. The launcher opens a dedicated setup progress window while runtime repair is running so Python/PyTorch/package download and installation progress is observable. The operation can be cancelled safely; persistent runtime download caches are retained so a later Repair can resume or reuse completed downloads.
 
 ## VRAM behavior
 
