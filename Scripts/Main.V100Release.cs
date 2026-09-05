@@ -12,7 +12,7 @@ public partial class Main
         if (_v05Quality != null)
         {
             _v05Quality.Disabled = true;
-            _v05Quality.TooltipText = "Controlled by the central Quality Preset. This legacy selector is display-only in v1.0.";
+            _v05Quality.TooltipText = "Controlled by the central Quality Preset. This legacy selector is display-only in v1.x.";
         }
 
         // Present release-facing tab names without breaking the older internal node names that
@@ -34,6 +34,6 @@ public partial class Main
             }
         }
 
-        SetStatus("Ready — Miniscuplter v1.0");
+        SetStatus("Ready — Miniscuplter v1.0.6");
     }
 }
