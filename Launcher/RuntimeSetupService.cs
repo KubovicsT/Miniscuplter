@@ -28,7 +28,7 @@ internal sealed class RuntimeSetupService
         psi.ArgumentList.Add("/c"); psi.ArgumentList.Add(script); psi.ArgumentList.Add("/quiet");
         psi.Environment["MINISCULPTER_ROOT"] = _settings.InstallRoot;
         psi.Environment["MINISCULPTER_DATA"] = _settings.DataRoot;
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start AI runtime setup.");
+        using var process = OwnedChildProcessJob.Start(psi);
         Task<string> stdout = process.StandardOutput.ReadToEndAsync(); Task<string> stderr = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
         string output = await stdout; string error = await stderr;
