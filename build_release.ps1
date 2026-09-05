@@ -83,7 +83,7 @@ New-Item (Join-Path $package 'AIData') -ItemType Directory -Force | Out-Null
 } | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $package 'release.json') -Encoding UTF8
 
 $zip = Join-Path $dist 'Miniscuplter-win-x64.zip'
-$shaFile = "$zip.sha256"
+$shaFile = Join-Path $dist 'Miniscuplter-win-x64.zip.sha256'
 if (Test-Path $zip) { Remove-Item $zip -Force }
 if (Test-Path $shaFile) { Remove-Item $shaFile -Force }
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath $zip -CompressionLevel Optimal
