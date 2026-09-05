@@ -65,11 +65,12 @@ public partial class BackendLauncher : Node
             if (OperatingSystem.IsWindows())
             {
                 _job = CreateKillOnCloseJob();
-                if (_job != IntPtr.Zero && !AssignProcessToJobObject(_job, _backend.Handle))
+                if (_job == IntPtr.Zero || !AssignProcessToJobObject(_job, _backend.Handle))
                 {
-                    GD.PrintErr($"Could not attach AI backend to Windows lifetime job (error {Marshal.GetLastWin32Error()}); graceful-close process-tree cleanup remains enabled.");
-                    CloseHandle(_job);
-                    _job = IntPtr.Zero;
+                    int error = Marshal.GetLastWin32Error();
+                    GD.PrintErr($"AI backend lifetime containment failed (Windows error {error}). The backend is being terminated rather than leaving an unmanaged process behind.");
+                    ShutdownBackend();
+                    return;
                 }
             }
 
