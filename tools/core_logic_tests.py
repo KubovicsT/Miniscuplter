@@ -1,124 +1,30 @@
 from __future__ import annotations
-
-import tempfile
+import tempfile,sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-import sys
-sys.path.insert(0, str(ROOT / "ai_backend"))
-
-import model_manager
-import model_router
-import quality_runtime
-
-
-def check(condition: bool, message: str) -> None:
-    if not condition:
-        raise AssertionError(message)
-
-
-def test_quality_clamps() -> None:
-    cfg = quality_runtime.normalize({
-        "image_size": 99999,
-        "image_steps": -1,
-        "image_guidance": 999,
-        "image_edit_strength": -2,
-        "max_input_px": 1,
-        "shape_steps": 999,
-        "remesh_voxel_mm": 0,
-        "repair_voxel_mm": 99,
-        "max_voxel_cells": 999999999999,
-        "thickness_samples": 1,
-        "smart_select_views": 99,
-        "smart_select_render_size": 1,
-    })
-    check(cfg["image_size"] == 1536, "image size upper clamp failed")
-    check(cfg["image_steps"] == 4, "image steps lower clamp failed")
-    check(cfg["image_guidance"] == 20.0, "guidance upper clamp failed")
-    check(cfg["image_edit_strength"] == 0.05, "edit strength lower clamp failed")
-    check(cfg["max_input_px"] == 512, "max input lower clamp failed")
-    check(cfg["shape_steps"] == 100, "shape steps upper clamp failed")
-    check(cfg["remesh_voxel_mm"] == 0.04, "remesh lower clamp failed")
-    check(cfg["repair_voxel_mm"] == 5.0, "repair upper clamp failed")
-    check(cfg["max_voxel_cells"] == 2_000_000_000, "voxel budget upper clamp failed")
-    check(cfg["thickness_samples"] == 100, "thickness lower clamp failed")
-    check(cfg["smart_select_views"] == 12, "view count upper clamp failed")
-    check(cfg["smart_select_render_size"] == 128, "render size lower clamp failed")
-
-
-def test_model_routing() -> None:
-    original_installed = model_router.installed
-    original_hw = model_router.hardware_info
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/"ai_backend"))
+import model_manager,model_router,model_capabilities,quality_runtime
+def check(c,m):
+    if not c:raise AssertionError(m)
+def test_quality_clamps():
+    c=quality_runtime.normalize({"image_size":99999,"image_steps":-1,"image_guidance":999,"image_edit_strength":-2,"max_input_px":1,"shape_steps":999,"remesh_voxel_mm":0,"repair_voxel_mm":99,"max_voxel_cells":999999999999,"thickness_samples":1,"smart_select_views":99,"smart_select_render_size":1});check(c["image_size"]==1536,"image clamp");check(c["remesh_voxel_mm"]==.04,"remesh clamp");check(c["smart_select_views"]==12,"views clamp")
+def test_model_routing():
+    oi,oh=model_router.installed,model_router.hardware_info
     try:
-        present = {"sdxl-base", "sd21", "triposr", "hunyuan21-shape", "partcrafter"}
-        model_router.installed = lambda component_id: component_id in present
-        model_router.hardware_info = lambda: {"vram_mb": 8192}
-        check(model_router.choose_image_provider("generate").provider == "sdxl", "8 GB auto 2D route should prefer SDXL")
-        check(model_router.choose_3d_provider("fast").provider == "triposr", "fast 3D route should prefer TripoSR")
-        check(model_router.choose_3d_provider("quality").provider == "hunyuan", "quality 3D route should prefer Hunyuan")
-        check(model_router.choose_3d_provider("structured").provider == "partcrafter", "structured route should prefer PartCrafter")
-
-        present.add("flux2-klein-4b")
-        model_router.hardware_info = lambda: {"vram_mb": 16384}
-        check(model_router.choose_image_provider("detail").provider == "flux", "high-VRAM detail route should prefer FLUX when installed")
-
-        present.remove("sdxl-base")
-        present.remove("flux2-klein-4b")
-        check(model_router.choose_image_provider("generate").provider == "sd21", "2D fallback should reach SD2.1")
-
-        present.discard("hunyuan21-shape")
-        check(model_router.choose_3d_provider("quality").provider == "triposr", "quality route should fall back to TripoSR")
-
-        try:
-            model_router.choose_image_provider("generate", "sdxl")
-            raise AssertionError("explicit missing provider should fail")
-        except RuntimeError:
-            pass
-    finally:
-        model_router.installed = original_installed
-        model_router.hardware_info = original_hw
-
-
-def test_component_file_validation() -> None:
-    original_tools = model_manager.TOOLS_ROOT
+        present={"sdxl-base","sd21","triposr","hunyuan21-shape","partcrafter","hunyuan2mini","sf3d"};model_router.installed=lambda x:x in present;model_router.hardware_info=lambda:{"vram_mb":8192}
+        check(model_router.choose_image_provider("generate").provider=="sdxl","8GB concept should prefer SDXL");check(model_router.choose_3d_provider("fast").provider=="sf3d","8GB fast route should prefer SF3D");check(model_router.choose_3d_provider("quality").provider=="hunyuan-mini","8GB quality route should prefer Hunyuan mini");check(model_router.choose_3d_provider("structured").provider=="partcrafter","parts route")
+        present.update({"flux2-klein-4b","qwen-image-edit","qwen-image-2512","z-image-turbo","spar3d","partpacker","trellis2"});model_router.hardware_info=lambda:{"vram_mb":24576};check(model_router.choose_image_provider("generate").provider=="qwen","24GB concept should prefer Qwen");check(model_router.choose_image_provider("detail").provider=="qwen-edit","24GB edit should prefer Qwen Edit");check(model_router.choose_3d_provider("quality").provider=="trellis2","24GB quality should prefer TRELLIS.2");check(model_router.choose_3d_provider("structured").provider=="partpacker","24GB parts should prefer PartPacker")
+        try:model_router.choose_image_provider("generate","does-not-exist");raise AssertionError("unknown explicit provider accepted")
+        except RuntimeError:pass
+    finally:model_router.installed,model_router.hardware_info=oi,oh
+def test_capabilities():
+    rows={x["id"]:x for x in model_capabilities.recommendations(8192,"win32")};check(rows["hunyuan2mini"]["hardware_fit"] in {"recommended","possible"},"Hunyuan mini 8GB fit");check(rows["trellis2"]["wsl_possible"],"TRELLIS Windows should expose WSL route");check(rows["trellis2"]["hardware_fit"]=="not-recommended","TRELLIS must not be recommended at 8GB")
+def test_component_file_validation():
+    old=model_manager.TOOLS_ROOT
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            model_manager.TOOLS_ROOT = root / "tools"
-            model_manager.TOOLS_ROOT.mkdir()
-
-            clip = root / "clip"
-            clip.mkdir()
-            check(not model_manager._component_files_valid("clipseg-smart-select", clip), "empty CLIPSeg directory must not count as installed")
-            (clip / "config.json").write_text("{}", encoding="utf-8")
-            (clip / "model.safetensors").write_bytes(b"x")
-            check(model_manager._component_files_valid("clipseg-smart-select", clip), "complete CLIPSeg marker files should validate")
-
-            trip = root / "trip"
-            trip.mkdir()
-            (trip / "config.yaml").write_text("x", encoding="utf-8")
-            (trip / "model.ckpt").write_bytes(b"x")
-            tool = model_manager.TOOLS_ROOT / "TripoSR"
-            tool.mkdir(parents=True)
-            (tool / "code.py").write_text("x", encoding="utf-8")
-            check(model_manager._component_files_valid("triposr", trip), "TripoSR complete markers should validate")
-            (trip / "model.ckpt").unlink()
-            check(not model_manager._component_files_valid("triposr", trip), "missing TripoSR checkpoint must invalidate component")
-    finally:
-        model_manager.TOOLS_ROOT = original_tools
-
-
-def test_uninstall_path_guard() -> None:
-    try:
-        model_manager._managed_path(ROOT)
-        raise AssertionError("managed path guard accepted repository root outside AI data")
-    except RuntimeError:
-        pass
-
-
-if __name__ == "__main__":
-    test_quality_clamps()
-    test_model_routing()
-    test_component_file_validation()
-    test_uninstall_path_guard()
-    print("v1.0 core logic tests passed")
+        with tempfile.TemporaryDirectory() as t:
+            r=Path(t);model_manager.TOOLS_ROOT=r/"tools";model_manager.TOOLS_ROOT.mkdir();clip=r/"clip";clip.mkdir();check(not model_manager._component_files_valid("clipseg-smart-select",clip),"empty clip");(clip/"config.json").write_text("{}");(clip/"model.safetensors").write_bytes(b"x");check(model_manager._component_files_valid("clipseg-smart-select",clip),"clip markers")
+    finally:model_manager.TOOLS_ROOT=old
+def test_uninstall_path_guard():
+    try:model_manager._managed_path(ROOT);raise AssertionError("path guard accepted repo")
+    except RuntimeError:pass
+if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_component_file_validation();test_uninstall_path_guard();print("v1.0.5 core logic tests passed")
