@@ -9,7 +9,15 @@ internal static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        var form = new LauncherForm { Text = "Miniscuplter Launcher v1.0" };
-        Application.Run(form);
+        OwnedChildProcessJob.Initialize();
+        try
+        {
+            var form = new LauncherForm { Text = "Miniscuplter Launcher v1.0" };
+            Application.Run(form);
+        }
+        finally
+        {
+            OwnedChildProcessJob.Dispose();
+        }
     }
 }
