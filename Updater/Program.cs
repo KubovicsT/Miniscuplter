@@ -1,57 +1,83 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace Miniscuplter.Updater;
 
 internal static class Program
 {
-    static readonly string[] PreserveTopLevel = { "AIData", "Projects", "PartsLibrary", "Exports", "UserData", "launcher.settings.json" };
-    static readonly string[] PreserveNested = { Path.Combine("App", "ai_backend", ".venv") };
+    static readonly string[] DefaultPreserveTopLevel = { "AIData", "Runtime", "Projects", "PartsLibrary", "Exports", "UserData", "launcher.settings.json" };
+    static readonly string[] PreserveNested = {
+        Path.Combine("App", "ai_backend", ".venv"),
+        Path.Combine("App", "ai_backend", ".runtime-cache"),
+        Path.Combine("App", "ai_backend", "data"),
+        Path.Combine("ai_backend", ".venv"),
+        Path.Combine("ai_backend", ".runtime-cache"),
+        Path.Combine("ai_backend", "data")
+    };
+
+    static HashSet<string> _preserveTop = new(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
 
     static int Main(string[] args)
     {
-        string? stage = null;
-        string? backup = null;
+        string? workRoot = null, stage = null, backup = null, parked = null, dataRoot = null;
+        bool parkedNeedsRestore = false;
         try
         {
             var map = Parse(args);
             string package = Path.GetFullPath(Require(map, "package"));
             string target = Path.GetFullPath(Require(map, "target"));
+            dataRoot = Path.GetFullPath(Require(map, "data-root"));
+            string expectedVersion = NormalizeVersion(Require(map, "version"));
+            string expectedSha256 = RequireSha256(map);
             int waitPid = map.TryGetValue("wait-pid", out var p) && int.TryParse(p, out var pid) ? pid : -1;
             string restart = map.TryGetValue("restart", out var r) ? Path.GetFullPath(r) : Path.Combine(target, "Miniscuplter.Launcher.exe");
 
+            if (!File.Exists(package)) throw new FileNotFoundException("Update package not found", package);
+            if (!VerifySha256(package, expectedSha256)) throw new InvalidDataException("Update package SHA-256 does not match the release digest. No installed files were changed.");
+            Directory.CreateDirectory(target);
+            _preserveTop = BuildPreserveSet(target, dataRoot);
+
             if (waitPid > 0) WaitForExit(waitPid);
             EnsureEditorClosed();
-            if (!File.Exists(package)) throw new FileNotFoundException("Update package not found", package);
-            Directory.CreateDirectory(target);
 
-            stage = Path.Combine(Path.GetTempPath(), "MiniscuplterUpdate_" + Guid.NewGuid().ToString("N"));
-            backup = Path.Combine(Path.GetTempPath(), "MiniscuplterBackup_" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(stage); Directory.CreateDirectory(backup);
+            string parent = Directory.GetParent(target)?.FullName ?? Path.GetTempPath();
+            workRoot = Path.Combine(parent, ".MiniscuplterUpdate_" + Guid.NewGuid().ToString("N"));
+            stage = Path.Combine(workRoot, "stage");
+            backup = Path.Combine(workRoot, "backup");
+            parked = Path.Combine(workRoot, "preserved");
+            Directory.CreateDirectory(stage); Directory.CreateDirectory(backup); Directory.CreateDirectory(parked);
+
             ZipFile.ExtractToDirectory(package, stage, true);
             string source = NormalizePackageRoot(stage);
-            ValidateReleasePackage(source);
+            ValidateReleasePackage(source, expectedVersion);
 
+            ParkPreservedNested(target, parked);
+            parkedNeedsRestore = true;
             BackupManagedTree(target, backup);
             try
             {
                 RemoveManagedTree(target);
                 CopyTree(source, target);
-                RestorePreservedNested(backup, target);
-                ValidateInstalledTree(target);
+                RestoreParkedNested(parked, target);
+                parkedNeedsRestore = false;
+                ValidateInstalledTree(target, expectedVersion);
             }
             catch
             {
-                // A failed update must never strand a half-copied application. Remove whatever
-                // the failed update wrote, then restore the complete pre-update program tree.
                 try { RemoveManagedTree(target); } catch { }
                 RestoreBackup(backup, target);
+                if (parkedNeedsRestore)
+                {
+                    RestoreParkedNested(parked, target);
+                    parkedNeedsRestore = false;
+                }
                 throw;
             }
 
             TryDelete(package);
-            TryDeleteDirectory(stage);
-            TryDeleteDirectory(backup);
+            TryDeleteDirectory(workRoot);
             if (File.Exists(restart))
                 Process.Start(new ProcessStartInfo(restart) { WorkingDirectory = Path.GetDirectoryName(restart) ?? target, UseShellExecute = true });
             ScheduleSelfDelete();
@@ -59,9 +85,19 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "MiniscuplterUpdater.error.txt"), ex.ToString()); } catch { }
+            if (parkedNeedsRestore && parked != null)
+            {
+                try
+                {
+                    var map = Parse(args);
+                    string target = Path.GetFullPath(Require(map, "target"));
+                    RestoreParkedNested(parked, target);
+                }
+                catch { }
+            }
+            WriteError(dataRoot, ex);
             if (stage != null) TryDeleteDirectory(stage);
-            // Keep the backup on disk if rollback itself failed; it is more useful than deleting recovery data.
+            // If rollback failed, leave workRoot/backup in place as recovery material.
             return 1;
         }
     }
@@ -75,6 +111,13 @@ internal static class Program
     }
 
     static string Require(Dictionary<string,string> map, string key) => map.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : throw new ArgumentException("Missing --" + key);
+
+    static string RequireSha256(Dictionary<string,string> map)
+    {
+        string value = Require(map, "sha256").Trim().ToLowerInvariant();
+        if (value.Length != 64 || !value.All(Uri.IsHexDigit)) throw new ArgumentException("--sha256 must be a 64-character SHA-256 digest");
+        return value;
+    }
 
     static void WaitForExit(int pid)
     {
@@ -92,13 +135,36 @@ internal static class Program
         finally { foreach (var p in running) p.Dispose(); }
     }
 
+    static HashSet<string> BuildPreserveSet(string target, string dataRoot)
+    {
+        var result = new HashSet<string>(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            string rel = Path.GetRelativePath(target, dataRoot);
+            if (rel != "." && !rel.StartsWith(".." + Path.DirectorySeparatorChar) && !Path.IsPathRooted(rel))
+            {
+                string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
+                if (!string.IsNullOrWhiteSpace(top) && top != ".") result.Add(top);
+            }
+        }
+        catch { }
+        return result;
+    }
+
+    static bool VerifySha256(string path, string expected)
+    {
+        using var stream = File.OpenRead(path);
+        string actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+        return actual.Equals(expected, StringComparison.OrdinalIgnoreCase);
+    }
+
     static string NormalizePackageRoot(string stage)
     {
         string[] dirs = Directory.GetDirectories(stage); string[] files = Directory.GetFiles(stage);
         return files.Length == 0 && dirs.Length == 1 ? dirs[0] : stage;
     }
 
-    static void ValidateReleasePackage(string source)
+    static void ValidateReleasePackage(string source, string expectedVersion)
     {
         string[] required = {
             "Miniscuplter.Launcher.exe",
@@ -106,7 +172,8 @@ internal static class Program
             Path.Combine("App", "Miniscuplter.exe"),
             Path.Combine("App", "ai_backend", "app.py"),
             Path.Combine("App", "ai_backend", "launcher_bridge.py"),
-            "setup_ai_backend.bat"
+            "setup_ai_backend.bat",
+            "release.json"
         };
         foreach (string relative in required)
         {
@@ -114,19 +181,61 @@ internal static class Program
             if (!File.Exists(path) || new FileInfo(path).Length == 0)
                 throw new InvalidDataException("Update package is incomplete; missing required file: " + relative);
         }
+        ValidateReleaseManifest(Path.Combine(source, "release.json"), expectedVersion);
     }
 
-    static void ValidateInstalledTree(string target)
+    static void ValidateInstalledTree(string target, string expectedVersion)
     {
         string[] required = {
             "Miniscuplter.Launcher.exe", "Miniscuplter.Updater.exe",
-            Path.Combine("App", "Miniscuplter.exe"), Path.Combine("App", "ai_backend", "app.py")
+            Path.Combine("App", "Miniscuplter.exe"), Path.Combine("App", "ai_backend", "app.py"), "release.json"
         };
         foreach (string relative in required)
         {
             string path = Path.Combine(target, relative);
             if (!File.Exists(path) || new FileInfo(path).Length == 0)
                 throw new InvalidDataException("Updated application failed post-copy validation: " + relative);
+        }
+        ValidateReleaseManifest(Path.Combine(target, "release.json"), expectedVersion);
+    }
+
+    static void ValidateReleaseManifest(string path, string expectedVersion)
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        string version = doc.RootElement.TryGetProperty("version", out var value) ? NormalizeVersion(value.GetString() ?? "") : "";
+        if (!version.Equals(expectedVersion, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"Update package version mismatch. Expected {expectedVersion}, package contains {version}.");
+        string asset = doc.RootElement.TryGetProperty("asset", out var ae) ? ae.GetString() ?? "" : "";
+        if (!asset.Equals("Miniscuplter-win-x64.zip", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Update package manifest does not identify the expected Windows asset.");
+    }
+
+    static string NormalizeVersion(string value) => value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
+
+    static void ParkPreservedNested(string target, string parking)
+    {
+        foreach (string relative in PreserveNested)
+        {
+            string source = Path.Combine(target, relative);
+            if (!Directory.Exists(source)) continue;
+            string destination = Path.Combine(parking, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+            Directory.Move(source, destination);
+        }
+    }
+
+    static void RestoreParkedNested(string parking, string target)
+    {
+        foreach (string relative in PreserveNested)
+        {
+            string source = Path.Combine(parking, relative);
+            if (!Directory.Exists(source)) continue;
+            string destination = Path.Combine(target, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+            try { Directory.Move(source, destination); }
+            catch (IOException) { CopyDirectory(source, destination); DeleteDirectoryWithRetry(source); }
         }
     }
 
@@ -142,18 +251,6 @@ internal static class Program
         {
             string rel = Path.GetFileName(dir); if (IsPreservedTopLevel(rel)) continue;
             CopyDirectory(dir, Path.Combine(backup, rel));
-        }
-    }
-
-    static void RestorePreservedNested(string backup, string target)
-    {
-        foreach (string relative in PreserveNested)
-        {
-            string source = Path.Combine(backup, relative);
-            if (!Directory.Exists(source)) continue;
-            string destination = Path.Combine(target, relative);
-            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
-            CopyDirectory(source, destination);
         }
     }
 
@@ -208,7 +305,7 @@ internal static class Program
     static bool IsPreservedTopLevel(string rel)
     {
         string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
-        return PreserveTopLevel.Any(p => top.Equals(p, StringComparison.OrdinalIgnoreCase));
+        return _preserveTop.Contains(top);
     }
 
     static void CopyWithRetry(string source, string dest)
@@ -245,6 +342,20 @@ internal static class Program
             catch (UnauthorizedAccessException ex) { last = ex; Thread.Sleep(250); }
         }
         throw new IOException("Could not remove old application directory " + path, last);
+    }
+
+    static void WriteError(string? dataRoot, Exception ex)
+    {
+        try
+        {
+            string folder = !string.IsNullOrWhiteSpace(dataRoot) ? Path.Combine(dataRoot, "update-cache") : Path.GetTempPath();
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "MiniscuplterUpdater.error.txt"), ex.ToString());
+        }
+        catch
+        {
+            try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "MiniscuplterUpdater.error.txt"), ex.ToString()); } catch { }
+        }
     }
 
     static void TryDelete(string path) { try { File.Delete(path); } catch { } }
