@@ -12,9 +12,9 @@ if not exist "%BACKEND_DIR%\requirements.txt" (
 )
 cd /d "%BACKEND_DIR%"
 
-echo Miniscuplter v1.0 AI runtime setup
-
+echo Miniscuplter v1.0.5 AI runtime setup
 echo.
+
 set "PYTHON_CMD="
 where py >nul 2>nul
 if not errorlevel 1 (
@@ -39,22 +39,68 @@ if not exist .venv (
   if errorlevel 1 exit /b 1
 )
 call .venv\Scripts\activate.bat
+
+rem Keep large runtime downloads out of the Windows user TEMP folder.  The
+rem cache survives Repair retries, so interrupted multi-gigabyte downloads can
+rem resume instead of starting from scratch.
+if defined MINISCULPTER_DATA (
+  set "RUNTIME_CACHE=%MINISCULPTER_DATA%\runtime-cache"
+) else (
+  set "RUNTIME_CACHE=%BACKEND_DIR%\.runtime-cache"
+)
+set "RUNTIME_DOWNLOADS=%RUNTIME_CACHE%\downloads"
+set "RUNTIME_TEMP=%RUNTIME_CACHE%\temp"
+set "PIP_CACHE_DIR=%RUNTIME_CACHE%\pip-cache"
+if not exist "%RUNTIME_DOWNLOADS%" mkdir "%RUNTIME_DOWNLOADS%"
+if not exist "%RUNTIME_TEMP%" mkdir "%RUNTIME_TEMP%"
+if not exist "%PIP_CACHE_DIR%" mkdir "%PIP_CACHE_DIR%"
+set "TMP=%RUNTIME_TEMP%"
+set "TEMP=%RUNTIME_TEMP%"
+set "PIP_DEFAULT_TIMEOUT=180"
+set "PIP_RETRIES=20"
+
 python -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 exit /b 1
 
 where nvidia-smi >nul 2>nul
 if errorlevel 1 (
   echo No NVIDIA GPU detected. Installing CPU PyTorch.
-  pip install torch==2.5.1 torchvision==0.20.1
+  python -m pip install torch==2.5.1 torchvision==0.20.1 --timeout 180 --retries 20
+  if errorlevel 1 exit /b 1
 ) else (
   echo NVIDIA GPU detected. Installing CUDA 12.4 PyTorch runtime.
-  pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
-)
-if errorlevel 1 exit /b 1
+  set "TORCH_WHEEL=%RUNTIME_DOWNLOADS%\torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
+  set "VISION_WHEEL=%RUNTIME_DOWNLOADS%\torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
+  set "TORCH_URL=https://download.pytorch.org/whl/cu124/torch-2.5.1+cu124-cp310-cp310-win_amd64.whl"
+  set "VISION_URL=https://download.pytorch.org/whl/cu124/torchvision-0.20.1+cu124-cp310-cp310-win_amd64.whl"
 
-pip install -r requirements.txt
+  where curl.exe >nul 2>nul
+  if errorlevel 1 (
+    echo curl.exe is required for resumable PyTorch downloads on Windows.
+    exit /b 1
+  )
+
+  echo Downloading PyTorch wheel to persistent cache. Interrupted downloads will resume on the next Repair.
+  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "%TORCH_WHEEL%" "%TORCH_URL%"
+  if errorlevel 1 (
+    echo PyTorch download did not finish. Run Repair AI Runtime again to resume it.
+    exit /b 1
+  )
+
+  echo Downloading torchvision wheel to persistent cache.
+  curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "%VISION_WHEEL%" "%VISION_URL%"
+  if errorlevel 1 (
+    echo torchvision download did not finish. Run Repair AI Runtime again to resume it.
+    exit /b 1
+  )
+
+  python -m pip install "%TORCH_WHEEL%" "%VISION_WHEEL%" --timeout 180 --retries 20
+  if errorlevel 1 exit /b 1
+)
+
+python -m pip install -r requirements.txt --timeout 180 --retries 20
 if errorlevel 1 exit /b 1
-pip check
+python -m pip check
 if errorlevel 1 exit /b 1
 
 set "RUNTIME_HASH="
@@ -67,7 +113,7 @@ if not defined RUNTIME_HASH (
 
 echo.
 echo AI runtime is ready under %CD%\.venv
-if defined MINISCULPTER_DATA echo AI models will be stored under %MINISCULPTER_DATA%
+if defined MINISCULPTER_DATA echo AI models and runtime cache are stored under %MINISCULPTER_DATA%
 echo Download model weights from Miniscuplter Launcher; model updates remain manual.
 echo.
 if "%QUIET%"=="0" pause
