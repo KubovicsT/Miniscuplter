@@ -1,5 +1,5 @@
 #define MyAppName "Miniscuplter"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "Miniscuplter"
 #define MyAppExeName "Miniscuplter.Launcher.exe"
 
@@ -24,104 +24,38 @@ ChangesEnvironment=no
 CloseApplications=yes
 RestartApplications=no
 
-[Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
-Name: "airuntime"; Description: "Set up the local AI Python environment after installation (requires Python 3.10 x64)"; GroupDescription: "Local AI:"; Flags: checkedonce
-
-[Dirs]
-Name: "{app}\AIData"
-
 [Files]
 Source: "..\dist\package\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Miniscuplter"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{autodesktop}\Miniscuplter"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\Miniscuplter"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\Miniscuplter"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
 [Run]
-Filename: "{app}\setup_ai_backend.bat"; Parameters: "/quiet"; WorkingDir: "{app}"; StatusMsg: "Preparing local AI runtime..."; Flags: runhidden waituntilterminated skipifsilent; Tasks: airuntime
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch Miniscuplter"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch Miniscuplter"; Flags: nowait postinstall skipifsilent
 
 [Code]
-function JsonEscapePath(Value: string): string;
-begin
-  StringChangeEx(Value, '\', '\\', True);
-  StringChangeEx(Value, '"', '\"', True);
-  Result := Value;
-end;
-
-function InstallFolderWritable(Folder: string): Boolean;
-var
-  Probe: string;
+function IsInstallDirWritable(Dir: string): Boolean;
+var TestFile: string;
 begin
   Result := False;
-  if not ForceDirectories(Folder) then
-    exit;
-
-  Probe := AddBackslash(Folder) + '.miniscuplter_write_test.tmp';
-  if SaveStringToFile(Probe, 'write-test', False) then
-  begin
-    DeleteFile(Probe);
-    Result := True;
+  if not ForceDirectories(Dir) then Exit;
+  TestFile := AddBackslash(Dir) + '.miniscuplter-write-test-' + GetDateTimeString('yyyymmddhhnnss', '', '');
+  if SaveStringToFile(TestFile, 'write-test', False) then begin
+    DeleteFile(TestFile); Result := True;
   end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  Folder: string;
 begin
   Result := True;
-  if CurPageID = wpSelectDir then
-  begin
-    Folder := ExpandConstant(WizardDirValue);
-    if not InstallFolderWritable(Folder) then
-    begin
-      MsgBox(
-        'Miniscuplter must be installed in a folder your normal Windows account can write to. ' +
-        'The launcher downloads and removes AI models there and applies application updates without administrator access.' + #13#10 + #13#10 +
-        'Choose another folder, such as the default per-user location or a writable folder on another drive.',
-        mbError, MB_OK);
+  if CurPageID = wpSelectDir then begin
+    if not IsInstallDirWritable(WizardDirValue) then begin
+      MsgBox('Miniscuplter needs a writable installation folder so its launcher can manage updates and the local AI runtime. Choose a folder your Windows account can write to.', mbError, MB_OK);
       Result := False;
     end;
   end;
-end;
-
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  if CurPageID = wpSelectDir then
-    WizardForm.SelectDirLabel.Caption :=
-      'Choose where Miniscuplter, its local AI runtime, and downloaded AI models will live. ' +
-      'This folder must stay writable by your Windows account so the launcher can manage models and application updates.';
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  Settings: string;
-begin
-  if CurStep = ssPostInstall then
-  begin
-    Settings :=
-      '{' + #13#10 +
-      '  "InstallRoot": "' + JsonEscapePath(ExpandConstant('{app}')) + '",' + #13#10 +
-      '  "AppExecutable": "App\\Miniscuplter.exe",' + #13#10 +
-      '  "DataRoot": "AIData",' + #13#10 +
-      '  "CheckApplicationUpdates": true,' + #13#10 +
-      '  "CheckModelUpdates": true,' + #13#10 +
-      '  "ReleaseRepository": "KubovicsT/Miniscuplter"' + #13#10 +
-      '}' + #13#10;
-    SaveStringToFile(ExpandConstant('{app}\launcher.settings.json'), Settings, False);
-  end;
-end;
-
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-begin
-  Result := '';
-  if not InstallFolderWritable(ExpandConstant('{app}')) then
-  begin
-    Result := 'The selected Miniscuplter installation folder is not writable by the current Windows account. Choose a different installation folder.';
-    exit;
-  end;
-
-  if DirExists(ExpandConstant('{app}\AIData')) then
-    Log('Existing AIData folder detected; downloaded AI models will be preserved.');
 end;
