@@ -26,13 +26,14 @@ internal sealed class ApplicationUpdateService
 {
     const string AssetName = "Miniscuplter-win-x64.zip";
     const string DigestAssetName = "Miniscuplter-win-x64.zip.sha256";
+    const long UpdateSafetyBytes = 64L * 1024 * 1024;
     readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(30) };
     readonly LauncherSettings _settings;
 
     public ApplicationUpdateService(LauncherSettings settings)
     {
         _settings = settings;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Miniscuplter-Launcher/1.0.6");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Miniscuplter-Launcher/1.0.7");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
     }
 
@@ -131,9 +132,9 @@ internal sealed class ApplicationUpdateService
         if (!info.Installable)
             throw new InvalidOperationException("The newest release is not safely installable: the exact Windows ZIP, its byte size, and a SHA-256 digest are all required.");
 
-        string cache = Path.Combine(_settings.DataRoot, "update-cache");
-        Directory.CreateDirectory(cache);
         string safeVersion = Regex.Replace(info.LatestVersion, @"[^0-9A-Za-z._-]", "_");
+        string cache = await ResolveUpdateCacheAsync(info, safeVersion, cancellationToken);
+        Directory.CreateDirectory(cache);
         string partial = Path.Combine(cache, $"Miniscuplter-{safeVersion}-win-x64.zip.partial");
         string final = Path.Combine(cache, $"Miniscuplter-{safeVersion}-win-x64.zip");
 
@@ -148,6 +149,7 @@ internal sealed class ApplicationUpdateService
             cancellationToken.ThrowIfCancellationRequested();
             long existing = File.Exists(partial) ? new FileInfo(partial).Length : 0;
             if (existing < 0 || existing > info.AssetSize) { TryDelete(partial); existing = 0; }
+            EnsureFreeSpace(cache, Math.Max(0, info.AssetSize - existing) + UpdateSafetyBytes, "application update download");
             if (existing == info.AssetSize && await VerifyPackageFileAsync(partial, info, cancellationToken))
             {
                 File.Move(partial, final, true); progress?.Report(100); CleanupOldUpdateCache(cache, final); return final;
@@ -202,11 +204,14 @@ internal sealed class ApplicationUpdateService
             throw new InvalidOperationException("Cannot start an unverified application update.");
         string installedUpdater = FindUpdater();
         if (!File.Exists(installedUpdater)) throw new FileNotFoundException("Miniscuplter updater executable is missing.", installedUpdater);
-        string tempUpdater = Path.Combine(Path.GetTempPath(), $"Miniscuplter.Updater.{Guid.NewGuid():N}.exe");
-        File.Copy(installedUpdater, tempUpdater, true);
+
+        string updaterRoot = Path.Combine(Path.GetDirectoryName(package) ?? _settings.DataRoot, "updater");
+        Directory.CreateDirectory(updaterRoot);
+        string stagedUpdater = Path.Combine(updaterRoot, $"Miniscuplter.Updater.{Guid.NewGuid():N}.exe");
+        File.Copy(installedUpdater, stagedUpdater, true);
 
         string launcher = Environment.ProcessPath ?? Path.Combine(_settings.InstallRoot, "Miniscuplter.Launcher.exe");
-        var psi = new ProcessStartInfo(tempUpdater) { UseShellExecute = true, WorkingDirectory = Path.GetTempPath() };
+        var psi = new ProcessStartInfo(stagedUpdater) { UseShellExecute = true, WorkingDirectory = updaterRoot };
         psi.ArgumentList.Add("--package"); psi.ArgumentList.Add(package);
         psi.ArgumentList.Add("--target"); psi.ArgumentList.Add(_settings.InstallRoot);
         psi.ArgumentList.Add("--data-root"); psi.ArgumentList.Add(_settings.DataRoot);
@@ -215,6 +220,77 @@ internal sealed class ApplicationUpdateService
         psi.ArgumentList.Add("--wait-pid"); psi.ArgumentList.Add(Environment.ProcessId.ToString());
         psi.ArgumentList.Add("--restart"); psi.ArgumentList.Add(launcher);
         _ = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the staged updater.");
+    }
+
+    async Task<string> ResolveUpdateCacheAsync(AppUpdateInfo info, string safeVersion, CancellationToken cancellationToken)
+    {
+        var candidates = UpdateCacheCandidates().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        string fileName = $"Miniscuplter-{safeVersion}-win-x64.zip";
+        string partialName = fileName + ".partial";
+
+        // Reuse a complete verified package regardless of current free space.
+        foreach (string candidate in candidates)
+        {
+            string final = Path.Combine(candidate, fileName);
+            if (File.Exists(final) && await VerifyPackageFileAsync(final, info, cancellationToken)) return candidate;
+        }
+
+        // Prefer the location containing the largest safe partial if it can finish there.
+        var resumable = candidates
+            .Select(path => (Path: path, Existing: SafeLength(Path.Combine(path, partialName))))
+            .Where(x => x.Existing > 0 && x.Existing <= info.AssetSize)
+            .OrderByDescending(x => x.Existing);
+        foreach (var item in resumable)
+        {
+            long needed = Math.Max(0, info.AssetSize - item.Existing) + UpdateSafetyBytes;
+            if (AvailableBytes(item.Path) >= needed) return item.Path;
+        }
+
+        long freshRequired = info.AssetSize + UpdateSafetyBytes;
+        foreach (string candidate in candidates)
+            if (AvailableBytes(candidate) >= freshRequired) return candidate;
+
+        string details = string.Join(Environment.NewLine, candidates.Select(path => $"  {path} — {FormatBytes(AvailableBytes(path))} free"));
+        throw new IOException($"There is not enough free space in any safe Miniscuplter update cache location. Need about {FormatBytes(freshRequired)} free for the verified release download.{Environment.NewLine}{details}");
+    }
+
+    IEnumerable<string> UpdateCacheCandidates()
+    {
+        yield return Path.Combine(_settings.DataRoot, "update-cache");
+        string installParent = Directory.GetParent(Path.GetFullPath(_settings.InstallRoot))?.FullName ?? _settings.InstallRoot;
+        yield return Path.Combine(installParent, ".MiniscuplterUpdateCache");
+        yield return Path.Combine(Path.GetTempPath(), "Miniscuplter", "update-cache");
+    }
+
+    static long SafeLength(string path)
+    {
+        try { return File.Exists(path) ? new FileInfo(path).Length : 0; }
+        catch { return 0; }
+    }
+
+    static long AvailableBytes(string path)
+    {
+        try
+        {
+            string full = Path.GetFullPath(path);
+            string? root = Path.GetPathRoot(full);
+            if (string.IsNullOrWhiteSpace(root)) return 0;
+            return new DriveInfo(root).AvailableFreeSpace;
+        }
+        catch { return 0; }
+    }
+
+    static void EnsureFreeSpace(string path, long requiredBytes, string operation)
+    {
+        long free = AvailableBytes(path);
+        if (free < requiredBytes)
+            throw new IOException($"Not enough free space for {operation} at {path}. Need about {FormatBytes(requiredBytes)}, but only {FormatBytes(free)} is available.");
+    }
+
+    static string FormatBytes(long bytes)
+    {
+        double gib = Math.Max(0, bytes) / 1073741824.0;
+        return gib >= 0.1 ? $"{gib:0.00} GiB" : $"{Math.Max(0, bytes) / 1048576.0:0} MiB";
     }
 
     async Task<bool> VerifyPackageFileAsync(string path, AppUpdateInfo info, CancellationToken cancellationToken)
