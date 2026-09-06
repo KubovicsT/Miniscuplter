@@ -104,7 +104,9 @@ public partial class Main
         {
             string full = Path.GetFullPath(destination);
             if (!full.EndsWith(ProjectStore.ProjectExtension, StringComparison.OrdinalIgnoreCase)) full += ProjectStore.ProjectExtension;
-            if (File.Exists(full)) throw new IOException("Next-generation project copy already exists. Choose a new file name so the previous copy remains untouched.");
+            var layout = ProjectLayout.FromManifest(full);
+            if (File.Exists(full) || Directory.Exists(layout.AssetsRoot))
+                throw new IOException("Next-generation project copy or its asset directory already exists. Choose a new file name so the previous copy remains untouched.");
 
             var live = _objects.Where(o => GodotObject.IsInstanceValid(o) && o.Mesh != null).ToList();
             if (live.Count == 0) throw new InvalidOperationException("The scene contains no mesh objects to snapshot.");
@@ -116,8 +118,10 @@ public partial class Main
 
             foreach (var obj in live)
             {
+                if (obj.Mesh is not ArrayMesh arrayMesh)
+                    throw new InvalidDataException($"Object '{obj.Name}' uses an unsupported mesh type. The project foundation currently snapshots ArrayMesh triangle geometry only.");
                 ObjectId id = V1013ObjectId(obj);
-                MeshData data = V1013MeshData(obj.Mesh!);
+                MeshData data = V1013MeshData(arrayMesh);
                 var revision = await store.CreateMeshRevisionAsync(full, id, data, "editor-scene-snapshot");
                 state = state.WithMeshRevision(revision).WithObject(new ProjectObject(
                     id,
@@ -191,7 +195,7 @@ public partial class Main
         return created;
     }
 
-    static MeshData V1013MeshData(Mesh mesh)
+    static MeshData V1013MeshData(ArrayMesh mesh)
     {
         var positions = new List<float>();
         var indices = new List<int>();
