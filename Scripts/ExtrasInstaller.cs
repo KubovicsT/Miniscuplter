@@ -48,9 +48,12 @@ public partial class ExtrasInstaller : Node
         main.InstallV108AiFeedback();
         main.InstallV109Experience();
 
-        // v1.0.11 is the first user-facing workflow consolidation. All older additive controls
-        // are installed first so none are lost, then reorganized by task instead of milestone.
+        // v1.0.11 consolidates the visible workflow after historical controls have installed.
         main.InstallV1011Workflow();
         main.InstallV109ResponsiveLayout();
+
+        // v1.0.12 is a safety bridge: patch the final composed UI so export/autosave and other
+        // critical entry points cannot fall back to older unguarded implementations.
+        main.InstallV1012SafetyBridge();
     }
 }
