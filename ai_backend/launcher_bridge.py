@@ -2,10 +2,49 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
+from pathlib import Path
 
+
+# Model/provider installation can invoke pip build isolation for native extensions such as
+# torchmcubes. pip normally puts those multi-gigabyte temporary build environments under the
+# Windows user TEMP folder (usually C:), even when Miniscuplter and AIData live on another
+# drive. Keep all model-manager subprocess temp/cache activity beside AIData instead.
+def _configure_model_install_storage() -> None:
+    data_root = Path(os.getenv("MINISCULPTER_DATA", Path(__file__).resolve().parent / "data")).resolve()
+    runtime_cache = data_root / "runtime-cache"
+    temp_root = runtime_cache / "model-install-temp"
+    pip_cache = runtime_cache / "pip-cache"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    pip_cache.mkdir(parents=True, exist_ok=True)
+    os.environ["TEMP"] = str(temp_root)
+    os.environ["TMP"] = str(temp_root)
+    os.environ["PIP_CACHE_DIR"] = str(pip_cache)
+
+
+_configure_model_install_storage()
+
+# Import only after TEMP/TMP/PIP_CACHE_DIR are redirected. model_manager subprocesses inherit
+# this environment, including pip's isolated build environments and Git source checkouts.
 from model_manager import install_component, uninstall_component, update_component
 from model_manager_v105 import status
+
+
+def _exception_detail(exc: Exception) -> str:
+    # subprocess.run(..., capture_output=True, check=True) otherwise collapses a useful compiler
+    # or pip error into only "returned non-zero exit status 1". Preserve the actual diagnostics
+    # for the launcher's operation log.
+    if isinstance(exc, subprocess.CalledProcessError):
+        parts: list[str] = []
+        if exc.stdout and str(exc.stdout).strip():
+            parts.append(str(exc.stdout).strip())
+        if exc.stderr and str(exc.stderr).strip():
+            parts.append(str(exc.stderr).strip())
+        if parts:
+            return "\n".join(parts)
+    return str(exc)
 
 
 def main() -> int:
@@ -31,7 +70,7 @@ def main() -> int:
         print(json.dumps(result, ensure_ascii=False))
         return 0
     except Exception as exc:
-        print(str(exc), file=sys.stderr)
+        print(_exception_detail(exc), file=sys.stderr)
         return 1
 
 
