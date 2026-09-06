@@ -65,7 +65,13 @@ if errorlevel 1 exit /b 1
 where nvidia-smi >nul 2>nul
 if errorlevel 1 (
   echo No NVIDIA GPU detected. Installing CPU PyTorch.
-  python -m pip install torch==2.5.1 torchvision==0.20.1 --timeout 180 --retries 20
+  python -c "import torch; import torch.utils.data.datapipes.iter.sharding" >nul 2>nul
+  if errorlevel 1 (
+    echo Existing PyTorch installation is missing files or internally inconsistent. Forcing a clean reinstall.
+    python -m pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 --timeout 180 --retries 20
+  ) else (
+    python -m pip install torch==2.5.1 torchvision==0.20.1 --timeout 180 --retries 20
+  )
   if errorlevel 1 exit /b 1
 ) else (
   echo NVIDIA GPU detected. Installing CUDA 12.4 PyTorch runtime.
@@ -85,18 +91,19 @@ if errorlevel 1 (
 
   set "TORCH_VALID=0"
   if exist "!TORCH_WHEEL!" (
-    python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); raise SystemExit(0 if p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p) else 1)" "!TORCH_WHEEL!" >nul 2>nul
+    python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); z=zipfile.ZipFile(p) if p.is_file() and zipfile.is_zipfile(p) else None; names=set(z.namelist()) if z else set(); ok=p.is_file() and p.stat().st_size>2000000000 and 'torch/utils/data/datapipes/iter/sharding.py' in names; z.close() if z else None; raise SystemExit(0 if ok else 1)" "!TORCH_WHEEL!" >nul 2>nul
     if not errorlevel 1 set "TORCH_VALID=1"
   )
   if "!TORCH_VALID!"=="1" (
-    echo Cached PyTorch wheel is already complete; skipping download.
+    echo Cached PyTorch wheel is already complete and structurally valid; skipping download.
   ) else (
+    if exist "!TORCH_WHEEL!" del /f /q "!TORCH_WHEEL!" >nul 2>nul
     echo Downloading PyTorch wheel to persistent cache. Interrupted downloads will resume on the next Repair.
     echo Destination: !TORCH_WHEEL!
     curl.exe -L --fail --retry 20 --retry-delay 5 --retry-all-errors --connect-timeout 30 -C - -o "!TORCH_WHEEL!" "!TORCH_URL!"
     if errorlevel 1 (
       rem A 416 can mean curl attempted to resume a file that is already complete.
-      python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); raise SystemExit(0 if p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p) else 1)" "!TORCH_WHEEL!" >nul 2>nul
+      python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); z=zipfile.ZipFile(p) if p.is_file() and zipfile.is_zipfile(p) else None; names=set(z.namelist()) if z else set(); ok=p.is_file() and p.stat().st_size>2000000000 and 'torch/utils/data/datapipes/iter/sharding.py' in names; z.close() if z else None; raise SystemExit(0 if ok else 1)" "!TORCH_WHEEL!" >nul 2>nul
       if errorlevel 1 (
         echo PyTorch download did not finish. Run Repair AI Runtime again to resume it.
         exit /b 1
@@ -105,7 +112,7 @@ if errorlevel 1 (
       )
     )
   )
-  python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); ok=p.is_file() and p.stat().st_size>2000000000 and zipfile.is_zipfile(p); print(f'PyTorch wheel: {p.stat().st_size/1024/1024:.1f} MiB' if p.is_file() else 'PyTorch wheel missing'); raise SystemExit(0 if ok else 1)" "!TORCH_WHEEL!"
+  python -c "import pathlib,sys,zipfile; p=pathlib.Path(sys.argv[1]); z=zipfile.ZipFile(p) if p.is_file() and zipfile.is_zipfile(p) else None; names=set(z.namelist()) if z else set(); ok=p.is_file() and p.stat().st_size>2000000000 and 'torch/utils/data/datapipes/iter/sharding.py' in names; print(f'PyTorch wheel: {p.stat().st_size/1024/1024:.1f} MiB; required package files present' if ok else 'PyTorch wheel missing, incomplete, or structurally invalid'); z.close() if z else None; raise SystemExit(0 if ok else 1)" "!TORCH_WHEEL!"
   if errorlevel 1 (
     echo Downloaded PyTorch file is incomplete or invalid. Delete !TORCH_WHEEL! and run Repair AI Runtime again.
     exit /b 1
@@ -138,7 +145,13 @@ if errorlevel 1 (
     exit /b 1
   )
 
-  python -m pip install "!TORCH_WHEEL!" "!VISION_WHEEL!" --timeout 180 --retries 20
+  set "TORCH_REINSTALL="
+  python -c "import torch; import torch.utils.data.datapipes.iter.sharding; import torchvision" >nul 2>nul
+  if errorlevel 1 (
+    echo Existing PyTorch installation is missing files or internally inconsistent. Reinstalling from the verified persistent cache.
+    set "TORCH_REINSTALL=--force-reinstall --no-deps"
+  )
+  python -m pip install !TORCH_REINSTALL! "!TORCH_WHEEL!" "!VISION_WHEEL!" --timeout 180 --retries 20
   if errorlevel 1 exit /b 1
 )
 
@@ -146,6 +159,18 @@ python -m pip install -r requirements.txt --timeout 180 --retries 20
 if errorlevel 1 exit /b 1
 python -m pip check
 if errorlevel 1 exit /b 1
+
+rem pip check verifies dependency metadata, not the actual files inside an installed package.
+rem A v1.0.6 field failure had torch metadata present while
+rem torch.utils.data.datapipes.iter.sharding was physically missing. Import the exact runtime
+rem path used by SDXL before marking Repair successful so this cannot pass silently again.
+echo Verifying PyTorch package integrity...
+python -c "import torch; import torch.utils.data.datapipes.iter.sharding; import torchvision; print('PyTorch package import verified:',torch.__version__)"
+if errorlevel 1 (
+  echo ERROR: PyTorch is installed in package metadata but its runtime files are incomplete or inconsistent.
+  echo Repair AI Runtime could not produce a valid torch installation.
+  exit /b 1
+)
 
 rem Do not mark an NVIDIA runtime as healthy merely because the CUDA wheel installed.
 rem SDXL previously fell back to CPU when torch.cuda.is_available() was false, which looked
