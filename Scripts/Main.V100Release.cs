@@ -8,15 +8,15 @@ public partial class Main
     public void InstallV100ReleasePolish()
     {
         // The old v0.5 tier selector is retained only because legacy ETA/history code reads it.
-        // Runtime quality is now exclusively controlled by the central v0.9.7+ preset system.
+        // Runtime quality is now exclusively controlled by the central preset system.
         if (_v05Quality != null)
         {
             _v05Quality.Disabled = true;
-            _v05Quality.TooltipText = "Controlled by the central Quality Preset. This legacy selector is display-only in v1.x.";
+            _v05Quality.TooltipText = "Controlled by the central Quality Preset. This legacy selector is display-only.";
         }
 
-        // Present release-facing tab names without breaking the older internal node names that
-        // cross-version installers still use to find their target panels.
+        // Internal compatibility names stay stable until the v1.0.11 workflow layer has moved
+        // every historical control into its user-facing task tab.
         if (FindChild("TabContainer", true, false) is TabContainer tabs)
         {
             for (int i = 0; i < tabs.GetTabCount(); i++)
@@ -34,6 +34,6 @@ public partial class Main
             }
         }
 
-        SetStatus("Ready — Miniscuplter v1.0.10");
+        SetStatus("Ready — Miniscuplter v1.0.11");
     }
 }
