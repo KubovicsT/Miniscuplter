@@ -1,21 +1,21 @@
-name: publish-v1.0.9-now
+name: validate-v1.0.9-responsive
 
 on:
   push:
     branches: [ 'release-publish-v1.0.9' ]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  publish-v109:
+  validate-v109-responsive:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - name: Check out exact validated v1.0.9 head
+      - name: Check out exact responsive v1.0.9 branch head
         uses: actions/checkout@v4
         with:
-          ref: 7d656aecf14027de3ab4dd83c672990216d88f7e
+          ref: 79b06ad6eda5660d628767197b832f7821f4d3f1
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -47,6 +47,22 @@ jobs:
           python tools/release_audit.py
           if ($LASTEXITCODE -ne 0) { throw "Release audit failed: $LASTEXITCODE" }
 
+      - name: Verify responsive-layout regression guards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $responsive=Get-Content 'Scripts/Main.V109Responsive.cs' -Raw
+          $extras=Get-Content 'Scripts/ExtrasInstaller.cs' -Raw
+          @(
+            'WrapV109MainTabsForScrolling',
+            'SyncV109ResponsiveSplit',
+            'SyncV109SubViewportToHost',
+            'Responsive Scroll',
+            'CustomMinimumSize = new Vector2(300, 0)',
+            '_aiPreview.CustomMinimumSize = new Vector2(0, 180)'
+          ) | ForEach-Object { if (-not $responsive.Contains($_)) { throw "Missing responsive-layout guard: $_" } }
+          if (-not $extras.Contains('InstallV109ResponsiveLayout')) { throw 'Responsive layout installer is not wired after the v1.0.9 experience installer.' }
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
@@ -70,7 +86,7 @@ jobs:
           if (-not $exe) { throw 'Godot executable not found after extraction.' }
           "GODOT_EXE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build full Windows v1.0.9 release
+      - name: Build full Windows v1.0.9 validation package
         shell: pwsh
         run: |
           ./build_release.ps1 -GodotExe $env:GODOT_EXE -BuildInstaller
@@ -110,22 +126,11 @@ jobs:
             (Join-Path $target 'release.json')
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Installer smoke test missing installed file: $_" } }
 
-      - name: Publish v1.0.9 GitHub Release at validated commit
+      - name: Confirm published v1.0.9 remains untouched
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $ErrorActionPreference='Stop'
           gh release view v1.0.9 --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host 'v1.0.9 release already exists; leaving it immutable.'
-            exit 0
-          }
-          gh release create v1.0.9 `
-            'dist/Miniscuplter-win-x64.zip' `
-            'dist/Miniscuplter-win-x64.zip.sha256' `
-            'dist/installer/Miniscuplter-Setup-1.0.9.exe' `
-            --repo $env:GITHUB_REPOSITORY `
-            --target 7d656aecf14027de3ab4dd83c672990216d88f7e `
-            --title 'Miniscuplter v1.0.9' `
-            --notes 'Verified Windows release for v1.0.9. Adds a visible floor grid and viewport hardening, a central Settings window for quality/model/GPU options, VRAM-first SDXL execution with an 85% soft allocator ceiling and automatic fallbacks, a large zoomable 2D preview, Wikimedia Commons reference-search repair with visible errors, and cancellable phase/elapsed feedback for 2D-to-3D generation. Existing AI models, caches and user data remain preserved by the updater.'
+          if ($LASTEXITCODE -ne 0) { throw 'Published v1.0.9 release is unexpectedly missing. Validation does not publish or replace release assets.' }
+          Write-Host 'Responsive v1.0.9 branch validation completed; published v1.0.9 release assets were not modified.'
