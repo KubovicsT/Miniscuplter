@@ -1,0 +1,139 @@
+name: publish-v1.0.10-now
+
+on:
+  push:
+    branches: [ 'release-publish-v1.0.10' ]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-v1010:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact validated v1.0.10 head
+        uses: actions/checkout@v4
+        with:
+          ref: eb8570ecd16b4072c3a6d10f061d548b03c3a452
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Re-run strict release validation
+        shell: pwsh
+        run: |
+          dotnet restore Miniscuplter.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Editor restore failed: $LASTEXITCODE" }
+          dotnet restore Launcher/Miniscuplter.Launcher.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Launcher restore failed: $LASTEXITCODE" }
+          dotnet restore Updater/Miniscuplter.Updater.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Updater restore failed: $LASTEXITCODE" }
+          dotnet build Miniscuplter.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Editor build failed: $LASTEXITCODE" }
+          dotnet build Launcher/Miniscuplter.Launcher.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Launcher build failed: $LASTEXITCODE" }
+          dotnet build Updater/Miniscuplter.Updater.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Updater build failed: $LASTEXITCODE" }
+          python -m compileall -q ai_backend tools
+          if ($LASTEXITCODE -ne 0) { throw "Python compile failed: $LASTEXITCODE" }
+          python tools/core_logic_tests.py
+          if ($LASTEXITCODE -ne 0) { throw "Core tests failed: $LASTEXITCODE" }
+          python tools/release_audit.py
+          if ($LASTEXITCODE -ne 0) { throw "Release audit failed: $LASTEXITCODE" }
+
+      - name: Verify responsive-layout regression guards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $layout=Get-Content 'Scripts/Main.V109Responsive.cs' -Raw
+          $extras=Get-Content 'Scripts/ExtrasInstaller.cs' -Raw
+          foreach ($token in @('WrapV109MainTabsForScrolling','SyncV109ResponsiveSplit','SyncV109SubViewportToHost','Resized +=','ScrollContainer')) {
+            if (-not $layout.Contains($token)) { throw "Missing responsive-layout token: $token" }
+          }
+          if (-not $extras.Contains('InstallV109ResponsiveLayout')) { throw 'Responsive layout installer is not wired into ExtrasInstaller.' }
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Download and verify Godot 4.7.2 .NET and export templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $g='https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip'
+          $t='https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_export_templates.tpz'
+          New-Item '.ci/godot' -ItemType Directory -Force | Out-Null
+          Invoke-WebRequest $g -OutFile '.ci/godot.zip'
+          Invoke-WebRequest $t -OutFile '.ci/templates.tpz'
+          if ((Get-FileHash '.ci/godot.zip' -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0') { throw 'Godot SHA mismatch' }
+          if ((Get-FileHash '.ci/templates.tpz' -Algorithm SHA256).Hash.ToLowerInvariant() -ne '92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d') { throw 'Template SHA mismatch' }
+          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force
+          Expand-Archive '.ci/templates.tpz' '.ci/templates' -Force
+          $templateHome=Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
+          New-Item $templateHome -ItemType Directory -Force | Out-Null
+          Copy-Item '.ci/templates/templates/*' $templateHome -Recurse -Force
+          $exe=Get-ChildItem '.ci/godot' -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse | Select-Object -First 1
+          if (-not $exe) { throw 'Godot executable not found after extraction.' }
+          "GODOT_EXE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build full Windows v1.0.10 release
+        shell: pwsh
+        run: |
+          ./build_release.ps1 -GodotExe $env:GODOT_EXE -BuildInstaller
+          if ($LASTEXITCODE -ne 0) { throw "Full release build failed: $LASTEXITCODE" }
+
+      - name: Verify release outputs and SHA-256
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @(
+            'dist/package/App/Miniscuplter.exe',
+            'dist/package/release.json',
+            'dist/Miniscuplter-win-x64.zip',
+            'dist/Miniscuplter-win-x64.zip.sha256',
+            'dist/installer/Miniscuplter-Setup-1.0.10.exe'
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing release output: $_" } }
+          $manifest=Get-Content 'dist/package/release.json' -Raw | ConvertFrom-Json
+          if ([string]$manifest.version -ne '1.0.10') { throw "release.json version $($manifest.version) != 1.0.10" }
+          $expected=((Get-Content 'dist/Miniscuplter-win-x64.zip.sha256' -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+          $actual=(Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw "Release ZIP SHA-256 mismatch: $actual != $expected" }
+
+      - name: Smoke-install generated installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $target=Join-Path $env:RUNNER_TEMP 'MiniscuplterInstallerSmoke'
+          if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+          $setup=(Resolve-Path 'dist/installer/Miniscuplter-Setup-1.0.10.exe').Path
+          $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/DIR=$target",'/NOICONS','/TASKS=')
+          $process=Start-Process -FilePath $setup -ArgumentList $args -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer smoke test exited with code $($process.ExitCode)." }
+          @(
+            (Join-Path $target 'Miniscuplter.Launcher.exe'),
+            (Join-Path $target 'Miniscuplter.Updater.exe'),
+            (Join-Path $target 'App\Miniscuplter.exe'),
+            (Join-Path $target 'release.json')
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Installer smoke test missing installed file: $_" } }
+
+      - name: Publish v1.0.10 GitHub Release at exact app commit
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          gh release view v1.0.10 --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'v1.0.10 already exists; refusing to replace a published release.' }
+          gh release create v1.0.10 `
+            'dist/Miniscuplter-win-x64.zip' `
+            'dist/Miniscuplter-win-x64.zip.sha256' `
+            'dist/installer/Miniscuplter-Setup-1.0.10.exe' `
+            --repo $env:GITHUB_REPOSITORY `
+            --target eb8570ecd16b4072c3a6d10f061d548b03c3a452 `
+            --title 'Miniscuplter v1.0.10' `
+            --notes 'Responsive editor patch. The 3D viewport now resizes with the application/splitter, the right tool panel uses a bounded proportional width, and completed tabs scroll vertically so expanding AI generation feedback cannot push the 2D preview or other controls out of reach. Includes all v1.0.9 GPU/VRAM, viewport-grid, Settings, large-preview, reference-search and 2D-to-3D feedback improvements. Existing AI models, caches and user data remain preserved by the updater.'
