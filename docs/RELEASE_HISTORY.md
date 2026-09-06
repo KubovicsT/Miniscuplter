@@ -22,6 +22,7 @@ Each release branch is preserved as a historical snapshot. Documentation-only co
 | `v1.0` | Release candidate | Full code audit, failure-path hardening, reproducible installer artifact |
 | `v1.0.5` | Local-AI expansion | Hardware-aware model matrix, verified/resumable model installs, Xet, process-lifetime hardening |
 | `v1.0.6` | Update/integration hardening | Cross-version editor fixes plus verified, resumable, data-preserving self-update and GitHub Release publishing |
+| `v1.0.7` | Update storage hardening | Storage-aware update cache, no TEMP-only staging, low-space preflight, move-based rollback, hidden updater console |
 
 ## v1.0.6 integration fixes
 
@@ -30,8 +31,19 @@ The v1.0.6 audit closes several seams discovered while reading the full v1.0.5 c
 - the release-facing **Model** tab again uses the stable internal `Print` compatibility name before additive version installers run;
 - `/rig quick|universal` now uses the same guarded/validated rig path as the rig UI buttons;
 - final 3D-detail application now calls the canonical path-based voxel-remesh API correctly;
-- Windows file/product metadata, launcher/updater assemblies, backend and installer all report v1.0.6 consistently;
+- Windows file/product metadata, launcher/updater assemblies, backend and installer report one release version consistently;
 - launcher application updates are public-release based, SHA-256 verified, resumable and transactional while preserving AI/model/runtime data.
+
+## v1.0.7 update-storage fixes
+
+v1.0.7 removes the remaining system-drive/TEMP pressure from the normal self-update path:
+
+- update downloads choose among DataRoot, the installation drive and TEMP based on reusable partial data and available free space;
+- the staged updater executable lives with the update cache rather than `%TEMP%`;
+- the updater is `WinExe`, so normal updates no longer open an empty console window;
+- extraction and rollback staging happen beside the installation and are preflighted against the release's expanded ZIP size;
+- the old managed app and the new extracted app are moved on the same volume instead of copied, while AI/runtime data remains parked and preserved;
+- failed validation restores the previous managed tree and persistent runtime/data.
 
 ## Non-release branches
 
@@ -43,4 +55,4 @@ Miniscuplter creates and finalizes the 3D model. It does not slice, generate pri
 
 ## Current testing target
 
-Use `v1.0.6` for current runtime validation. Older release branches exist to preserve milestones and aid regression/history investigation, not because users are expected to choose among them.
+Use `v1.0.7` for current runtime validation. Older release branches exist to preserve milestones and aid regression/history investigation, not because users are expected to choose among them.
