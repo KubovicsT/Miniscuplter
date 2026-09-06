@@ -1,8 +1,8 @@
-# Miniscuplter v1.0.7
+# Miniscuplter v1.0.10
 
 Miniscuplter is a Windows desktop application for **AI-assisted 3D model creation, kitbashing, posing, sculpting, local detail refinement, model validation/repair and final STL export**.
 
-v1.0.7 is a storage-safety patch on top of v1.0.6. It keeps the verified/resumable self-update path, but removes the remaining assumptions that Windows TEMP and the system drive have plenty of free space.
+v1.0.10 packages the responsive-layout fixes validated after v1.0.9: the 3D viewport now follows window/split resizing, and the finished tool tabs scroll vertically so long AI job feedback cannot push later controls such as the 2D preview out of reach.
 
 ## Product boundary
 
@@ -37,26 +37,20 @@ CLIPSeg
 
 SPAR3D low-VRAM mode is available as an additional experiment. Hunyuan3D 2.1 remains useful with offload. Qwen, TRELLIS.2 and PartPacker are intended primarily for larger GPUs.
 
-## v1.0.7 updater/storage fixes
+## Current v1.x UX/runtime improvements
 
-- Application-update downloads choose a safe cache location based on available free space. The configured `DataRoot` is preferred, then a sibling cache on the installation drive, with Windows TEMP only as a final fallback when it has enough room.
-- Existing `.partial` application downloads are reused from the best available cache location instead of forcing a fresh download.
-- The staged updater executable is launched from the update cache rather than copied into `%TEMP%`.
-- The updater itself is now a Windows GUI executable, so a normal successful update no longer opens an empty console window.
-- Update extraction/rollback storage is created beside the installation instead of under Windows TEMP.
-- The updater calculates the ZIP's expanded size and checks free space before changing installed files.
-- The old managed application is moved into same-volume rollback storage rather than copied. Persistent AI/runtime data is parked with directory moves as before, so multi-GB model/runtime data is not duplicated.
-- The extracted new managed tree is moved into place on the same volume rather than copied again, minimizing peak temporary storage.
-- If installation validation fails, the managed tree and parked runtime/data are restored transactionally.
+- **v1.0.8** — visible concept-generation status/cancel/error UI, self-healing runtime repair, explicit PyTorch/CUDA validation, and model-install TEMP/pip-cache relocation into AIData.
+- **v1.0.9** — VRAM-first SDXL execution modes with an 85% soft allocator ceiling, visible 3D floor grid, Settings for model/quality/GPU routing, large zoomable 2D preview, Wikimedia Commons reference search, and cancellable 2D→3D job feedback.
+- **v1.0.10** — responsive editor layout: tool tabs scroll vertically, the right panel uses a proportional bounded width, and the actual Godot `SubViewport` tracks its host during window/splitter resizing.
 
-The v1.0.6 integration fixes remain in place: Model/Print compatibility, guarded command-palette rig generation, corrected 3D detail apply, verified public-release self-update, SHA-256/package-version checks, and preserved AI/runtime/model data.
+The v1.0.7 updater/storage fixes remain in place: storage-aware application update cache selection, same-volume move-based rollback/staging, free-space preflight, hidden updater console, preserved AI models/runtime caches/projects, and resumable application downloads.
 
 ## Release / self-update path
 
-A finished version branch produces:
+A finished release produces:
 
 ```text
-Miniscuplter-Setup-1.0.7.exe
+Miniscuplter-Setup-1.0.10.exe
 Miniscuplter-win-x64.zip
 Miniscuplter-win-x64.zip.sha256
 ```
@@ -82,4 +76,4 @@ Application updates preserve existing AI model data, interrupted model stages, a
 
 ## Validation boundary
 
-CI/static validation is required before v1.0.7 is considered code-green. Actual CUDA inference for every optional model still requires runtime testing on representative hardware; upstream Windows support for some specialist models is explicitly experimental.
+CI/static validation plus the full Windows Godot export and installer smoke test are required before v1.0.10 is published. Actual CUDA inference for every optional model still requires runtime testing on representative hardware; upstream Windows support for some specialist models is explicitly experimental.
