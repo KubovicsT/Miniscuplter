@@ -12,6 +12,17 @@ MAX_VOXEL_CELLS = int(os.getenv("MINISCULPTER_MAX_VOXEL_CELLS", "100000000"))
 MAX_INTERSECTION_PAIRS = int(os.getenv("MINISCULPTER_MAX_INTERSECTION_PAIRS", "200000"))
 
 
+def _vertices_are_finite(mesh: trimesh.Trimesh) -> bool:
+    """Version-independent finite-coordinate check.
+
+    Trimesh does not expose a stable ``Trimesh.is_finite`` property across the versions
+    supported by Miniscuplter. Inspecting the actual vertex array avoids making geometry
+    analysis/remesh depend on a nonexistent convenience attribute.
+    """
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    return bool(vertices.size > 0 and np.isfinite(vertices).all())
+
+
 def _load_mesh(path: str) -> trimesh.Trimesh:
     p = Path(path).resolve()
     if not p.exists() or not p.is_file():
@@ -25,8 +36,27 @@ def _load_mesh(path: str) -> trimesh.Trimesh:
         mesh = trimesh.util.concatenate(tuple(mesh.geometry.values()))
     if mesh.is_empty or len(mesh.vertices) < 3 or len(mesh.faces) < 1:
         raise ValueError(f"Mesh contains no usable triangles: {p}")
-    if not mesh.is_finite:
+    if not _vertices_are_finite(mesh):
         raise ValueError(f"Mesh contains non-finite coordinates: {p}")
+    return mesh
+
+
+def _analysis_mesh(source: trimesh.Trimesh) -> trimesh.Trimesh:
+    """Return a welded analysis representation without mutating source geometry.
+
+    STL stores triangles independently and commonly repeats the same geometric vertex once
+    per face. Index-incidence topology on that raw representation therefore reports a closed
+    cube as dozens of open edges. Analysis needs coincident vertices welded first, while the
+    original mesh remains untouched for user-visible geometry and export operations.
+    """
+    mesh = source.copy()
+    mesh.remove_unreferenced_vertices()
+    mesh.merge_vertices()
+    mesh.remove_unreferenced_vertices()
+    if mesh.is_empty or len(mesh.vertices) < 3 or len(mesh.faces) < 1:
+        raise ValueError("Mesh became empty while preparing topology analysis")
+    if not _vertices_are_finite(mesh):
+        raise ValueError("Mesh contains non-finite coordinates after topology normalization")
     return mesh
 
 
@@ -96,7 +126,6 @@ def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
     tested = 0
 
     for pos, face_i in enumerate(order):
-        # Only later triangles whose minimum X lies before this triangle's maximum X can overlap.
         end = int(np.searchsorted(sorted_min_x, maxs[face_i, 0], side="right"))
         if end <= pos + 1:
             continue
@@ -114,7 +143,6 @@ def _self_intersection_heuristic(mesh: trimesh.Trimesh) -> dict:
             continue
         vertices_i = set(faces[face_i].tolist())
         for face_j in overlaps:
-            # Adjacent triangles legitimately share an AABB boundary and are not candidates.
             if vertices_i.intersection(faces[face_j].tolist()):
                 continue
             candidates += 1
@@ -159,16 +187,19 @@ def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12
     dirs_all /= np.maximum(np.linalg.norm(dirs_all, axis=2, keepdims=True), 1e-12)
     best = np.full(len(sample_idx), np.nan, dtype=float)
     intersector = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
-    for k in range(dirs_all.shape[1]):
-        d = dirs_all[:, k, :]
-        o = origins + d * eps
-        locations, ray_ids, _ = intersector.intersects_location(o, d, multiple_hits=False)
-        if len(locations):
-            dist = np.linalg.norm(locations - o[ray_ids], axis=1) + eps
-            valid = dist > eps * 2
-            for rid, value in zip(ray_ids[valid], dist[valid]):
-                if not math.isfinite(best[rid]) or value < best[rid]:
-                    best[rid] = float(value)
+    try:
+        for k in range(dirs_all.shape[1]):
+            d = dirs_all[:, k, :]
+            o = origins + d * eps
+            locations, ray_ids, _ = intersector.intersects_location(o, d, multiple_hits=False)
+            if len(locations):
+                dist = np.linalg.norm(locations - o[ray_ids], axis=1) + eps
+                valid = dist > eps * 2
+                for rid, value in zip(ray_ids[valid], dist[valid]):
+                    if not math.isfinite(best[rid]) or value < best[rid]:
+                        best[rid] = float(value)
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Thickness analysis requires the packaged spatial-index dependency (rtree). Repair the AI runtime and retry.") from exc
 
     finite_mask = np.isfinite(best)
     finite_values = best[finite_mask]
@@ -186,26 +217,42 @@ def thickness_map(input_path: str, target_mm: float = 0.8, max_samples: int = 12
 
 
 def analyze_mesh(input_path: str, feature_threshold_mm: float = 0.6) -> dict:
-    mesh = _load_mesh(input_path)
+    source = _load_mesh(input_path)
+    mesh = _analysis_mesh(source)
     open_edges, nonmanifold_edges = _edge_incidence(mesh)
     components = mesh.split(only_watertight=False)
-    result = {"vertices": int(len(mesh.vertices)), "triangles": int(len(mesh.faces)), "bounds_mm": [float(v) for v in mesh.extents],
-              "watertight": bool(mesh.is_watertight), "winding_consistent": bool(mesh.is_winding_consistent), "open_edges": open_edges,
-              "nonmanifold_edges": nonmanifold_edges, "connected_shells": int(len(components)), "degenerate_faces": _degenerate_faces(mesh),
-              "volume_mm3": float(abs(mesh.volume)) if mesh.is_watertight and math.isfinite(float(mesh.volume)) else None,
-              "surface_area_mm2": float(mesh.area) if math.isfinite(float(mesh.area)) else None,
-              "feature_size": _feature_size_heuristic(mesh, feature_threshold_mm), "self_intersection": _self_intersection_heuristic(mesh)}
-    structurally_valid = bool(result["watertight"] and result["winding_consistent"] and result["open_edges"] == 0 and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0)
+    result = {
+        "vertices": int(len(mesh.vertices)),
+        "source_vertices": int(len(source.vertices)),
+        "triangles": int(len(mesh.faces)),
+        "bounds_mm": [float(v) for v in mesh.extents],
+        "watertight": bool(mesh.is_watertight),
+        "winding_consistent": bool(mesh.is_winding_consistent),
+        "open_edges": open_edges,
+        "nonmanifold_edges": nonmanifold_edges,
+        "connected_shells": int(len(components)),
+        "degenerate_faces": _degenerate_faces(mesh),
+        "volume_mm3": float(abs(mesh.volume)) if mesh.is_watertight and math.isfinite(float(mesh.volume)) else None,
+        "surface_area_mm2": float(mesh.area) if math.isfinite(float(mesh.area)) else None,
+        "feature_size": _feature_size_heuristic(mesh, feature_threshold_mm),
+        "self_intersection": _self_intersection_heuristic(mesh),
+        "topology_representation": "coincident STL vertices welded for analysis; source geometry is not modified",
+    }
+    structurally_valid = bool(
+        result["watertight"] and result["winding_consistent"] and
+        result["open_edges"] == 0 and result["nonmanifold_edges"] == 0 and result["degenerate_faces"] == 0
+    )
     result["structurally_valid"] = structurally_valid
-    # Compatibility alias for project/backend clients from pre-v1.0 builds. It is not used as a printability requirement in v1.0.
     result["structurally_printable"] = structurally_valid
     return result
 
 
 def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float = 0.35) -> str:
     paths = [str(Path(p).resolve()) for p in input_paths]
-    if not paths: raise ValueError("At least one input mesh is required")
-    if not math.isfinite(voxel_size) or voxel_size <= 0: raise ValueError("voxel_size must be a finite value greater than zero")
+    if not paths:
+        raise ValueError("At least one input mesh is required")
+    if not math.isfinite(voxel_size) or voxel_size <= 0:
+        raise ValueError("voxel_size must be a finite value greater than zero")
     meshes = [_load_mesh(p) for p in paths]
     combined = meshes[0] if len(meshes) == 1 else trimesh.util.concatenate(meshes)
     cells = estimate_voxel_cells(combined, float(voxel_size))
@@ -213,19 +260,27 @@ def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float
         recommended = max(float(combined.extents.max()) / 450.0, voxel_size)
         raise MemoryError(f"Requested voxel grid is approximately {cells:,} cells, above the safety limit of {MAX_VOXEL_CELLS:,}. Increase voxel size (try about {recommended:.2f} mm or larger), reduce model size, or raise the configured voxel safety budget if the machine has enough RAM.")
     grid = combined.voxelized(pitch=float(voxel_size)).fill()
-    if grid.shape is None or any(int(v) <= 0 for v in grid.shape): raise RuntimeError("Voxelization produced an invalid occupancy grid")
+    if grid.shape is None or any(int(v) <= 0 for v in grid.shape):
+        raise RuntimeError("Voxelization produced an invalid occupancy grid")
     result = grid.marching_cubes
-    if result.is_empty: raise RuntimeError("Voxel reconstruction produced an empty mesh")
-    # VoxelGrid.marching_cubes returns matrix-index geometry; the grid transform maps it
-    # back to the original world-space pitch/origin exactly once.
-    result.apply_transform(grid.transform); result.remove_unreferenced_vertices(); result.merge_vertices()
-    if not result.is_finite: raise RuntimeError("Voxel reconstruction produced invalid coordinates")
-    out = Path(output_path).resolve(); out.parent.mkdir(parents=True, exist_ok=True); result.export(out, file_type="stl")
-    if not out.exists() or out.stat().st_size == 0: raise RuntimeError("Voxel reconstruction finished but no STL was written")
+    if result.is_empty:
+        raise RuntimeError("Voxel reconstruction produced an empty mesh")
+    result.apply_transform(grid.transform)
+    result.remove_unreferenced_vertices()
+    result.merge_vertices()
+    if not _vertices_are_finite(result):
+        raise RuntimeError("Voxel reconstruction produced invalid coordinates")
+    out = Path(output_path).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    result.export(out, file_type="stl")
+    if not out.exists() or out.stat().st_size == 0:
+        raise RuntimeError("Voxel reconstruction finished but no STL was written")
     return str(out)
 
 
 def repair_mesh(input_path: str, output_path: str, voxel_size: float = 0.30) -> dict:
-    before = analyze_mesh(input_path); path = voxel_remesh([input_path], output_path, voxel_size); after = analyze_mesh(path)
+    before = analyze_mesh(input_path)
+    path = voxel_remesh([input_path], output_path, voxel_size)
+    after = analyze_mesh(path)
     return {"path": path, "voxel_size": float(voxel_size), "before": before, "after": after,
             "method": "filled voxel reconstruction; destructive and may soften details below the selected voxel pitch"}
