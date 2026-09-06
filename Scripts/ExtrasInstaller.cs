@@ -55,5 +55,10 @@ public partial class ExtrasInstaller : Node
         // v1.0.12 is a safety bridge: patch the final composed UI so export/autosave and other
         // critical entry points cannot fall back to older unguarded implementations.
         main.InstallV1012SafetyBridge();
+
+        // v1.0.13 starts the replacement project model beside the legacy editor. The bridge only
+        // creates new .msculpt2 copies and never replaces the proven .msculpt path while migration
+        // and semantic adapters are still being validated.
+        main.InstallV1013FoundationBridge();
     }
 }
