@@ -12,7 +12,7 @@ if not exist "%BACKEND_DIR%\requirements.txt" (
 )
 cd /d "%BACKEND_DIR%"
 
-echo Miniscuplter v1.0.5 AI runtime setup
+echo Miniscuplter AI runtime setup
 echo.
 
 set "PYTHON_CMD="
@@ -146,6 +146,21 @@ python -m pip install -r requirements.txt --timeout 180 --retries 20
 if errorlevel 1 exit /b 1
 python -m pip check
 if errorlevel 1 exit /b 1
+
+rem Do not mark an NVIDIA runtime as healthy merely because the CUDA wheel installed.
+rem SDXL previously fell back to CPU when torch.cuda.is_available() was false, which looked
+rem like a frozen generation job and left VRAM almost unchanged. Verify real CUDA execution
+rem here so Repair AI Runtime either produces a usable GPU runtime or fails with a clear cause.
+where nvidia-smi >nul 2>nul
+if not errorlevel 1 (
+  echo Verifying PyTorch CUDA access...
+  python -c "import torch; print('PyTorch',torch.__version__,'CUDA build',torch.version.cuda); print('CUDA available:',torch.cuda.is_available()); print('GPU:',torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'unavailable'); raise SystemExit(0 if torch.cuda.is_available() else 1)"
+  if errorlevel 1 (
+    echo ERROR: NVIDIA hardware is present but PyTorch cannot access CUDA.
+    echo The AI runtime will not be marked ready. Update the NVIDIA driver if needed, then run Repair AI Runtime again.
+    exit /b 1
+  )
+)
 
 set "RUNTIME_HASH="
 for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "$a=[IO.File]::ReadAllBytes((Resolve-Path 'requirements.txt')); $b=[IO.File]::ReadAllBytes('%SETUP_SCRIPT%'); $all=New-Object byte[] ($a.Length+$b.Length); [Array]::Copy($a,0,$all,0,$a.Length); [Array]::Copy($b,0,$all,$a.Length,$b.Length); $sha=[Security.Cryptography.SHA256]::Create(); ([BitConverter]::ToString($sha.ComputeHash($all))).Replace('-','').ToLowerInvariant()"`) do set "RUNTIME_HASH=%%H"
