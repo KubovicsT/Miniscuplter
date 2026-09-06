@@ -12,6 +12,7 @@ public partial class Main
     readonly List<(Control Page, string Title)> _v1011AdvancedSettingsPages = new();
     string _v1011BaselineImage = "";
     Label? _v1011BaselineStatus;
+    HBoxContainer? _v1011Toolbar;
 
     public void InstallV1011Workflow()
     {
@@ -24,10 +25,10 @@ public partial class Main
     void InstallV1011SettingsButton()
     {
         var root = GetChildren().OfType<VBoxContainer>().FirstOrDefault();
-        var toolbar = root?.GetChildren().OfType<HBoxContainer>().FirstOrDefault();
-        if (toolbar == null) return;
+        _v1011Toolbar = root?.GetChildren().OfType<HBoxContainer>().FirstOrDefault();
+        if (_v1011Toolbar == null) return;
 
-        var existing = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "Settings");
+        var existing = _v1011Toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "Settings");
         if (existing != null)
         {
             existing.Pressed += () => CallDeferred(nameof(AttachV1011AdvancedSettingsToWindow));
@@ -36,7 +37,7 @@ public partial class Main
 
         var settings = new Button { Text = "Settings", TooltipText = "AI models, quality, GPU performance, files and viewport options" };
         settings.Pressed += ShowV1011Settings;
-        toolbar.AddChild(settings);
+        _v1011Toolbar.AddChild(settings);
     }
 
     void ShowV1011Settings()
@@ -67,6 +68,9 @@ public partial class Main
         var threeD = WorkflowPage("3D");
         var rig = WorkflowPage("Rig & Pose");
         var cleanup = WorkflowPage("Cleanup & Export");
+        var runtimeAdvanced = WorkflowPage("AI Runtime & Components Content");
+        _v1011AdvancedSettingsPages.Add((runtimeAdvanced, "AI Runtime & Components"));
+
         tabs.AddChild(twoD); tabs.AddChild(threeD); tabs.AddChild(rig); tabs.AddChild(cleanup);
 
         twoD.AddChild(Heading("1. 2D BASELINE"));
@@ -113,10 +117,11 @@ public partial class Main
             }
 
             if (page is Container container)
-                RehomeV1011Page(container, name, twoD, threeD, rig, cleanup);
+                RehomeV1011Page(container, name, twoD, threeD, rig, cleanup, runtimeAdvanced);
             page.QueueFree();
         }
 
+        HideV1011LegacyQualitySelector();
         tabs.CurrentTab = 0;
     }
 
@@ -152,7 +157,7 @@ public partial class Main
         }
     }
 
-    void RehomeV1011Page(Container source, string sourceName, VBoxContainer twoD, VBoxContainer threeD, VBoxContainer rig, VBoxContainer cleanup)
+    void RehomeV1011Page(Container source, string sourceName, VBoxContainer twoD, VBoxContainer threeD, VBoxContainer rig, VBoxContainer cleanup, VBoxContainer advanced)
     {
         Container current = sourceName.Equals("AI", StringComparison.OrdinalIgnoreCase) ? twoD
             : sourceName.Equals("Transform", StringComparison.OrdinalIgnoreCase) ? threeD
@@ -164,7 +169,7 @@ public partial class Main
             if (control is Label heading && IsV1011SectionHeading(heading))
             {
                 string semantic = SemanticV1011Heading(heading.Text);
-                current = DestinationForV1011Section(sourceName, semantic, twoD, threeD, rig, cleanup);
+                current = DestinationForV1011Section(sourceName, semantic, twoD, threeD, rig, cleanup, advanced);
                 heading.Text = semantic;
                 heading.ThemeTypeVariation = "HeaderSmall";
             }
@@ -173,7 +178,8 @@ public partial class Main
                 string text = CollectV1011Text(control);
                 if (sourceName.Equals("AI", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (ContainsAny(text, "Approved 2D", "3D status:", "Generate 3D Part", "3D Patch", "Paint AI Mask", "Erase Mask", "Mask brush", "Geometry Context", "Smart Select")) current = threeD;
+                    if (ContainsAny(text, "Install 2D AI", "Install 3D AI", "Refresh AI Component", "Unload AI Models", "Hardware: checking", "2D AI: checking", "3D AI: checking")) current = advanced;
+                    else if (ContainsAny(text, "Approved 2D", "3D status:", "Generate 3D Part", "3D Patch", "Paint AI Mask", "Erase Mask", "Mask brush", "Geometry Context", "Smart Select")) current = threeD;
                     else if (ContainsAny(text, "Generate Concept", "Starting Image", "Use My Image", "Edit Starting Image", "2D Preview", "Open Last 2D", "AI Edit", "reference", "Reference")) current = twoD;
                 }
                 else if (sourceName.Equals("Transform", StringComparison.OrdinalIgnoreCase))
@@ -183,6 +189,8 @@ public partial class Main
                 }
             }
 
+            HideNestedV1011SettingsButtons(control);
+            CleanV1011VersionLabels(control);
             source.RemoveChild(control);
             current.AddChild(control);
         }
@@ -204,6 +212,7 @@ public partial class Main
         {
             "AI CREATE / MODIFY" => "CONCEPT & IMAGE EDITING",
             "STARTING IMAGE" => "STARTING IMAGE",
+            "AI COMPONENTS" => "AI RUNTIME & COMPONENTS",
             "INTERNET REFERENCES" => "REFERENCE SEARCH",
             "GEOMETRY-AWARE AI" => "GEOMETRY CONTEXT",
             "AI PATCH WORKFLOW" => "AI PART REFINEMENT",
@@ -217,10 +226,11 @@ public partial class Main
         };
     }
 
-    static Container DestinationForV1011Section(string sourceName, string heading, VBoxContainer twoD, VBoxContainer threeD, VBoxContainer rig, VBoxContainer cleanup)
+    static Container DestinationForV1011Section(string sourceName, string heading, VBoxContainer twoD, VBoxContainer threeD, VBoxContainer rig, VBoxContainer cleanup, VBoxContainer advanced)
     {
         if (sourceName.Equals("Print", StringComparison.OrdinalIgnoreCase) || sourceName.Equals("Model", StringComparison.OrdinalIgnoreCase)) return cleanup;
         string h = heading.ToLowerInvariant();
+        if (h.Contains("runtime") || h.Contains("component") || h.Contains("provider") || h.Contains("model routing")) return advanced;
         if (h.Contains("rig") || h.Contains("pose") || h.Contains("skeleton") || h.Contains("joint")) return rig;
         if (h.Contains("starting image") || h.Contains("concept") || h.Contains("reference") || h.Contains("2d")) return twoD;
         if (h.Contains("geometry") || h.Contains("patch") || h.Contains("smart select") || h.Contains("detail") || h.Contains("kitbash") || h.Contains("sculpt") || h.Contains("attachment") || h.Contains("object transform") || h.Contains("job & geometry")) return threeD;
@@ -246,8 +256,29 @@ public partial class Main
 
     void CleanV1011VersionLabels(Node root)
     {
-        if (root is Label label && IsV1011SectionHeading(label)) label.Text = SemanticV1011Heading(label.Text);
+        if (root is Label label)
+        {
+            if (IsV1011SectionHeading(label)) label.Text = SemanticV1011Heading(label.Text);
+            else label.Text = Regex.Replace(label.Text, @"\bv\d+(?:\.\d+)+\b\s*", "", RegexOptions.IgnoreCase);
+        }
         foreach (var child in root.GetChildren()) CleanV1011VersionLabels(child);
+    }
+
+    void HideNestedV1011SettingsButtons(Node root)
+    {
+        if (root is Button b && b.Text == "Settings" && b.GetParent() != _v1011Toolbar) b.Visible = false;
+        foreach (var child in root.GetChildren()) HideNestedV1011SettingsButtons(child);
+    }
+
+    void HideV1011LegacyQualitySelector()
+    {
+        if (_v05Quality == null) return;
+        _v05Quality.Visible = false;
+        if (_v05Quality.GetParent() is Container parent)
+        {
+            int i = _v05Quality.GetIndex();
+            if (i > 0 && parent.GetChild(i - 1) is Label label && label.Text.Contains("Quality preset", StringComparison.OrdinalIgnoreCase)) label.Visible = false;
+        }
     }
 
     void MoveV1011SculptControlsTo3D(VBoxContainer threeD)
