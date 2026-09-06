@@ -7,6 +7,7 @@ from PIL import Image, ImageFilter
 
 from model_manager import component_path, hardware_info
 from quality_runtime import get_config
+from performance_runtime import get_config as get_performance_config
 
 _TXT = None
 _IMG = None
@@ -47,22 +48,73 @@ def _require_consistent_cuda(torch) -> None:
         )
 
 
+def _effective_mode(vram_mb: int, configured: str) -> str:
+    mode = configured.lower()
+    if mode != "auto":
+        return mode
+    if vram_mb >= 12288:
+        return "fast"
+    if vram_mb >= 6144:
+        return "balanced"
+    return "safe"
+
+
+def _set_vram_ceiling(torch, target: float) -> None:
+    # This is an allocator ceiling, not a promise to fill exactly this percentage. It leaves
+    # headroom for Windows/Godot and lets the selected offload strategy use VRAM aggressively.
+    try:
+        torch.cuda.set_per_process_memory_fraction(float(max(.50, min(.95, target))), 0)
+    except Exception:
+        pass
+
+
+def _fallback_to_model_offload(pipe, torch):
+    try:
+        pipe.to("cpu")
+    except Exception:
+        pass
+    try:
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+    try:
+        pipe.enable_model_cpu_offload()
+    except Exception:
+        pipe.enable_sequential_cpu_offload()
+    return pipe
+
+
 def _configure(pipe, torch):
     hw = hardware_info(); vram = int(hw.get("vram_mb", 0) or 0)
+    perf = get_performance_config(); configured = str(perf.get("mode", "auto")); target = float(perf.get("vram_target_fraction", .85))
     pipe.enable_attention_slicing()
     try: pipe.enable_vae_slicing()
     except Exception: pass
     try: pipe.enable_vae_tiling()
     except Exception: pass
     if torch.cuda.is_available():
-        if vram <= 10240:
+        _set_vram_ceiling(torch, target)
+        mode = _effective_mode(vram, configured)
+        if mode == "fast":
+            try:
+                pipe.to("cuda")
+            except Exception as exc:
+                # Full-GPU placement may exceed the configured safety ceiling. Recover to model
+                # offload rather than failing the user's job purely because Fast was optimistic.
+                if "out of memory" not in str(exc).lower() and "cuda" not in str(exc).lower():
+                    raise
+                pipe = _fallback_to_model_offload(pipe, torch)
+        elif mode == "balanced":
+            try:
+                pipe.enable_model_cpu_offload()
+            except Exception:
+                try: pipe.to("cuda")
+                except Exception: pipe.enable_sequential_cpu_offload()
+        else:
             try:
                 pipe.enable_sequential_cpu_offload()
             except Exception:
-                try: pipe.enable_model_cpu_offload()
-                except Exception: pipe.to("cuda")
-        else:
-            pipe.to("cuda")
+                pipe = _fallback_to_model_offload(pipe, torch)
     else:
         pipe.to("cpu")
     pipe.set_progress_bar_config(disable=True)
