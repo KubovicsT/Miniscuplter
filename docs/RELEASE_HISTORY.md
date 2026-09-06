@@ -23,6 +23,9 @@ Each release branch is preserved as a historical snapshot. Documentation-only co
 | `v1.0.5` | Local-AI expansion | Hardware-aware model matrix, verified/resumable model installs, Xet, process-lifetime hardening |
 | `v1.0.6` | Update/integration hardening | Cross-version editor fixes plus verified, resumable, data-preserving self-update and GitHub Release publishing |
 | `v1.0.7` | Update storage hardening | Storage-aware update cache, no TEMP-only staging, low-space preflight, move-based rollback, hidden updater console |
+| `v1.0.8` | AI runtime diagnostics | Self-healing runtime repair, visible AI job feedback, CUDA validation, model-install TEMP/cache relocation |
+| `v1.0.9` | AI/editor UX | VRAM-first SDXL modes, visible grid, Settings, large 2D preview, reference-search repair, 2D→3D feedback |
+| `v1.0.10` | Responsive editor layout | Resizable 3D viewport and scrollable tool panels so dynamic AI feedback cannot push controls out of view |
 
 ## v1.0.6 integration fixes
 
@@ -45,6 +48,15 @@ v1.0.7 removes the remaining system-drive/TEMP pressure from the normal self-upd
 - the old managed app and the new extracted app are moved on the same volume instead of copied, while AI/runtime data remains parked and preserved;
 - failed validation restores the previous managed tree and persistent runtime/data.
 
+## v1.0.10 responsive-layout fixes
+
+v1.0.10 packages the responsive-layout changes that were validated after the original v1.0.9 release had already been published:
+
+- the 3D SubViewport follows the actual viewport host size whenever the window/splitter changes;
+- the right tool panel uses a proportional bounded width instead of the old fixed 890 px split offset;
+- completed main tabs are wrapped in vertical scroll containers, so long AI status/detail text cannot make later controls unreachable;
+- prompt and embedded 2D-preview minimum heights remain useful without forcing the rest of the AI panel out of frame.
+
 ## Non-release branches
 
 Development branches such as `*-work`, `*-dev`, `*-temp`, `v0.2-ai`, `v0.2-build` and `v0.4-impl` are historical implementation branches. They are not release targets and should not be used for runtime testing unless investigating old development history.
@@ -55,4 +67,4 @@ Miniscuplter creates and finalizes the 3D model. It does not slice, generate pri
 
 ## Current testing target
 
-Use `v1.0.7` for current runtime validation. Older release branches exist to preserve milestones and aid regression/history investigation, not because users are expected to choose among them.
+Use `v1.0.10` for current runtime validation. Older release branches exist to preserve milestones and aid regression/history investigation, not because users are expected to choose among them.
