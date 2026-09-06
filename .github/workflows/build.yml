@@ -20,15 +20,15 @@ jobs:
         with: { dotnet-version: '8.0.x' }
       - run: dotnet restore Miniscuplter.csproj
       - run: dotnet restore Launcher/Miniscuplter.Launcher.csproj
-        if: startsWith(github.ref_name, 'v1.0') || github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+        if: startsWith(github.ref_name, 'v1.') || github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
       - run: dotnet restore Updater/Miniscuplter.Updater.csproj
-        if: startsWith(github.ref_name, 'v1.0') || github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
+        if: startsWith(github.ref_name, 'v1.') || github.ref_name == 'v0.9.9' || github.event_name == 'pull_request'
       - name: Build C# targets
         shell: pwsh
         run: |
           dotnet build Miniscuplter.csproj -c Release --no-restore
           if ($LASTEXITCODE -ne 0) { throw "Miniscuplter editor C# build failed with exit code $LASTEXITCODE." }
-          if ('${{ github.ref_name }}'.StartsWith('v1.0') -or '${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.event_name }}' -eq 'pull_request') {
+          if ('${{ github.ref_name }}'.StartsWith('v1.') -or '${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.event_name }}' -eq 'pull_request') {
             dotnet build Launcher/Miniscuplter.Launcher.csproj -c Release --no-restore
             if ($LASTEXITCODE -ne 0) { throw "Launcher C# build failed with exit code $LASTEXITCODE." }
             dotnet build Updater/Miniscuplter.Updater.csproj -c Release --no-restore
@@ -44,17 +44,23 @@ jobs:
       - name: Compile backend sources
         run: python -m compileall -q ai_backend tools
       - name: Resolve AI runtime dependencies
-        if: startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
         run: python -m pip install --dry-run --ignore-installed -r ai_backend/requirements.txt
       - name: Run core logic tests
-        if: startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
         run: python tools/core_logic_tests.py
+      - name: Install geometry regression dependencies
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
+        run: python -m pip install "numpy<2.3" "trimesh>=4.4,<6" "scipy>=1.13" "scikit-image>=0.24" "rtree>=1.3,<2"
+      - name: Run real geometry regression tests
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
+        run: python tools/geometry_regression_tests.py
       - name: Run release audit
-        if: startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
         run: python tools/release_audit.py
 
   packaging:
-    if: github.ref_name == 'v0.9.9' || startsWith(github.ref_name, 'v1.0') || github.event_name == 'pull_request'
+    if: github.ref_name == 'v0.9.9' || startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,9 +98,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
 
   # Branch pushes are validation-only. Installable releases are built only from an explicit
-  # final version tag so intermediate commits on a v1.x branch can never publish prematurely.
+  # final v1.x tag so intermediate commits on a version branch can never publish prematurely.
   full-windows-release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v1.0')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v1.')
     needs: [dotnet, python-syntax, packaging]
     runs-on: windows-latest
     timeout-minutes: 60
