@@ -7,6 +7,7 @@ namespace Miniscuplter.Updater;
 
 internal static class Program
 {
+    const long ExtractionSafetyBytes = 128L * 1024 * 1024;
     static readonly string[] DefaultPreserveTopLevel = { "AIData", "Runtime", "Projects", "PartsLibrary", "Exports", "UserData", "launcher.settings.json" };
     static readonly string[] PreserveNested = {
         Path.Combine("App", "ai_backend", ".venv"),
@@ -24,6 +25,7 @@ internal static class Program
     {
         string? workRoot = null, stage = null, backup = null, parked = null, dataRoot = null;
         bool parkedNeedsRestore = false;
+        bool managedNeedsRestore = false;
         try
         {
             var map = Parse(args);
@@ -43,35 +45,54 @@ internal static class Program
             if (waitPid > 0) WaitForExit(waitPid);
             EnsureEditorClosed();
 
-            string parent = Directory.GetParent(target)?.FullName ?? Path.GetTempPath();
+            string parent = Directory.GetParent(target)?.FullName ?? throw new InvalidOperationException("The application installation directory has no usable parent for transactional update staging.");
+            long expandedBytes = GetExpandedSize(package);
+            long requiredBytes = checked(expandedBytes + Math.Max(ExtractionSafetyBytes, expandedBytes / 10));
+            EnsureFreeSpace(parent, requiredBytes, expandedBytes);
+
+            // Keep extraction, rollback and parked runtime beside the installed application.
+            // This keeps them off Windows TEMP and guarantees same-volume directory moves for
+            // the existing app/runtime, so rollback does not duplicate multi-GB persistent data.
             workRoot = Path.Combine(parent, ".MiniscuplterUpdate_" + Guid.NewGuid().ToString("N"));
             stage = Path.Combine(workRoot, "stage");
-            backup = Path.Combine(workRoot, "backup");
+            backup = Path.Combine(workRoot, "rollback");
             parked = Path.Combine(workRoot, "preserved");
-            Directory.CreateDirectory(stage); Directory.CreateDirectory(backup); Directory.CreateDirectory(parked);
+            Directory.CreateDirectory(stage);
+            Directory.CreateDirectory(backup);
+            Directory.CreateDirectory(parked);
 
             ZipFile.ExtractToDirectory(package, stage, true);
             string source = NormalizePackageRoot(stage);
             ValidateReleasePackage(source, expectedVersion);
 
-            // Park expensive nested runtime/data directories by same-volume directory move
-            // before copying the old managed tree. This avoids duplicating multi-GB assets.
             parkedNeedsRestore = true;
             ParkPreservedNested(target, parked);
-            BackupManagedTree(target, backup);
+
             try
             {
-                RemoveManagedTree(target);
-                CopyTree(source, target);
-                // Validate the new managed application before returning parked runtime/data.
+                // Move the old managed tree into rollback storage rather than copying it.
+                // Because rollback is on the same volume, this is a metadata operation and
+                // consumes essentially no additional disk space.
+                MoveManagedTreeToBackup(target, backup);
+                managedNeedsRestore = true;
+
+                // The release is already extracted on the same volume. Move its managed files
+                // into place so the extracted copy is consumed instead of duplicated.
+                InstallManagedTreeFromStage(source, target);
                 ValidateInstalledTree(target, expectedVersion);
+
                 RestoreParkedNested(parked, target);
                 parkedNeedsRestore = false;
+                managedNeedsRestore = false;
             }
             catch
             {
                 try { RemoveManagedTree(target); } catch { }
-                RestoreBackup(backup, target);
+                if (managedNeedsRestore)
+                {
+                    RestoreManagedTreeFromBackup(backup, target);
+                    managedNeedsRestore = false;
+                }
                 if (parkedNeedsRestore)
                 {
                     RestoreParkedNested(parked, target);
@@ -89,19 +110,27 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            if (parkedNeedsRestore && parked != null)
+            try
             {
-                try
+                var map = Parse(args);
+                string target = Path.GetFullPath(Require(map, "target"));
+                if (managedNeedsRestore && backup != null)
                 {
-                    var map = Parse(args);
-                    string target = Path.GetFullPath(Require(map, "target"));
-                    RestoreParkedNested(parked, target);
+                    try { RemoveManagedTree(target); } catch { }
+                    RestoreManagedTreeFromBackup(backup, target);
+                    managedNeedsRestore = false;
                 }
-                catch { }
+                if (parkedNeedsRestore && parked != null)
+                {
+                    RestoreParkedNested(parked, target);
+                    parkedNeedsRestore = false;
+                }
             }
+            catch { }
+
             WriteError(dataRoot, ex);
             if (stage != null) TryDeleteDirectory(stage);
-            // If rollback failed, leave workRoot/backup in place as recovery material.
+            // If rollback itself failed, keep workRoot/rollback as recovery material.
             return 1;
         }
     }
@@ -190,6 +219,39 @@ internal static class Program
         return actual.Equals(expected, StringComparison.OrdinalIgnoreCase);
     }
 
+    static long GetExpandedSize(string package)
+    {
+        using var archive = ZipFile.OpenRead(package);
+        long total = 0;
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrEmpty(entry.Name)) continue;
+            total = checked(total + entry.Length);
+        }
+        if (total <= 0) throw new InvalidDataException("Update package contains no extractable files.");
+        return total;
+    }
+
+    static long AvailableBytes(string path)
+    {
+        string root = Path.GetPathRoot(Path.GetFullPath(path)) ?? throw new InvalidOperationException("Could not resolve update staging drive.");
+        return new DriveInfo(root).AvailableFreeSpace;
+    }
+
+    static void EnsureFreeSpace(string path, long requiredBytes, long expandedBytes)
+    {
+        long free = AvailableBytes(path);
+        if (free >= requiredBytes) return;
+        string root = Path.GetPathRoot(Path.GetFullPath(path)) ?? path;
+        throw new IOException($"Not enough free space to stage the Miniscuplter update on {root}. The release expands to about {FormatBytes(expandedBytes)} and the updater requires about {FormatBytes(requiredBytes)} free including a safety margin; {FormatBytes(free)} is available. AI models, Python runtime and other preserved data are not duplicated.");
+    }
+
+    static string FormatBytes(long bytes)
+    {
+        double gib = Math.Max(0, bytes) / 1073741824.0;
+        return gib >= 0.1 ? $"{gib:0.00} GiB" : $"{Math.Max(0, bytes) / 1048576.0:0} MiB";
+    }
+
     static string NormalizePackageRoot(string stage)
     {
         string[] dirs = Directory.GetDirectories(stage); string[] files = Directory.GetFiles(stage);
@@ -226,7 +288,7 @@ internal static class Program
         {
             string path = Path.Combine(target, relative);
             if (!File.Exists(path) || new FileInfo(path).Length == 0)
-                throw new InvalidDataException("Updated application failed post-copy validation: " + relative);
+                throw new InvalidDataException("Updated application failed post-move validation: " + relative);
         }
         ValidateReleaseManifest(Path.Combine(target, "release.json"), expectedVersion);
     }
@@ -253,7 +315,7 @@ internal static class Program
             string destination = Path.Combine(parking, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
-            Directory.Move(source, destination);
+            MoveDirectoryWithRetry(source, destination);
         }
     }
 
@@ -269,7 +331,7 @@ internal static class Program
                 string destination = Path.Combine(target, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
-                Directory.Move(source, destination);
+                MoveDirectoryWithRetry(source, destination);
                 restored.Add((source, destination));
             }
         }
@@ -292,25 +354,82 @@ internal static class Program
         }
     }
 
-    static void BackupManagedTree(string target, string backup)
+    static void MoveManagedTreeToBackup(string target, string backup)
     {
         if (!Directory.Exists(target)) return;
-        foreach (string file in Directory.GetFiles(target))
+        var moved = new List<(string Source, string Destination, bool Directory)>();
+        try
         {
-            string rel = Path.GetFileName(file); if (IsPreservedTopLevel(rel)) continue;
-            File.Copy(file, Path.Combine(backup, rel), true);
+            foreach (string file in Directory.GetFiles(target))
+            {
+                string rel = Path.GetFileName(file);
+                if (IsPreservedTopLevel(rel)) continue;
+                string destination = Path.Combine(backup, rel);
+                File.Move(file, destination, true);
+                moved.Add((file, destination, false));
+            }
+            foreach (string dir in Directory.GetDirectories(target))
+            {
+                string rel = Path.GetFileName(dir);
+                if (IsPreservedTopLevel(rel)) continue;
+                string destination = Path.Combine(backup, rel);
+                MoveDirectoryWithRetry(dir, destination);
+                moved.Add((dir, destination, true));
+            }
         }
-        foreach (string dir in Directory.GetDirectories(target))
+        catch
         {
-            string rel = Path.GetFileName(dir); if (IsPreservedTopLevel(rel)) continue;
-            CopyDirectory(dir, Path.Combine(backup, rel));
+            for (int i = moved.Count - 1; i >= 0; i--)
+            {
+                var item = moved[i];
+                try
+                {
+                    if (item.Directory && Directory.Exists(item.Destination) && !Directory.Exists(item.Source)) Directory.Move(item.Destination, item.Source);
+                    else if (!item.Directory && File.Exists(item.Destination) && !File.Exists(item.Source)) File.Move(item.Destination, item.Source, true);
+                }
+                catch { }
+            }
+            throw;
         }
     }
 
-    static void RestoreBackup(string backup, string target)
+    static void RestoreManagedTreeFromBackup(string backup, string target)
     {
         if (!Directory.Exists(backup)) return;
-        CopyDirectory(backup, target);
+        Directory.CreateDirectory(target);
+        foreach (string file in Directory.GetFiles(backup))
+        {
+            string destination = Path.Combine(target, Path.GetFileName(file));
+            if (File.Exists(destination)) DeleteFileWithRetry(destination);
+            File.Move(file, destination, true);
+        }
+        foreach (string dir in Directory.GetDirectories(backup))
+        {
+            string destination = Path.Combine(target, Path.GetFileName(dir));
+            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+            MoveDirectoryWithRetry(dir, destination);
+        }
+    }
+
+    static void InstallManagedTreeFromStage(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (string file in Directory.GetFiles(source))
+        {
+            string rel = Path.GetFileName(file);
+            if (IsPreservedTopLevel(rel)) continue;
+            string destination = Path.Combine(target, rel);
+            if (File.Exists(destination)) DeleteFileWithRetry(destination);
+            File.Move(file, destination, true);
+        }
+        foreach (string dir in Directory.GetDirectories(source))
+        {
+            string rel = Path.GetFileName(dir);
+            if (IsPreservedTopLevel(rel)) continue;
+            string destination = Path.Combine(target, rel);
+            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+            MoveDirectoryWithRetry(dir, destination);
+        }
     }
 
     static void RemoveManagedTree(string target)
@@ -328,49 +447,22 @@ internal static class Program
         }
     }
 
-    static void CopyTree(string source, string target)
-    {
-        Directory.CreateDirectory(target);
-        foreach (string dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
-        {
-            string rel = Path.GetRelativePath(source, dir); if (IsPreservedTopLevel(rel)) continue;
-            Directory.CreateDirectory(Path.Combine(target, rel));
-        }
-        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-        {
-            string rel = Path.GetRelativePath(source, file); if (IsPreservedTopLevel(rel)) continue;
-            string dest = Path.Combine(target, rel); Directory.CreateDirectory(Path.GetDirectoryName(dest)!); CopyWithRetry(file, dest);
-        }
-    }
-
-    static void CopyDirectory(string source, string target)
-    {
-        Directory.CreateDirectory(target);
-        foreach (string dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
-            Directory.CreateDirectory(Path.Combine(target, Path.GetRelativePath(source, dir)));
-        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-        {
-            string dest = Path.Combine(target, Path.GetRelativePath(source, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(dest)!); File.Copy(file, dest, true);
-        }
-    }
-
     static bool IsPreservedTopLevel(string rel)
     {
         string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
         return _preserveTop.Contains(top);
     }
 
-    static void CopyWithRetry(string source, string dest)
+    static void MoveDirectoryWithRetry(string source, string destination)
     {
         Exception? last = null;
         for (int i = 0; i < 20; i++)
         {
-            try { File.Copy(source, dest, true); return; }
+            try { Directory.Move(source, destination); return; }
             catch (IOException ex) { last = ex; Thread.Sleep(250); }
             catch (UnauthorizedAccessException ex) { last = ex; Thread.Sleep(250); }
         }
-        throw new IOException("Could not replace " + dest, last);
+        throw new IOException($"Could not move directory {source} to {destination}", last);
     }
 
     static void DeleteFileWithRetry(string path)
@@ -411,7 +503,7 @@ internal static class Program
         }
     }
 
-    static void TryDelete(string path) { try { File.Delete(path); } catch { } }
+    static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
     static void TryDeleteDirectory(string path) { try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { } }
 
     static void ScheduleSelfDelete()
