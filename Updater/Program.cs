@@ -609,15 +609,25 @@ internal static class Program
 
                 string backup = Path.GetFullPath(journal.Backup);
                 string parked = Path.GetFullPath(journal.Parked);
+                bool backupKnownComplete = journal.Phase.Equals("backup-complete", StringComparison.OrdinalIgnoreCase) ||
+                                           journal.Phase.Equals("new-installed", StringComparison.OrdinalIgnoreCase) ||
+                                           journal.Phase.Equals("preserved-restored", StringComparison.OrdinalIgnoreCase) ||
+                                           journal.Phase.Equals("launcher-healthy", StringComparison.OrdinalIgnoreCase);
+
                 if (HasManagedContent(backup))
                 {
-                    // If a new tree may exist, first save persistent nested runtime data, then
-                    // remove only owned app paths and restore the previous managed tree.
-                    if (Directory.Exists(target))
+                    if (backupKnownComplete)
                     {
-                        try { ParkPreservedNested(target, parked); } catch { }
-                        try { RemoveManagedTree(target); } catch { }
+                        // Only once the journal proves the old managed tree was fully parked may
+                        // recovery remove a possibly-new managed tree before restoring backup.
+                        if (Directory.Exists(target))
+                        {
+                            try { ParkPreservedNested(target, parked); } catch { }
+                            try { RemoveManagedTree(target); } catch { }
+                        }
                     }
+                    // For an interrupted partial backup, never clear the target first: unmoved
+                    // old files may be the only valid copies. Restore only what reached rollback.
                     RestoreManagedTreeFromBackup(backup, target);
                 }
                 if (HasParkedContent(parked)) RestoreParkedNested(parked, target);
