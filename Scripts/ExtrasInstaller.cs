@@ -47,5 +47,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV099Locations();
         main.InstallV100ReleasePolish();
         main.InstallV108AiFeedback();
+        main.InstallV109Experience();
     }
 }
