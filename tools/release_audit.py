@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.10"
+EXPECTED = "1.0.11"
 errors: list[str] = []
 
 
@@ -35,6 +35,7 @@ extras = text("Scripts/ExtrasInstaller.cs")
 ai_feedback = text("Scripts/Main.V108AiFeedback.cs")
 v109 = text("Scripts/Main.V109Experience.cs")
 responsive = text("Scripts/Main.V109Responsive.cs")
+workflow1011 = text("Scripts/Main.V1011Workflow.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
 detail = text("ai_backend/detail_pipeline.py")
@@ -103,6 +104,18 @@ for token in ("WrapV109MainTabsForScrolling", "SyncV109ResponsiveSplit", "SyncV1
     require(token in responsive, f"responsive layout guard missing: {token}")
 require("_aiPreview.CustomMinimumSize" in responsive and "_prompt.CustomMinimumSize" in responsive, "AI panel fixed-size pressure was not reduced")
 require("_v109ResponsiveSubViewport.Size = target" in responsive, "SubViewport does not resize with its host")
+
+# v1.0.11: the user sees one four-step workflow, not implementation/version archaeology.
+require("InstallV1011Workflow" in extras, "v1.0.11 workflow consolidation installer missing")
+for token in ('WorkflowPage("2D")', 'WorkflowPage("3D")', 'WorkflowPage("Rig & Pose")', 'WorkflowPage("Cleanup & Export")'):
+    require(token in workflow1011, f"four-step workflow tab missing: {token}")
+require("Accept Current Image as Baseline" in workflow1011 and "Accept a 2D Baseline First" in workflow1011, "explicit 2D baseline approval gate missing")
+require("MoveV1011SculptControlsTo3D" in workflow1011 and "SCULPTING" in workflow1011, "sculpt controls were not moved into the 3D workflow")
+require("AttachV1011AdvancedSettings" in workflow1011 and "Advanced Quality" in workflow1011 and "Advanced AI Models" in workflow1011 and "Files & Locations" in workflow1011, "legacy advanced controls are not preserved in Settings")
+require("SemanticV1011Heading" in workflow1011 and "Regex.Replace" in workflow1011 and "AI PATCH WORKFLOW" in workflow1011, "version/milestone headings are not normalized away")
+require("RepairV1011ViewportAtLaunch" in workflow1011 and "FinishV1011ViewportRepair" in workflow1011 and "AddV1011Grid" in workflow1011, "launch-time grid/viewport repair missing")
+require("plane.Visible = false" in workflow1011 and 'Name = "Viewport Grid"' in workflow1011 and "_camera.Current = false" in workflow1011 and "_camera.Current = true" in workflow1011, "grid launch visibility hardening incomplete")
+require("InstallV1011Workflow();" in extras and extras.index("InstallV1011Workflow();") < extras.index("InstallV109ResponsiveLayout();"), "workflow must be built before responsive tab wrapping")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently
 # run on CPU when NVIDIA hardware exists.
