@@ -79,12 +79,16 @@ require("_ai.CancelCurrentRequest()" in ai_feedback, "AI job cancel does not rea
 require("File.Exists(_lastEditedImage)" in ai_feedback, "AI success does not verify produced image")
 require("AI generation failed" in ai_feedback and "AcceptDialog" in ai_feedback, "AI failures are not surfaced visibly")
 
-# SDXL must identify the phase and must not silently run on CPU when NVIDIA hardware exists.
+# SDXL/runtime repair must identify the phase, self-heal package corruption and never silently
+# run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
 require("SDXL model loading failed before inference" in sdxl, "SDXL model-load diagnostics missing")
 require("SDXL inference failed after the model load stage" in sdxl, "SDXL inference diagnostics missing")
 require("saving the PNG failed" in sdxl, "SDXL output-save diagnostics missing")
 require("Verifying PyTorch CUDA access" in runtime_setup_script and "The AI runtime will not be marked ready" in runtime_setup_script, "runtime setup does not verify usable NVIDIA CUDA")
+require('.venv\\Scripts\\python.exe -m pip --version' in runtime_setup_script and 'set "REBUILD_VENV=1"' in runtime_setup_script, "runtime Repair does not detect a broken pip/venv")
+require("Rebuilding .venv only; AI models and persistent download caches are preserved" in runtime_setup_script and "rmdir /s /q .venv" in runtime_setup_script, "runtime Repair does not safely rebuild a corrupt disposable venv")
+require("torch.utils.data.datapipes.iter.sharding" in runtime_setup_script and "--force-reinstall" in runtime_setup_script, "runtime Repair does not verify/reinstall structurally corrupt PyTorch")
 
 # Cross-version editor / geometry integration seams.
 require('FindChild("Model", true, false)' in extras and 'modelTab.Name = "Print"' in extras, "Model/Print compatibility repair missing")
