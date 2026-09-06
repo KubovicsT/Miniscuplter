@@ -72,7 +72,7 @@ def generate_shape(image_path: str, output_path: str, foreground_ratio: float = 
         raise RuntimeError("TripoSR produced no mesh")
 
     # Current upstream TSR.extract_mesh returns one trimesh.Trimesh per scene. Older forks
-    # have returned a nested list, so accept that shape without assuming meshes[0][0].
+    # have returned a nested list, so accept either result shape without assuming nesting.
     mesh = meshes[0]
     if isinstance(mesh, (list, tuple)):
         if not mesh:
