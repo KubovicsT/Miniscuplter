@@ -17,10 +17,34 @@ def _deps():
         import torch
         from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, EulerDiscreteScheduler
     except Exception as exc:
-        raise RuntimeError("SDXL dependencies are unavailable. Re-run setup_ai_backend.bat.") from exc
+        raise RuntimeError(f"SDXL dependency import failed before model loading: {type(exc).__name__}: {exc}. Re-run Repair AI Runtime in the launcher.") from exc
     model = component_path("sdxl-base")
-    if model is None: raise RuntimeError("SDXL Base is not installed")
+    if model is None:
+        raise RuntimeError("SDXL Base is marked unavailable or incomplete. Reinstall SDXL Base from the launcher.")
     return torch, StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, EulerDiscreteScheduler, model
+
+
+def _runtime_label(torch) -> str:
+    hw = hardware_info()
+    detected = str(hw.get("gpu") or "no NVIDIA GPU reported")
+    torch_cuda = bool(torch.cuda.is_available())
+    if torch_cuda:
+        try:
+            name = torch.cuda.get_device_name(0)
+            cap = torch.cuda.get_device_capability(0)
+            return f"PyTorch CUDA ready ({name}, compute {cap[0]}.{cap[1]}, torch {torch.__version__}, CUDA {torch.version.cuda})"
+        except Exception:
+            return f"PyTorch CUDA ready ({detected}, torch {torch.__version__}, CUDA {torch.version.cuda})"
+    return f"PyTorch CUDA unavailable (detected hardware: {detected}, torch {getattr(torch, '__version__', '?')}, CUDA build {getattr(torch.version, 'cuda', None)})"
+
+
+def _require_consistent_cuda(torch) -> None:
+    hw = hardware_info()
+    if hw.get("gpu") and not torch.cuda.is_available():
+        raise RuntimeError(
+            "An NVIDIA GPU is detected by Windows/nvidia-smi, but PyTorch CUDA is unavailable in the Miniscuplter runtime. "
+            f"{_runtime_label(torch)}. Use Repair AI Runtime in the launcher before retrying SDXL."
+        )
 
 
 def _configure(pipe, torch):
@@ -32,12 +56,15 @@ def _configure(pipe, torch):
     except Exception: pass
     if torch.cuda.is_available():
         if vram <= 10240:
-            try: pipe.enable_sequential_cpu_offload()
+            try:
+                pipe.enable_sequential_cpu_offload()
             except Exception:
                 try: pipe.enable_model_cpu_offload()
                 except Exception: pipe.to("cuda")
-        else: pipe.to("cuda")
-    else: pipe.to("cpu")
+        else:
+            pipe.to("cuda")
+    else:
+        pipe.to("cpu")
     pipe.set_progress_bar_config(disable=True)
     return pipe
 
@@ -46,22 +73,42 @@ def _text_pipe():
     global _TXT
     if _TXT is not None: return _TXT
     torch, Txt, _, Scheduler, model = _deps()
+    _require_consistent_cuda(torch)
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler", local_files_only=True)
-    _TXT = Txt.from_pretrained(str(model), scheduler=scheduler, torch_dtype=dtype,
-                               variant="fp16", use_safetensors=True, local_files_only=True)
-    return _configure(_TXT, torch)
+    try:
+        scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler", local_files_only=True)
+        _TXT = Txt.from_pretrained(
+            str(model), scheduler=scheduler, torch_dtype=dtype,
+            variant="fp16", use_safetensors=True, local_files_only=True
+        )
+        return _configure(_TXT, torch)
+    except Exception as exc:
+        _TXT = None
+        raise RuntimeError(
+            f"SDXL model loading failed before inference. {_runtime_label(torch)}. "
+            f"Model path: {model}. {type(exc).__name__}: {exc}"
+        ) from exc
 
 
 def _img_pipe():
     global _IMG
     if _IMG is not None: return _IMG
     torch, _, Img, Scheduler, model = _deps()
+    _require_consistent_cuda(torch)
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler", local_files_only=True)
-    _IMG = Img.from_pretrained(str(model), scheduler=scheduler, torch_dtype=dtype,
-                               variant="fp16", use_safetensors=True, local_files_only=True)
-    return _configure(_IMG, torch)
+    try:
+        scheduler = Scheduler.from_pretrained(str(model), subfolder="scheduler", local_files_only=True)
+        _IMG = Img.from_pretrained(
+            str(model), scheduler=scheduler, torch_dtype=dtype,
+            variant="fp16", use_safetensors=True, local_files_only=True
+        )
+        return _configure(_IMG, torch)
+    except Exception as exc:
+        _IMG = None
+        raise RuntimeError(
+            f"SDXL image-edit model loading failed before inference. {_runtime_label(torch)}. "
+            f"Model path: {model}. {type(exc).__name__}: {exc}"
+        ) from exc
 
 
 def _size() -> int:
@@ -71,12 +118,30 @@ def _size() -> int:
 
 def generate_concept(prompt: str, output_path: str) -> str:
     cfg = get_config(); size = _size(); pipe = _text_pipe()
-    image = pipe(prompt=prompt,
-                 negative_prompt="blurry, low detail, text, watermark, cropped, malformed anatomy",
-                 width=size, height=size,
-                 num_inference_steps=int(cfg["image_steps"]),
-                 guidance_scale=float(cfg["image_guidance"])).images[0]
-    out = Path(output_path); out.parent.mkdir(parents=True, exist_ok=True); image.save(out); return str(out)
+    try:
+        image = pipe(
+            prompt=prompt,
+            negative_prompt="blurry, low detail, text, watermark, cropped, malformed anatomy",
+            width=size, height=size,
+            num_inference_steps=int(cfg["image_steps"]),
+            guidance_scale=float(cfg["image_guidance"])
+        ).images[0]
+    except Exception as exc:
+        try:
+            import torch
+            runtime = _runtime_label(torch)
+        except Exception:
+            runtime = "PyTorch runtime details unavailable"
+        raise RuntimeError(
+            f"SDXL inference failed after the model load stage. {runtime}. "
+            f"Requested {size}x{size}, {int(cfg['image_steps'])} steps. {type(exc).__name__}: {exc}"
+        ) from exc
+    out = Path(output_path); out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        image.save(out)
+    except Exception as exc:
+        raise RuntimeError(f"SDXL generated an image but saving the PNG failed at {out}: {type(exc).__name__}: {exc}") from exc
+    return str(out)
 
 
 def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_path: str, *, detail: bool = False) -> str:
@@ -90,9 +155,19 @@ def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_pa
     work_src = source.crop(box) if box else source; work = work_src.resize((size,size), Image.Resampling.LANCZOS)
     strength = float(cfg["image_edit_strength"])
     if detail: strength = min(.72, max(.28, strength * .82))
-    generated = pipe(prompt=prompt, negative_prompt="blurry, low detail, text, watermark, malformed anatomy",
-                     image=work, strength=strength, guidance_scale=float(cfg["image_guidance"]),
-                     num_inference_steps=int(cfg["image_steps"])).images[0]
+    try:
+        generated = pipe(
+            prompt=prompt, negative_prompt="blurry, low detail, text, watermark, malformed anatomy",
+            image=work, strength=strength, guidance_scale=float(cfg["image_guidance"]),
+            num_inference_steps=int(cfg["image_steps"])
+        ).images[0]
+    except Exception as exc:
+        try:
+            import torch
+            runtime = _runtime_label(torch)
+        except Exception:
+            runtime = "PyTorch runtime details unavailable"
+        raise RuntimeError(f"SDXL image-edit inference failed. {runtime}. {type(exc).__name__}: {exc}") from exc
     generated = generated.resize(work_src.size, Image.Resampling.LANCZOS)
     if box:
         result = source.copy(); local_mask = mask.crop(box).filter(ImageFilter.GaussianBlur(radius=max(2, int(min(work_src.size)*.012))))
@@ -100,8 +175,14 @@ def edit_image(image_path: str, mask_path: Optional[str], prompt: str, output_pa
     elif mask is not None:
         resized_mask = mask.resize(source.size, Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(radius=4))
         result = Image.composite(generated.resize(source.size, Image.Resampling.LANCZOS), source, resized_mask)
-    else: result = generated.resize(source.size, Image.Resampling.LANCZOS)
-    out=Path(output_path); out.parent.mkdir(parents=True, exist_ok=True); result.save(out); return str(out)
+    else:
+        result = generated.resize(source.size, Image.Resampling.LANCZOS)
+    out=Path(output_path); out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result.save(out)
+    except Exception as exc:
+        raise RuntimeError(f"SDXL edit completed but saving the PNG failed at {out}: {type(exc).__name__}: {exc}") from exc
+    return str(out)
 
 
 def release_models() -> None:
