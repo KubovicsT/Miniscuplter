@@ -33,7 +33,8 @@ internal sealed class ApplicationUpdateService
     public ApplicationUpdateService(LauncherSettings settings)
     {
         _settings = settings;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Miniscuplter-Launcher/1.0.7");
+        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd($"Miniscuplter-Launcher/{version}");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
     }
 
@@ -95,7 +96,9 @@ internal sealed class ApplicationUpdateService
                     }
                 }
                 else if (name.Equals(DigestAssetName, StringComparison.OrdinalIgnoreCase))
+                {
                     digestUrl = asset.TryGetProperty("browser_download_url", out var due) ? due.GetString() : null;
+                }
             }
         }
 
@@ -140,7 +143,11 @@ internal sealed class ApplicationUpdateService
 
         if (File.Exists(final))
         {
-            if (await VerifyPackageFileAsync(final, info, cancellationToken)) { progress?.Report(100); return final; }
+            if (await VerifyPackageFileAsync(final, info, cancellationToken))
+            {
+                progress?.Report(100);
+                return final;
+            }
             TryDelete(final);
         }
 
@@ -148,11 +155,19 @@ internal sealed class ApplicationUpdateService
         {
             cancellationToken.ThrowIfCancellationRequested();
             long existing = File.Exists(partial) ? new FileInfo(partial).Length : 0;
-            if (existing < 0 || existing > info.AssetSize) { TryDelete(partial); existing = 0; }
+            if (existing < 0 || existing > info.AssetSize)
+            {
+                TryDelete(partial);
+                existing = 0;
+            }
+
             EnsureFreeSpace(cache, Math.Max(0, info.AssetSize - existing) + UpdateSafetyBytes, "application update download");
             if (existing == info.AssetSize && await VerifyPackageFileAsync(partial, info, cancellationToken))
             {
-                File.Move(partial, final, true); progress?.Report(100); CleanupOldUpdateCache(cache, final); return final;
+                File.Move(partial, final, true);
+                progress?.Report(100);
+                CleanupOldUpdateCache(cache, final);
+                return final;
             }
 
             using var request = new HttpRequestMessage(HttpMethod.Get, info.DownloadUrl);
@@ -168,22 +183,36 @@ internal sealed class ApplicationUpdateService
 
             bool resumed = existing > 0 && response.StatusCode == HttpStatusCode.PartialContent;
             if (!resumed) existing = 0;
-            await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var output = new FileStream(partial, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read, 1024 * 128, useAsync: true);
-            byte[] buffer = new byte[1024 * 128];
             long written = existing;
-            while (true)
+
+            // Keep network/file handles in an inner scope. Windows cannot reliably hash and
+            // rename the partial ZIP while the writer still has it open, even when FileShare.Read
+            // permits a second read handle. The old code verified/moved before await-using disposal.
             {
-                int n = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
-                if (n <= 0) break;
-                await output.WriteAsync(buffer.AsMemory(0, n), cancellationToken);
-                written += n;
-                progress?.Report((int)Math.Clamp(written * 100L / info.AssetSize, 0, 99));
+                await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+                await using var output = new FileStream(
+                    partial,
+                    resumed ? FileMode.Append : FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.Read,
+                    1024 * 128,
+                    useAsync: true);
+
+                byte[] buffer = new byte[1024 * 128];
+                while (true)
+                {
+                    int n = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+                    if (n <= 0) break;
+                    await output.WriteAsync(buffer.AsMemory(0, n), cancellationToken);
+                    written += n;
+                    progress?.Report((int)Math.Clamp(written * 100L / info.AssetSize, 0, 99));
+                }
+                await output.FlushAsync(cancellationToken);
             }
-            await output.FlushAsync(cancellationToken);
 
             if (new FileInfo(partial).Length != info.AssetSize)
                 throw new InvalidDataException($"Application update download is incomplete ({new FileInfo(partial).Length:N0} of {info.AssetSize:N0} bytes). Reopen the launcher to resume it.");
+
             if (!await VerifyPackageFileAsync(partial, info, cancellationToken))
             {
                 TryDelete(partial);
@@ -195,6 +224,7 @@ internal sealed class ApplicationUpdateService
             CleanupOldUpdateCache(cache, final);
             return final;
         }
+
         throw new InvalidOperationException("Could not resume the application update download safely.");
     }
 
@@ -202,8 +232,10 @@ internal sealed class ApplicationUpdateService
     {
         if (!info.Installable || string.IsNullOrWhiteSpace(info.Sha256))
             throw new InvalidOperationException("Cannot start an unverified application update.");
+
         string installedUpdater = FindUpdater();
-        if (!File.Exists(installedUpdater)) throw new FileNotFoundException("Miniscuplter updater executable is missing.", installedUpdater);
+        if (!File.Exists(installedUpdater))
+            throw new FileNotFoundException("Miniscuplter updater executable is missing.", installedUpdater);
 
         string updaterRoot = Path.Combine(Path.GetDirectoryName(package) ?? _settings.DataRoot, "updater");
         Directory.CreateDirectory(updaterRoot);
@@ -228,18 +260,17 @@ internal sealed class ApplicationUpdateService
         string fileName = $"Miniscuplter-{safeVersion}-win-x64.zip";
         string partialName = fileName + ".partial";
 
-        // Reuse a complete verified package regardless of current free space.
         foreach (string candidate in candidates)
         {
             string final = Path.Combine(candidate, fileName);
             if (File.Exists(final) && await VerifyPackageFileAsync(final, info, cancellationToken)) return candidate;
         }
 
-        // Prefer the location containing the largest safe partial if it can finish there.
         var resumable = candidates
             .Select(path => (Path: path, Existing: SafeLength(Path.Combine(path, partialName))))
             .Where(x => x.Existing > 0 && x.Existing <= info.AssetSize)
             .OrderByDescending(x => x.Existing);
+
         foreach (var item in resumable)
         {
             long needed = Math.Max(0, info.AssetSize - item.Existing) + UpdateSafetyBytes;
@@ -250,7 +281,8 @@ internal sealed class ApplicationUpdateService
         foreach (string candidate in candidates)
             if (AvailableBytes(candidate) >= freshRequired) return candidate;
 
-        string details = string.Join(Environment.NewLine, candidates.Select(path => $"  {path} — {FormatBytes(AvailableBytes(path))} free"));
+        string details = string.Join(Environment.NewLine,
+            candidates.Select(path => $"  {path} — {FormatBytes(AvailableBytes(path))} free"));
         throw new IOException($"There is not enough free space in any safe Miniscuplter update cache location. Need about {FormatBytes(freshRequired)} free for the verified release download.{Environment.NewLine}{details}");
     }
 
@@ -295,7 +327,8 @@ internal sealed class ApplicationUpdateService
 
     async Task<bool> VerifyPackageFileAsync(string path, AppUpdateInfo info, CancellationToken cancellationToken)
     {
-        if (!File.Exists(path) || new FileInfo(path).Length != info.AssetSize || string.IsNullOrWhiteSpace(info.Sha256)) return false;
+        if (!File.Exists(path) || new FileInfo(path).Length != info.AssetSize || string.IsNullOrWhiteSpace(info.Sha256))
+            return false;
         string actual = await ComputeSha256Async(path, cancellationToken);
         return actual.Equals(info.Sha256, StringComparison.OrdinalIgnoreCase);
     }
@@ -324,11 +357,19 @@ internal sealed class ApplicationUpdateService
         catch { }
     }
 
-    static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
+    static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
 
     string FindUpdater()
     {
-        string[] candidates = { Path.Combine(_settings.InstallRoot, "Miniscuplter.Updater.exe"), Path.Combine(_settings.InstallRoot, "Updater", "Miniscuplter.Updater.exe"), Path.Combine(AppContext.BaseDirectory, "Miniscuplter.Updater.exe") };
+        string[] candidates =
+        {
+            Path.Combine(_settings.InstallRoot, "Miniscuplter.Updater.exe"),
+            Path.Combine(_settings.InstallRoot, "Updater", "Miniscuplter.Updater.exe"),
+            Path.Combine(AppContext.BaseDirectory, "Miniscuplter.Updater.exe")
+        };
         return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
     }
 
@@ -339,6 +380,7 @@ internal sealed class ApplicationUpdateService
     }
 
     static string Normalize(string value) => value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
+
     static int CompareVersions(string a, string b)
     {
         if (!Version.TryParse(Normalize(a), out var av)) av = new Version(0, 0, 0);
