@@ -1,8 +1,8 @@
-# Miniscuplter v1.0.6
+# Miniscuplter v1.0.7
 
 Miniscuplter is a Windows desktop application for **AI-assisted 3D model creation, kitbashing, posing, sculpting, local detail refinement, model validation/repair and final STL export**.
 
-v1.0.6 is a reliability/update release on top of the v1.0.5 hardware-aware local-AI stack. It fixes cross-version editor integration seams found during the v1.0.5 audit and turns the launcher self-updater into a verified, resumable, data-preserving update path.
+v1.0.7 is a storage-safety patch on top of v1.0.6. It keeps the verified/resumable self-update path, but removes the remaining assumptions that Windows TEMP and the system drive have plenty of free space.
 
 ## Product boundary
 
@@ -37,20 +37,26 @@ CLIPSeg
 
 SPAR3D low-VRAM mode is available as an additional experiment. Hunyuan3D 2.1 remains useful with offload. Qwen, TRELLIS.2 and PartPacker are intended primarily for larger GPUs.
 
-## v1.0.6 reliability fixes
+## v1.0.7 updater/storage fixes
 
-- Restores the stable internal `Print` panel compatibility name while continuing to display the release-facing tab as **Model**, so older additive geometry/validation controls install again.
-- Routes command-palette `/rig` generation through the same v0.9.5 validation/rollback guard used by the UI buttons.
-- Fixes final 3D-detail apply so the source/patch STL paths are passed to the canonical voxel-remesh API instead of passing an in-memory mesh to a path-based function.
-- Corrects Windows, launcher, updater, backend and installer version metadata to v1.0.6.
-- Keeps the v1.0.5 AI runtime fingerprint compatible when runtime dependencies/setup did not actually change, avoiding a cosmetic multi-GB runtime reinstall.
+- Application-update downloads choose a safe cache location based on available free space. The configured `DataRoot` is preferred, then a sibling cache on the installation drive, with Windows TEMP only as a final fallback when it has enough room.
+- Existing `.partial` application downloads are reused from the best available cache location instead of forcing a fresh download.
+- The staged updater executable is launched from the update cache rather than copied into `%TEMP%`.
+- The updater itself is now a Windows GUI executable, so a normal successful update no longer opens an empty console window.
+- Update extraction/rollback storage is created beside the installation instead of under Windows TEMP.
+- The updater calculates the ZIP's expanded size and checks free space before changing installed files.
+- The old managed application is moved into same-volume rollback storage rather than copied. Persistent AI/runtime data is parked with directory moves as before, so multi-GB model/runtime data is not duplicated.
+- The extracted new managed tree is moved into place on the same volume rather than copied again, minimizing peak temporary storage.
+- If installation validation fails, the managed tree and parked runtime/data are restored transactionally.
+
+The v1.0.6 integration fixes remain in place: Model/Print compatibility, guarded command-palette rig generation, corrected 3D detail apply, verified public-release self-update, SHA-256/package-version checks, and preserved AI/runtime/model data.
 
 ## Release / self-update path
 
 A finished version branch produces:
 
 ```text
-Miniscuplter-Setup-1.0.6.exe
+Miniscuplter-Setup-1.0.7.exe
 Miniscuplter-win-x64.zip
 Miniscuplter-win-x64.zip.sha256
 ```
@@ -64,9 +70,7 @@ Automatic update requires all of the following:
 - a SHA-256 from GitHub's release-asset digest or the published `.sha256` sidecar;
 - a package-internal `release.json` whose version matches the release being installed.
 
-The ZIP download is stored under the configured AI data root in a persistent `update-cache`, supports HTTP range resume, and is SHA-256 verified before the staged updater starts. The staged updater verifies the SHA-256 and package version again independently before changing installed files.
-
-Application updates preserve existing AI model data, interrupted model stages, a configured `DataRoot`, the Python `.venv`, runtime caches, legacy backend model data, projects, parts library, exports, user data, launcher settings, and a separately installed runtime. Expensive nested runtime directories are parked with same-volume directory moves rather than copied into the update backup. Managed application files are replaced transactionally and the previous tree is restored if validation/copy fails.
+Application updates preserve existing AI model data, interrupted model stages, a configured `DataRoot`, the Python `.venv`, runtime caches, legacy backend model data, projects, parts library, exports, user data, launcher settings, and a separately installed runtime.
 
 ## Documentation
 
@@ -78,4 +82,4 @@ Application updates preserve existing AI model data, interrupted model stages, a
 
 ## Validation boundary
 
-CI/static validation is required before v1.0.6 is considered code-green. Actual CUDA inference for every optional model still requires runtime testing on representative hardware; upstream Windows support for some specialist models is explicitly experimental.
+CI/static validation is required before v1.0.7 is considered code-green. Actual CUDA inference for every optional model still requires runtime testing on representative hardware; upstream Windows support for some specialist models is explicitly experimental.
