@@ -46,5 +46,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV098MultiModelAI();
         main.InstallV099Locations();
         main.InstallV100ReleasePolish();
+        main.InstallV108AiFeedback();
     }
 }
