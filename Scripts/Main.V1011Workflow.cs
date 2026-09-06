@@ -17,6 +17,7 @@ public partial class Main
     {
         InstallV1011SettingsButton();
         RebuildV1011WorkflowTabs();
+        EnforceV1011ApprovedBaseline();
         RepairV1011ViewportAtLaunch();
     }
 
@@ -25,10 +26,31 @@ public partial class Main
         var root = GetChildren().OfType<VBoxContainer>().FirstOrDefault();
         var toolbar = root?.GetChildren().OfType<HBoxContainer>().FirstOrDefault();
         if (toolbar == null) return;
-        if (toolbar.GetChildren().OfType<Button>().Any(b => b.Text == "Settings")) return;
+
+        var existing = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "Settings");
+        if (existing != null)
+        {
+            existing.Pressed += () => CallDeferred(nameof(AttachV1011AdvancedSettingsToWindow));
+            return;
+        }
+
         var settings = new Button { Text = "Settings", TooltipText = "AI models, quality, GPU performance, files and viewport options" };
-        settings.Pressed += ShowV109Settings;
+        settings.Pressed += ShowV1011Settings;
         toolbar.AddChild(settings);
+    }
+
+    void ShowV1011Settings()
+    {
+        ShowV109Settings();
+        CallDeferred(nameof(AttachV1011AdvancedSettingsToWindow));
+    }
+
+    void AttachV1011AdvancedSettingsToWindow()
+    {
+        if (_v109SettingsWindow == null || !IsInstanceValid(_v109SettingsWindow)) return;
+        _v109SettingsWindow.Title = "Miniscuplter Settings";
+        if (_v109SettingsWindow.FindChild("TabContainer", true, false) is TabContainer tabs)
+            AttachV1011AdvancedSettings(tabs);
     }
 
     void RebuildV1011WorkflowTabs()
@@ -255,6 +277,18 @@ public partial class Main
         foreach (var child in left.GetChildren().OfType<Label>().Where(l => string.Equals(l.Text, "SCULPT", StringComparison.OrdinalIgnoreCase)).ToList()) child.QueueFree();
     }
 
+    void EnforceV1011ApprovedBaseline()
+    {
+        if (_v109Generate3D == null) return;
+        _v109Generate3D.Disabled = true;
+        _v109Generate3D.Text = "Accept a 2D Baseline First";
+        _v109Generate3D.ButtonDown += () =>
+        {
+            if (!string.IsNullOrWhiteSpace(_v1011BaselineImage) && File.Exists(_v1011BaselineImage))
+                _lastEditedImage = _v1011BaselineImage;
+        };
+    }
+
     void AcceptV1011Baseline()
     {
         string candidate = !string.IsNullOrWhiteSpace(_lastEditedImage) && File.Exists(_lastEditedImage) ? _lastEditedImage
@@ -262,12 +296,18 @@ public partial class Main
             : !string.IsNullOrWhiteSpace(_lastCapture) && File.Exists(_lastCapture) ? _lastCapture : "";
         if (string.IsNullOrWhiteSpace(candidate))
         {
-            _v1011BaselineStatus!.Text = "Baseline: no usable image yet — generate or load one first.";
+            if (_v1011BaselineStatus != null) _v1011BaselineStatus.Text = "Baseline: no usable image yet — generate or load one first.";
             SetStatus("Generate a concept or load your own starting image before accepting the baseline.");
             return;
         }
         _v1011BaselineImage = Path.GetFullPath(candidate);
-        _v1011BaselineStatus!.Text = "Baseline accepted: " + Path.GetFileName(_v1011BaselineImage);
+        _lastEditedImage = _v1011BaselineImage;
+        if (_v1011BaselineStatus != null) _v1011BaselineStatus.Text = "Baseline accepted: " + Path.GetFileName(_v1011BaselineImage);
+        if (_v109Generate3D != null)
+        {
+            _v109Generate3D.Disabled = false;
+            _v109Generate3D.Text = "Generate 3D from Accepted Baseline";
+        }
         SetStatus("2D baseline accepted. Continue to the 3D tab.");
     }
 
@@ -288,6 +328,7 @@ public partial class Main
         if (FindChild("ViewportHost", true, false) is not SubViewportContainer host || FindChild("Viewport", true, false) is not SubViewport sub) return;
         Vector2 size = host.Size;
         sub.Size = new Vector2I(Math.Max(1, (int)Math.Round(size.X)), Math.Max(1, (int)Math.Round(size.Y)));
+        sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
         if (_camera != null)
         {
             _camera.Current = false;
@@ -308,6 +349,7 @@ public partial class Main
         {
             env.BackgroundMode = Godot.Environment.BGMode.Color;
             env.BackgroundColor = new Color(.035f, .041f, .052f);
+            env.AmbientLightColor = new Color(.46f, .48f, .54f);
             env.AmbientLightEnergy = 1.0f;
         }
     }
