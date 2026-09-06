@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.8"
+EXPECTED = "1.0.9"
 errors: list[str] = []
 
 
@@ -33,6 +33,8 @@ workflow = text(".github/workflows/build.yml")
 build_release = text("build_release.ps1")
 extras = text("Scripts/ExtrasInstaller.cs")
 ai_feedback = text("Scripts/Main.V108AiFeedback.cs")
+v109 = text("Scripts/Main.V109Experience.cs")
+performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
 detail = text("ai_backend/detail_pipeline.py")
 geometry = text("ai_backend/geometry_ops.py")
@@ -71,13 +73,28 @@ require(f"Ready — Miniscuplter v{EXPECTED}" in release_polish, "editor display
 require("Assembly.GetExecutingAssembly()" in launcher_program and 'form.Text = $"Miniscuplter Launcher v{version}"' in launcher_program, "launcher title is not derived from assembly version")
 require("<OutputType>WinExe</OutputType>" in uproj, "updater still opens a console window")
 
-# v1.0.8: AI jobs must never look like unexplained hangs again.
+# v1.0.8: concept AI jobs must not look like unexplained hangs.
 require("InstallV108AiFeedback" in extras, "v1.0.8 AI feedback installer missing")
 for token in ("AI status:", "Generating Concept…", "Cancel AI Job", "elapsed", "V108ShowAiError", "GenerateConceptAsync"):
     require(token in ai_feedback, f"AI job feedback missing: {token}")
 require("_ai.CancelCurrentRequest()" in ai_feedback, "AI job cancel does not reach AIClient")
 require("File.Exists(_lastEditedImage)" in ai_feedback, "AI success does not verify produced image")
 require("AI generation failed" in ai_feedback and "AcceptDialog" in ai_feedback, "AI failures are not surfaced visibly")
+
+# v1.0.9: central settings, visible viewport, large preview, reference repair and 3D feedback.
+require("InstallV109Experience" in extras, "v1.0.9 experience installer missing")
+for token in ("Settings", "GPU / VRAM", "VRAM allocator ceiling", "QUALITY PRESET", "ACTIVE MODEL ROUTING"):
+    require(token in v109, f"v1.0.9 settings surface missing: {token}")
+require("Viewport Grid v1.0.9" in v109 and "ImmediateMesh" in v109 and "Minor grid" in v109 and "Major grid" in v109, "visible 3D grid missing")
+require("OwnWorld3D = true" in v109 and "sub.Size" in v109, "viewport sizing/world visibility guard missing")
+require("Open Large 2D Preview" in v109 and "FitV109Preview" in v109 and "Open Externally" in v109, "large zoomable 2D preview missing")
+require("Miniscuplter/1.0.9" in v109 and "Wikimedia Commons" in v109 and "Reference search FAILED" in v109, "Wikimedia reference-search 403/visibility repair missing")
+for token in ("3D status:", "Generating 3D Part…", "Cancel 3D Job", "Validating generated STL", "Importing mesh into scene", "elapsed"):
+    require(token in v109, f"2D-to-3D feedback missing: {token}")
+require("_ai.CancelCurrentRequest()" in v109 and "Generate3DRoutedAsync" in v109, "2D-to-3D job is not cancellable/routed")
+require('"mode": "auto"' in performance and '"vram_target_fraction": 0.85' in performance, "GPU performance policy defaults missing")
+require("set_per_process_memory_fraction" in sdxl and "enable_model_cpu_offload" in sdxl and "enable_sequential_cpu_offload" in sdxl, "VRAM-first SDXL tiered policy missing")
+require('mode == "fast"' in sdxl and 'mode == "balanced"' in sdxl, "SDXL performance modes missing")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently
 # run on CPU when NVIDIA hardware exists.
