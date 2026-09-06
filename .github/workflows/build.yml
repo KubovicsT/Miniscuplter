@@ -27,9 +27,12 @@ jobs:
         shell: pwsh
         run: |
           dotnet build Miniscuplter.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Miniscuplter editor C# build failed with exit code $LASTEXITCODE." }
           if ('${{ github.ref_name }}'.StartsWith('v1.0') -or '${{ github.ref_name }}' -eq 'v0.9.9' -or '${{ github.event_name }}' -eq 'pull_request') {
             dotnet build Launcher/Miniscuplter.Launcher.csproj -c Release --no-restore
+            if ($LASTEXITCODE -ne 0) { throw "Launcher C# build failed with exit code $LASTEXITCODE." }
             dotnet build Updater/Miniscuplter.Updater.csproj -c Release --no-restore
+            if ($LASTEXITCODE -ne 0) { throw "Updater C# build failed with exit code $LASTEXITCODE." }
           }
 
   python-syntax:
