@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [ main, 'v*' ]
+    tags: [ 'v*' ]
   pull_request:
   workflow_dispatch:
 
@@ -87,8 +88,10 @@ jobs:
           & $iscc installer/Miniscuplter.iss
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
 
+  # Branch pushes are validation-only. Installable releases are built only from an explicit
+  # final version tag so intermediate commits on a v1.x branch can never publish prematurely.
   full-windows-release:
-    if: startsWith(github.ref_name, 'v1.0') && github.event_name != 'pull_request'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v1.0')
     needs: [dotnet, python-syntax, packaging]
     runs-on: windows-latest
     timeout-minutes: 60
@@ -121,7 +124,7 @@ jobs:
             "dist/installer/Miniscuplter-Setup-$version.exe"
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing full release output: $_" } }
           $manifest = Get-Content 'dist/package/release.json' -Raw | ConvertFrom-Json
-          if ([string]$manifest.version -ne $version) { throw "release.json version $($manifest.version) != branch version $version" }
+          if ([string]$manifest.version -ne $version) { throw "release.json version $($manifest.version) != tag version $version" }
           $expected = ((Get-Content 'dist/Miniscuplter-win-x64.zip.sha256' -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
           $actual = (Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($expected -ne $actual) { throw "Release ZIP SHA-256 mismatch: $actual != $expected" }
@@ -159,7 +162,7 @@ jobs:
           path: dist/release/*
 
   publish-release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/v1.')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v1.')
     needs: [full-windows-release]
     runs-on: ubuntu-latest
     permissions:
