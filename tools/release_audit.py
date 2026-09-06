@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.6"
+EXPECTED = "1.0.7"
 errors: list[str] = []
 
 
@@ -60,9 +60,11 @@ require(f"<Version>{EXPECTED}</Version>" in launcher, "launcher version mismatch
 require(f"<Version>{EXPECTED}</Version>" in uproj, "updater version mismatch")
 require(f"<Version>{EXPECTED}</Version>" in app_project, "Godot C# assembly version mismatch")
 require(f'#define MyAppVersion "{EXPECTED}"' in installer, "installer version mismatch")
-require('application/file_version="1.0.6.0"' in export_presets and 'application/product_version="1.0.6.0"' in export_presets, "Windows exported file version mismatch")
-require('APP_VERSION="1.0.6"' in backend and '"version":APP_VERSION' in backend, "backend version mismatch")
-require("v1.0.6" in launcher_form, "launcher UI version mismatch")
+require('application/file_version="1.0.7.0"' in export_presets and 'application/product_version="1.0.7.0"' in export_presets, "Windows exported file version mismatch")
+require('APP_VERSION="1.0.7"' in backend and '"version":APP_VERSION' in backend, "backend version mismatch")
+require("Assembly.GetExecutingAssembly()" in launcher_program and 'form.Text = $"Miniscuplter Launcher v{version}"' in launcher_program, "launcher window title is not derived from assembly version")
+require("Miniscuplter-Launcher/1.0.7" in updates, "application updater user-agent version mismatch")
+require("<OutputType>WinExe</OutputType>" in uproj, "updater still opens a console window")
 
 # Cross-version editor integration fixes discovered during the v1.0.5 audit.
 require('FindChild("Model", true, false)' in extras and 'modelTab.Name = "Print"' in extras, "Model/Print compatibility repair missing")
@@ -124,6 +126,10 @@ require("_updatePromptShown" in launcher_form and "await ApplyApplicationUpdateA
 require("BuildPreserveSet" in updater and '"AIData"' in updater and '"Runtime"' in updater, "updater does not preserve persistent top-level data")
 require("ParkPreservedNested" in updater and "RestoreParkedNested" in updater and '".venv"' in updater and '".runtime-cache"' in updater, "updater does not preserve expensive nested AI runtime data")
 require("VerifySha256" in updater and "ValidateReleaseManifest" in updater and '"release.json"' in updater, "updater does not independently verify package digest/version")
+require("UpdateCacheCandidates" in updates and "DriveInfo" in updates and "ResolveUpdateCacheAsync" in updates, "launcher update cache is not storage-aware")
+require('stagedUpdater = Path.Combine(updaterRoot' in updates and 'Path.Combine(Path.GetTempPath(), $"Miniscuplter.Updater.' not in updates, "staged updater still forces its executable into Windows TEMP")
+require("GetExpandedSize" in updater and "EnsureFreeSpace" in updater and 'workRoot = Path.Combine(parent, ".MiniscuplterUpdate_' in updater, "updater does not preflight/stage on the installation volume")
+require("MoveManagedTreeToBackup" in updater and "InstallManagedTreeFromStage" in updater and "BackupManagedTree" not in updater, "updater rollback still duplicates the old managed application")
 require("release.json" in build_release and "Miniscuplter-win-x64.zip.sha256" in build_release, "release package metadata/SHA sidecar missing")
 require("publish-release" in workflow and "gh release create" in workflow and "Miniscuplter-win-x64.zip.sha256" in workflow, "CI does not publish stable self-update assets")
 
