@@ -8,8 +8,15 @@ namespace Miniscuplter.Updater;
 internal static class Program
 {
     const long ExtractionSafetyBytes = 128L * 1024 * 1024;
-    static readonly string[] DefaultPreserveTopLevel = { "AIData", "Runtime", "Projects", "PartsLibrary", "Exports", "UserData", "launcher.settings.json" };
-    static readonly string[] PreserveNested = {
+    const int LauncherHealthTimeoutMs = 30000;
+
+    static readonly string[] DefaultPreserveTopLevel =
+    {
+        "AIData", "Runtime", "Projects", "PartsLibrary", "Exports", "UserData", "launcher.settings.json"
+    };
+
+    static readonly string[] PreserveNested =
+    {
         Path.Combine("App", "ai_backend", ".venv"),
         Path.Combine("App", "ai_backend", ".runtime-cache"),
         Path.Combine("App", "ai_backend", "data"),
@@ -18,41 +25,70 @@ internal static class Program
         Path.Combine("ai_backend", "data")
     };
 
+    // Only these paths are owned by the application updater. Unknown top-level files/folders
+    // are left alone instead of being guessed to be disposable application content.
+    static readonly string[] ManagedTopLevel =
+    {
+        "Miniscuplter.Launcher.exe",
+        "Miniscuplter.Updater.exe",
+        "setup_ai_backend.bat",
+        "release.json",
+        "App",
+        "ai_backend"
+    };
+
     static HashSet<string> _preserveTop = new(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
     static string? _nestedDataRoot;
+
+    sealed class UpdateJournal
+    {
+        public int Schema { get; set; } = 1;
+        public string Target { get; set; } = "";
+        public string ExpectedVersion { get; set; } = "";
+        public string Backup { get; set; } = "";
+        public string Parked { get; set; } = "";
+        public string Phase { get; set; } = "prepared";
+        public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
+    }
 
     static int Main(string[] args)
     {
         string? workRoot = null, stage = null, backup = null, parked = null, dataRoot = null;
-        bool parkedNeedsRestore = false;
-        bool managedNeedsRestore = false;
+        string? target = null, restart = null;
+        bool backupComplete = false;
+        bool installStarted = false;
+        bool preservedRestored = false;
+
         try
         {
             var map = Parse(args);
             string package = Path.GetFullPath(Require(map, "package"));
-            string target = Path.GetFullPath(Require(map, "target"));
+            target = Path.GetFullPath(Require(map, "target"));
             dataRoot = Path.GetFullPath(Require(map, "data-root"));
             string expectedVersion = NormalizeVersion(Require(map, "version"));
             string expectedSha256 = RequireSha256(map);
             int waitPid = map.TryGetValue("wait-pid", out var p) && int.TryParse(p, out var pid) ? pid : -1;
-            string restart = map.TryGetValue("restart", out var r) ? Path.GetFullPath(r) : Path.Combine(target, "Miniscuplter.Launcher.exe");
+            restart = map.TryGetValue("restart", out var r) ? Path.GetFullPath(r) : Path.Combine(target, "Miniscuplter.Launcher.exe");
 
             if (!File.Exists(package)) throw new FileNotFoundException("Update package not found", package);
-            if (!VerifySha256(package, expectedSha256)) throw new InvalidDataException("Update package SHA-256 does not match the release digest. No installed files were changed.");
+            if (!VerifySha256(package, expectedSha256))
+                throw new InvalidDataException("Update package SHA-256 does not match the release digest. No installed files were changed.");
+
             Directory.CreateDirectory(target);
             _preserveTop = BuildPreserveSet(target, dataRoot);
 
             if (waitPid > 0) WaitForExit(waitPid);
             EnsureEditorClosed();
 
-            string parent = Directory.GetParent(target)?.FullName ?? throw new InvalidOperationException("The application installation directory has no usable parent for transactional update staging.");
+            string parent = Directory.GetParent(target)?.FullName
+                ?? throw new InvalidOperationException("The application installation directory has no usable parent for transactional update staging.");
+
+            RecoverInterruptedTransactions(parent, target);
+
             long expandedBytes = GetExpandedSize(package);
             long requiredBytes = checked(expandedBytes + Math.Max(ExtractionSafetyBytes, expandedBytes / 10));
             EnsureFreeSpace(parent, requiredBytes, expandedBytes);
 
-            // Keep extraction, rollback and parked runtime beside the installed application.
-            // This keeps them off Windows TEMP and guarantees same-volume directory moves for
-            // the existing app/runtime, so rollback does not duplicate multi-GB persistent data.
             workRoot = Path.Combine(parent, ".MiniscuplterUpdate_" + Guid.NewGuid().ToString("N"));
             stage = Path.Combine(workRoot, "stage");
             backup = Path.Combine(workRoot, "rollback");
@@ -60,51 +96,51 @@ internal static class Program
             Directory.CreateDirectory(stage);
             Directory.CreateDirectory(backup);
             Directory.CreateDirectory(parked);
+            WriteJournal(workRoot, target, expectedVersion, backup, parked, "prepared");
 
             ZipFile.ExtractToDirectory(package, stage, true);
             string source = NormalizePackageRoot(stage);
             ValidateReleasePackage(source, expectedVersion);
+            WriteJournal(workRoot, target, expectedVersion, backup, parked, "extracted");
 
-            parkedNeedsRestore = true;
             ParkPreservedNested(target, parked);
+            WriteJournal(workRoot, target, expectedVersion, backup, parked, "preserved-parked");
 
             try
             {
-                // Move the old managed tree into rollback storage rather than copying it.
-                // Because rollback is on the same volume, this is a metadata operation and
-                // consumes essentially no additional disk space.
                 MoveManagedTreeToBackup(target, backup);
-                managedNeedsRestore = true;
+                backupComplete = true;
+                WriteJournal(workRoot, target, expectedVersion, backup, parked, "backup-complete");
 
-                // The release is already extracted on the same volume. Move its managed files
-                // into place so the extracted copy is consumed instead of duplicated.
+                installStarted = true;
                 InstallManagedTreeFromStage(source, target);
                 ValidateInstalledTree(target, expectedVersion);
+                WriteJournal(workRoot, target, expectedVersion, backup, parked, "new-installed");
 
                 RestoreParkedNested(parked, target);
-                parkedNeedsRestore = false;
-                managedNeedsRestore = false;
+                preservedRestored = true;
+                WriteJournal(workRoot, target, expectedVersion, backup, parked, "preserved-restored");
+
+                VerifyLauncherStartup(restart, target, workRoot);
+                WriteJournal(workRoot, target, expectedVersion, backup, parked, "launcher-healthy");
+
+                backupComplete = false;
+                installStarted = false;
+                preservedRestored = false;
             }
             catch
             {
-                try { RemoveManagedTree(target); } catch { }
-                if (managedNeedsRestore)
-                {
-                    RestoreManagedTreeFromBackup(backup, target);
-                    managedNeedsRestore = false;
-                }
-                if (parkedNeedsRestore)
-                {
-                    RestoreParkedNested(parked, target);
-                    parkedNeedsRestore = false;
-                }
+                RollbackManagedUpdate(target, backup, parked, backupComplete, installStarted, preservedRestored);
+                backupComplete = false;
+                installStarted = false;
+                preservedRestored = false;
+                TryRestartRestoredLauncher(restart, target);
                 throw;
             }
 
+            WriteJournal(workRoot, target, expectedVersion, backup, parked, "committed");
             TryDelete(package);
             TryDeleteDirectory(workRoot);
-            if (File.Exists(restart))
-                Process.Start(new ProcessStartInfo(restart) { WorkingDirectory = Path.GetDirectoryName(restart) ?? target, UseShellExecute = true });
             ScheduleSelfDelete();
             return 0;
         }
@@ -112,49 +148,53 @@ internal static class Program
         {
             try
             {
-                var map = Parse(args);
-                string target = Path.GetFullPath(Require(map, "target"));
-                if (managedNeedsRestore && backup != null)
+                if (target != null && backup != null && parked != null && (backupComplete || HasManagedContent(backup)))
                 {
-                    try { RemoveManagedTree(target); } catch { }
-                    RestoreManagedTreeFromBackup(backup, target);
-                    managedNeedsRestore = false;
+                    RollbackManagedUpdate(target, backup, parked, backupComplete, installStarted, preservedRestored);
+                    TryRestartRestoredLauncher(restart, target);
                 }
-                if (parkedNeedsRestore && parked != null)
+                else if (target != null && parked != null && HasParkedContent(parked))
                 {
                     RestoreParkedNested(parked, target);
-                    parkedNeedsRestore = false;
                 }
             }
             catch { }
 
-            WriteError(dataRoot, ex);
+            WriteError(dataRoot, ex, workRoot);
             if (stage != null) TryDeleteDirectory(stage);
-            // If rollback itself failed, keep workRoot/rollback as recovery material.
+            // Keep rollback/preserved data when the transaction did not fully commit.
             return 1;
         }
     }
 
-    static Dictionary<string,string> Parse(string[] args)
+    static Dictionary<string, string> Parse(string[] args)
     {
-        var map = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < args.Length; i++)
             if (args[i].StartsWith("--") && i + 1 < args.Length) map[args[i][2..]] = args[++i];
         return map;
     }
 
-    static string Require(Dictionary<string,string> map, string key) => map.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : throw new ArgumentException("Missing --" + key);
+    static string Require(Dictionary<string, string> map, string key) =>
+        map.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : throw new ArgumentException("Missing --" + key);
 
-    static string RequireSha256(Dictionary<string,string> map)
+    static string RequireSha256(Dictionary<string, string> map)
     {
         string value = Require(map, "sha256").Trim().ToLowerInvariant();
-        if (value.Length != 64 || !value.All(Uri.IsHexDigit)) throw new ArgumentException("--sha256 must be a 64-character SHA-256 digest");
+        if (value.Length != 64 || !value.All(Uri.IsHexDigit))
+            throw new ArgumentException("--sha256 must be a 64-character SHA-256 digest");
         return value;
     }
 
     static void WaitForExit(int pid)
     {
-        try { using var p = Process.GetProcessById(pid); if (!p.WaitForExit(120000)) throw new TimeoutException("Launcher did not exit in time for update."); }
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            if (!p.WaitForExit(120000)) throw new TimeoutException("Launcher did not exit in time for update.");
+        }
         catch (ArgumentException) { }
     }
 
@@ -163,9 +203,13 @@ internal static class Program
         var running = Process.GetProcessesByName("Miniscuplter").Where(p => p.Id != Environment.ProcessId).ToArray();
         try
         {
-            if (running.Any(p => !p.HasExited)) throw new InvalidOperationException("The Miniscuplter editor is still running. Close it before applying the application update.");
+            if (running.Any(p => !p.HasExited))
+                throw new InvalidOperationException("The Miniscuplter editor is still running. Close it before applying the application update.");
         }
-        finally { foreach (var p in running) p.Dispose(); }
+        finally
+        {
+            foreach (var p in running) p.Dispose();
+        }
     }
 
     static HashSet<string> BuildPreserveSet(string target, string dataRoot)
@@ -175,18 +219,25 @@ internal static class Program
         string rel;
         try { rel = Path.GetRelativePath(target, dataRoot); }
         catch { return result; }
-        if (rel == ".") throw new InvalidOperationException("The configured AI DataRoot cannot be the application installation root during self-update.");
-        if (Path.IsPathRooted(rel) || rel.StartsWith(".." + Path.DirectorySeparatorChar) || rel.Equals("..", StringComparison.Ordinal)) return result;
+        if (rel == ".")
+            throw new InvalidOperationException("The configured AI DataRoot cannot be the application installation root during self-update.");
+        if (Path.IsPathRooted(rel) || rel.StartsWith(".." + Path.DirectorySeparatorChar) || rel.Equals("..", StringComparison.Ordinal))
+            return result;
 
         string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
         if (top.Equals("App", StringComparison.OrdinalIgnoreCase) || top.Equals("ai_backend", StringComparison.OrdinalIgnoreCase))
         {
             string normalized = NormalizeRelative(rel);
-            if (normalized.Equals("App", StringComparison.OrdinalIgnoreCase) || normalized.Equals("App/ai_backend", StringComparison.OrdinalIgnoreCase) || normalized.Equals("ai_backend", StringComparison.OrdinalIgnoreCase))
+            if (normalized.Equals("App", StringComparison.OrdinalIgnoreCase) ||
+                normalized.Equals("App/ai_backend", StringComparison.OrdinalIgnoreCase) ||
+                normalized.Equals("ai_backend", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("The configured AI DataRoot overlaps the managed application/backend root. Move AI data to a dedicated subfolder before self-update.");
             _nestedDataRoot = rel;
         }
-        else if (!string.IsNullOrWhiteSpace(top) && top != ".") result.Add(top);
+        else if (!string.IsNullOrWhiteSpace(top) && top != ".")
+        {
+            result.Add(top);
+        }
         return result;
     }
 
@@ -206,6 +257,7 @@ internal static class Program
     }
 
     static string NormalizeRelative(string value) => value.Replace('\\', '/').Trim('/');
+
     static bool SameOrParent(string parent, string child)
     {
         string p = NormalizeRelative(parent), c = NormalizeRelative(child);
@@ -234,7 +286,8 @@ internal static class Program
 
     static long AvailableBytes(string path)
     {
-        string root = Path.GetPathRoot(Path.GetFullPath(path)) ?? throw new InvalidOperationException("Could not resolve update staging drive.");
+        string root = Path.GetPathRoot(Path.GetFullPath(path))
+            ?? throw new InvalidOperationException("Could not resolve update staging drive.");
         return new DriveInfo(root).AvailableFreeSpace;
     }
 
@@ -254,13 +307,15 @@ internal static class Program
 
     static string NormalizePackageRoot(string stage)
     {
-        string[] dirs = Directory.GetDirectories(stage); string[] files = Directory.GetFiles(stage);
+        string[] dirs = Directory.GetDirectories(stage);
+        string[] files = Directory.GetFiles(stage);
         return files.Length == 0 && dirs.Length == 1 ? dirs[0] : stage;
     }
 
     static void ValidateReleasePackage(string source, string expectedVersion)
     {
-        string[] required = {
+        string[] required =
+        {
             "Miniscuplter.Launcher.exe",
             "Miniscuplter.Updater.exe",
             Path.Combine("App", "Miniscuplter.exe"),
@@ -280,9 +335,13 @@ internal static class Program
 
     static void ValidateInstalledTree(string target, string expectedVersion)
     {
-        string[] required = {
-            "Miniscuplter.Launcher.exe", "Miniscuplter.Updater.exe",
-            Path.Combine("App", "Miniscuplter.exe"), Path.Combine("App", "ai_backend", "app.py"), "release.json"
+        string[] required =
+        {
+            "Miniscuplter.Launcher.exe",
+            "Miniscuplter.Updater.exe",
+            Path.Combine("App", "Miniscuplter.exe"),
+            Path.Combine("App", "ai_backend", "app.py"),
+            "release.json"
         };
         foreach (string relative in required)
         {
@@ -296,7 +355,9 @@ internal static class Program
     static void ValidateReleaseManifest(string path, string expectedVersion)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
-        string version = doc.RootElement.TryGetProperty("version", out var value) ? NormalizeVersion(value.GetString() ?? "") : "";
+        string version = doc.RootElement.TryGetProperty("version", out var value)
+            ? NormalizeVersion(value.GetString() ?? "")
+            : "";
         if (!version.Equals(expectedVersion, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException($"Update package version mismatch. Expected {expectedVersion}, package contains {version}.");
         string asset = doc.RootElement.TryGetProperty("asset", out var ae) ? ae.GetString() ?? "" : "";
@@ -308,6 +369,7 @@ internal static class Program
 
     static void ParkPreservedNested(string target, string parking)
     {
+        Directory.CreateDirectory(parking);
         foreach (string relative in PreservedNestedPaths())
         {
             string source = Path.Combine(target, relative);
@@ -321,6 +383,7 @@ internal static class Program
 
     static void RestoreParkedNested(string parking, string target)
     {
+        if (!Directory.Exists(parking)) return;
         var restored = new List<(string Source, string Destination)>();
         try
         {
@@ -356,36 +419,43 @@ internal static class Program
 
     static void MoveManagedTreeToBackup(string target, string backup)
     {
-        if (!Directory.Exists(target)) return;
+        Directory.CreateDirectory(backup);
         var moved = new List<(string Source, string Destination, bool Directory)>();
         try
         {
-            foreach (string file in Directory.GetFiles(target))
+            foreach (string rel in ManagedTopLevel)
             {
-                string rel = Path.GetFileName(file);
-                if (IsPreservedTopLevel(rel)) continue;
+                if (_preserveTop.Contains(rel)) continue;
+                string source = Path.Combine(target, rel);
                 string destination = Path.Combine(backup, rel);
-                File.Move(file, destination, true);
-                moved.Add((file, destination, false));
-            }
-            foreach (string dir in Directory.GetDirectories(target))
-            {
-                string rel = Path.GetFileName(dir);
-                if (IsPreservedTopLevel(rel)) continue;
-                string destination = Path.Combine(backup, rel);
-                MoveDirectoryWithRetry(dir, destination);
-                moved.Add((dir, destination, true));
+                if (File.Exists(source))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Move(source, destination, true);
+                    moved.Add((source, destination, false));
+                }
+                else if (Directory.Exists(source))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    MoveDirectoryWithRetry(source, destination);
+                    moved.Add((source, destination, true));
+                }
             }
         }
         catch
         {
+            // Best effort immediate restoration. Any item that cannot be restored remains in
+            // rollback storage and the caller's transaction recovery will retry without first
+            // deleting unrelated/unmoved target content.
             for (int i = moved.Count - 1; i >= 0; i--)
             {
                 var item = moved[i];
                 try
                 {
-                    if (item.Directory && Directory.Exists(item.Destination) && !Directory.Exists(item.Source)) Directory.Move(item.Destination, item.Source);
-                    else if (!item.Directory && File.Exists(item.Destination) && !File.Exists(item.Source)) File.Move(item.Destination, item.Source, true);
+                    if (item.Directory && Directory.Exists(item.Destination) && !Directory.Exists(item.Source))
+                        Directory.Move(item.Destination, item.Source);
+                    else if (!item.Directory && File.Exists(item.Destination) && !File.Exists(item.Source))
+                        File.Move(item.Destination, item.Source, true);
                 }
                 catch { }
             }
@@ -397,60 +467,184 @@ internal static class Program
     {
         if (!Directory.Exists(backup)) return;
         Directory.CreateDirectory(target);
-        foreach (string file in Directory.GetFiles(backup))
+        foreach (string rel in ManagedTopLevel)
         {
-            string destination = Path.Combine(target, Path.GetFileName(file));
-            if (File.Exists(destination)) DeleteFileWithRetry(destination);
-            File.Move(file, destination, true);
-        }
-        foreach (string dir in Directory.GetDirectories(backup))
-        {
-            string destination = Path.Combine(target, Path.GetFileName(dir));
-            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
-            MoveDirectoryWithRetry(dir, destination);
+            string source = Path.Combine(backup, rel);
+            string destination = Path.Combine(target, rel);
+            if (File.Exists(source))
+            {
+                if (File.Exists(destination)) DeleteFileWithRetry(destination);
+                File.Move(source, destination, true);
+            }
+            else if (Directory.Exists(source))
+            {
+                if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+                MoveDirectoryWithRetry(source, destination);
+            }
         }
     }
 
     static void InstallManagedTreeFromStage(string source, string target)
     {
         Directory.CreateDirectory(target);
-        foreach (string file in Directory.GetFiles(source))
+        foreach (string rel in ManagedTopLevel)
         {
-            string rel = Path.GetFileName(file);
-            if (IsPreservedTopLevel(rel)) continue;
+            if (_preserveTop.Contains(rel)) continue;
+            string sourcePath = Path.Combine(source, rel);
             string destination = Path.Combine(target, rel);
-            if (File.Exists(destination)) DeleteFileWithRetry(destination);
-            File.Move(file, destination, true);
-        }
-        foreach (string dir in Directory.GetDirectories(source))
-        {
-            string rel = Path.GetFileName(dir);
-            if (IsPreservedTopLevel(rel)) continue;
-            string destination = Path.Combine(target, rel);
-            if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
-            MoveDirectoryWithRetry(dir, destination);
+            if (File.Exists(sourcePath))
+            {
+                if (File.Exists(destination)) DeleteFileWithRetry(destination);
+                File.Move(sourcePath, destination, true);
+            }
+            else if (Directory.Exists(sourcePath))
+            {
+                if (Directory.Exists(destination)) DeleteDirectoryWithRetry(destination);
+                MoveDirectoryWithRetry(sourcePath, destination);
+            }
         }
     }
 
     static void RemoveManagedTree(string target)
     {
         if (!Directory.Exists(target)) return;
-        foreach (string file in Directory.GetFiles(target))
+        foreach (string rel in ManagedTopLevel)
         {
-            string rel = Path.GetFileName(file); if (IsPreservedTopLevel(rel)) continue;
-            DeleteFileWithRetry(file);
-        }
-        foreach (string dir in Directory.GetDirectories(target))
-        {
-            string rel = Path.GetFileName(dir); if (IsPreservedTopLevel(rel)) continue;
-            DeleteDirectoryWithRetry(dir);
+            if (_preserveTop.Contains(rel)) continue;
+            string path = Path.Combine(target, rel);
+            if (File.Exists(path)) DeleteFileWithRetry(path);
+            else if (Directory.Exists(path)) DeleteDirectoryWithRetry(path);
         }
     }
 
-    static bool IsPreservedTopLevel(string rel)
+    static bool HasManagedContent(string backup)
     {
-        string top = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
-        return _preserveTop.Contains(top);
+        if (!Directory.Exists(backup)) return false;
+        return ManagedTopLevel.Any(rel => File.Exists(Path.Combine(backup, rel)) || Directory.Exists(Path.Combine(backup, rel)));
+    }
+
+    static bool HasParkedContent(string parking)
+    {
+        if (!Directory.Exists(parking)) return false;
+        return PreservedNestedPaths().Any(rel => Directory.Exists(Path.Combine(parking, rel)));
+    }
+
+    static void RollbackManagedUpdate(string target, string backup, string parked, bool backupComplete, bool installStarted, bool preservedRestored)
+    {
+        if (preservedRestored)
+        {
+            // Move expensive/runtime data out of the failed new App tree before deleting it.
+            ParkPreservedNested(target, parked);
+        }
+
+        if (backupComplete)
+        {
+            if (installStarted) RemoveManagedTree(target);
+            RestoreManagedTreeFromBackup(backup, target);
+        }
+        else if (HasManagedContent(backup))
+        {
+            // Backup failed part-way. Do NOT remove the target: unmoved old files may still be
+            // the only good copy. Restore only the entries that actually reached rollback.
+            RestoreManagedTreeFromBackup(backup, target);
+        }
+
+        if (HasParkedContent(parked)) RestoreParkedNested(parked, target);
+    }
+
+    static void VerifyLauncherStartup(string launcher, string target, string workRoot)
+    {
+        if (!File.Exists(launcher)) throw new FileNotFoundException("Updated launcher is missing before startup validation.", launcher);
+        string token = Path.Combine(workRoot, "launcher-healthy.token");
+        TryDelete(token);
+
+        var psi = new ProcessStartInfo(launcher)
+        {
+            WorkingDirectory = Path.GetDirectoryName(launcher) ?? target,
+            UseShellExecute = true
+        };
+        psi.ArgumentList.Add("--update-health-token");
+        psi.ArgumentList.Add(token);
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the updated launcher for health validation.");
+
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < LauncherHealthTimeoutMs)
+        {
+            if (File.Exists(token) && new FileInfo(token).Length > 0) return;
+            if (process.HasExited)
+                throw new InvalidOperationException($"The updated launcher exited before confirming startup health (exit code {process.ExitCode}). The previous application will be restored.");
+            Thread.Sleep(250);
+        }
+
+        try { if (!process.HasExited) process.Kill(true); } catch { }
+        throw new TimeoutException("The updated launcher did not confirm a healthy startup within 30 seconds. The previous application will be restored.");
+    }
+
+    static void TryRestartRestoredLauncher(string? launcher, string target)
+    {
+        try
+        {
+            string path = !string.IsNullOrWhiteSpace(launcher) ? launcher : Path.Combine(target, "Miniscuplter.Launcher.exe");
+            if (File.Exists(path))
+                Process.Start(new ProcessStartInfo(path) { WorkingDirectory = Path.GetDirectoryName(path) ?? target, UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    static void RecoverInterruptedTransactions(string parent, string target)
+    {
+        foreach (string work in Directory.EnumerateDirectories(parent, ".MiniscuplterUpdate_*", SearchOption.TopDirectoryOnly))
+        {
+            string journalPath = Path.Combine(work, "update-journal.json");
+            if (!File.Exists(journalPath)) continue;
+            try
+            {
+                var journal = JsonSerializer.Deserialize<UpdateJournal>(File.ReadAllText(journalPath));
+                if (journal == null || !Path.GetFullPath(journal.Target).Equals(Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)) continue;
+                if (journal.Phase.Equals("committed", StringComparison.OrdinalIgnoreCase))
+                {
+                    TryDeleteDirectory(work);
+                    continue;
+                }
+
+                string backup = Path.GetFullPath(journal.Backup);
+                string parked = Path.GetFullPath(journal.Parked);
+                if (HasManagedContent(backup))
+                {
+                    // If a new tree may exist, first save persistent nested runtime data, then
+                    // remove only owned app paths and restore the previous managed tree.
+                    if (Directory.Exists(target))
+                    {
+                        try { ParkPreservedNested(target, parked); } catch { }
+                        try { RemoveManagedTree(target); } catch { }
+                    }
+                    RestoreManagedTreeFromBackup(backup, target);
+                }
+                if (HasParkedContent(parked)) RestoreParkedNested(parked, target);
+                TryDeleteDirectory(work);
+            }
+            catch
+            {
+                // Leave recovery material intact. A later updater run or manual recovery can use it.
+            }
+        }
+    }
+
+    static void WriteJournal(string workRoot, string target, string expectedVersion, string backup, string parked, string phase)
+    {
+        var journal = new UpdateJournal
+        {
+            Target = Path.GetFullPath(target),
+            ExpectedVersion = expectedVersion,
+            Backup = Path.GetFullPath(backup),
+            Parked = Path.GetFullPath(parked),
+            Phase = phase,
+            UpdatedUtc = DateTime.UtcNow
+        };
+        string path = Path.Combine(workRoot, "update-journal.json");
+        string temp = path + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(journal, new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(temp, path, true);
     }
 
     static void MoveDirectoryWithRetry(string source, string destination)
@@ -470,7 +664,12 @@ internal static class Program
         Exception? last = null;
         for (int i = 0; i < 20; i++)
         {
-            try { File.SetAttributes(path, FileAttributes.Normal); File.Delete(path); return; }
+            try
+            {
+                File.SetAttributes(path, FileAttributes.Normal);
+                File.Delete(path);
+                return;
+            }
             catch (IOException ex) { last = ex; Thread.Sleep(250); }
             catch (UnauthorizedAccessException ex) { last = ex; Thread.Sleep(250); }
         }
@@ -489,13 +688,16 @@ internal static class Program
         throw new IOException("Could not remove old application directory " + path, last);
     }
 
-    static void WriteError(string? dataRoot, Exception ex)
+    static void WriteError(string? dataRoot, Exception ex, string? workRoot)
     {
         try
         {
-            string folder = !string.IsNullOrWhiteSpace(dataRoot) ? Path.Combine(dataRoot, "update-cache") : Path.GetTempPath();
+            string folder = !string.IsNullOrWhiteSpace(dataRoot)
+                ? Path.Combine(dataRoot, "update-cache")
+                : Path.GetTempPath();
             Directory.CreateDirectory(folder);
-            File.WriteAllText(Path.Combine(folder, "MiniscuplterUpdater.error.txt"), ex.ToString());
+            string detail = ex + (string.IsNullOrWhiteSpace(workRoot) ? "" : Environment.NewLine + "Recovery work directory: " + workRoot);
+            File.WriteAllText(Path.Combine(folder, "MiniscuplterUpdater.error.txt"), detail);
         }
         catch
         {
@@ -503,8 +705,15 @@ internal static class Program
         }
     }
 
-    static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
-    static void TryDeleteDirectory(string path) { try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { } }
+    static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
+
+    static void TryDeleteDirectory(string path)
+    {
+        try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { }
+    }
 
     static void ScheduleSelfDelete()
     {
@@ -513,7 +722,8 @@ internal static class Program
             string self = Environment.ProcessPath ?? "";
             if (string.IsNullOrWhiteSpace(self) || !File.Exists(self)) return;
             var psi = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true };
-            psi.ArgumentList.Add("/c"); psi.ArgumentList.Add($"ping 127.0.0.1 -n 3 > nul & del /f /q \"{self}\"");
+            psi.ArgumentList.Add("/c");
+            psi.ArgumentList.Add($"ping 127.0.0.1 -n 3 > nul & del /f /q \"{self}\"");
             Process.Start(psi);
         }
         catch { }
