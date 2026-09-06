@@ -13,8 +13,7 @@ public partial class ExtrasInstaller : Node
         // The release-facing tab is called "Model", but all additive version installers from
         // v0.4 onward target the stable internal node name "Print". A base-UI rename in v1.0
         // accidentally changed the node itself to "Model", causing those installers to skip
-        // their controls silently. Restore the compatibility name before any extras install;
-        // InstallV100ReleasePolish() still presents the tab to users as "Model".
+        // their controls silently. Restore the compatibility name before any extras install.
         if (main.FindChild("Print", true, false) == null && main.FindChild("Model", true, false) is Control modelTab)
             modelTab.Name = "Print";
 
@@ -48,6 +47,10 @@ public partial class ExtrasInstaller : Node
         main.InstallV100ReleasePolish();
         main.InstallV108AiFeedback();
         main.InstallV109Experience();
+
+        // v1.0.11 is the first user-facing workflow consolidation. All older additive controls
+        // are installed first so none are lost, then reorganized by task instead of milestone.
+        main.InstallV1011Workflow();
         main.InstallV109ResponsiveLayout();
     }
 }
