@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.12"
+EXPECTED = "1.0.13"
 errors: list[str] = []
 
 
@@ -30,6 +30,7 @@ installer = text("installer/Miniscuplter.iss")
 export_presets = text("export_presets.cfg")
 backend = text("ai_backend/app.py")
 workflow = text(".github/workflows/build.yml")
+core_workflow = text(".github/workflows/core_foundation.yml")
 build_release = text("build_release.ps1")
 extras = text("Scripts/ExtrasInstaller.cs")
 ai_feedback = text("Scripts/Main.V108AiFeedback.cs")
@@ -66,6 +67,14 @@ launcher_program = text("Launcher/Program.cs")
 launcher_form = text("Launcher/LauncherForm.cs")
 runtime_setup_script = text("setup_ai_backend.bat")
 release_polish = text("Scripts/Main.V100Release.cs")
+core_ids = text("Core/Ids.cs")
+core_geometry = text("Core/GeometryTypes.cs")
+core_models = text("Core/ProjectModels.cs")
+core_history = text("Core/ProjectHistory.cs")
+core_codec = text("Core/MeshBinaryCodec.cs")
+core_store = text("Core/ProjectStore.cs")
+core_migration = text("Core/LegacyProjectImporter.cs")
+core_tests = text("Core.Tests/Program.cs")
 
 # Release identity must agree everywhere users/tools can observe it.
 require(f"<Version>{EXPECTED}</Version>" in launcher, "launcher version mismatch")
@@ -140,6 +149,18 @@ require("VerifyLauncherStartup" in updater and "launcher-healthy" in updater and
 require("backupComplete" in updater and "HasManagedContent" in updater and "RollbackManagedUpdate" in updater, "partial-backup rollback distinction missing")
 require("Windows cannot reliably hash" in updates and "await output.FlushAsync" in updates, "update download writer lifetime guard missing")
 require("Miniscuplter-Launcher/{version}" in updates, "launcher update User-Agent is still hard-coded to an old release")
+
+# v1.0.13 Stage-B foundation: stable identity, immutable revisions, transactional history and migration harness.
+require('ProjectReference Include="Core\\Miniscuplter.Core.csproj"' in app_project, "editor does not reference the replacement core project")
+for token in ("ProjectId", "ObjectId", "RevisionId", "CandidateId", "TransactionId"):
+    require(token in core_ids, f"strong domain identity missing: {token}")
+require("CurrentSchemaVersion = 7" in core_models and "ActiveMeshRevisionId" in core_models and "SelectionBinding" in core_models and "RestMeshRevisionId" in core_models, "revision-bound Stage-B domain graph incomplete")
+require("ProjectTransaction" in core_history and "Before" in core_history and "After" in core_history and "ApplyCandidate" in core_history and "CandidateStatus.Conflict" in core_history, "full-state history/stale-result protection missing")
+require('Encoding.ASCII.GetBytes("MSHM")' in core_codec and "Indices" in core_codec and "Flush(flushToDisk: true)" in core_codec, "indexed durable internal mesh codec missing")
+require("ProjectExtension = \".msculpt2\"" in core_store and "RecoveryCheckpointLimit" in core_store and "VerifyDurableAssetsAsync" in core_store and "SHA-256" in core_store, "atomic versioned project store incomplete")
+require("schema is < 1 or > 6" in core_migration and "legacy_manifest.json" in core_migration and "migration_log.json" in core_migration and "LegacyStlReader" in core_migration, "legacy schema 1–6 migration harness incomplete")
+require("stale candidate" in core_tests.lower() and "legacy path traversal" in core_tests.lower() and "core foundation tests passed" in core_tests, "Stage-B core regression tests incomplete")
+require("Core.Tests/Miniscuplter.Core.Tests.csproj" in core_workflow and "dotnet run" in core_workflow, "Stage-B foundation tests are not wired into CI")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")

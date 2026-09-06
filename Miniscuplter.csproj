@@ -3,10 +3,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
-    <Version>1.0.12</Version>
+    <Version>1.0.13</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Launcher\**\*.cs" />
     <Compile Remove="Updater\**\*.cs" />
+    <Compile Remove="Core\**\*.cs" />
+    <Compile Remove="Core.Tests\**\*.cs" />
+    <ProjectReference Include="Core\Miniscuplter.Core.csproj" />
   </ItemGroup>
 </Project>
