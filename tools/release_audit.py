@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.9"
+EXPECTED = "1.0.10"
 errors: list[str] = []
 
 
@@ -34,6 +34,7 @@ build_release = text("build_release.ps1")
 extras = text("Scripts/ExtrasInstaller.cs")
 ai_feedback = text("Scripts/Main.V108AiFeedback.cs")
 v109 = text("Scripts/Main.V109Experience.cs")
+responsive = text("Scripts/Main.V109Responsive.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
 detail = text("ai_backend/detail_pipeline.py")
@@ -95,6 +96,13 @@ require("_ai.CancelCurrentRequest()" in v109 and "Generate3DRoutedAsync" in v109
 require('"mode": "auto"' in performance and '"vram_target_fraction": 0.85' in performance, "GPU performance policy defaults missing")
 require("set_per_process_memory_fraction" in sdxl and "enable_model_cpu_offload" in sdxl and "enable_sequential_cpu_offload" in sdxl, "VRAM-first SDXL tiered policy missing")
 require('mode == "fast"' in sdxl and 'mode == "balanced"' in sdxl, "SDXL performance modes missing")
+
+# v1.0.10: responsive editor layout keeps the viewport and lower AI controls reachable.
+require("InstallV109ResponsiveLayout" in extras, "responsive v1.0.10 layout installer missing")
+for token in ("WrapV109MainTabsForScrolling", "SyncV109ResponsiveSplit", "SyncV109SubViewportToHost", "Resized +=", "ScrollContainer"):
+    require(token in responsive, f"responsive layout guard missing: {token}")
+require("_aiPreview.CustomMinimumSize" in responsive and "_prompt.CustomMinimumSize" in responsive, "AI panel fixed-size pressure was not reduced")
+require("_v109ResponsiveSubViewport.Size = target" in responsive, "SubViewport does not resize with its host")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently
 # run on CPU when NVIDIA hardware exists.
