@@ -48,5 +48,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV100ReleasePolish();
         main.InstallV108AiFeedback();
         main.InstallV109Experience();
+        main.InstallV109ResponsiveLayout();
     }
 }
