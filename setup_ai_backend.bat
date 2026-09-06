@@ -34,7 +34,32 @@ if not defined PYTHON_CMD (
   exit /b 2
 )
 
+rem The virtual environment is disposable; models, projects and the persistent runtime
+rem download cache live outside it. A field failure showed both torch and pip metadata present
+rem while package files were physically missing. Probe the venv interpreter and pip before
+rem invoking pip. If either is unusable, rebuild only .venv and keep all expensive caches/data.
+set "REBUILD_VENV=0"
+if exist .venv (
+  if not exist .venv\Scripts\python.exe set "REBUILD_VENV=1"
+  if "!REBUILD_VENV!"=="0" (
+    .venv\Scripts\python.exe -c "import sys; raise SystemExit(0 if sys.version_info[:2]==(3,10) else 1)" >nul 2>nul
+    if errorlevel 1 set "REBUILD_VENV=1"
+  )
+  if "!REBUILD_VENV!"=="0" (
+    .venv\Scripts\python.exe -m pip --version >nul 2>nul
+    if errorlevel 1 set "REBUILD_VENV=1"
+  )
+)
+if "!REBUILD_VENV!"=="1" (
+  echo Existing Python environment is incomplete or corrupt. Rebuilding .venv only; AI models and persistent download caches are preserved.
+  rmdir /s /q .venv >nul 2>nul
+  if exist .venv (
+    echo ERROR: Could not remove the broken .venv. Close Miniscuplter/editor Python processes and run Repair AI Runtime again.
+    exit /b 1
+  )
+)
 if not exist .venv (
+  echo Creating clean Python 3.10 virtual environment...
   %PYTHON_CMD% -m venv .venv
   if errorlevel 1 exit /b 1
 )
