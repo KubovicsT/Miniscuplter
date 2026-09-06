@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.11"
+EXPECTED = "1.0.12"
 errors: list[str] = []
 
 
@@ -36,10 +36,12 @@ ai_feedback = text("Scripts/Main.V108AiFeedback.cs")
 v109 = text("Scripts/Main.V109Experience.cs")
 responsive = text("Scripts/Main.V109Responsive.cs")
 workflow1011 = text("Scripts/Main.V1011Workflow.cs")
+safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
 detail = text("ai_backend/detail_pipeline.py")
 geometry = text("ai_backend/geometry_ops.py")
+geometry_tests = text("tools/geometry_regression_tests.py")
 manager = text("ai_backend/model_manager.py")
 ext = text("ai_backend/model_manager_v105.py")
 downloads = text("ai_backend/model_downloads.py")
@@ -51,6 +53,7 @@ modern = text("ai_backend/modern_image.py")
 sdxl = text("ai_backend/sdxl_image.py")
 sd21 = text("ai_backend/local_image.py")
 partcrafter = text("ai_backend/partcrafter_shape.py")
+triposr = text("ai_backend/triposr_shape.py")
 updater = text("Updater/Program.cs")
 updates = text("Launcher/ApplicationUpdateService.cs")
 backend_launcher = text("Scripts/BackendLauncher.cs")
@@ -69,7 +72,11 @@ require(f"<Version>{EXPECTED}</Version>" in launcher, "launcher version mismatch
 require(f"<Version>{EXPECTED}</Version>" in uproj, "updater version mismatch")
 require(f"<Version>{EXPECTED}</Version>" in app_project, "Godot C# assembly version mismatch")
 require(f'#define MyAppVersion "{EXPECTED}"' in installer, "installer version mismatch")
-require(f'application/file_version="{EXPECTED}.0"' in export_presets and f'application/product_version="{EXPECTED}.0"' in export_presets, "Windows exported file version mismatch")
+require(
+    f'application/file_version="{EXPECTED}.0"' in export_presets and
+    f'application/product_version="{EXPECTED}.0"' in export_presets,
+    "Windows exported file version mismatch",
+)
 require(f'APP_VERSION="{EXPECTED}"' in backend and '"version":APP_VERSION' in backend, "backend version mismatch")
 require(f"Ready — Miniscuplter v{EXPECTED}" in release_polish, "editor displayed version mismatch")
 require("Assembly.GetExecutingAssembly()" in launcher_program and 'form.Text = $"Miniscuplter Launcher v{version}"' in launcher_program, "launcher title is not derived from assembly version")
@@ -117,8 +124,24 @@ require("RepairV1011ViewportAtLaunch" in workflow1011 and "FinishV1011ViewportRe
 require("plane.Visible = false" in workflow1011 and 'Name = "Viewport Grid"' in workflow1011 and "_camera.Current = false" in workflow1011 and "_camera.Current = true" in workflow1011, "grid launch visibility hardening incomplete")
 require("InstallV1011Workflow();" in extras and extras.index("InstallV1011Workflow();") < extras.index("InstallV109ResponsiveLayout();"), "workflow must be built before responsive tab wrapping")
 
-# SDXL/runtime repair must identify the phase, self-heal package corruption and never silently
-# run on CPU when NVIDIA hardware exists.
+# v1.0.12 Stage-A bridge: delivery, guarded persistence/export and real geometry correctness.
+require("InstallV1012SafetyBridge" in extras and "InstallV1012SafetyBridge();" in extras, "v1.0.12 safety bridge installer missing")
+require(extras.index("InstallV109ResponsiveLayout();") < extras.index("InstallV1012SafetyBridge();"), "v1.0.12 safety bridge must patch the final composed UI")
+for token in ("OpenV099SafeExportDialog", "SafeV095SaveProject", "V099ProjectRoot", "_v055AutosaveTimer.Stop"):
+    require(token in safety1012, f"guarded export/autosave bridge missing: {token}")
+require("_vertices_are_finite" in geometry and "np.isfinite" in geometry and "_analysis_mesh" in geometry and "merge_vertices" in geometry, "geometry finite/topology normalization fix missing")
+require("source_vertices" in geometry and "topology_representation" in geometry, "geometry analysis does not expose normalized-topology semantics")
+require("rtree>=1.3.0,<2.0" in requirements, "ray/thickness spatial-index dependency is not packaged")
+for token in ("closed_cube.stl", 'report["open_edges"] == 0', "voxel_remesh", "thickness_map"):
+    require(token in geometry_tests, f"real geometry regression coverage missing: {token}")
+require("_code_dir()" in triposr and "from tsr.utils" in triposr and "mesh = meshes[0]" in triposr and "meshes[0][0]" not in triposr, "TripoSR adapter source/output contract fix missing")
+require("ManagedTopLevel" in updater and "UpdateJournal" in updater and "RecoverInterruptedTransactions" in updater, "updater ownership/journal recovery missing")
+require("VerifyLauncherStartup" in updater and "launcher-healthy" in updater and "--update-health-token" in launcher_program, "post-update launcher health acknowledgement missing")
+require("backupComplete" in updater and "HasManagedContent" in updater and "RollbackManagedUpdate" in updater, "partial-backup rollback distinction missing")
+require("Windows cannot reliably hash" in updates and "await output.FlushAsync" in updates, "update download writer lifetime guard missing")
+require("Miniscuplter-Launcher/{version}" in updates, "launcher update User-Agent is still hard-coded to an old release")
+
+# SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
 require("SDXL model loading failed before inference" in sdxl, "SDXL model-load diagnostics missing")
 require("SDXL inference failed after the model load stage" in sdxl, "SDXL inference diagnostics missing")
@@ -171,16 +194,20 @@ require("GetExpandedSize" in updater and "EnsureFreeSpace" in updater and "MoveM
 require("VerifySha256" in updater and "ValidateReleaseManifest" in updater, "updater independent package verification missing")
 require("release.json" in build_release and "Miniscuplter-win-x64.zip.sha256" in build_release, "release package metadata/SHA sidecar missing")
 
-# Intermediate version-branch commits are validation-only. A final explicit tag is the sole release trigger.
+# Intermediate version-branch commits are validation-only. A final explicit v1.x tag is the sole release trigger.
 require("tags: [ 'v*' ]" in workflow, "version-tag workflow trigger missing")
-require("refs/tags/v1.0" in workflow and "full-windows-release" in workflow, "full Windows release is not tag-gated")
+require("refs/tags/v1." in workflow and "full-windows-release" in workflow, "full Windows release is not v1.x tag-gated")
 require("refs/tags/v1." in workflow and "publish-release" in workflow and "gh release create" in workflow, "GitHub Release publication is not tag-gated")
 require("refs/heads/v1." not in workflow, "intermediate version-branch pushes can still publish releases")
+require("geometry_regression_tests.py" in workflow, "real geometry regression tests are not in CI")
 
 require('"manifest.json"' in partcrafter and 'data.get("parts")' in partcrafter and "mesh.area" in partcrafter, "PartCrafter output contract/guard missing")
 
 # No unfinished implementation markers in release code.
-for path in [p for p in ROOT.rglob("*") if p.is_file() and p.resolve() != SELF and p.suffix.lower() in {".cs", ".py", ".ps1", ".bat", ".iss"} and ".git" not in p.parts]:
+for path in [
+    p for p in ROOT.rglob("*")
+    if p.is_file() and p.resolve() != SELF and p.suffix.lower() in {".cs", ".py", ".ps1", ".bat", ".iss"} and ".git" not in p.parts
+]:
     for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
         if re.search(r"\b(TODO|FIXME|HACK|PLACEHOLDER)\b", line, re.I):
             errors.append(f"unfinished marker {path.relative_to(ROOT)}:{number}: {line.strip()[:100]}")
