@@ -95,9 +95,10 @@ public partial class Main
 
     void ShowAiPreview(string path)
     {
-        if (_aiPreview == null || !File.Exists(path)) return;
+        if (!File.Exists(path)) return;
         var image = Image.LoadFromFile(path); if (image == null || image.IsEmpty()) return;
-        _aiPreview.Texture = ImageTexture.CreateFromImage(image);
+        if (_aiPreview != null) _aiPreview.Texture = ImageTexture.CreateFromImage(image);
+        SyncV1015CanvasSource(path);
     }
 
     sealed class ProjectDto
