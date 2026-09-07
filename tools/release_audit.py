@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.13"
+EXPECTED = "1.0.14"
 errors: list[str] = []
 
 
@@ -75,6 +75,7 @@ core_codec = text("Core/MeshBinaryCodec.cs")
 core_store = text("Core/ProjectStore.cs")
 core_migration = text("Core/LegacyProjectImporter.cs")
 core_tests = text("Core.Tests/Program.cs")
+core_logic_tests = text("tools/core_logic_tests.py")
 
 # Release identity must agree everywhere users/tools can observe it.
 require(f"<Version>{EXPECTED}</Version>" in launcher, "launcher version mismatch")
@@ -162,6 +163,15 @@ require("schema is < 1 or > 6" in core_migration and "legacy_manifest.json" in c
 require("stale candidate" in core_tests.lower() and "legacy path traversal" in core_tests.lower() and "core foundation tests passed" in core_tests, "Stage-B core regression tests incomplete")
 require("Core.Tests/Miniscuplter.Core.Tests.csproj" in core_workflow and "dotnet run" in core_workflow, "Stage-B foundation tests are not wired into CI")
 
+# v1.0.14: modern 2D models must respect low-VRAM policy instead of relying on whole-model offload.
+for token in ("_offload_strategy", "enable_sequential_cpu_offload", "set_per_process_memory_fraction", "low_cpu_mem_usage", "_generation_size", "force_safe", "retry=True"):
+    require(token in modern, f"modern image low-VRAM guard missing: {token}")
+require('component == "z-image-turbo"' in modern and "vram_mb <= 10240" in modern and 'return "sequential"' in modern, "Z-Image 8-10GB route is not forced to sequential offload")
+require("max_sequence_length" in modern and "size = min(size, 768)" in modern, "Z-Image 8GB activation/RAM guard missing")
+require("ran out of memory even in Miniscuplter low-VRAM mode" in modern, "modern image OOM retry diagnostics missing")
+require("Z-Image 8GB must use sequential offload" in core_logic_tests and "Z-Image OOM retry canvas guard" in core_logic_tests, "Z-Image low-VRAM routing is not regression-tested")
+require("sequential CPU offload" in caps and "16GB system RAM is tight" in caps, "Z-Image hardware limitation is not surfaced in capabilities")
+
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
 require("SDXL model loading failed before inference" in sdxl, "SDXL model-load diagnostics missing")
@@ -185,7 +195,7 @@ for cid in ("z-image-turbo", "qwen-image-2512", "qwen-image-edit", "sf3d", "spar
 for provider in ("zimage", "qwen", "qwen-edit", "sf3d", "spar3d", "hunyuan-mini", "trellis2", "partpacker"):
     require(provider in router, f"router missing provider {provider}")
 require("role_options" in router and "hardware-aware auto route" in router, "hardware-aware routing missing")
-require("enable_model_cpu_offload" in modern, "modern image providers lack offload")
+require("enable_model_cpu_offload" in modern and "enable_sequential_cpu_offload" in modern, "modern image providers lack tiered offload")
 require("--low-vram-mode" in special and "MINISCULPTER_TRELLIS2_COMMAND" in special, "specialist low-VRAM/external-runtime integration missing")
 require("_swap_staged" in manager and "_swap_staged" in ext, "transactional model staging missing")
 require('hf_xet==1.6.0' in requirements, "Hugging Face Xet transport is not pinned")
