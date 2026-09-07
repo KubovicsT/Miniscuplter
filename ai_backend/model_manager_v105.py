@@ -217,7 +217,7 @@ def install_component(component_id: str, update: bool = False) -> dict[str, Any]
             replacements.append((target, final))
         elif component_id == "hunyuan2mini":
             code = stage / "tools" / "Hunyuan3D-2"; final_code = mm.TOOLS_ROOT / "Hunyuan3D-2"
-            _ensure_clone(spec["code_url"], code); mm._pip_install(["PyYAML>=6.0", "tqdm>=4.66"])
+            _ensure_clone(spec["code_url"], code); mm._pip_install(["PyYAML>=6.0", "tqdm>=4.66", "opencv-python-headless>=4.10.0,<5.0", "pymeshlab>=2023.12,<2026.0", "pygltflib>=1.16.0,<2.0", "xatlas>=0.0.9,<1.0", "ninja>=1.11.0", "pybind11>=2.13.0"])
             target = stage / "models" / "Hunyuan3D-2mini"; final = mm.MODELS_ROOT / "Hunyuan3D-2mini"
             download_verified(spec["repo_id"], target, hf_rev, PATTERNS[component_id]); tool_rev = mm._git_local_revision(code); replacements.extend([(code, final_code), (target, final)])
         elif component_id in {"sf3d", "spar3d"}:

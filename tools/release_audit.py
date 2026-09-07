@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.14"
+EXPECTED = "1.0.15"
 errors: list[str] = []
 
 
@@ -37,6 +37,7 @@ ai_feedback = text("Scripts/Main.V108AiFeedback.cs")
 v109 = text("Scripts/Main.V109Experience.cs")
 responsive = text("Scripts/Main.V109Responsive.cs")
 workflow1011 = text("Scripts/Main.V1011Workflow.cs")
+thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")
 safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
@@ -171,6 +172,20 @@ require("max_sequence_length" in modern and "size = min(size, 768)" in modern, "
 require("ran out of memory even in Miniscuplter low-VRAM mode" in modern, "modern image OOM retry diagnostics missing")
 require("Z-Image 8GB must use sequential offload" in core_logic_tests and "Z-Image OOM retry canvas guard" in core_logic_tests, "Z-Image low-VRAM routing is not regression-tested")
 require("sequential CPU offload" in caps and "16GB system RAM is tight" in caps, "Z-Image hardware limitation is not surfaced in capabilities")
+
+
+# v1.0.15: the Stage-C thin slice must be usable rather than merely present as legacy controls.
+require("InstallV1015ThinSlice();" in extras and extras.index("InstallV1013CancellationRecovery();") < extras.index("InstallV1015ThinSlice();"), "v1.0.15 thin-slice UX must install last")
+for token in ("V1015ImageCanvas", "AI Edit Selected 2D Region", "AI Edit Whole 2D Image", "SelectionPixels", "CurrentV1015ImageSource", "SetStartingImage(cached)"):
+    require(token in thin_slice1015, f"v1.0.15 2D canvas workflow missing: {token}")
+require("CaptureView();" not in thin_slice1015, "v1.0.15 2D image editing still depends on a 3D viewport capture")
+for token in ("REFERENCE IMAGES", "Search Reference Images", "Use as 2D Source", "thumburl", "descriptionurl"):
+    require(token in thin_slice1015, f"v1.0.15 visible reference browser missing: {token}")
+require("Mesh.PrimitiveType.Triangles" in thin_slice1015 and "AddV1015GridBars" in thin_slice1015 and "Grid ground" in thin_slice1015, "v1.0.15 driver-robust triangle floor grid missing")
+for dep in ("opencv-python-headless", "pymeshlab", "pygltflib", "xatlas", "ninja", "pybind11"):
+    require(dep in requirements, f"Hunyuan3D 2mini runtime dependency missing: {dep}")
+require("_require_hunyuan_mini_runtime" in special and "Repair AI Runtime" in special, "Hunyuan 2mini runtime preflight/repair guidance missing")
+require('(req.provider or "auto").lower()!="auto"' in backend and "automatic fallback to" in backend and "fallback_from" in backend, "Auto 3D provider fallback is missing or can hide explicit provider failures")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")

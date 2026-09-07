@@ -34,6 +34,6 @@ public partial class Main
             }
         }
 
-        SetStatus("Ready — Miniscuplter v1.0.14");
+        SetStatus("Ready — Miniscuplter v1.0.15");
     }
 }

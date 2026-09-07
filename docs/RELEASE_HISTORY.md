@@ -28,6 +28,9 @@ Each release branch is preserved as a historical snapshot. Documentation-only co
 | `v1.0.10` | Responsive editor layout | Resizable 3D viewport and scrollable tool panels so dynamic AI feedback cannot push controls out of view |
 | `v1.0.11` | Workflow consolidation | Four task tabs, explicit 2D baseline approval, sculpting in 3D workflow, launch grid hardening |
 | `v1.0.12` | Takeover safety bridge | Updater transaction journal/launch validation, guarded autosave/export, real geometry fixes/tests, TripoSR adapter repair |
+| `v1.0.13` | Stage-B foundation bridge | Stable IDs, immutable mesh revisions, indexed .msculpt2 project copies, legacy migration, cancellation backend recovery |
+| `v1.0.14` | Z-Image low-VRAM recovery | Sequential offload and safe retry profiles for 8 GB-class GPUs |
+| `v1.0.15` | Reliable creative thin slice | Real center 2D edit canvas, visible reference images, Hunyuan runtime repair/fallback, robust triangle viewport grid |
 
 ## v1.0.6 integration fixes
 
