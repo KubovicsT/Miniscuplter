@@ -1,0 +1,75 @@
+name: v1016-finalize
+
+on:
+  push:
+    branches: [v1.0.16]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, '[v1016-finalized]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0.16
+          fetch-depth: 0
+      - name: Finalize version metadata and release audit
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new, required=True):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              if old not in s:
+                  if required:
+                      raise SystemExit(f'missing expected text in {path}: {old!r}')
+                  return
+              p.write_text(s.replace(old, new), encoding='utf-8')
+
+          for path in ['Miniscuplter.csproj', 'Launcher/Miniscuplter.Launcher.csproj', 'Updater/Miniscuplter.Updater.csproj']:
+              replace(path, '<Version>1.0.15</Version>', '<Version>1.0.16</Version>')
+          replace('Scripts/Main.V100Release.cs', 'Ready — Miniscuplter v1.0.15', 'Ready — Miniscuplter v1.0.16')
+          replace('installer/Miniscuplter.iss', '#define MyAppVersion "1.0.15"', '#define MyAppVersion "1.0.16"')
+          replace('export_presets.cfg', 'application/file_version="1.0.15.0"', 'application/file_version="1.0.16.0"')
+          replace('export_presets.cfg', 'application/product_version="1.0.15.0"', 'application/product_version="1.0.16.0"')
+          replace('ai_backend/app.py', 'APP_VERSION="1.0.15"', 'APP_VERSION="1.0.16"')
+          replace('tools/release_audit.py', 'EXPECTED = "1.0.15"', 'EXPECTED = "1.0.16"')
+
+          audit = Path('tools/release_audit.py')
+          a = audit.read_text(encoding='utf-8')
+          anchor = 'thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")\n'
+          if 'references1016 = text("Scripts/Main.V1016References.cs")' not in a:
+              if anchor not in a:
+                  raise SystemExit('release audit variable insertion anchor missing')
+              a = a.replace(anchor, anchor + 'references1016 = text("Scripts/Main.V1016References.cs")\n')
+
+          checks = '''\n# v1.0.16: reference discovery must search more than Wikimedia while preserving the local 2D workflow.\nrequire("InstallV1016ReferenceSearch();" in extras and extras.index("InstallV1015ThinSlice();") < extras.index("InstallV1016ReferenceSearch();"), "v1.0.16 multi-source reference browser must replace the v1.0.15 surface last")\nfor token in ("api.openverse.org/v1/images/", "All Sources (Openverse + Wikimedia)", "SearchV1016OpenverseAsync", "SearchV1016WikimediaAsync", "RunV1016ProviderAsync", "Task.WhenAll", "Partial failure"):\n    require(token in references1016, f"v1.0.16 multi-source reference search missing: {token}")\nfor token in ("mature=false", "watermarked", "Source:", "License:", "Open Source", "Use as 2D Source"):\n    require(token in references1016, f"v1.0.16 reference-result safety/attribution surface missing: {token}")\nrequire("SetStartingImage(cached)" in references1016 and "SyncV1015CanvasSource(current)" in references1016, "v1.0.16 references do not feed the established 2D source workflow")\nrequire("ContentLength" in references1016 and "maxBytes" in references1016 and "Image.LoadFromFile(path)" in references1016, "v1.0.16 remote-image size/decoding guards missing")\n'''
+          marker = '# SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.\n'
+          if '# v1.0.16: reference discovery must search more than Wikimedia' not in a:
+              if marker not in a:
+                  raise SystemExit('release audit check insertion anchor missing')
+              a = a.replace(marker, checks + '\n' + marker)
+          audit.write_text(a, encoding='utf-8')
+
+          hist = Path('docs/RELEASE_HISTORY.md')
+          h = hist.read_text(encoding='utf-8')
+          row = '| `v1.0.15` | Reliable creative thin slice | Real center 2D edit canvas, visible reference images, Hunyuan runtime repair/fallback, robust triangle viewport grid |\n'
+          addition = '| `v1.0.16` | Multi-source reference search | Openverse multi-collection search plus Wikimedia fallback, source/license attribution, partial-provider failure recovery |\n'
+          if '`v1.0.16` | Multi-source reference search' not in h:
+              if row not in h:
+                  raise SystemExit('release history insertion anchor missing')
+              h = h.replace(row, row + addition)
+              hist.write_text(h, encoding='utf-8')
+
+      - name: Commit finalized release source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Miniscuplter.csproj Launcher/Miniscuplter.Launcher.csproj Updater/Miniscuplter.Updater.csproj Scripts/Main.V100Release.cs installer/Miniscuplter.iss export_presets.cfg ai_backend/app.py tools/release_audit.py docs/RELEASE_HISTORY.md
+          git commit -m "Finalize v1.0.16 multi-source reference release [v1016-finalized]"
+          git push origin HEAD:v1.0.16
