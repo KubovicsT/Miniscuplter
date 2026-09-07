@@ -1,0 +1,73 @@
+name: v1015-finalize
+
+on:
+  push:
+    branches: [v1.0.15]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, '[v1015-finalized]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0.15
+          fetch-depth: 0
+      - name: Finalize version metadata and release audit
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new, required=True):
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              if old not in s:
+                  if required: raise SystemExit(f'missing expected text in {path}: {old!r}')
+                  return
+              p.write_text(s.replace(old,new),encoding='utf-8')
+
+          for path in ['Miniscuplter.csproj','Launcher/Miniscuplter.Launcher.csproj','Updater/Miniscuplter.Updater.csproj']:
+              replace(path,'<Version>1.0.14</Version>','<Version>1.0.15</Version>')
+          replace('Scripts/Main.V100Release.cs','Ready — Miniscuplter v1.0.14','Ready — Miniscuplter v1.0.15')
+          replace('installer/Miniscuplter.iss','#define MyAppVersion "1.0.14"','#define MyAppVersion "1.0.15"')
+          replace('export_presets.cfg','application/file_version="1.0.14.0"','application/file_version="1.0.15.0"')
+          replace('export_presets.cfg','application/product_version="1.0.14.0"','application/product_version="1.0.15.0"')
+          replace('tools/release_audit.py','EXPECTED = "1.0.14"','EXPECTED = "1.0.15"')
+
+          # A component install must leave Hunyuan 2mini importable even if the shared runtime
+          # predates this release; Repair AI Runtime also installs the same pinned requirements.
+          replace('ai_backend/model_manager_v105.py',
+              'mm._pip_install(["PyYAML>=6.0", "tqdm>=4.66"])',
+              'mm._pip_install(["PyYAML>=6.0", "tqdm>=4.66", "opencv-python-headless>=4.10.0,<5.0", "pymeshlab>=2023.12,<2026.0", "pygltflib>=1.16.0,<2.0", "xatlas>=0.0.9,<1.0", "ninja>=1.11.0", "pybind11>=2.13.0"])')
+
+          audit=Path('tools/release_audit.py')
+          a=audit.read_text(encoding='utf-8')
+          anchor='workflow1011 = text("Scripts/Main.V1011Workflow.cs")\n'
+          if 'thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")' not in a:
+              if anchor not in a: raise SystemExit('release audit variable insertion anchor missing')
+              a=a.replace(anchor,anchor+'thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")\n')
+          checks='''\n# v1.0.15: the Stage-C thin slice must be usable rather than merely present as legacy controls.\nrequire("InstallV1015ThinSlice();" in extras and extras.index("InstallV1013CancellationRecovery();") < extras.index("InstallV1015ThinSlice();"), "v1.0.15 thin-slice UX must install last")\nfor token in ("V1015ImageCanvas", "AI Edit Selected 2D Region", "AI Edit Whole 2D Image", "SelectionPixels", "CurrentV1015ImageSource", "SetStartingImage(cached)"):\n    require(token in thin_slice1015, f"v1.0.15 2D canvas workflow missing: {token}")\nrequire("CaptureView();" not in thin_slice1015, "v1.0.15 2D image editing still depends on a 3D viewport capture")\nfor token in ("REFERENCE IMAGES", "Search Reference Images", "Use as 2D Source", "thumburl", "descriptionurl"):\n    require(token in thin_slice1015, f"v1.0.15 visible reference browser missing: {token}")\nrequire("Mesh.PrimitiveType.Triangles" in thin_slice1015 and "AddV1015GridBars" in thin_slice1015 and "Grid ground" in thin_slice1015, "v1.0.15 driver-robust triangle floor grid missing")\nfor dep in ("opencv-python-headless", "pymeshlab", "pygltflib", "xatlas", "ninja", "pybind11"):\n    require(dep in requirements, f"Hunyuan3D 2mini runtime dependency missing: {dep}")\nrequire("_require_hunyuan_mini_runtime" in special and "Repair AI Runtime" in special, "Hunyuan 2mini runtime preflight/repair guidance missing")\nrequire('(req.provider or "auto").lower()!="auto"' in backend and "automatic fallback to" in backend and "fallback_from" in backend, "Auto 3D provider fallback is missing or can hide explicit provider failures")\n'''
+          marker='# SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.\n'
+          if '# v1.0.15: the Stage-C thin slice' not in a:
+              if marker not in a: raise SystemExit('release audit check insertion anchor missing')
+              a=a.replace(marker,checks+'\n'+marker)
+          audit.write_text(a,encoding='utf-8')
+
+          # Keep the release history useful without rewriting the historical narrative.
+          hist=Path('docs/RELEASE_HISTORY.md'); h=hist.read_text(encoding='utf-8')
+          row='| `v1.0.12` | Takeover safety bridge | Updater transaction journal/launch validation, guarded autosave/export, real geometry fixes/tests, TripoSR adapter repair |\n'
+          additions='| `v1.0.13` | Stage-B foundation bridge | Stable IDs, immutable mesh revisions, indexed .msculpt2 project copies, legacy migration, cancellation backend recovery |\n| `v1.0.14` | Z-Image low-VRAM recovery | Sequential offload and safe retry profiles for 8 GB-class GPUs |\n| `v1.0.15` | Reliable creative thin slice | Real center 2D edit canvas, visible reference images, Hunyuan runtime repair/fallback, robust triangle viewport grid |\n'
+          if '`v1.0.15` | Reliable creative thin slice' not in h:
+              if row not in h: raise SystemExit('release history insertion anchor missing')
+              h=h.replace(row,row+additions)
+              hist.write_text(h,encoding='utf-8')
+      - name: Commit finalized release source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Miniscuplter.csproj Launcher/Miniscuplter.Launcher.csproj Updater/Miniscuplter.Updater.csproj Scripts/Main.V100Release.cs installer/Miniscuplter.iss export_presets.cfg tools/release_audit.py ai_backend/model_manager_v105.py docs/RELEASE_HISTORY.md
+          git commit -m "Finalize v1.0.15 release metadata and regression audit [v1015-finalized]"
+          git push origin HEAD:v1.0.15
