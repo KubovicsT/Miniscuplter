@@ -52,7 +52,9 @@ public partial class Main
         if (string.IsNullOrWhiteSpace(data))
         {
             string exe = OS.GetExecutablePath();
-            string appDir = string.IsNullOrWhiteSpace(exe) ? ProjectSettings.GlobalizePath("res://") : Path.GetDirectoryName(exe) ?? ProjectSettings.GlobalizePath("res://");
+            string appDir = string.IsNullOrWhiteSpace(exe)
+                ? ProjectSettings.GlobalizePath("res://")
+                : Path.GetDirectoryName(exe) ?? ProjectSettings.GlobalizePath("res://");
             if (Path.GetFileName(appDir).Equals("App", StringComparison.OrdinalIgnoreCase))
                 appDir = Directory.GetParent(appDir)?.FullName ?? appDir;
             data = Path.Combine(appDir, "AIData");
@@ -77,7 +79,6 @@ public partial class Main
             _v108GenerateConcept.Pressed += V1017GenerateConceptAsync;
             _v108GenerateConcept.TooltipText = "Generate into AIData/Workspace/2D with live backend stage feedback.";
         }
-
         if (_v109Generate3D != null)
         {
             _v109Generate3D.Pressed -= V109Generate3DAsync;
@@ -101,33 +102,43 @@ public partial class Main
         _v1017ImagePanel.AddChild(Heading("AI IMAGE EDIT"));
         _v1017ImagePanel.AddChild(new Label
         {
-            Text = "Edit uses your prompt. Enhance needs no edit prompt: select a bad area and Miniscuplter asks the local image model to reconstruct it so it fits the surrounding object, perspective, lighting and design language.",
+            Text = "Edit uses your prompt. Enhance needs no prompt: select a malformed or incoherent area and Miniscuplter reconstructs it from the surrounding image context.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
 
         _v1017EditRegion = new Button { Text = "AI Edit Selected Region", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        _v1017EditRegion.Pressed += async () => await V1017RunImageEditAsync(regional: true, enhance: false);
+        _v1017EditRegion.Pressed += async () => await V1017RunImageEditAsync(true, false);
         _v1017ImagePanel.AddChild(_v1017EditRegion);
 
         _v1017EnhanceRegion = new Button { Text = "Enhance Selected Region", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         _v1017EnhanceRegion.TooltipText = "No prompt required. Reconstruct the selected malformed/incoherent area using the rest of the image as context.";
-        _v1017EnhanceRegion.Pressed += async () => await V1017RunImageEditAsync(regional: true, enhance: true);
+        _v1017EnhanceRegion.Pressed += async () => await V1017RunImageEditAsync(true, true);
         _v1017ImagePanel.AddChild(_v1017EnhanceRegion);
 
         _v1017EditWhole = new Button { Text = "AI Edit Whole Image", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        _v1017EditWhole.Pressed += async () => await V1017RunImageEditAsync(regional: false, enhance: false);
+        _v1017EditWhole.Pressed += async () => await V1017RunImageEditAsync(false, false);
         _v1017ImagePanel.AddChild(_v1017EditWhole);
 
         _v1017ImageJobStatus = new Label { Text = "AI edit status: idle", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _v1017ImagePanel.AddChild(_v1017ImageJobStatus);
-        _v1017ImageActivity = new ProgressBar { MinValue = 0, MaxValue = 100, Value = 0, ShowPercentage = true, Visible = false, CustomMinimumSize = new Vector2(0, 16) };
+        _v1017ImageActivity = new ProgressBar
+        {
+            MinValue = 0,
+            MaxValue = 100,
+            Value = 0,
+            ShowPercentage = true,
+            Visible = false,
+            CustomMinimumSize = new Vector2(0, 16)
+        };
         _v1017ImagePanel.AddChild(_v1017ImageActivity);
+
         _v1017CancelImage = new Button { Text = "Cancel Image Job", Visible = false };
         _v1017CancelImage.Pressed += () =>
         {
             if (!_v1017ImageBusy) return;
             _ai.CancelCurrentRequest();
-            if (_v1017ImageJobStatus != null) _v1017ImageJobStatus.Text = "AI edit status: cancelling and resetting the local worker…";
+            if (_v1017ImageJobStatus != null)
+                _v1017ImageJobStatus.Text = "AI edit status: cancelling and resetting the local worker…";
         };
         _v1017ImagePanel.AddChild(_v1017CancelImage);
         _v1017ImagePanel.AddChild(new HSeparator());
@@ -147,7 +158,7 @@ public partial class Main
         string prompt = enhance ? V1017EnhancementPrompt() : (_prompt?.Text.Trim() ?? "");
         if (!enhance && prompt.Length == 0)
         {
-            SetStatus("Describe the desired image change in Prompt first, or use Enhance Selected Region for an automatic correction.");
+            SetStatus("Describe the desired change in Prompt, or use Enhance Selected Region for an automatic correction.");
             return;
         }
 
@@ -172,7 +183,8 @@ public partial class Main
         try
         {
             V1017SetImagePhase("Checking local AI service…", 3);
-            if (!await _ai.HealthAsync()) throw new InvalidOperationException("The local AI backend did not answer. Use Repair AI Runtime in the launcher and retry.");
+            if (!await _ai.HealthAsync())
+                throw new InvalidOperationException("The local AI backend did not answer. Use Repair AI Runtime in the launcher and retry.");
             if (_v097ActivePreset != null)
             {
                 V1017SetImagePhase($"Applying {_v097ActivePreset.Name} quality preset…", 7);
@@ -192,17 +204,21 @@ public partial class Main
                 path = await _ai.EditImageAsync(source, mask, prompt, output);
             }
 
-            if (!File.Exists(path) || new FileInfo(path).Length == 0) throw new InvalidOperationException("The image backend completed but no usable output image was produced.");
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                throw new InvalidOperationException("The image backend completed but no usable output image was produced.");
+
             _lastEditedImage = path;
             ShowAiPreview(path);
             SyncV1015CanvasSource(path);
             _v1015ImageCanvas?.ClearSelection();
             double seconds = (DateTime.UtcNow - _v1017ImageStarted).TotalSeconds;
-            if (_v1017ImageJobStatus != null) _v1017ImageJobStatus.Text = $"AI edit status: completed in {seconds:0}s · {Path.GetFileName(path)}";
+            if (_v1017ImageJobStatus != null)
+                _v1017ImageJobStatus.Text = $"AI edit status: completed in {seconds:0}s · {Path.GetFileName(path)}";
             if (_v1017ImageActivity != null) _v1017ImageActivity.Value = 100;
-            if (_v1015EditStatus != null) _v1015EditStatus.Text = enhance
-                ? "Enhancement generated. Review the corrected region in the center canvas; accept it as the baseline only when satisfied."
-                : "AI edit generated. Review it in the center canvas; accept it as the baseline only when satisfied.";
+            if (_v1015EditStatus != null)
+                _v1015EditStatus.Text = enhance
+                    ? "Enhancement generated. Review the corrected region in the center canvas."
+                    : "AI edit generated. Review it in the center canvas.";
             SetStatus("2D result ready: " + path);
         }
         catch (Exception ex)
@@ -222,7 +238,8 @@ public partial class Main
     string V1017CreateSelectionMask(string source, Rect2I selected)
     {
         var sourceImage = Image.LoadFromFile(source);
-        if (sourceImage == null || sourceImage.IsEmpty()) throw new InvalidDataException("The current 2D source could not be decoded.");
+        if (sourceImage == null || sourceImage.IsEmpty())
+            throw new InvalidDataException("The current 2D source could not be decoded.");
         var maskImage = Image.CreateEmpty(sourceImage.GetWidth(), sourceImage.GetHeight(), false, Image.Format.L8);
         maskImage.Fill(Colors.Black);
         int x0 = Math.Clamp(selected.Position.X, 0, sourceImage.GetWidth() - 1);
@@ -233,7 +250,8 @@ public partial class Main
             for (int x = x0; x < x1; x++)
                 maskImage.SetPixel(x, y, Colors.White);
         string path = V1017WorkspaceFile("Masks", "image_mask", ".png");
-        if (maskImage.SavePng(path) != Error.Ok) throw new IOException("Could not save the 2D selection mask into Miniscuplter AIData.");
+        if (maskImage.SavePng(path) != Error.Ok)
+            throw new IOException("Could not save the 2D selection mask into Miniscuplter AIData.");
         return path;
     }
 
@@ -287,16 +305,18 @@ public partial class Main
         try
         {
             V108SetAiPhase("Checking local AI service…", "Verifying the local backend before generation.");
-            if (!await _ai.HealthAsync()) throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in the launcher and restart the editor.");
+            if (!await _ai.HealthAsync())
+                throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in the launcher and restart the editor.");
             if (_v097ActivePreset != null)
             {
                 V108SetAiPhase("Applying quality preset…", $"Preset: {_v097ActivePreset.Name} · {_v097ActivePreset.ImageSize}px · {_v097ActivePreset.ImageSteps} steps");
                 await PushV097PresetToBackendAsync(_v097ActivePreset);
             }
-            V108SetAiPhase("Resolving image provider…", "Checking the installed local models and your Settings → Models route.");
+            V108SetAiPhase("Resolving image provider…", "Checking installed local models and Settings → Models routing.");
             _v108AiProvider = await V108ResolveImageProviderAsync();
             _lastEditedImage = await _ai.GenerateConceptAsync(prompt, output);
-            if (!File.Exists(_lastEditedImage) || new FileInfo(_lastEditedImage).Length == 0) throw new InvalidOperationException("The backend returned successfully but no usable image file was produced.");
+            if (!File.Exists(_lastEditedImage) || new FileInfo(_lastEditedImage).Length == 0)
+                throw new InvalidOperationException("The backend returned successfully but no usable image file was produced.");
             ShowAiPreview(_lastEditedImage);
             SyncV1015CanvasSource(_lastEditedImage);
             double seconds = (DateTime.UtcNow - _v108AiStarted).TotalSeconds;
@@ -357,17 +377,22 @@ public partial class Main
         try
         {
             SetV1093DPhase("Checking local AI service…", "Accepted source: " + Path.GetFileName(image), 3);
-            if (!await _ai.HealthAsync()) throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.");
+            if (!await _ai.HealthAsync())
+                throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.");
             if (_v097ActivePreset != null)
             {
                 SetV1093DPhase("Applying quality preset…", $"{_v097ActivePreset.Name} · {_v097ActivePreset.ShapeSteps} 3D steps", 7);
                 await PushV097PresetToBackendAsync(_v097ActivePreset);
             }
-            SetV1093DPhase("Resolving 3D provider…", "Using your Settings → Models routing preference.", 10);
-            if (_v1093DProvider.Equals("auto", StringComparison.OrdinalIgnoreCase)) _v1093DProvider = await ResolveV109Quality3DProviderAsync();
+            SetV1093DPhase("Resolving 3D provider…", "Using Settings → Models routing preference.", 10);
+            if (_v1093DProvider.Equals("auto", StringComparison.OrdinalIgnoreCase))
+                _v1093DProvider = await ResolveV109Quality3DProviderAsync();
+
             string path = await _ai.Generate3DRoutedAsync(image, prompt, output, "quality", _v1093DProvider);
             SetV1093DPhase("Validating generated STL…", path, 94);
-            if (!File.Exists(path) || new FileInfo(path).Length == 0) throw new InvalidOperationException("The 3D provider returned without a usable STL file.");
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                throw new InvalidOperationException("The 3D provider returned without a usable STL file.");
+
             var mesh = MeshIO.LoadStl(path);
             string meshSummary = V1017ValidateMeshForViewport(mesh);
             SetV1093DPhase("Importing and framing mesh…", meshSummary, 97);
@@ -378,8 +403,11 @@ public partial class Main
             FrameSelected();
             V1017UpdateGizmo();
             CallDeferred(nameof(V1017FrameAndVerifySelected));
+
             double seconds = (DateTime.UtcNow - _v1093DStarted).TotalSeconds;
-            SetV1093DResult($"3D status: completed with {_v1093DProvider} in {seconds:0}s.", $"{meshSummary}\nOutput: {path}\nViewport: imported, selected and framed.");
+            SetV1093DResult(
+                $"3D status: completed with {_v1093DProvider} in {seconds:0}s.",
+                $"{meshSummary}\nOutput: {path}\nViewport: imported, selected and framed.");
             if (_v1093DActivity != null) _v1093DActivity.Value = 100;
             SetStatus("AI 3D part imported and framed in the viewport.");
         }
@@ -400,7 +428,8 @@ public partial class Main
 
     static string V1017ValidateMeshForViewport(ArrayMesh mesh)
     {
-        if (mesh.GetSurfaceCount() == 0) throw new InvalidDataException("The generated STL contains no renderable surfaces.");
+        if (mesh.GetSurfaceCount() == 0)
+            throw new InvalidDataException("The generated STL contains no renderable surfaces.");
         long vertices = 0;
         for (int s = 0; s < mesh.GetSurfaceCount(); s++)
         {
@@ -408,8 +437,10 @@ public partial class Main
             var points = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             vertices += points.Length;
             foreach (var p in points)
+            {
                 if (!float.IsFinite(p.X) || !float.IsFinite(p.Y) || !float.IsFinite(p.Z))
                     throw new InvalidDataException("The generated mesh contains non-finite vertex coordinates and cannot be displayed safely.");
+            }
         }
         if (vertices < 3) throw new InvalidDataException("The generated mesh contains too few vertices to display.");
         var box = mesh.GetAabb();
@@ -432,7 +463,9 @@ public partial class Main
         {
             bool hasBaseline = !string.IsNullOrWhiteSpace(V1011Approved2DSource());
             _v109Generate3D.Disabled = busy || !hasBaseline;
-            _v109Generate3D.Text = busy ? "Generating 3D Part…" : hasBaseline ? "Generate 3D from Accepted Baseline" : "Accept a 2D Baseline First";
+            _v109Generate3D.Text = busy
+                ? "Generating 3D Part…"
+                : hasBaseline ? "Generate 3D from Accepted Baseline" : "Accept a 2D Baseline First";
         }
     }
 
@@ -461,7 +494,10 @@ public partial class Main
                     }
                 }
             }
-            catch { }
+            catch
+            {
+                // Progress is best-effort; the actual inference request remains authoritative.
+            }
             await Task.Delay(600);
         }
     }
@@ -529,7 +565,8 @@ public partial class Main
 
     void InstallV1017ViewportRecovery()
     {
-        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host || FindChild("Viewport", true, false) is not SubViewport sub) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
+            FindChild("Viewport", true, false) is not SubViewport sub) return;
 
         _v1017ViewportTexture = new TextureRect
         {
@@ -568,7 +605,9 @@ public partial class Main
     {
         if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
         var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
-        string title = tabs != null && tabs.GetTabCount() > 0 ? tabs.GetTabTitle(Math.Clamp((int)tab, 0, tabs.GetTabCount() - 1)) : "";
+        string title = tabs != null && tabs.GetTabCount() > 0
+            ? tabs.GetTabTitle(Math.Clamp((int)tab, 0, tabs.GetTabCount() - 1))
+            : "";
         bool twoD = title.Equals("2D", StringComparison.OrdinalIgnoreCase);
         if (_v1017ViewportTexture != null) _v1017ViewportTexture.Visible = !twoD;
         if (!twoD)
@@ -582,7 +621,8 @@ public partial class Main
 
     void V1017RepairViewport()
     {
-        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host || FindChild("Viewport", true, false) is not SubViewport sub || _world == null) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
+            FindChild("Viewport", true, false) is not SubViewport sub || _world == null) return;
 
         host.Visible = true;
         host.Stretch = true;
@@ -593,6 +633,9 @@ public partial class Main
         sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
         sub.OwnWorld3D = true;
 
+        // v1.0.9 enabled OwnWorld3D after the Node3D world/camera already existed. Reparent once
+        // after ownership is established so the world, lights and camera register against the
+        // SubViewport's active World3D instead of remaining attached to the prior inherited world.
         if (!_v1017WorldRebound && ReferenceEquals(_world.GetParent(), sub))
         {
             sub.RemoveChild(_world);
@@ -619,7 +662,8 @@ public partial class Main
                 material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
         }
 
-        if (_v109GridRoot == null || !IsInstanceValid(_v109GridRoot) || !_v109GridRoot.Name.ToString().Contains("v1.0.17", StringComparison.Ordinal))
+        if (_v109GridRoot == null || !IsInstanceValid(_v109GridRoot) ||
+            !_v109GridRoot.Name.ToString().Contains("v1.0.17", StringComparison.Ordinal))
             V1017RebuildGrid();
         if (_v1017Gizmo == null || !IsInstanceValid(_v1017Gizmo)) V1017BuildGizmo();
 
@@ -635,7 +679,8 @@ public partial class Main
 
     void V1017SyncViewport()
     {
-        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host || FindChild("Viewport", true, false) is not SubViewport sub) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
+            FindChild("Viewport", true, false) is not SubViewport sub) return;
         Vector2 size = host.Size;
         var target = new Vector2I(Math.Max(1, (int)Math.Round(size.X)), Math.Max(1, (int)Math.Round(size.Y)));
         if (sub.Size != target) sub.Size = target;
@@ -690,7 +735,13 @@ public partial class Main
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled
             };
-            _v1017Gizmo.AddChild(new MeshInstance3D { Name = name, Mesh = new BoxMesh { Size = size }, Position = position, MaterialOverride = material });
+            _v1017Gizmo.AddChild(new MeshInstance3D
+            {
+                Name = name,
+                Mesh = new BoxMesh { Size = size },
+                Position = position,
+                MaterialOverride = material
+            });
         }
 
         Axis("X handle", new Vector3(1f, .045f, .045f), new Vector3(.5f, 0, 0), new Color(.95f, .22f, .18f));
@@ -700,7 +751,11 @@ public partial class Main
         {
             Name = "Gizmo origin",
             Mesh = new SphereMesh { Radius = .075f, Height = .15f, RadialSegments = 16, Rings = 8 },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Colors.White, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded }
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = Colors.White,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded
+            }
         });
     }
 
@@ -771,14 +826,25 @@ public partial class Main
 
         int qualityIndex = -1;
         for (int i = 0; i < tabs.GetTabCount(); i++)
-            if (tabs.GetTabTitle(i).Equals("Quality", StringComparison.OrdinalIgnoreCase)) { qualityIndex = i; break; }
+        {
+            if (tabs.GetTabTitle(i).Equals("Quality", StringComparison.OrdinalIgnoreCase))
+            {
+                qualityIndex = i;
+                break;
+            }
+        }
 
         if (qualityIndex >= 0 && tabs.GetChild(qualityIndex).FindChild("V1017 Quality Panel", true, false) == null)
         {
             var old = tabs.GetChild(qualityIndex);
             tabs.RemoveChild(old);
             old.QueueFree();
-            var scroll = new ScrollContainer { Name = "Quality", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+            var scroll = new ScrollContainer
+            {
+                Name = "Quality",
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ExpandFill
+            };
             var box = new VBoxContainer { Name = "V1017 Quality Panel", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             scroll.AddChild(box);
             tabs.AddChild(scroll);
@@ -786,9 +852,13 @@ public partial class Main
             tabs.SetTabTitle(qualityIndex, "Quality");
             V1017BuildQualityPanel(box);
         }
-        else V1017UpdateQualityImpact();
+        else
+        {
+            V1017UpdateQualityImpact();
+        }
 
-        bool hasStorage = Enumerable.Range(0, tabs.GetTabCount()).Any(i => tabs.GetTabTitle(i).Equals("Storage", StringComparison.OrdinalIgnoreCase));
+        bool hasStorage = Enumerable.Range(0, tabs.GetTabCount())
+            .Any(i => tabs.GetTabTitle(i).Equals("Storage", StringComparison.OrdinalIgnoreCase));
         if (!hasStorage) V1017AddStorageTab(tabs);
 
         for (int i = 0; i < tabs.GetTabCount(); i++)
@@ -797,10 +867,19 @@ public partial class Main
             if (tabs.GetChild(i).FindChild("Repair 3D Viewport", true, false) != null) break;
             if (tabs.GetChild(i) is Container view)
             {
-                var repair = new Button { Text = "Repair 3D Viewport" };
-                repair.Pressed += () => { V1017RepairViewport(); V1017FrameAndVerifySelected(); SetStatus("3D viewport rebuilt, rebound and reframed."); };
+                var repair = new Button { Text = "Repair 3D Viewport", Name = "Repair 3D Viewport" };
+                repair.Pressed += () =>
+                {
+                    V1017RepairViewport();
+                    V1017FrameAndVerifySelected();
+                    SetStatus("3D viewport rebuilt, rebound and reframed.");
+                };
                 view.AddChild(repair);
-                view.AddChild(new Label { Text = "The v1.0.17 viewport path explicitly displays the SubViewport render texture and rebinds the 3D world after world ownership is established. Use Repair if a graphics-driver/window event ever leaves the canvas blank.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+                view.AddChild(new Label
+                {
+                    Text = "If a graphics-driver or window event leaves the canvas blank, Repair explicitly rebinds the 3D world, render texture, camera, grid and selected object.",
+                    AutowrapMode = TextServer.AutowrapMode.WordSmart
+                });
             }
             break;
         }
@@ -811,7 +890,7 @@ public partial class Main
         box.AddChild(Heading("QUALITY PRESETS"));
         box.AddChild(new Label
         {
-            Text = "Selecting a preset immediately shows every value it changes. Smaller voxel pitches preserve more geometric detail but consume much more memory/time; higher image resolution and diffusion/3D steps are slower and usually more demanding.",
+            Text = "Selecting a preset shows every value it changes. Higher resolution/steps cost more time and memory; smaller voxel pitches retain more geometry detail but are much heavier.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
 
@@ -852,18 +931,22 @@ public partial class Main
         box.AddChild(Heading("CUSTOM PRESET"));
         _v097Name = new LineEdit { PlaceholderText = "Preset name" };
         box.AddChild(_v097Name);
+
         var row1 = new HBoxContainer();
         var create = new Button { Text = "Create Custom", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         var clone = new Button { Text = "Clone Preset", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         create.Pressed += () =>
         {
-            if (_v097ActivePreset?.BuiltIn == true && _v097Name != null && _v097Name.Text.Trim().Equals(_v097ActivePreset.Name, StringComparison.OrdinalIgnoreCase))
+            if (_v097ActivePreset?.BuiltIn == true && _v097Name != null &&
+                _v097Name.Text.Trim().Equals(_v097ActivePreset.Name, StringComparison.OrdinalIgnoreCase))
                 _v097Name.Text = _v097ActivePreset.Name + " Custom";
             V097CreateCustom();
             V1017UpdateQualityImpact();
         };
         clone.Pressed += V1017ClonePreset;
-        row1.AddChild(create); row1.AddChild(clone); box.AddChild(row1);
+        row1.AddChild(create);
+        row1.AddChild(clone);
+        box.AddChild(row1);
 
         var row2 = new HBoxContainer();
         var rename = new Button { Text = "Rename Custom", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -872,8 +955,16 @@ public partial class Main
         rename.Pressed += V1017RenamePreset;
         _v097UpdateCustom.Pressed += () => { V097UpdateCustom(); V1017UpdateQualityImpact(); };
         _v097DeleteCustom.Pressed += () => { V097DeleteCustom(); V1017UpdateQualityImpact(); };
-        row2.AddChild(rename); row2.AddChild(_v097UpdateCustom); row2.AddChild(_v097DeleteCustom); box.AddChild(row2);
-        box.AddChild(new Label { Text = "Built-in Low / Medium / High / Ultra presets are immutable. Edit their displayed values and choose Create Custom, or use Clone Preset. Custom presets can be renamed, changed and deleted here.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        row2.AddChild(rename);
+        row2.AddChild(_v097UpdateCustom);
+        row2.AddChild(_v097DeleteCustom);
+        box.AddChild(row2);
+
+        box.AddChild(new Label
+        {
+            Text = "Built-in Low / Medium / High / Ultra presets are immutable. Clone one or edit its displayed values and choose Create Custom. Custom presets can be renamed, changed and deleted here.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        });
 
         RefreshV097PresetList();
         int initial = Math.Max(0, _v097Presets.FindIndex(p => p.Id == (_v097ActivePreset?.Id ?? "builtin-medium")));
@@ -910,8 +1001,13 @@ public partial class Main
         if (_v1017QualityImpact == null || _v097ActivePreset == null) return;
         var p = _v097ActivePreset;
         var medium = _v097Presets.FirstOrDefault(x => x.Id == "builtin-medium") ?? p;
-        double pixels = (double)p.ImageSize * p.ImageSize / Math.Max(1.0, (double)medium.ImageSize * medium.ImageSize);
-        string speed = p.ImageSteps > medium.ImageSteps || p.ShapeSteps > medium.ShapeSteps || p.ImageSize > medium.ImageSize ? "more compute / slower" : p.ImageSteps < medium.ImageSteps || p.ShapeSteps < medium.ShapeSteps || p.ImageSize < medium.ImageSize ? "less compute / faster" : "balanced baseline";
+        double pixels = (double)p.ImageSize * p.ImageSize /
+                        Math.Max(1.0, (double)medium.ImageSize * medium.ImageSize);
+        string speed = p.ImageSteps > medium.ImageSteps || p.ShapeSteps > medium.ShapeSteps || p.ImageSize > medium.ImageSize
+            ? "more compute / slower"
+            : p.ImageSteps < medium.ImageSteps || p.ShapeSteps < medium.ShapeSteps || p.ImageSize < medium.ImageSize
+                ? "less compute / faster"
+                : "balanced baseline";
         _v1017QualityImpact.Text =
             $"Selected preset: {p.Name}\n" +
             $"2D: {p.ImageSize}×{p.ImageSize}px · {p.ImageSteps} steps · CFG {p.ImageGuidance:0.0} · edit strength {p.ImageEditStrength:0.00} · max input {p.MaxInputPx}px\n" +
@@ -923,19 +1019,41 @@ public partial class Main
 
     void V1017AddStorageTab(TabContainer tabs)
     {
-        var scroll = new ScrollContainer { Name = "Storage", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        var scroll = new ScrollContainer
+        {
+            Name = "Storage",
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
         var box = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        scroll.AddChild(box); tabs.AddChild(scroll); tabs.SetTabTitle(tabs.GetTabCount() - 1, "Storage");
+        scroll.AddChild(box);
+        tabs.AddChild(scroll);
+        tabs.SetTabTitle(tabs.GetTabCount() - 1, "Storage");
+
         box.AddChild(Heading("MINISCULPTER DATA ROOT"));
-        box.AddChild(new Label { Text = V1017DataRoot(), AutowrapMode = TextServer.AutowrapMode.WordSmart, Selectable = true });
         box.AddChild(new Label
         {
-            Text = "v1.0.17 routes generated 2D images, masks, generated 3D files, job artifacts, Godot user data, temporary files and common AI caches under the launcher-selected Miniscuplter data root instead of Windows AppData/TEMP on C:. The launcher also copy-migrates legacy Godot user data into the new contained location without deleting the old safety copy.",
+            Text = V1017DataRoot(),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        });
+        box.AddChild(new Label
+        {
+            Text = "Generated 2D images, masks, generated 3D files, job artifacts, Godot user data, temporary files and common AI caches are routed under the launcher-selected Miniscuplter data root instead of Windows AppData/TEMP. Legacy Godot user data is copy-migrated once and the old location is left untouched as a safety backup.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
         var open = new Button { Text = "Open Miniscuplter Data Folder" };
-        open.Pressed += () => { Directory.CreateDirectory(V1017DataRoot()); OS.ShellOpen(V1017DataRoot()); };
+        open.Pressed += () =>
+        {
+            Directory.CreateDirectory(V1017DataRoot());
+            OS.ShellOpen(V1017DataRoot());
+        };
         box.AddChild(open);
-        box.AddChild(new Label { Text = "Working files: " + Path.Combine(V1017DataRoot(), "Workspace") + "\nTemporary files: " + Path.Combine(V1017DataRoot(), "Temp") + "\nCaches: " + Path.Combine(V1017DataRoot(), "Cache"), AutowrapMode = TextServer.AutowrapMode.WordSmart, Selectable = true });
+        box.AddChild(new Label
+        {
+            Text = "Working files: " + Path.Combine(V1017DataRoot(), "Workspace") +
+                   "\nTemporary files: " + Path.Combine(V1017DataRoot(), "Temp") +
+                   "\nCaches: " + Path.Combine(V1017DataRoot(), "Cache"),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        });
     }
 }
