@@ -22,6 +22,16 @@ public sealed class AIClient
     readonly object _cancelLock = new();
     readonly SemaphoreSlim _jobGate = new(1, 1);
     CancellationTokenSource? _activeRequest;
+    Task _cancelRecovery = Task.CompletedTask;
+
+    /// <summary>
+    /// The packaged editor owns the local backend process. A cancelled HTTP request alone does
+    /// not stop a synchronous FastAPI inference handler, so Main supplies a recovery callback
+    /// that kills/restarts the owned backend process tree. New backend work waits for that
+    /// recovery to finish before it can start.
+    /// </summary>
+    public Func<Task>? CancellationRecoveryHandler { get; set; }
+
     public string BackendUrl { get; set; } = "http://127.0.0.1:7868";
     public bool InternetReferencesEnabled { get; set; } = true;
 
@@ -34,8 +44,56 @@ public sealed class AIClient
     public string Detail3DProvider { get; set; } = "auto";
     public string Structured3DProvider { get; set; } = "auto";
 
-    public void CancelCurrentRequest() { lock (_cancelLock) _activeRequest?.Cancel(); }
-    public async Task<bool> HealthAsync() { try { using var r = await _http.GetAsync($"{BackendUrl}/health"); return r.IsSuccessStatusCode; } catch { return false; } }
+    public void CancelCurrentRequest()
+    {
+        Func<Task>? recovery = null;
+        bool hadActiveRequest = false;
+        lock (_cancelLock)
+        {
+            if (_activeRequest != null)
+            {
+                hadActiveRequest = true;
+                try { _activeRequest.Cancel(); } catch { }
+            }
+            if (hadActiveRequest && _cancelRecovery.IsCompleted)
+            {
+                recovery = CancellationRecoveryHandler;
+                if (recovery != null) _cancelRecovery = RunCancellationRecoveryAsync(recovery);
+            }
+        }
+    }
+
+    async Task RunCancellationRecoveryAsync(Func<Task> recovery)
+    {
+        try { await recovery(); }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("The AI job was cancelled, but the local AI service could not be reset cleanly: " + ex.Message, ex);
+        }
+    }
+
+    async Task WaitForCancellationRecoveryAsync()
+    {
+        Task recovery;
+        lock (_cancelLock) recovery = _cancelRecovery;
+        await recovery;
+    }
+
+    public async Task<bool> HealthAsync()
+    {
+        try
+        {
+            await WaitForCancellationRecoveryAsync();
+            return await ProbeHealthAsync();
+        }
+        catch { return false; }
+    }
+
+    internal async Task<bool> ProbeHealthAsync()
+    {
+        try { using var r = await _http.GetAsync($"{BackendUrl}/health"); return r.IsSuccessStatusCode; }
+        catch { return false; }
+    }
 
     public async Task<string> GenerateConceptAsync(string prompt, string outputPath, string quality = "standard")
         => await PostForFileAsync("/generate-concept", new { prompt, output_path = outputPath, quality, provider = ImageGenerateProvider });
@@ -58,6 +116,7 @@ public sealed class AIClient
         => await PostForFileAsync("/detail-apply", new { source_mesh = sourceMesh, patch_mesh = patchMesh, output_path = outputPath, voxel_size = voxelSize });
     public async Task<string> GetRoutingAsync()
     {
+        await WaitForCancellationRecoveryAsync();
         using var response = await _http.GetAsync(BackendUrl + "/routing"); var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body); return body;
     }
@@ -89,6 +148,7 @@ public sealed class AIClient
 
     async Task<string> PostJsonTextAsync(string route, object payload, bool cancellable = false)
     {
+        await WaitForCancellationRecoveryAsync();
         CancellationTokenSource? cts = cancellable ? new CancellationTokenSource() : null;
         bool gateHeld = false;
         try
@@ -121,6 +181,7 @@ public sealed class AIClient
 
     public async Task<AiComponentStatus> GetComponentsAsync()
     {
+        await WaitForCancellationRecoveryAsync();
         using var response = await _http.GetAsync(BackendUrl + "/components"); var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
         using var doc = JsonDocument.Parse(body); var root = doc.RootElement; var hw = root.GetProperty("hardware");
@@ -133,7 +194,12 @@ public sealed class AIClient
     public async Task InstallComponentAsync(string id) => await PostJsonAsync("/components/install", new { id });
     public async Task UninstallComponentAsync(string id) => await PostJsonAsync("/components/uninstall", new { id });
     public async Task ReleaseModelsAsync() => await PostJsonAsync("/release-models", new { });
-    async Task PostJsonAsync(string route, object payload) { using var response = await _http.PostAsync(BackendUrl + route, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")); var body = await response.Content.ReadAsStringAsync(); if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body); }
+    async Task PostJsonAsync(string route, object payload)
+    {
+        await WaitForCancellationRecoveryAsync();
+        using var response = await _http.PostAsync(BackendUrl + route, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+        var body = await response.Content.ReadAsStringAsync(); if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
+    }
 
     public async Task<List<ReferenceResult>> SearchReferencesAsync(string query, int limit = 8)
     {
