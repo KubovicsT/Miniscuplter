@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os,shutil,subprocess,sys
+import importlib,os,shutil,subprocess,sys
 from pathlib import Path
 from model_manager import component_path,TOOLS_ROOT
 def _run(args,cwd,timeout=7200):
@@ -28,9 +28,18 @@ def generate_spar3d(image,output,low_vram=False):
     work=Path(output).resolve().parent/".spar3d-output";shutil.rmtree(work,ignore_errors=True);work.mkdir(parents=True);args=[_py(code),"run.py",str(Path(image).resolve()),"--output-dir",str(work),"--pretrained-model",str(model)];args+=(["--low-vram-mode"] if low_vram else []);_run(args,code);c=sorted(work.rglob("*.glb"),key=lambda p:p.stat().st_mtime,reverse=True)
     if not c:raise RuntimeError("SPAR3D returned no GLB")
     return _to_stl(c[0],output)
+def _require_hunyuan_mini_runtime():
+    required=("cv2","pymeshlab","pygltflib","xatlas")
+    missing=[]
+    for name in required:
+        try:importlib.import_module(name)
+        except Exception:missing.append(name)
+    if missing:
+        raise RuntimeError("Hunyuan3D 2mini runtime is incomplete (missing: "+", ".join(missing)+"). Open Miniscuplter Launcher and run Repair AI Runtime; model weights will be preserved.")
 def generate_hunyuan_mini(image,output):
     code=TOOLS_ROOT/"Hunyuan3D-2";model=component_path("hunyuan2mini")
     if model is None or not code.exists():raise RuntimeError("Hunyuan3D 2mini is not installed")
+    _require_hunyuan_mini_runtime()
     sys.path.insert(0,str(code))
     try:
         from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
