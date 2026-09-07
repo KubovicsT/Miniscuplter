@@ -41,6 +41,7 @@ public partial class Main
         CallDeferred(nameof(V1017RepairViewport));
     }
 
+    // MINISCULPTER_DATA is resolved once by AppDataRoot so every generated artifact shares one root.
     string V1017DataRoot() => AppDataRoot.Root;
 
     string V1017WorkspaceFile(string category, string prefix, string extension)
