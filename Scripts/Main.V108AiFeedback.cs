@@ -94,7 +94,7 @@ public partial class Main
             return;
         }
 
-        string outPath = ProjectSettings.GlobalizePath($"user://concept_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+        string outPath = AppDataRoot.Resolve($"concept_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
         _v108AiBusy = true;
         _v108AiStarted = DateTime.UtcNow;
         _v108AiProvider = "auto";

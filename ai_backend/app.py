@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from model_manager import install_component, uninstall_component, status as component_status, component_path
@@ -17,12 +17,21 @@ from rig_api import router as rig_router
 from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model as release_smart_select
 from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
 from detail_pipeline import detail_2d, detail_3d, apply_detail
-from job_progress import begin as begin_job, bind as bind_job, report as report_job, complete as complete_job, fail as fail_job, current as current_job
+from storage import validate_output_path
+from job_progress import begin as begin_job, bind as bind_job, report as report_job, complete as complete_job, fail as fail_job, current as current_job, get as get_job, get_events as get_job_events, request_cancel as request_job_cancel
 
-APP_VERSION = "1.0.17"
+APP_VERSION = "1.0.18"
 app = FastAPI(title="Miniscuplter AI Backend", version=APP_VERSION)
 app.include_router(geometry_router)
 app.include_router(rig_router)
+
+
+def _safe_output_path(value: str) -> str:
+    try:
+        return str(validate_output_path(value))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
 
 SD_WEBUI_URL = os.getenv("MINISCULPTER_SD_URL", "").rstrip("/")
 THREED_COMMAND = os.getenv("MINISCULPTER_3D_COMMAND", "")
@@ -128,6 +137,30 @@ def job_progress_current():
     return current_job()
 
 
+@app.get("/job-progress/{job_id}")
+def job_progress_by_id(job_id: str):
+    result = get_job(job_id)
+    if result is None:
+        raise HTTPException(404, "Unknown AI job id.")
+    return result
+
+
+@app.get("/job-progress/{job_id}/events")
+def job_progress_events(job_id: str, after: int = 0):
+    result = get_job_events(job_id, max(0, after))
+    if result is None:
+        raise HTTPException(404, "Unknown AI job id.")
+    return {"job_id": job_id, "events": result}
+
+
+@app.post("/job-progress/{job_id}/cancel")
+def job_progress_cancel(job_id: str):
+    result = request_job_cancel(job_id)
+    if result is None:
+        raise HTTPException(404, "Unknown AI job id.")
+    return result
+
+
 @app.post("/components/install")
 def install(req: ComponentRequest):
     try:
@@ -187,8 +220,9 @@ def _image_edit(provider, req):
 
 
 @app.post("/generate-concept")
-def generate_concept(req: ConceptRequest):
-    begin_job("2d-generate")
+def generate_concept(req: ConceptRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
+    req.output_path = _safe_output_path(req.output_path)
+    begin_job("2d-generate", x_miniscupter_job_id)
     try:
         report_job("resolving_provider", "Choosing the installed local image model for this hardware and route.", 5)
         d = choose_image_provider("generate", req.provider)
@@ -209,8 +243,9 @@ def generate_concept(req: ConceptRequest):
 
 
 @app.post("/edit-image")
-def edit_image(req: EditRequest):
-    begin_job("2d-edit")
+def edit_image(req: EditRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
+    req.output_path = _safe_output_path(req.output_path)
+    begin_job("2d-edit", x_miniscupter_job_id)
     try:
         report_job("resolving_provider", "Choosing the local image-edit model.", 5)
         d = choose_image_provider("detail" if req.detail else "edit", req.provider)
@@ -248,8 +283,9 @@ def _generate_shape(provider, req, image, output):
 
 
 @app.post("/generate-3d")
-def generate_3d(req: Generate3DRequest):
-    begin_job("3d-generate")
+def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
+    req.output_path = _safe_output_path(req.output_path)
+    begin_job("3d-generate", x_miniscupter_job_id)
     image = str(Path(req.image_path).resolve())
     output = str(Path(req.output_path).resolve())
     Path(output).parent.mkdir(parents=True, exist_ok=True)
@@ -298,6 +334,7 @@ def generate_3d(req: Generate3DRequest):
 
 @app.post("/generate-parts")
 def generate_parts(req: GeneratePartsRequest):
+    req.output_dir = _safe_output_path(req.output_dir)
     try:
         d = choose_3d_provider("structured", req.provider)
         release_all_models()
@@ -316,8 +353,9 @@ def generate_parts(req: GeneratePartsRequest):
 
 
 @app.post("/detail-2d")
-def detail_2d_route(req: Detail2DRequest):
-    begin_job("2d-detail")
+def detail_2d_route(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
+    req.output_path = _safe_output_path(req.output_path)
+    begin_job("2d-detail", x_miniscupter_job_id)
     try:
         report_job("resolving_provider", "Choosing the local detail/edit provider for the selected region.", 5)
         report_job("preparing_inputs", "Preparing the selected mask and surrounding image context.", 12)
@@ -338,6 +376,9 @@ def detail_2d_route(req: Detail2DRequest):
 
 @app.post("/detail-3d")
 def detail_3d_route(req: Detail3DRequest):
+    req.output_patch = _safe_output_path(req.output_patch)
+    req.output_image = _safe_output_path(req.output_image)
+    req.output_crop = _safe_output_path(req.output_crop)
     try:
         return detail_3d(req.source_mesh, req.image_path, req.mask_path, req.prompt, req.bounds_min, req.bounds_max, req.output_patch, req.output_image, req.output_crop, req.image_provider, req.three_d_provider)
     except Exception as e:
@@ -348,6 +389,7 @@ def detail_3d_route(req: Detail3DRequest):
 
 @app.post("/detail-apply")
 def detail_apply_route(req: DetailApplyRequest):
+    req.output_path = _safe_output_path(req.output_path)
     try:
         return apply_detail(req.source_mesh, req.patch_mesh, req.output_path, req.voxel_size)
     except Exception as e:

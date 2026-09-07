@@ -309,12 +309,12 @@ public partial class Main
             int x1 = Math.Clamp(selected.End.X, x0 + 1, sourceImage.GetWidth());
             int y1 = Math.Clamp(selected.End.Y, y0 + 1, sourceImage.GetHeight());
             for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) maskImage.SetPixel(x, y, Colors.White);
-            string maskDir = ProjectSettings.GlobalizePath("user://masks"); Directory.CreateDirectory(maskDir);
+            string maskDir = AppDataRoot.Resolve("masks"); Directory.CreateDirectory(maskDir);
             mask = Path.Combine(maskDir, $"image_mask_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
             if (maskImage.SavePng(mask) != Error.Ok) { SetStatus("Could not save the 2D edit mask."); return; }
         }
 
-        string output = ProjectSettings.GlobalizePath($"user://image_edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+        string output = AppDataRoot.Resolve($"image_edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
         await RunAi(async () =>
         {
             _lastEditedImage = await _ai.EditImageAsync(source, mask, prompt, output);
@@ -452,7 +452,7 @@ public partial class Main
         if (bytes.Length == 0) throw new InvalidDataException("Reference server returned an empty image.");
         string media = response.Content.Headers.ContentType?.MediaType?.ToLowerInvariant() ?? "";
         string ext = media.Contains("png") ? ".png" : media.Contains("webp") ? ".webp" : ".jpg";
-        string dir = ProjectSettings.GlobalizePath("user://reference_cache"); Directory.CreateDirectory(dir);
+        string dir = AppDataRoot.Resolve("reference_cache"); Directory.CreateDirectory(dir);
         string path = Path.Combine(dir, $"{prefix}_{Guid.NewGuid():N}{ext}");
         await File.WriteAllBytesAsync(path, bytes);
         return path;

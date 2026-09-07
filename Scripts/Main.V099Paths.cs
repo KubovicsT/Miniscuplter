@@ -110,12 +110,12 @@ public partial class Main
         d.Canceled += d.QueueFree; d.PopupCenteredRatio(.75f);
     }
 
-    string V099LocationsPath() => ProjectSettings.GlobalizePath("user://locations_v099.json");
+    string V099LocationsPath() => AppDataRoot.Resolve("locations_v099.json");
 
     V099LocationSettings V099Defaults()
     {
         string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        if (string.IsNullOrWhiteSpace(docs)) docs = ProjectSettings.GlobalizePath("user://");
+        if (string.IsNullOrWhiteSpace(docs)) docs = AppDataRoot.Resolve("");
         string baseDir = Path.Combine(docs, "Miniscuplter");
         return new V099LocationSettings
         {
@@ -174,7 +174,7 @@ public partial class Main
         // v0.7-v0.9.8 stored the reusable parts library at user://parts_library. Preserve
         // compatibility by making that old path a directory link/junction to the new user-selected
         // physical library location. This keeps every existing library call using the configured folder.
-        string legacy = Path.GetFullPath(ProjectSettings.GlobalizePath("user://parts_library"));
+        string legacy = Path.GetFullPath(AppDataRoot.Resolve("parts_library"));
         string target = Path.GetFullPath(V099LibraryRoot());
         if (legacy.Equals(target, StringComparison.OrdinalIgnoreCase)) return;
         Directory.CreateDirectory(Path.GetDirectoryName(legacy)!); Directory.CreateDirectory(target);

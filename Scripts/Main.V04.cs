@@ -78,7 +78,7 @@ public partial class Main
     async Task RunVoxelOperation(List<MeshInstance3D> source, string resultName)
     {
         double voxel = _v04VoxelSize?.Value ?? 0.35;
-        string job = ProjectSettings.GlobalizePath($"user://geometry/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}");
+        string job = AppDataRoot.Resolve($"geometry/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}");
         Directory.CreateDirectory(job);
         var inputs = new List<string>();
 
@@ -127,7 +127,7 @@ public partial class Main
         }
 
         CaptureView();
-        string folder = ProjectSettings.GlobalizePath("user://geometry_context");
+        string folder = AppDataRoot.Resolve("geometry_context");
         Directory.CreateDirectory(folder);
         string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
         string metadata = Path.Combine(folder, $"context_{stamp}.json");

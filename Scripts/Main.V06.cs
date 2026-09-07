@@ -145,7 +145,7 @@ public partial class Main
         if (_selected?.Mesh is not ArrayMesh) { SetStatus("Select a mesh object to rig."); return; }
         if (V06RoleFor(_selected.Name.ToString()) is "attachment" or "exclude") { SetStatus("This object is marked as an attachment/do-not-rig object. Mark the creature body as Character first."); return; }
         MeshInstance3D source = _selected;
-        string dir = ProjectSettings.GlobalizePath($"user://rig/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}"); Directory.CreateDirectory(dir);
+        string dir = AppDataRoot.Resolve($"rig/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}"); Directory.CreateDirectory(dir);
         string input = Path.Combine(dir, "character.stl"), output = Path.Combine(dir, "skeleton.json"); MeshIO.SaveBinaryStl(BakeToWorldMesh(source), input);
         var sw = Stopwatch.StartNew();
         try

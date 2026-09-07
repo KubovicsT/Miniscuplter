@@ -37,7 +37,7 @@ public partial class Main : Node
         BuildWorld();
         AddStarterMesh();
         UpdateCamera();
-        SetStatus("Ready — Miniscuplter v1.0");
+        SetStatus("Ready — Miniscuplter v1.0.18");
     }
 
     void BuildUi()
@@ -241,7 +241,16 @@ public partial class Main : Node
             int count = idx.Length > 0 ? idx.Length : verts.Length;
             for (int i = 0; i + 2 < count; i += 3)
             {
-                var v0 = gt * verts[idx.Length > 0 ? idx[i] : i]; var v1 = gt * verts[idx.Length > 0 ? idx[i+1] : i+1]; var v2 = gt * verts[idx.Length > 0 ? idx[i+2] : i+2];
+                int i0 = idx.Length > 0 ? idx[i] : i;
+                int i1 = idx.Length > 0 ? idx[i + 1] : i + 1;
+                int i2 = idx.Length > 0 ? idx[i + 2] : i + 2;
+                if (i0 < 0 || i1 < 0 || i2 < 0 ||
+                    i0 >= verts.Length || i1 >= verts.Length || i2 >= verts.Length)
+                    continue;
+
+                var v0 = gt * verts[i0];
+                var v1 = gt * verts[i1];
+                var v2 = gt * verts[i2];
                 var p = Geometry3D.RayIntersectsTriangle(ro, rd, v0, v1, v2);
                 if (p.VariantType == Variant.Type.Vector3)
                 {
@@ -318,22 +327,22 @@ public partial class Main : Node
 
     void CaptureView()
     {
-        var sub=GetNode<SubViewport>("VBoxContainer/HSplitContainer/HSplitContainer/ViewportHost/Viewport"); var img=sub.GetTexture().GetImage(); Directory.CreateDirectory(ProjectSettings.GlobalizePath("user://captures")); _lastCapture=ProjectSettings.GlobalizePath($"user://captures/capture_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); img.SavePng(_lastCapture); SetStatus("Captured viewport: "+_lastCapture);
+        var sub=GetNode<SubViewport>("VBoxContainer/HSplitContainer/HSplitContainer/ViewportHost/Viewport"); var img=sub.GetTexture().GetImage(); Directory.CreateDirectory(AppDataRoot.Resolve("captures")); _lastCapture=AppDataRoot.Resolve($"captures/capture_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); img.SavePng(_lastCapture); SetStatus("Captured viewport: "+_lastCapture);
     }
 
     async Task GenerateConcept()
     {
-        string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Enter a prompt first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://concept_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.GenerateConceptAsync(prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("Concept generated: "+_lastEditedImage);});
+        string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Enter a prompt first.");return;} string outPath=AppDataRoot.Resolve($"concept_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.GenerateConceptAsync(prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("Concept generated: "+_lastEditedImage);});
     }
 
     async Task AiEditCapture()
     {
-        if(string.IsNullOrEmpty(_lastCapture)) CaptureView(); string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Describe the desired change first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.EditImageAsync(_lastCapture,null,prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("2D edit generated. Review file: "+_lastEditedImage);});
+        if(string.IsNullOrEmpty(_lastCapture)) CaptureView(); string prompt=_prompt?.Text.Trim()??""; if(prompt.Length==0){SetStatus("Describe the desired change first.");return;} string outPath=AppDataRoot.Resolve($"edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); await RunAi(async()=>{_lastEditedImage=await _ai.EditImageAsync(_lastCapture,null,prompt,outPath); ShowAiPreview(_lastEditedImage); SetStatus("2D edit generated. Review file: "+_lastEditedImage);});
     }
 
     async Task Generate3DPart()
     {
-        string image=string.IsNullOrEmpty(_lastEditedImage)?_lastCapture:_lastEditedImage; if(string.IsNullOrEmpty(image)){SetStatus("Generate or capture an approved 2D image first.");return;} string outPath=ProjectSettings.GlobalizePath($"user://ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"); string prompt=_prompt?.Text.Trim()??""; await RunAi(async()=>{var p=await _ai.Generate3DAsync(image,prompt,outPath); AddMeshObject(MeshIO.LoadStl(p),"AI part"); SetStatus("AI 3D part added non-destructively.");});
+        string image=string.IsNullOrEmpty(_lastEditedImage)?_lastCapture:_lastEditedImage; if(string.IsNullOrEmpty(image)){SetStatus("Generate or capture an approved 2D image first.");return;} string outPath=AppDataRoot.Resolve($"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"); string prompt=_prompt?.Text.Trim()??""; await RunAi(async()=>{var p=await _ai.Generate3DAsync(image,prompt,outPath); AddMeshObject(MeshIO.LoadStl(p),"AI part"); SetStatus("AI 3D part added non-destructively.");});
     }
 
     async Task SearchReferences()

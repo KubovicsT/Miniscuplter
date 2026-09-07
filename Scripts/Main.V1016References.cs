@@ -377,7 +377,7 @@ public partial class Main
             : V1016ExtensionFromUrl(url);
         if (ext is not ".png" and not ".webp" and not ".jpg" and not ".jpeg") ext = ".jpg";
 
-        string dir = ProjectSettings.GlobalizePath("user://reference_cache");
+        string dir = AppDataRoot.Resolve("reference_cache");
         Directory.CreateDirectory(dir);
         string path = Path.Combine(dir, $"{prefix}_{Guid.NewGuid():N}{ext}");
         await File.WriteAllBytesAsync(path, bytes);

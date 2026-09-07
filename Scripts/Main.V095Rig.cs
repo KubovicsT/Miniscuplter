@@ -24,7 +24,7 @@ public partial class Main
         string? dir = null;
         try
         {
-            dir = ProjectSettings.GlobalizePath($"user://rig/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}");
+            dir = AppDataRoot.Resolve($"rig/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}");
             Directory.CreateDirectory(dir);
             string input = Path.Combine(dir, "character.stl"), output = Path.Combine(dir, "skeleton.json");
             MeshIO.SaveBinaryStl(BakeToWorldMesh(source), input);

@@ -70,7 +70,7 @@ public partial class Main
                 image.Resize(Math.Max(1, (int)Math.Round(image.GetWidth() * scale)), Math.Max(1, (int)Math.Round(image.GetHeight() * scale)), Image.Interpolation.Lanczos);
             }
 
-            string dir = ProjectSettings.GlobalizePath("user://source_images"); Directory.CreateDirectory(dir);
+            string dir = AppDataRoot.Resolve("source_images"); Directory.CreateDirectory(dir);
             string dest = Path.Combine(dir, $"source_{DateTime.Now:yyyyMMdd_HHmmss}.png");
             var err = image.SavePng(dest); if (err != Error.Ok) throw new IOException("Could not store the selected image in the project workspace.");
             _v03StartingImage = dest; _lastEditedImage = dest; ShowAiPreview(dest);
@@ -86,7 +86,7 @@ public partial class Main
         string source = !string.IsNullOrEmpty(_v03StartingImage) ? _v03StartingImage : _lastEditedImage;
         if (string.IsNullOrEmpty(source) || !File.Exists(source)) { SetStatus("Load your own image or generate a concept first."); return; }
         string prompt = _prompt?.Text.Trim() ?? ""; if (prompt.Length == 0) { SetStatus("Describe how you want the starting image changed."); return; }
-        string outPath = ProjectSettings.GlobalizePath($"user://source_edit_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+        string outPath = AppDataRoot.Resolve($"source_edit_{DateTime.Now:yyyyMMdd_HHmmss}.png");
         await RunAi(async () =>
         {
             _lastEditedImage = await _ai.EditImageAsync(source, null, prompt, outPath); ShowAiPreview(_lastEditedImage);

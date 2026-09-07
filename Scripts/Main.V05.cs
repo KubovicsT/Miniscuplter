@@ -136,7 +136,7 @@ public partial class Main
     void SavePaintMask()
     {
         if (_v05PaintMask == null) return;
-        string dir = ProjectSettings.GlobalizePath("user://masks"); Directory.CreateDirectory(dir);
+        string dir = AppDataRoot.Resolve("masks"); Directory.CreateDirectory(dir);
         _v05PaintMaskPath = Path.Combine(dir, $"paint_mask_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
         _v05PaintMask.SavePng(_v05PaintMaskPath);
         if (_selected != null) SetV055AnchorSurface(_v055AnchorNormal, EstimatePatchScaleFromMaskV055(_selected));
@@ -153,7 +153,7 @@ public partial class Main
         for (int i=0;i<4;i++)
         {
             if (V055CancellationRequested) { SetStatus($"Candidate job cancelled after {i} result(s)."); return; }
-            int n=i+1; string outPath = ProjectSettings.GlobalizePath($"user://candidate_{DateTime.Now:yyyyMMdd_HHmmss}_{n}.png");
+            int n=i+1; string outPath = AppDataRoot.Resolve($"candidate_{DateTime.Now:yyyyMMdd_HHmmss}_{n}.png");
             var sw = Stopwatch.StartNew();
             string result;
             try { result = await _ai.EditImageAsync(source, string.IsNullOrEmpty(_v05PaintMaskPath)?null:_v05PaintMaskPath, prompt, outPath, "preview"); }
@@ -175,7 +175,7 @@ public partial class Main
         ResetV055Cancellation();
         string image = !string.IsNullOrEmpty(_lastEditedImage) ? _lastEditedImage : _lastCapture;
         if (string.IsNullOrEmpty(image) || !File.Exists(image)) { SetStatus("Choose or generate an approved 2D image first."); return; }
-        string quality = CurrentQuality(), outPath = ProjectSettings.GlobalizePath($"user://ai_patch_{DateTime.Now:yyyyMMdd_HHmmss}.stl");
+        string quality = CurrentQuality(), outPath = AppDataRoot.Resolve($"ai_patch_{DateTime.Now:yyyyMMdd_HHmmss}.stl");
         string prompt = _prompt?.Text.Trim() ?? ""; var sourceObject = _selected; var sw = Stopwatch.StartNew(); bool success = false;
         await RunAi(async () =>
         {
@@ -224,7 +224,7 @@ public partial class Main
         return t.TotalHours>=1 ? $"{(int)t.TotalHours}h {t.Minutes}m" : $"{t.Minutes}m {t.Seconds}s";
     }
 
-    string HistoryPath() => ProjectSettings.GlobalizePath("user://job_history_v05.json");
+    string HistoryPath() => AppDataRoot.Resolve("job_history_v05.json");
     void LoadJobHistory()
     {
         try { if (!File.Exists(HistoryPath())) return; var list=JsonSerializer.Deserialize<List<JobSample>>(File.ReadAllText(HistoryPath())); if (list!=null) _v05History.AddRange(list); }

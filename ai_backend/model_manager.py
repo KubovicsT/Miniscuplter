@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parent
-DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", ROOT / "data")).resolve()
+DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(os.getenv("MINISCULPTER_ROOT", ROOT.parent)) / "AIData")).resolve()
 MODELS_ROOT = DATA_ROOT / "models"
 TOOLS_ROOT = DATA_ROOT / "tools"
 STAGING_ROOT = DATA_ROOT / ".staging"

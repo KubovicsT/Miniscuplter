@@ -149,7 +149,7 @@ public partial class Main
 
     string V07LibraryRoot()
     {
-        string root = ProjectSettings.GlobalizePath("user://parts_library"); Directory.CreateDirectory(root); Directory.CreateDirectory(Path.Combine(root, "meshes")); return root;
+        string root = AppDataRoot.Resolve("parts_library"); Directory.CreateDirectory(root); Directory.CreateDirectory(Path.Combine(root, "meshes")); return root;
     }
     string V07LibraryIndex() => Path.Combine(V07LibraryRoot(), "parts.json");
 

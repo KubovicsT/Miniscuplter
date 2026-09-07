@@ -201,7 +201,7 @@ public partial class Main
             normalImg.SetPixel(x, y, new Color(n.X * .5f + .5f, n.Y * .5f + .5f, n.Z * .5f + .5f));
         }
 
-        string folder = ProjectSettings.GlobalizePath("user://geometry_context");
+        string folder = AppDataRoot.Resolve("geometry_context");
         Directory.CreateDirectory(folder);
         string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
         string depthPath = Path.Combine(folder, $"depth_{stamp}.png");
@@ -306,7 +306,7 @@ public partial class Main
         if (_objects.Count == 0) return;
         try
         {
-            string p = ProjectSettings.GlobalizePath("user://recovery/autosave.msculpt");
+            string p = AppDataRoot.Resolve("recovery/autosave.msculpt");
             Directory.CreateDirectory(Path.GetDirectoryName(p)!);
             SaveProject(p);
             if (_v055JobStatus != null) _v055JobStatus.Text = "Autosaved recovery project.";

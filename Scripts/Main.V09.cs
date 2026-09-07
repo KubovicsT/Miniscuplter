@@ -56,7 +56,7 @@ public partial class Main
 
     string V09PrepDir()
     {
-        string dir = ProjectSettings.GlobalizePath("user://model_integrity"); Directory.CreateDirectory(dir); return dir;
+        string dir = AppDataRoot.Resolve("model_integrity"); Directory.CreateDirectory(dir); return dir;
     }
 
     string ExportSelectedV09Input(MeshInstance3D obj, string prefix)

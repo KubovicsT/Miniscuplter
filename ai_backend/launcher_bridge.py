@@ -13,7 +13,7 @@ from pathlib import Path
 # Windows user TEMP folder (usually C:), even when Miniscuplter and AIData live on another
 # drive. Keep all model-manager subprocess temp/cache activity beside AIData instead.
 def _configure_model_install_storage() -> None:
-    data_root = Path(os.getenv("MINISCULPTER_DATA", Path(__file__).resolve().parent / "data")).resolve()
+    data_root = Path(os.getenv("MINISCULPTER_DATA", Path(os.getenv("MINISCULPTER_ROOT", Path(__file__).resolve().parent.parent)) / "AIData")).resolve()
     runtime_cache = data_root / "runtime-cache"
     temp_root = runtime_cache / "model-install-temp"
     pip_cache = runtime_cache / "pip-cache"

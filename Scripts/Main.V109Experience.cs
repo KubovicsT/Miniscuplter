@@ -366,7 +366,7 @@ public partial class Main
         if (_v1093DBusy) return;
         string image = !string.IsNullOrEmpty(_lastEditedImage) ? _lastEditedImage : _lastCapture;
         if (string.IsNullOrWhiteSpace(image) || !File.Exists(image)) { SetV1093DResult("3D status: no approved 2D source.", "Generate/open a 2D result first."); return; }
-        string output = ProjectSettings.GlobalizePath($"user://ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"); string prompt = _prompt?.Text.Trim() ?? "";
+        string output = AppDataRoot.Resolve($"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"); string prompt = _prompt?.Text.Trim() ?? "";
         _v1093DBusy = true; _v1093DStarted = DateTime.UtcNow; _v1093DProvider = _v098Routes.Quality3D; SetV1093DBusy(true);
         try
         {

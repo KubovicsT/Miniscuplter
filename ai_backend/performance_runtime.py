@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-_DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(__file__).resolve().parent / "data")).resolve()
+_DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(os.getenv("MINISCULPTER_ROOT", Path(__file__).resolve().parent.parent)) / "AIData")).resolve()
 _STATE_FILE = _DATA_ROOT / "performance_runtime.json"
 _DEFAULT = {"mode": "auto", "vram_target_fraction": 0.85}
 _VALID_MODES = {"auto", "fast", "balanced", "safe"}

@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -13,10 +14,16 @@ public partial class BackendLauncher : Node
     const uint JobObjectLimitKillOnJobClose = 0x00002000;
 
     readonly object _processLock = new();
+    readonly HttpClient _readinessHttp = new() { Timeout = TimeSpan.FromSeconds(2) };
+    readonly object _logLock = new();
     Process? _backend;
     IntPtr _job = IntPtr.Zero;
 
-    public override void _Ready() => StartBackend();
+    public override void _Ready()
+    {
+        StartBackend();
+        _ = ReportInitialReadinessAsync();
+    }
 
     /// <summary>
     /// Cancelling an HttpClient request does not stop a synchronous FastAPI inference handler.
@@ -24,14 +31,14 @@ public partial class BackendLauncher : Node
     /// process tree to guarantee the abandoned CUDA/model job is actually gone before another
     /// job is allowed to start.
     /// </summary>
-    public Task RestartAsync()
+    public async Task RestartAsync()
     {
         lock (_processLock)
         {
             ShutdownBackendLocked();
             StartBackendLocked();
         }
-        return Task.CompletedTask;
+        await WaitForBackendReadyAsync(TimeSpan.FromSeconds(30));
     }
 
     public bool IsRunning
@@ -63,10 +70,7 @@ public partial class BackendLauncher : Node
 
         string root = Environment.GetEnvironmentVariable("MINISCULPTER_ROOT") ?? "";
         if (string.IsNullOrWhiteSpace(root))
-        {
-            string exe = OS.GetExecutablePath();
-            root = string.IsNullOrWhiteSpace(exe) ? ProjectSettings.GlobalizePath("res://") : Path.GetDirectoryName(exe) ?? ProjectSettings.GlobalizePath("res://");
-        }
+            root = AppDataRoot.InstallRoot;
 
         string[] backendCandidates =
         {
@@ -96,12 +100,13 @@ public partial class BackendLauncher : Node
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 WorkingDirectory = Path.GetDirectoryName(app) ?? root
             };
             psi.ArgumentList.Add(app);
             psi.Environment["MINISCULPTER_ROOT"] = root;
-            string? data = Environment.GetEnvironmentVariable("MINISCULPTER_DATA");
-            if (!string.IsNullOrWhiteSpace(data)) psi.Environment["MINISCULPTER_DATA"] = data;
+            AppDataRoot.ApplyEnvironment(psi.Environment);
             psi.Environment["MINISCULPTER_PARENT_PID"] = Environment.ProcessId.ToString();
 
             _backend = Process.Start(psi);
@@ -123,12 +128,70 @@ public partial class BackendLauncher : Node
                 }
             }
 
+            AttachOutputLogging(_backend);
             GD.Print($"AI backend launched (PID {_backend.Id}) from {app}.");
         }
         catch (Exception ex)
         {
             GD.PrintErr("AI backend auto-launch failed: " + ex.Message);
             ShutdownBackendLocked();
+        }
+    }
+
+    async Task ReportInitialReadinessAsync()
+    {
+        try
+        {
+            await WaitForBackendReadyAsync(TimeSpan.FromSeconds(30));
+            GD.Print("AI backend readiness confirmed.");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr("AI backend readiness failed: " + ex.Message);
+        }
+    }
+
+    async Task WaitForBackendReadyAsync(TimeSpan timeout)
+    {
+        DateTime deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (!IsRunning)
+                throw new InvalidOperationException("The AI backend process is not running.");
+
+            try
+            {
+                using var response = await _readinessHttp.GetAsync("http://127.0.0.1:7868/health");
+                if (response.IsSuccessStatusCode) return;
+            }
+            catch (HttpRequestException) { }
+            catch (TaskCanceledException) { }
+
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The AI backend did not become healthy within the startup timeout.");
+    }
+
+    void AttachOutputLogging(Process process)
+    {
+        process.OutputDataReceived += (_, args) => WriteBackendLog("stdout", args.Data);
+        process.ErrorDataReceived += (_, args) => WriteBackendLog("stderr", args.Data);
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+    }
+
+    void WriteBackendLog(string stream, string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return;
+        try
+        {
+            string log = AppDataRoot.Resolve("Logs/backend.log");
+            lock (_logLock)
+                File.AppendAllText(log, $"{DateTime.UtcNow:O} [{stream}] {line}{Environment.NewLine}");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr("Could not write backend log: " + ex.Message);
         }
     }
 

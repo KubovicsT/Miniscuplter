@@ -15,6 +15,7 @@ public record ReferenceResult(string Title, string PageUrl, string? ThumbnailUrl
 public record AiComponentInfo(string Id, string Name, string Kind, bool Installed, double EstimatedGb, string Description, string? Path);
 public record AiHardwareInfo(string? Gpu, int VramMb, bool CudaAvailable, string RecommendedProfile);
 public record AiComponentStatus(AiHardwareInfo Hardware, List<AiComponentInfo> Components, string DataRoot);
+public record AiJobProgress(string JobId, string Kind, string State, string Stage, string Detail, double Progress, string Provider, bool Active, bool CancelRequested, long Sequence);
 
 public sealed class AIClient
 {
@@ -23,6 +24,11 @@ public sealed class AIClient
     readonly SemaphoreSlim _jobGate = new(1, 1);
     CancellationTokenSource? _activeRequest;
     Task _cancelRecovery = Task.CompletedTask;
+    string? _activeJobId;
+    string? _lastJobId;
+
+    public string? ActiveJobId { get { lock (_cancelLock) return _activeJobId; } }
+    public string? LastJobId { get { lock (_cancelLock) return _lastJobId; } }
 
     /// <summary>
     /// The packaged editor owns the local backend process. A cancelled HTTP request alone does
@@ -79,14 +85,22 @@ public sealed class AIClient
         await recovery;
     }
 
+    public string LastDiagnostic { get; private set; } = "";
+
     public async Task<bool> HealthAsync()
     {
         try
         {
             await WaitForCancellationRecoveryAsync();
-            return await ProbeHealthAsync();
+            bool ok = await ProbeHealthAsync();
+            if (!ok) LastDiagnostic = "The local AI backend did not answer its health check.";
+            return ok;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            LastDiagnostic = ex.Message;
+            return false;
+        }
     }
 
     internal async Task<bool> ProbeHealthAsync()
@@ -130,11 +144,13 @@ public sealed class AIClient
 
     public async Task ApplyQualityConfigAsync(int imageSize, int imageSteps, double imageGuidance, double imageEditStrength, int maxInputPx, int shapeSteps,
         double remeshVoxelMm, double repairVoxelMm, long maxVoxelCells, int thicknessSamples, int smartSelectViews, int smartSelectRenderSize)
-        => await PostJsonAsync("/geometry/quality-config", new {
+    {
+        await PostJsonTextAsync("/geometry/quality-config", new {
             image_size=imageSize, image_steps=imageSteps, image_guidance=imageGuidance, image_edit_strength=imageEditStrength, max_input_px=maxInputPx,
             shape_steps=shapeSteps, remesh_voxel_mm=remeshVoxelMm, repair_voxel_mm=repairVoxelMm, max_voxel_cells=maxVoxelCells,
             thickness_samples=thicknessSamples, smart_select_views=smartSelectViews, smart_select_render_size=smartSelectRenderSize
-        });
+        }, true);
+    }
 
     async Task<string> PostForFileAsync(string route, object payload)
     {
@@ -151,32 +167,111 @@ public sealed class AIClient
         await WaitForCancellationRecoveryAsync();
         CancellationTokenSource? cts = cancellable ? new CancellationTokenSource() : null;
         bool gateHeld = false;
+        string? jobId = cancellable ? Guid.NewGuid().ToString("N") : null;
         try
         {
             if (cancellable)
             {
-                await _jobGate.WaitAsync(cts!.Token); gateHeld = true;
-                lock (_cancelLock) { _activeRequest?.Cancel(); _activeRequest?.Dispose(); _activeRequest = cts; }
+                await _jobGate.WaitAsync(cts!.Token);
+                gateHeld = true;
+                lock (_cancelLock)
+                {
+                    _activeRequest?.Cancel();
+                    _activeRequest?.Dispose();
+                    _activeRequest = cts;
+                    _activeJobId = jobId;
+                }
             }
+
             var json = JsonSerializer.Serialize(payload);
-            using var request = new HttpRequestMessage(HttpMethod.Post, BackendUrl + route) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts?.Token ?? CancellationToken.None);
+            using var request = new HttpRequestMessage(HttpMethod.Post, BackendUrl + route)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            if (!string.IsNullOrWhiteSpace(jobId))
+                request.Headers.TryAddWithoutValidation("X-Miniscupter-Job-Id", jobId);
+
+            using var response = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseContentRead,
+                cts?.Token ?? CancellationToken.None);
             var body = await response.Content.ReadAsStringAsync(cts?.Token ?? CancellationToken.None);
+
+            if (response.Headers.TryGetValues("X-Miniscupter-Job-Id", out var responseIds))
+            {
+                string? returned = responseIds.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(returned))
+                    jobId = returned;
+            }
+
             if (!response.IsSuccessStatusCode)
             {
-                string detail = string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}" : body;
+                string detail = string.IsNullOrWhiteSpace(body)
+                    ? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}"
+                    : body;
                 throw new InvalidOperationException(detail);
             }
-            if (string.IsNullOrWhiteSpace(body)) throw new InvalidOperationException("Backend returned an empty response.");
+            if (string.IsNullOrWhiteSpace(body))
+                throw new InvalidOperationException("Backend returned an empty response.");
             return body;
         }
-        catch (OperationCanceledException) { throw new InvalidOperationException("Operation cancelled by user."); }
-        catch (HttpRequestException ex) { throw new InvalidOperationException("Backend connection failed: " + ex.Message, ex); }
+        catch (OperationCanceledException)
+        {
+            throw new InvalidOperationException("Operation cancelled by user.");
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException("Backend connection failed: " + ex.Message, ex);
+        }
         finally
         {
-            if (cts != null) { lock (_cancelLock) { if (ReferenceEquals(_activeRequest, cts)) _activeRequest = null; } cts.Dispose(); }
+            if (cts != null)
+            {
+                lock (_cancelLock)
+                {
+                    if (ReferenceEquals(_activeRequest, cts))
+                    {
+                        _activeRequest = null;
+                        _activeJobId = null;
+                    }
+                    _lastJobId = jobId;
+                }
+                cts.Dispose();
+            }
             if (gateHeld) _jobGate.Release();
         }
+    }
+
+    public async Task<AiJobProgress> GetJobProgressAsync(string jobId)
+    {
+        await WaitForCancellationRecoveryAsync();
+        using var response = await _http.GetAsync($"{BackendUrl}/job-progress/{Uri.EscapeDataString(jobId)}");
+        string body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(body) ? $"Job progress HTTP {(int)response.StatusCode}." : body);
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        string GetString(string name, string fallback = "") =>
+            root.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null
+                ? value.GetString() ?? fallback
+                : fallback;
+        double GetDouble(string name) =>
+            root.TryGetProperty(name, out var value) && value.TryGetDouble(out var number) ? number : 0;
+        bool GetBool(string name) =>
+            root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+        long GetLong(string name) =>
+            root.TryGetProperty(name, out var value) && value.TryGetInt64(out var number) ? number : 0;
+        return new AiJobProgress(
+            GetString("job_id", jobId),
+            GetString("kind"),
+            GetString("state", "running"),
+            GetString("stage", "working"),
+            GetString("detail"),
+            GetDouble("progress"),
+            GetString("provider"),
+            GetBool("active"),
+            GetBool("cancel_requested"),
+            GetLong("sequence"));
     }
 
     public async Task<AiComponentStatus> GetComponentsAsync()
@@ -196,9 +291,7 @@ public sealed class AIClient
     public async Task ReleaseModelsAsync() => await PostJsonAsync("/release-models", new { });
     async Task PostJsonAsync(string route, object payload)
     {
-        await WaitForCancellationRecoveryAsync();
-        using var response = await _http.PostAsync(BackendUrl + route, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
-        var body = await response.Content.ReadAsStringAsync(); if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
+        await PostJsonTextAsync(route, payload, true);
     }
 
     public async Task<List<ReferenceResult>> SearchReferencesAsync(string query, int limit = 8)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.17"
+EXPECTED = "1.0.18"
 errors: list[str] = []
 
 

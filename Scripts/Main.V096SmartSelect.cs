@@ -55,7 +55,7 @@ public partial class Main
         {
             try
             {
-                string dir = ProjectSettings.GlobalizePath("user://smart_select"); Directory.CreateDirectory(dir);
+                string dir = AppDataRoot.Resolve("smart_select"); Directory.CreateDirectory(dir);
                 string input = Path.Combine(dir, $"select_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl");
                 MeshIO.SaveBinaryStl(mesh, input);
                 string json = await _ai.SemanticSelectAsync(input, query);
@@ -218,7 +218,7 @@ public partial class Main
     {
         V096ValidateSelection();if(_v096SelectionObject?.Mesh is not ArrayMesh mesh||_v096Selection==null||_camera==null)throw new InvalidOperationException("Create a Smart Selection first.");var sub=FindChild("Viewport",true,false)as SubViewport??throw new InvalidOperationException("Viewport is unavailable.");int w=Math.Max(1,(int)sub.GetVisibleRect().Size.X),h=Math.Max(1,(int)sub.GetVisibleRect().Size.Y);var image=Image.CreateEmpty(w,h,false,Image.Format.L8);image.Fill(Colors.Black);var mdt=new MeshDataTool();if(mdt.CreateFromSurface(mesh,0)!=Error.Ok)throw new InvalidOperationException("Could not read selected mesh.");
         for(int f=0;f<mdt.GetFaceCount();f++){int ia=mdt.GetFaceVertex(f,0),ib=mdt.GetFaceVertex(f,1),ic=mdt.GetFaceVertex(f,2);if((_v096Selection[ia]+_v096Selection[ib]+_v096Selection[ic])/3f<.35f)continue;Vector3 wa=_v096SelectionObject.GlobalTransform*mdt.GetVertex(ia),wb=_v096SelectionObject.GlobalTransform*mdt.GetVertex(ib),wc=_v096SelectionObject.GlobalTransform*mdt.GetVertex(ic);Vector3 center=(wa+wb+wc)/3f;Vector3 normal=(_v096SelectionObject.GlobalTransform.Basis*mdt.GetFaceNormal(f)).Normalized();if(normal.Dot((_camera.GlobalPosition-center).Normalized())<=0f)continue;if(_camera.IsPositionBehind(center))continue;V096RasterTriangle(image,_camera.UnprojectPosition(wa),_camera.UnprojectPosition(wb),_camera.UnprojectPosition(wc));}
-        string dir=ProjectSettings.GlobalizePath("user://masks");Directory.CreateDirectory(dir);string path=Path.Combine(dir,$"smart_select_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");image.SavePng(path);return path;
+        string dir=AppDataRoot.Resolve("masks");Directory.CreateDirectory(dir);string path=Path.Combine(dir,$"smart_select_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");image.SavePng(path);return path;
     }
 
     static void V096RasterTriangle(Image img,Vector2 a,Vector2 b,Vector2 c){int minX=Math.Clamp((int)Math.Floor(Math.Min(a.X,Math.Min(b.X,c.X))),0,img.GetWidth()-1),maxX=Math.Clamp((int)Math.Ceiling(Math.Max(a.X,Math.Max(b.X,c.X))),0,img.GetWidth()-1);int minY=Math.Clamp((int)Math.Floor(Math.Min(a.Y,Math.Min(b.Y,c.Y))),0,img.GetHeight()-1),maxY=Math.Clamp((int)Math.Ceiling(Math.Max(a.Y,Math.Max(b.Y,c.Y))),0,img.GetHeight()-1);float area=V096Edge(a,b,c);if(Math.Abs(area)<1e-5f)return;for(int y=minY;y<=maxY;y++)for(int x=minX;x<=maxX;x++){var p=new Vector2(x+.5f,y+.5f);float w0=V096Edge(b,c,p),w1=V096Edge(c,a,p),w2=V096Edge(a,b,p);if((w0>=0&&w1>=0&&w2>=0)||(w0<=0&&w1<=0&&w2<=0))img.SetPixel(x,y,Colors.White);}}

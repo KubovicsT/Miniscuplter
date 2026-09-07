@@ -75,8 +75,8 @@ public partial class Main
         int x1 = Math.Clamp((int)Math.Max(a.X, b.X), x0 + 1, w), y1 = Math.Clamp((int)Math.Max(a.Y, b.Y), y0 + 1, h);
         var image = Image.CreateEmpty(w, h, false, Image.Format.L8); image.Fill(Colors.Black);
         for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) image.SetPixel(x, y, Colors.White);
-        Directory.CreateDirectory(ProjectSettings.GlobalizePath("user://masks"));
-        _lastMask = ProjectSettings.GlobalizePath($"user://masks/mask_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+        Directory.CreateDirectory(AppDataRoot.Resolve("masks"));
+        _lastMask = AppDataRoot.Resolve($"masks/mask_{DateTime.Now:yyyyMMdd_HHmmss}.png");
         image.SavePng(_lastMask); SetStatus($"AI edit region selected: {x1 - x0} × {y1 - y0}px.");
     }
 
@@ -85,7 +85,7 @@ public partial class Main
         if (string.IsNullOrEmpty(_lastMask) || !File.Exists(_lastMask)) { SetStatus("Select an AI edit region first."); return; }
         CaptureView(); string prompt = _prompt?.Text.Trim() ?? "";
         if (prompt.Length == 0) { SetStatus("Describe the desired regional change first."); return; }
-        string outPath = ProjectSettings.GlobalizePath($"user://edit_region_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+        string outPath = AppDataRoot.Resolve($"edit_region_{DateTime.Now:yyyyMMdd_HHmmss}.png");
         await RunAi(async () =>
         {
             _lastEditedImage = await _ai.EditImageAsync(_lastCapture, _lastMask, prompt, outPath);

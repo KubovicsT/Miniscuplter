@@ -22,7 +22,7 @@ _DEFAULT = {
 }
 
 _LOCK = threading.RLock()
-_DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(__file__).resolve().parent / "data")).resolve()
+_DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(os.getenv("MINISCULPTER_ROOT", Path(__file__).resolve().parent.parent)) / "AIData")).resolve()
 _STATE_FILE = _DATA_ROOT / "quality_runtime.json"
 
 

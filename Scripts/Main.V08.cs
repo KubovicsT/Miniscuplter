@@ -240,7 +240,7 @@ public partial class Main
         _v08RemeshRunning = true;
         try
         {
-            dir = ProjectSettings.GlobalizePath($"user://sculpt_remesh/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}"); Directory.CreateDirectory(dir);
+            dir = AppDataRoot.Resolve($"sculpt_remesh/job_{DateTime.Now:yyyyMMdd_HHmmss_fff}"); Directory.CreateDirectory(dir);
             string input = Path.Combine(dir, "input.stl"), output = Path.Combine(dir, "output.stl");
             MeshIO.SaveBinaryStl(mesh, input);
             SetStatus("v0.8 detail remesh running…");

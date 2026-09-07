@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from threading import Lock, local
 from time import time
 from uuid import uuid4
@@ -8,34 +9,63 @@ _lock = Lock()
 _context = local()
 _jobs: dict[str, dict] = {}
 _current_id: str | None = None
+_MAX_EVENTS = 96
 
 
 def _now() -> float:
     return time()
 
 
-def begin(kind: str) -> str:
-    global _current_id
-    job_id = uuid4().hex
-    now = _now()
-    entry = {
-        "active": True,
-        "job_id": job_id,
-        "kind": kind,
-        "state": "running",
-        "stage": "queued",
-        "detail": "Request accepted by the local AI backend.",
-        "progress": 1.0,
-        "provider": None,
-        "started_at": now,
-        "updated_at": now,
+def _snapshot(entry: dict) -> dict:
+    result = dict(entry)
+    result["events"] = deepcopy(entry.get("events", []))
+    return result
+
+
+def _event(entry: dict, stage: str, detail: str, progress: float | None = None) -> None:
+    entry["sequence"] = int(entry.get("sequence", 0)) + 1
+    event = {
+        "sequence": entry["sequence"],
+        "stage": stage,
+        "detail": detail,
+        "progress": entry.get("progress", 0.0) if progress is None else progress,
+        "timestamp": _now(),
     }
+    events = entry.setdefault("events", [])
+    events.append(event)
+    if len(events) > _MAX_EVENTS:
+        del events[:-_MAX_EVENTS]
+
+
+def begin(kind: str, client_job_id: str | None = None) -> str:
+    global _current_id
+    requested = (client_job_id or "").strip()
+    job_id = requested if requested and len(requested) <= 96 else uuid4().hex
+    now = _now()
     with _lock:
+        if job_id in _jobs:
+            job_id = f"{job_id}-{uuid4().hex[:8]}"
+        entry = {
+            "active": True,
+            "job_id": job_id,
+            "kind": kind,
+            "state": "running",
+            "stage": "queued",
+            "detail": "Request accepted by the local AI backend.",
+            "progress": 1.0,
+            "provider": None,
+            "cancel_requested": False,
+            "sequence": 0,
+            "started_at": now,
+            "updated_at": now,
+            "events": [],
+        }
         _jobs[job_id] = entry
         _current_id = job_id
-        if len(_jobs) > 64:
-            for old_id, _ in sorted(_jobs.items(), key=lambda kv: kv[1].get("updated_at", 0.0))[:-48]:
+        if len(_jobs) > 96:
+            for old_id, _ in sorted(_jobs.items(), key=lambda kv: kv[1].get("updated_at", 0.0))[:-72]:
                 _jobs.pop(old_id, None)
+        _event(entry, "queued", entry["detail"], 1.0)
     _context.job_id = job_id
     return job_id
 
@@ -64,6 +94,7 @@ def report(stage: str, detail: str = "", progress: float | None = None, provider
         if provider:
             entry["provider"] = provider
         entry["updated_at"] = _now()
+        _event(entry, stage, entry.get("detail", ""), entry.get("progress", 0.0))
 
 
 def complete(detail: str = "Completed.", provider: str | None = None) -> None:
@@ -84,6 +115,7 @@ def complete(detail: str = "Completed.", provider: str | None = None) -> None:
         })
         if provider:
             entry["provider"] = provider
+        _event(entry, "completed", detail, 100.0)
 
 
 def fail(detail: str) -> None:
@@ -101,6 +133,29 @@ def fail(detail: str) -> None:
             "detail": detail,
             "updated_at": _now(),
         })
+        _event(entry, "failed", detail, entry.get("progress", 0.0))
+
+
+def request_cancel(job_id: str) -> dict | None:
+    with _lock:
+        entry = _jobs.get(job_id)
+        if entry is None:
+            return None
+        entry["cancel_requested"] = True
+        entry["state"] = "cancelling" if entry.get("active") else entry.get("state", "failed")
+        entry["stage"] = "cancelling"
+        entry["detail"] = "Cancellation requested; the owned worker must terminate before the next job starts."
+        entry["updated_at"] = _now()
+        _event(entry, "cancelling", entry["detail"], entry.get("progress", 0.0))
+        return _snapshot(entry)
+
+
+def is_cancel_requested(job_id: str | None = None) -> bool:
+    target = job_id or current_job_id()
+    if not target:
+        return False
+    with _lock:
+        return bool(_jobs.get(target, {}).get("cancel_requested", False))
 
 
 def current() -> dict:
@@ -115,13 +170,24 @@ def current() -> dict:
                 "detail": "No AI job has run in this backend session yet.",
                 "progress": 0.0,
                 "provider": None,
+                "cancel_requested": False,
+                "sequence": 0,
                 "started_at": None,
                 "updated_at": _now(),
+                "events": [],
             }
-        return dict(_jobs[_current_id])
+        return _snapshot(_jobs[_current_id])
 
 
 def get(job_id: str) -> dict | None:
     with _lock:
         entry = _jobs.get(job_id)
-        return dict(entry) if entry is not None else None
+        return _snapshot(entry) if entry is not None else None
+
+
+def get_events(job_id: str, after: int = 0) -> list[dict] | None:
+    with _lock:
+        entry = _jobs.get(job_id)
+        if entry is None:
+            return None
+        return [deepcopy(event) for event in entry.get("events", []) if int(event.get("sequence", 0)) > after]

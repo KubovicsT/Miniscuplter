@@ -111,7 +111,7 @@ public partial class Main
         parent.AddChild(s); return s;
     }
 
-    string V097PresetPath() => ProjectSettings.GlobalizePath("user://quality_presets_v097.json");
+    string V097PresetPath() => AppDataRoot.Resolve("quality_presets_v097.json");
 
     void LoadV097Presets()
     {

@@ -28,10 +28,10 @@ public partial class Main
     MeshInstance3D? _v098DetailSource, _v098DetailPreview;
     string _v098DetailPatchPath = "";
 
-    string V098RoutePath() => ProjectSettings.GlobalizePath("user://ai_routing_v098.json");
+    string V098RoutePath() => AppDataRoot.Resolve("ai_routing_v098.json");
     string V098WorkDir()
     {
-        string p = ProjectSettings.GlobalizePath("user://ai_detail_v098"); Directory.CreateDirectory(p); return p;
+        string p = AppDataRoot.Resolve("ai_detail_v098"); Directory.CreateDirectory(p); return p;
     }
 
     public void InstallV098MultiModelAI()

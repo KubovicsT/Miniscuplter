@@ -221,7 +221,7 @@ public partial class Main
         V096ValidateSelection();
         if (_v096Selection == null) { SetStatus("Create a Smart Selection first, for example /s head."); return; }
         string mask = BuildV096ViewportMask(); CaptureView();
-        string output = ProjectSettings.GlobalizePath($"user://smart_edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+        string output = AppDataRoot.Resolve($"smart_edit_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
         await RunAi(async () =>
         {
             _lastEditedImage = await _ai.EditImageAsync(_lastCapture, mask, prompt, output, CurrentQuality());
