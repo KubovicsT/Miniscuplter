@@ -12,7 +12,7 @@ from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model
 from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
 from detail_pipeline import detail_2d, detail_3d, apply_detail
 
-APP_VERSION="1.0.14"
+APP_VERSION="1.0.15"
 app=FastAPI(title="Miniscuplter AI Backend",version=APP_VERSION);app.include_router(geometry_router);app.include_router(rig_router)
 SD_WEBUI_URL=os.getenv("MINISCULPTER_SD_URL","").rstrip("/");THREED_COMMAND=os.getenv("MINISCULPTER_3D_COMMAND","")
 class ConceptRequest(BaseModel):prompt:str;output_path:str;quality:str="standard";provider:str="auto"
@@ -76,7 +76,21 @@ def _generate_shape(provider,req,image,output):
 @app.post("/generate-3d")
 def generate_3d(req:Generate3DRequest):
     image=str(Path(req.image_path).resolve());output=str(Path(req.output_path).resolve());Path(output).parent.mkdir(parents=True,exist_ok=True)
-    try:d=choose_3d_provider(req.role,req.provider);release_all_models();return {"path":_generate_shape(d.provider,req,image,output),"provider":d.provider,"routing_reason":d.reason,"role":req.role,"quality":req.quality}
+    try:
+        d=choose_3d_provider(req.role,req.provider);release_all_models()
+        try:
+            path=_generate_shape(d.provider,req,image,output)
+            return {"path":path,"provider":d.provider,"routing_reason":d.reason,"role":req.role,"quality":req.quality}
+        except Exception as primary:
+            # Explicit provider choice must fail visibly. Only an Auto route may recover by trying
+            # the router's next installed provider; otherwise a broken installation would be hidden.
+            if (req.provider or "auto").lower()!="auto" or not d.fallback or d.fallback==d.provider:raise
+            release_all_models()
+            try:
+                path=_generate_shape(d.fallback,req,image,output)
+                return {"path":path,"provider":d.fallback,"routing_reason":f"{d.reason}; {d.provider} failed ({primary}); automatic fallback to {d.fallback}","role":req.role,"quality":req.quality,"fallback_from":d.provider}
+            except Exception as fallback:
+                raise RuntimeError(f"Auto 3D route failed. Primary {d.provider}: {primary}. Fallback {d.fallback}: {fallback}") from fallback
     except Exception as e:raise HTTPException(502,f"3D provider failed: {e}") from e
     finally:release_all_models()
 @app.post("/generate-parts")
