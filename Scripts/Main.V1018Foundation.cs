@@ -27,7 +27,7 @@ public partial class Main
     Label? _v1018ToolStatus;
     PanelContainer? _v1018ToolOverlay;
 
-    public override void _Process(double delta)
+    void V1018Process(double delta)
     {
         if (!_v1018ViewportInstalled)
         {

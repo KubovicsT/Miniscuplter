@@ -24,6 +24,7 @@ public partial class Main
 
     public override void _Process(double delta)
     {
+        V1018Process(delta);
         _v095WatchdogElapsed += delta;
         if (_v095WatchdogElapsed < .5) return;
         _v095WatchdogElapsed = 0;
