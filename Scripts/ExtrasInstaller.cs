@@ -69,8 +69,10 @@ public partial class ExtrasInstaller : Node
         // v1.0.15 makes the first end-to-end creative slice testable on the target machine: the
         // center workspace becomes the actual 2D editing canvas in the 2D tab, references become
         // visible/selectable images, and the 3D workspace gets a driver-robust triangle grid.
-        // Install last so it replaces obsolete bridge interactions rather than being reparented by
-        // historical UI installers.
         main.InstallV1015ThinSlice();
+
+        // v1.0.16 replaces only the visible reference-search surface after the v1.0.15 canvas is
+        // installed. The older Commons implementation remains underneath as a rollback-safe layer.
+        main.InstallV1016ReferenceSearch();
     }
 }
