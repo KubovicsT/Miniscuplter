@@ -60,5 +60,10 @@ public partial class ExtrasInstaller : Node
         // creates new .msculpt2 copies and never replaces the proven .msculpt path while migration
         // and semantic adapters are still being validated.
         main.InstallV1013FoundationBridge();
+
+        // Current Python model adapters are synchronous. Cancelling only the editor's HTTP request
+        // leaves the server-side CUDA work alive, so every cancel action is wired to an owned
+        // backend-process restart and all following jobs wait for that health recovery.
+        main.InstallV1013CancellationRecovery();
     }
 }
