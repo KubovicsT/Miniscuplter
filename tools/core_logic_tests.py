@@ -2,7 +2,7 @@ from __future__ import annotations
 import tempfile,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/"ai_backend"))
-import model_manager,model_router,model_capabilities,quality_runtime,model_downloads
+import model_manager,model_router,model_capabilities,quality_runtime,model_downloads,modern_image
 def check(c,m):
     if not c:raise AssertionError(m)
 def test_quality_clamps():
@@ -18,6 +18,13 @@ def test_model_routing():
     finally:model_router.installed,model_router.hardware_info=oi,oh
 def test_capabilities():
     rows={x["id"]:x for x in model_capabilities.recommendations(8192,"win32")};check(rows["hunyuan2mini"]["hardware_fit"] in {"recommended","possible"},"Hunyuan mini 8GB fit");check(rows["trellis2"]["wsl_possible"],"TRELLIS Windows should expose WSL route");check(rows["trellis2"]["hardware_fit"]=="not-recommended","TRELLIS must not be recommended at 8GB")
+def test_modern_image_low_vram_strategy():
+    check(modern_image._offload_strategy("z-image-turbo",8192,"auto")=="sequential","Z-Image 8GB must use sequential offload")
+    check(modern_image._offload_strategy("z-image-turbo",8192,"fast")=="sequential","Z-Image 8GB Fast must not try whole-model GPU placement")
+    check(modern_image._offload_strategy("z-image-turbo",16384,"balanced")=="model","Z-Image 16GB balanced should use model offload")
+    check(modern_image._offload_strategy("z-image-turbo",24576,"fast")=="cuda","Z-Image workstation Fast should permit full GPU")
+    check(modern_image._generation_size("z-image-turbo",8192)<=768,"Z-Image 8GB canvas guard")
+    check(modern_image._generation_size("z-image-turbo",8192,retry=True)<=640,"Z-Image OOM retry canvas guard")
 def test_component_file_validation():
     old=model_manager.TOOLS_ROOT
     try:
@@ -36,4 +43,4 @@ def test_resumable_stage_recovery():
         s=model_downloads.stage_status(root,"sdxl-base");check(s["resume_available"] and s["resume_action"]=="install","partial install not reported")
         same=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check((same/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").exists(),"matching stage was not preserved")
         fresh=model_downloads.prepare_stage(root,"sdxl-base","rev-b","manifest-a","install");check(not (fresh/"models").exists(),"stale revision payload was reused");check(not model_downloads.stage_status(root,"sdxl-base")["resume_available"],"metadata-only stage incorrectly reported as resumable")
-if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_component_file_validation();test_uninstall_path_guard();test_resumable_stage_recovery();print("v1.0.5 core logic tests passed")
+if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_modern_image_low_vram_strategy();test_component_file_validation();test_uninstall_path_guard();test_resumable_stage_recovery();print("v1.0.14 core logic tests passed")
