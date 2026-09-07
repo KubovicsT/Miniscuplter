@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace Miniscuplter;
 
@@ -11,11 +12,55 @@ public partial class BackendLauncher : Node
     const uint JobObjectExtendedLimitInformation = 9;
     const uint JobObjectLimitKillOnJobClose = 0x00002000;
 
+    readonly object _processLock = new();
     Process? _backend;
     IntPtr _job = IntPtr.Zero;
 
-    public override void _Ready()
+    public override void _Ready() => StartBackend();
+
+    /// <summary>
+    /// Cancelling an HttpClient request does not stop a synchronous FastAPI inference handler.
+    /// Miniscuplter owns the local backend process tree, so a user cancellation restarts that
+    /// process tree to guarantee the abandoned CUDA/model job is actually gone before another
+    /// job is allowed to start.
+    /// </summary>
+    public Task RestartAsync()
     {
+        lock (_processLock)
+        {
+            ShutdownBackendLocked();
+            StartBackendLocked();
+        }
+        return Task.CompletedTask;
+    }
+
+    public bool IsRunning
+    {
+        get
+        {
+            lock (_processLock)
+            {
+                try { return _backend != null && !_backend.HasExited; }
+                catch { return false; }
+            }
+        }
+    }
+
+    void StartBackend()
+    {
+        lock (_processLock) StartBackendLocked();
+    }
+
+    void StartBackendLocked()
+    {
+        if (_backend != null)
+        {
+            try { if (!_backend.HasExited) return; }
+            catch { }
+            try { _backend.Dispose(); } catch { }
+            _backend = null;
+        }
+
         string root = Environment.GetEnvironmentVariable("MINISCULPTER_ROOT") ?? "";
         if (string.IsNullOrWhiteSpace(root))
         {
@@ -30,7 +75,11 @@ public partial class BackendLauncher : Node
             ProjectSettings.GlobalizePath("res://ai_backend/app.py")
         };
         string? app = Array.Find(backendCandidates, File.Exists);
-        if (app == null) { GD.Print("AI backend files were not found; editor remains usable without AI."); return; }
+        if (app == null)
+        {
+            GD.Print("AI backend files were not found; editor remains usable without AI.");
+            return;
+        }
 
         string[] pythonCandidates =
         {
@@ -69,7 +118,7 @@ public partial class BackendLauncher : Node
                 {
                     int error = Marshal.GetLastWin32Error();
                     GD.PrintErr($"AI backend lifetime containment failed (Windows error {error}). The backend is being terminated rather than leaving an unmanaged process behind.");
-                    ShutdownBackend();
+                    ShutdownBackendLocked();
                     return;
                 }
             }
@@ -79,13 +128,16 @@ public partial class BackendLauncher : Node
         catch (Exception ex)
         {
             GD.PrintErr("AI backend auto-launch failed: " + ex.Message);
-            ShutdownBackend();
+            ShutdownBackendLocked();
         }
     }
 
-    public override void _ExitTree() => ShutdownBackend();
+    public override void _ExitTree()
+    {
+        lock (_processLock) ShutdownBackendLocked();
+    }
 
-    void ShutdownBackend()
+    void ShutdownBackendLocked()
     {
         // On Windows, closing a JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE job kills the backend
         // and every subprocess it created, including specialist model runtimes. The job
@@ -160,6 +212,8 @@ public partial class BackendLauncher : Node
         public ulong ReadTransferCount;
         public ulong WriteTransferCount;
         public ulong OtherTransferCount;
+        public ulong PeakProcessUsed;
+        public ulong PeakJobUsed;
     }
 
     [StructLayout(LayoutKind.Sequential)]
