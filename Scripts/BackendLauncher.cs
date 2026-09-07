@@ -212,8 +212,6 @@ public partial class BackendLauncher : Node
         public ulong ReadTransferCount;
         public ulong WriteTransferCount;
         public ulong OtherTransferCount;
-        public ulong PeakProcessUsed;
-        public ulong PeakJobUsed;
     }
 
     [StructLayout(LayoutKind.Sequential)]
