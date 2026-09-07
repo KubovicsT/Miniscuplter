@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.16"
+EXPECTED = "1.0.17"
 errors: list[str] = []
 
 
@@ -89,7 +89,7 @@ require(
     f'application/product_version="{EXPECTED}.0"' in export_presets,
     "Windows exported file version mismatch",
 )
-require(f'APP_VERSION="{EXPECTED}"' in backend and '"version":APP_VERSION' in backend, "backend version mismatch")
+require(f'APP_VERSION = "{EXPECTED}"' in backend and '"version": APP_VERSION' in backend, "backend version mismatch")
 require(f"Ready — Miniscuplter v{EXPECTED}" in release_polish, "editor displayed version mismatch")
 require("Assembly.GetExecutingAssembly()" in launcher_program and 'form.Text = $"Miniscuplter Launcher v{version}"' in launcher_program, "launcher title is not derived from assembly version")
 require("<OutputType>WinExe</OutputType>" in uproj, "updater still opens a console window")
@@ -186,7 +186,7 @@ require("Mesh.PrimitiveType.Triangles" in thin_slice1015 and "AddV1015GridBars" 
 for dep in ("opencv-python-headless", "pymeshlab", "pygltflib", "xatlas", "ninja", "pybind11"):
     require(dep in requirements, f"Hunyuan3D 2mini runtime dependency missing: {dep}")
 require("_require_hunyuan_mini_runtime" in special and "Repair AI Runtime" in special, "Hunyuan 2mini runtime preflight/repair guidance missing")
-require('(req.provider or "auto").lower()!="auto"' in backend and "automatic fallback to" in backend and "fallback_from" in backend, "Auto 3D provider fallback is missing or can hide explicit provider failures")
+require('(req.provider or "auto").lower() != "auto"' in backend and "automatic fallback to" in backend and "fallback_from" in backend, "Auto 3D provider fallback is missing or can hide explicit provider failures")
 
 
 # v1.0.16: reference discovery must search more than Wikimedia while preserving the local 2D workflow.
