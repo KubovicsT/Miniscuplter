@@ -1,0 +1,134 @@
+name: v1017-release-finalize
+
+on:
+  push:
+    branches: [v1.0.17]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, '[v1017-clean]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0.17
+          fetch-depth: 0
+
+      - name: Wait for green validation of finalizer commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          wait_green() {
+            local sha="$1"
+            for attempt in $(seq 1 120); do
+              runs="$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$sha" --limit 50 --json workflowName,status,conclusion,databaseId 2>/dev/null || echo '[]')"
+              build_status="$(jq -r '[.[] | select(.workflowName == "build")][0].status // "missing"' <<<"$runs")"
+              build_result="$(jq -r '[.[] | select(.workflowName == "build")][0].conclusion // ""' <<<"$runs")"
+              core_status="$(jq -r '[.[] | select(.workflowName == "core-foundation")][0].status // "missing"' <<<"$runs")"
+              core_result="$(jq -r '[.[] | select(.workflowName == "core-foundation")][0].conclusion // ""' <<<"$runs")"
+              echo "validation $sha: build=$build_status/$build_result core=$core_status/$core_result"
+              if [[ "$build_status" == "completed" && "$build_result" != "success" ]]; then exit 1; fi
+              if [[ "$core_status" == "completed" && "$core_result" != "success" ]]; then exit 1; fi
+              if [[ "$build_status" == "completed" && "$build_result" == "success" && "$core_status" == "completed" && "$core_result" == "success" ]]; then return 0; fi
+              sleep 10
+            done
+            echo "Timed out waiting for validation of $sha" >&2
+            exit 1
+          }
+          wait_green "$(git rev-parse HEAD)"
+
+      - name: Prepare clean v1.0.17 release commit
+        id: clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          audit = Path('tools/release_audit.py')
+          a = audit.read_text(encoding='utf-8')
+
+          backend_anchor = 'backend = text("ai_backend/app.py")\n'
+          if 'job_progress = text("ai_backend/job_progress.py")' not in a:
+              if backend_anchor not in a:
+                  raise SystemExit('release audit backend insertion anchor missing')
+              a = a.replace(backend_anchor, backend_anchor + 'job_progress = text("ai_backend/job_progress.py")\n')
+
+          ref_anchor = 'references1016 = text("Scripts/Main.V1016References.cs")\n'
+          if 'usability1017 = text("Scripts/Main.V1017Usability.cs")' not in a:
+              if ref_anchor not in a:
+                  raise SystemExit('release audit v1.0.17 insertion anchor missing')
+              a = a.replace(ref_anchor, ref_anchor + 'usability1017 = text("Scripts/Main.V1017Usability.cs")\n')
+
+          checks = '''\n# v1.0.17: long-running AI work, viewport recovery, contained storage and quality controls must be visible and usable.\nrequire("InstallV1017Usability();" in extras, "v1.0.17 usability installer missing")\nfor token in ("Enhance Selected Region", "V1017PollBackendProgressAsync", "MINISCULPTER_DATA", "Workspace", "3D Viewport Texture", "V1017RepairViewport", "Selected preset:"):\n    require(token in usability1017, f"v1.0.17 usability/containment surface missing: {token}")\nfor token in ("queued", "running", "progress", "provider", "completed", "failed"):\n    require(token in job_progress, f"v1.0.17 backend progress state missing: {token}")\nfor token in ('@app.get("/job-progress/current")', '"resolving_provider"', '"preparing_runtime"', '"loading_model"', '"validating_output"'):\n    require(token in backend, f"v1.0.17 backend stage reporting missing: {token}")\n'''
+          marker = '# SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.\n'
+          if '# v1.0.17: long-running AI work' not in a:
+              if marker not in a:
+                  raise SystemExit('release audit v1.0.17 check anchor missing')
+              a = a.replace(marker, checks + '\n' + marker)
+          audit.write_text(a, encoding='utf-8')
+
+          hist = Path('docs/RELEASE_HISTORY.md')
+          h = hist.read_text(encoding='utf-8')
+          row = '| `v1.0.16` | Multi-source reference search | Openverse multi-collection search plus Wikimedia fallback, source/license attribution, partial-provider failure recovery |\n'
+          addition = '| `v1.0.17` | Usability and containment | Live AI stage progress, context-aware regional enhancement, 3D viewport recovery, contained working data and editable quality presets |\n'
+          if '`v1.0.17` | Usability and containment' not in h:
+              if row not in h:
+                  raise SystemExit('release history v1.0.17 insertion anchor missing')
+              h = h.replace(row, row + addition)
+              hist.write_text(h, encoding='utf-8')
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/v1017-release-finalize.yml
+          git add tools/release_audit.py docs/RELEASE_HISTORY.md
+          git commit -m "Finalize v1.0.17 release source and remove temporary finalizer [v1017-clean]"
+          git push origin HEAD:v1.0.17
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for green validation of clean release commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLEAN_SHA: ${{ steps.clean.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            runs="$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$CLEAN_SHA" --limit 50 --json workflowName,status,conclusion,databaseId 2>/dev/null || echo '[]')"
+            build_status="$(jq -r '[.[] | select(.workflowName == "build")][0].status // "missing"' <<<"$runs")"
+            build_result="$(jq -r '[.[] | select(.workflowName == "build")][0].conclusion // ""' <<<"$runs")"
+            core_status="$(jq -r '[.[] | select(.workflowName == "core-foundation")][0].status // "missing"' <<<"$runs")"
+            core_result="$(jq -r '[.[] | select(.workflowName == "core-foundation")][0].conclusion // ""' <<<"$runs")"
+            echo "clean validation $CLEAN_SHA: build=$build_status/$build_result core=$core_status/$core_result"
+            if [[ "$build_status" == "completed" && "$build_result" != "success" ]]; then exit 1; fi
+            if [[ "$core_status" == "completed" && "$core_result" != "success" ]]; then exit 1; fi
+            if [[ "$build_status" == "completed" && "$build_result" == "success" && "$core_status" == "completed" && "$core_result" == "success" ]]; then exit 0; fi
+            sleep 10
+          done
+          echo "Timed out waiting for clean release validation" >&2
+          exit 1
+
+      - name: Create immutable v1.0.17 tag
+        shell: bash
+        env:
+          CLEAN_SHA: ${{ steps.clean.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin refs/tags/v1.0.17 >/dev/null 2>&1; then
+            existing="$(git ls-remote --tags origin refs/tags/v1.0.17 | awk '{print $1}')"
+            if [[ "$existing" == "$CLEAN_SHA" ]]; then
+              echo "v1.0.17 already points at the validated release commit."
+              exit 0
+            fi
+            echo "Refusing to move existing immutable v1.0.17 tag ($existing)." >&2
+            exit 1
+          fi
+          git tag v1.0.17 "$CLEAN_SHA"
+          git push origin refs/tags/v1.0.17
