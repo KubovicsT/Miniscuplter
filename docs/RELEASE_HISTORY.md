@@ -32,6 +32,7 @@ Each release branch is preserved as a historical snapshot. Documentation-only co
 | `v1.0.14` | Z-Image low-VRAM recovery | Sequential offload and safe retry profiles for 8 GB-class GPUs |
 | `v1.0.15` | Reliable creative thin slice | Real center 2D edit canvas, visible reference images, Hunyuan runtime repair/fallback, robust triangle viewport grid |
 | `v1.0.16` | Multi-source reference search | Openverse multi-collection search plus Wikimedia fallback, source/license attribution, partial-provider failure recovery |
+| `v1.0.17` | Usability and containment | Live AI stage progress, context-aware regional enhancement, 3D viewport recovery, contained working data and editable quality presets |
 
 ## v1.0.6 integration fixes
 

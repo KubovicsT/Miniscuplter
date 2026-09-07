@@ -29,6 +29,7 @@ app_project = text("Miniscuplter.csproj")
 installer = text("installer/Miniscuplter.iss")
 export_presets = text("export_presets.cfg")
 backend = text("ai_backend/app.py")
+job_progress = text("ai_backend/job_progress.py")
 workflow = text(".github/workflows/build.yml")
 core_workflow = text(".github/workflows/core_foundation.yml")
 build_release = text("build_release.ps1")
@@ -39,6 +40,7 @@ responsive = text("Scripts/Main.V109Responsive.cs")
 workflow1011 = text("Scripts/Main.V1011Workflow.cs")
 thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")
 references1016 = text("Scripts/Main.V1016References.cs")
+usability1017 = text("Scripts/Main.V1017Usability.cs")
 safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
@@ -197,6 +199,16 @@ for token in ("mature=false", "watermarked", "Source:", "License:", "Open Source
     require(token in references1016, f"v1.0.16 reference-result safety/attribution surface missing: {token}")
 require("SetStartingImage(cached)" in references1016 and "SyncV1015CanvasSource(current)" in references1016, "v1.0.16 references do not feed the established 2D source workflow")
 require("ContentLength" in references1016 and "maxBytes" in references1016 and "Image.LoadFromFile(path)" in references1016, "v1.0.16 remote-image size/decoding guards missing")
+
+
+# v1.0.17: long-running AI work, viewport recovery, contained storage and quality controls must be visible and usable.
+require("InstallV1017Usability();" in extras, "v1.0.17 usability installer missing")
+for token in ("Enhance Selected Region", "V1017PollBackendProgressAsync", "MINISCULPTER_DATA", "Workspace", "3D Viewport Texture", "V1017RepairViewport", "Selected preset:"):
+    require(token in usability1017, f"v1.0.17 usability/containment surface missing: {token}")
+for token in ("queued", "running", "progress", "provider", "completed", "failed"):
+    require(token in job_progress, f"v1.0.17 backend progress state missing: {token}")
+for token in ('@app.get("/job-progress/current")', '"resolving_provider"', '"preparing_runtime"', '"loading_model"', '"validating_output"'):
+    require(token in backend, f"v1.0.17 backend stage reporting missing: {token}")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
