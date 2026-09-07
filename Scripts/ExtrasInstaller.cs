@@ -65,5 +65,12 @@ public partial class ExtrasInstaller : Node
         // leaves the server-side CUDA work alive, so every cancel action is wired to an owned
         // backend-process restart and all following jobs wait for that health recovery.
         main.InstallV1013CancellationRecovery();
+
+        // v1.0.15 makes the first end-to-end creative slice testable on the target machine: the
+        // center workspace becomes the actual 2D editing canvas in the 2D tab, references become
+        // visible/selectable images, and the 3D workspace gets a driver-robust triangle grid.
+        // Install last so it replaces obsolete bridge interactions rather than being reparented by
+        // historical UI installers.
+        main.InstallV1015ThinSlice();
     }
 }
