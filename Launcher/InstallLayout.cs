@@ -77,9 +77,73 @@ internal static class InstallLayout
     {
         string exe = ResolveApp(s);
         var psi = new ProcessStartInfo(exe) { WorkingDirectory = Path.GetDirectoryName(exe) ?? s.InstallRoot, UseShellExecute = false };
+
+        string dataRoot = Path.GetFullPath(s.DataRoot);
+        string roaming = Path.Combine(dataRoot, "System", "AppData", "Roaming");
+        string local = Path.Combine(dataRoot, "System", "AppData", "Local");
+        string temp = Path.Combine(dataRoot, "Temp");
+        string cache = Path.Combine(dataRoot, "Cache");
+        string hf = Path.Combine(cache, "HuggingFace");
+        string torch = Path.Combine(cache, "Torch");
+        string pip = Path.Combine(cache, "Pip");
+        string pycache = Path.Combine(cache, "PythonBytecode");
+        foreach (string path in new[] { dataRoot, roaming, local, temp, cache, hf, torch, pip, pycache }) Directory.CreateDirectory(path);
+
+        CopyLegacyGodotUserData(roaming);
+
         psi.Environment["MINISCULPTER_ROOT"] = s.InstallRoot;
-        psi.Environment["MINISCULPTER_DATA"] = s.DataRoot;
+        psi.Environment["MINISCULPTER_DATA"] = dataRoot;
         psi.Environment["MINISCULPTER_LAUNCHER"] = "1";
+
+        // Godot normally resolves user:// beneath %APPDATA% and many libraries use Windows TEMP
+        // or per-user caches by default. Redirect only the editor process and its children so all
+        // Miniscuplter working data remains under the user-selected DataRoot/AIData location.
+        psi.Environment["APPDATA"] = roaming;
+        psi.Environment["LOCALAPPDATA"] = local;
+        psi.Environment["TEMP"] = temp;
+        psi.Environment["TMP"] = temp;
+        psi.Environment["HF_HOME"] = hf;
+        psi.Environment["HUGGINGFACE_HUB_CACHE"] = Path.Combine(hf, "hub");
+        psi.Environment["TRANSFORMERS_CACHE"] = Path.Combine(hf, "transformers");
+        psi.Environment["TORCH_HOME"] = torch;
+        psi.Environment["PIP_CACHE_DIR"] = pip;
+        psi.Environment["XDG_CACHE_HOME"] = cache;
+        psi.Environment["PYTHONPYCACHEPREFIX"] = pycache;
         return psi;
+    }
+
+    static void CopyLegacyGodotUserData(string newRoamingRoot)
+    {
+        // Preserve existing presets, recovery data and generated assets when moving Godot's
+        // user:// root away from C:. This is copy-only: the previous AppData tree is intentionally
+        // left as a safety backup and the new editor no longer writes to it.
+        try
+        {
+            string oldRoaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (string.IsNullOrWhiteSpace(oldRoaming)) return;
+            string source = Path.Combine(oldRoaming, "Godot", "app_userdata", "Miniscuplter");
+            string destination = Path.Combine(newRoamingRoot, "Godot", "app_userdata", "Miniscuplter");
+            if (!Directory.Exists(source)) return;
+            if (Path.GetFullPath(source).Equals(Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase)) return;
+            CopyDirectoryMissing(source, destination);
+        }
+        catch
+        {
+            // Migration failure must never prevent the editor from launching. Existing data stays
+            // untouched at the old path and the new contained user:// tree can still be created.
+        }
+    }
+
+    static void CopyDirectoryMissing(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (string dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, dir)));
+        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        {
+            string target = Path.Combine(destination, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            if (!File.Exists(target)) File.Copy(file, target, overwrite: false);
+        }
     }
 }
