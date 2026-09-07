@@ -1,0 +1,30 @@
+name: publish-v1.0.13-tag
+
+on:
+  push:
+    branches: [ 'v1.0.13' ]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create immutable v1.0.13 tag at validated app commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          target='bf8f33bd9d90ed88f496d7e86da5070b821e23fb'
+          git cat-file -e "${target}^{commit}"
+          if git ls-remote --exit-code --tags origin refs/tags/v1.0.13 >/dev/null 2>&1; then
+            echo 'v1.0.13 already exists; refusing to replace an immutable release tag.'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag v1.0.13 "$target"
+          git push origin refs/tags/v1.0.13
