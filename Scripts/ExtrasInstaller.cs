@@ -74,5 +74,10 @@ public partial class ExtrasInstaller : Node
         // v1.0.16 replaces only the visible reference-search surface after the v1.0.15 canvas is
         // installed. The older Commons implementation remains underneath as a rollback-safe layer.
         main.InstallV1016ReferenceSearch();
+
+        // v1.0.17 patches the final composed release UI with observable AI stages, contextual 2D
+        // enhancement, contained working storage, a directly inspectable preset editor and a
+        // render-texture-backed 3D viewport recovery path.
+        main.InstallV1017Usability();
     }
 }
