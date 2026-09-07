@@ -24,7 +24,7 @@ class Capability:
 CAPABILITIES: tuple[Capability, ...] = (
     Capability("sd21", "sd21", "Stable Diffusion 2.1", ("concept", "edit", "detail"), "low", 4096, 6144, 5.5),
     Capability("sdxl-base", "sdxl", "Stable Diffusion XL", ("concept", "edit", "detail"), "low", 6144, 8192, 7.0, low_vram=True),
-    Capability("z-image-turbo", "zimage", "Z-Image Turbo", ("concept",), "medium", 8192, 16384, 33.0, low_vram=True),
+    Capability("z-image-turbo", "zimage", "Z-Image Turbo", ("concept",), "medium", 8192, 16384, 33.0, low_vram=True, notes="8-10GB GPUs require sequential CPU offload and a reduced canvas; 16GB system RAM is tight and generation may be slow."),
     Capability("flux2-klein-4b", "flux", "FLUX.2 Klein 4B", ("concept", "edit", "detail"), "medium", 10000, 13000, 13.0, low_vram=True),
     Capability("qwen-image-2512", "qwen", "Qwen-Image-2512", ("concept",), "high", 16000, 24000, 58.0, low_vram=True),
     Capability("qwen-image-edit", "qwen-edit", "Qwen-Image-Edit", ("edit", "detail"), "high", 16000, 24000, 55.0, low_vram=True),
