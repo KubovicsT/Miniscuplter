@@ -1,0 +1,123 @@
+name: publish-v1.0.15-release
+
+on:
+  push:
+    branches: [release-publish-v1.0.15]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      APP_SHA: b23000111f0d3d6781a3704cc83b3095622109cb
+      RELEASE_TAG: v1.0.15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b23000111f0d3d6781a3704cc83b3095622109cb
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+
+      - name: Re-run release validation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          dotnet restore Miniscuplter.csproj
+          dotnet restore Launcher/Miniscuplter.Launcher.csproj
+          dotnet restore Updater/Miniscuplter.Updater.csproj
+          dotnet build Miniscuplter.csproj -c Release --no-restore
+          dotnet build Launcher/Miniscuplter.Launcher.csproj -c Release --no-restore
+          dotnet build Updater/Miniscuplter.Updater.csproj -c Release --no-restore
+          dotnet restore Core.Tests/Miniscuplter.Core.Tests.csproj
+          dotnet build Core.Tests/Miniscuplter.Core.Tests.csproj -c Release --no-restore
+          dotnet run --project Core.Tests/Miniscuplter.Core.Tests.csproj -c Release --no-build
+          python -m compileall -q ai_backend tools
+          python -m pip install --dry-run --ignore-installed -r ai_backend/requirements.txt
+          python tools/core_logic_tests.py
+          python -m pip install "numpy<2.3" "trimesh>=4.4,<6" "scipy>=1.13" "scikit-image>=0.24" "rtree>=1.3,<2"
+          python tools/geometry_regression_tests.py
+          python tools/release_audit.py
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Download and verify Godot 4.7.2 .NET and export templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $g='https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip'
+          $t='https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_export_templates.tpz'
+          New-Item '.ci/godot' -ItemType Directory -Force|Out-Null
+          Invoke-WebRequest $g -OutFile '.ci/godot.zip'
+          Invoke-WebRequest $t -OutFile '.ci/templates.tpz'
+          if ((Get-FileHash '.ci/godot.zip' -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0') { throw 'Godot SHA mismatch' }
+          if ((Get-FileHash '.ci/templates.tpz' -Algorithm SHA256).Hash.ToLowerInvariant() -ne '92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d') { throw 'Template SHA mismatch' }
+          Expand-Archive '.ci/godot.zip' '.ci/godot' -Force
+          Expand-Archive '.ci/templates.tpz' '.ci/templates' -Force
+          $templateHome=Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
+          New-Item $templateHome -ItemType Directory -Force|Out-Null
+          Copy-Item '.ci/templates/templates/*' $templateHome -Recurse -Force
+          $exe=Get-ChildItem '.ci/godot' -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse|Select-Object -First 1
+          if (-not $exe) { throw 'Godot executable not found after verified extraction.' }
+          "GODOT_EXE=$($exe.FullName)"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build full Windows release
+        shell: pwsh
+        run: ./build_release.ps1 -GodotExe $env:GODOT_EXE -BuildInstaller
+
+      - name: Verify release outputs and installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $version='1.0.15'
+          @(
+            'dist/package/App/Miniscuplter.exe',
+            'dist/package/release.json',
+            'dist/Miniscuplter-win-x64.zip',
+            'dist/Miniscuplter-win-x64.zip.sha256',
+            "dist/installer/Miniscuplter-Setup-$version.exe"
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing full release output: $_" } }
+          $manifest=Get-Content 'dist/package/release.json' -Raw|ConvertFrom-Json
+          if ([string]$manifest.version -ne $version) { throw "release.json version $($manifest.version) != $version" }
+          $expected=((Get-Content 'dist/Miniscuplter-win-x64.zip.sha256' -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+          $actual=(Get-FileHash 'dist/Miniscuplter-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw "Release ZIP SHA mismatch: $actual != $expected" }
+          $target=Join-Path $env:RUNNER_TEMP 'MiniscuplterInstallerSmoke'
+          if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+          $setup=(Resolve-Path "dist/installer/Miniscuplter-Setup-$version.exe").Path
+          $p=Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/DIR=$target",'/NOICONS','/TASKS=') -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer smoke test exited $($p.ExitCode)" }
+          @((Join-Path $target 'Miniscuplter.Launcher.exe'),(Join-Path $target 'Miniscuplter.Updater.exe'),(Join-Path $target 'App\Miniscuplter.exe'),(Join-Path $target 'release.json')) | ForEach-Object { if (-not (Test-Path $_)) { throw "Installer smoke test missing $_" } }
+          "ZIP_SHA=$actual"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "ZIP_SIZE=$((Get-Item 'dist/Miniscuplter-win-x64.zip').Length)"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "INSTALLER_SHA=$((Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant())"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "INSTALLER_SIZE=$((Get-Item $setup).Length)"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Publish immutable v1.0.15 release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to mutate it."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            dist/Miniscuplter-win-x64.zip \
+            dist/Miniscuplter-win-x64.zip.sha256 \
+            dist/installer/Miniscuplter-Setup-1.0.15.exe \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$APP_SHA" \
+            --title "Miniscuplter v1.0.15" \
+            --notes "Reliable creative thin-slice release. The 2D workspace now displays and edits the real source image in the center canvas, regional AI edits use image-space masks rather than a 3D viewport capture, Wikimedia reference results display visible thumbnails and can be chosen as the local 2D source, and the 3D viewport grid is rebuilt with driver-robust triangle geometry. Hunyuan3D 2mini now packages and preflights its missing runtime dependencies (including pymeshlab), while Auto 3D routing can recover to the next installed provider without hiding failures from explicitly selected providers. Existing v1.0.13 cancellation recovery, v1.0.14 low-VRAM image safeguards, Stage-B project foundation, models, caches and user data are preserved."
+          echo "Published $RELEASE_TAG from $APP_SHA"
+          echo "ZIP $ZIP_SIZE bytes SHA-256 $ZIP_SHA"
+          echo "Installer $INSTALLER_SIZE bytes SHA-256 $INSTALLER_SHA"
