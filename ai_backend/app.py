@@ -12,7 +12,7 @@ from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model
 from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
 from detail_pipeline import detail_2d, detail_3d, apply_detail
 
-APP_VERSION="1.0.15"
+APP_VERSION="1.0.16"
 app=FastAPI(title="Miniscuplter AI Backend",version=APP_VERSION);app.include_router(geometry_router);app.include_router(rig_router)
 SD_WEBUI_URL=os.getenv("MINISCULPTER_SD_URL","").rstrip("/");THREED_COMMAND=os.getenv("MINISCULPTER_3D_COMMAND","")
 class ConceptRequest(BaseModel):prompt:str;output_path:str;quality:str="standard";provider:str="auto"

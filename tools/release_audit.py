@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.15"
+EXPECTED = "1.0.16"
 errors: list[str] = []
 
 
@@ -38,6 +38,7 @@ v109 = text("Scripts/Main.V109Experience.cs")
 responsive = text("Scripts/Main.V109Responsive.cs")
 workflow1011 = text("Scripts/Main.V1011Workflow.cs")
 thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")
+references1016 = text("Scripts/Main.V1016References.cs")
 safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
@@ -186,6 +187,16 @@ for dep in ("opencv-python-headless", "pymeshlab", "pygltflib", "xatlas", "ninja
     require(dep in requirements, f"Hunyuan3D 2mini runtime dependency missing: {dep}")
 require("_require_hunyuan_mini_runtime" in special and "Repair AI Runtime" in special, "Hunyuan 2mini runtime preflight/repair guidance missing")
 require('(req.provider or "auto").lower()!="auto"' in backend and "automatic fallback to" in backend and "fallback_from" in backend, "Auto 3D provider fallback is missing or can hide explicit provider failures")
+
+
+# v1.0.16: reference discovery must search more than Wikimedia while preserving the local 2D workflow.
+require("InstallV1016ReferenceSearch();" in extras and extras.index("InstallV1015ThinSlice();") < extras.index("InstallV1016ReferenceSearch();"), "v1.0.16 multi-source reference browser must replace the v1.0.15 surface last")
+for token in ("api.openverse.org/v1/images/", "All Sources (Openverse + Wikimedia)", "SearchV1016OpenverseAsync", "SearchV1016WikimediaAsync", "RunV1016ProviderAsync", "Task.WhenAll", "Partial failure"):
+    require(token in references1016, f"v1.0.16 multi-source reference search missing: {token}")
+for token in ("mature=false", "watermarked", "Source:", "License:", "Open Source", "Use as 2D Source"):
+    require(token in references1016, f"v1.0.16 reference-result safety/attribution surface missing: {token}")
+require("SetStartingImage(cached)" in references1016 and "SyncV1015CanvasSource(current)" in references1016, "v1.0.16 references do not feed the established 2D source workflow")
+require("ContentLength" in references1016 and "maxBytes" in references1016 and "Image.LoadFromFile(path)" in references1016, "v1.0.16 remote-image size/decoding guards missing")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
