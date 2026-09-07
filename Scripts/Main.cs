@@ -327,7 +327,8 @@ public partial class Main : Node
 
     void CaptureView()
     {
-        var sub=GetNode<SubViewport>("VBoxContainer/HSplitContainer/HSplitContainer/ViewportHost/Viewport"); var img=sub.GetTexture().GetImage(); Directory.CreateDirectory(AppDataRoot.Resolve("captures")); _lastCapture=AppDataRoot.Resolve($"captures/capture_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png"); img.SavePng(_lastCapture); SetStatus("Captured viewport: "+_lastCapture);
+        SetStatus("Preparing viewport capture…");
+        CallDeferred(nameof(V1018CaptureViewAfterFrame));
     }
 
     async Task GenerateConcept()

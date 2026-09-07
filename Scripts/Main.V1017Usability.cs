@@ -41,28 +41,7 @@ public partial class Main
         CallDeferred(nameof(V1017RepairViewport));
     }
 
-    string V1017DataRoot()
-    {
-        string data = Environment.GetEnvironmentVariable("MINISCULPTER_DATA") ?? "";
-        if (string.IsNullOrWhiteSpace(data))
-        {
-            string root = Environment.GetEnvironmentVariable("MINISCULPTER_ROOT") ?? "";
-            if (!string.IsNullOrWhiteSpace(root)) data = Path.Combine(root, "AIData");
-        }
-        if (string.IsNullOrWhiteSpace(data))
-        {
-            string exe = OS.GetExecutablePath();
-            string appDir = string.IsNullOrWhiteSpace(exe)
-                ? ProjectSettings.GlobalizePath("res://")
-                : Path.GetDirectoryName(exe) ?? ProjectSettings.GlobalizePath("res://");
-            if (Path.GetFileName(appDir).Equals("App", StringComparison.OrdinalIgnoreCase))
-                appDir = Directory.GetParent(appDir)?.FullName ?? appDir;
-            data = Path.Combine(appDir, "AIData");
-        }
-        data = Path.GetFullPath(data);
-        Directory.CreateDirectory(data);
-        return data;
-    }
+    string V1017DataRoot() => AppDataRoot.Root;
 
     string V1017WorkspaceFile(string category, string prefix, string extension)
     {
@@ -472,32 +451,72 @@ public partial class Main
     async Task V1017PollBackendProgressAsync(string expectedKind, Func<bool> busy, Action<V1017JobProgress> apply)
     {
         await Task.Delay(250);
+        long lastSequence = 0;
+        int failures = 0;
+        string? jobId = null;
+
         while (busy())
         {
             try
             {
-                using var response = await V1017ProgressHttp.GetAsync(_ai.BackendUrl + "/job-progress/current");
-                if (response.IsSuccessStatusCode)
+                jobId ??= _ai.ActiveJobId;
+                V1017JobProgress? item = null;
+
+                if (!string.IsNullOrWhiteSpace(jobId))
                 {
-                    string body = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(body);
-                    var root = doc.RootElement;
-                    string kind = root.TryGetProperty("kind", out var k) ? k.GetString() ?? "" : "";
-                    if (kind.Equals(expectedKind, StringComparison.OrdinalIgnoreCase))
+                    AiJobProgress progress = await _ai.GetJobProgressAsync(jobId);
+                    item = new V1017JobProgress(
+                        progress.Kind,
+                        progress.State,
+                        progress.Stage,
+                        progress.Detail,
+                        Math.Clamp(progress.Progress, 0, 100),
+                        progress.Provider);
+                }
+                else
+                {
+                    using var response = await V1017ProgressHttp.GetAsync(_ai.BackendUrl + "/job-progress/current");
+                    if (response.IsSuccessStatusCode)
                     {
+                        string body = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(body);
+                        var root = doc.RootElement;
+                        string kind = root.TryGetProperty("kind", out var k) ? k.GetString() ?? "" : "";
                         string state = root.TryGetProperty("state", out var st) ? st.GetString() ?? "running" : "running";
                         string stage = root.TryGetProperty("stage", out var sg) ? sg.GetString() ?? "working" : "working";
                         string detail = root.TryGetProperty("detail", out var dt) ? dt.GetString() ?? "" : "";
                         string provider = root.TryGetProperty("provider", out var pr) && pr.ValueKind != JsonValueKind.Null ? pr.GetString() ?? "" : "";
-                        double progress = root.TryGetProperty("progress", out var pg) && pg.TryGetDouble(out var value) ? value : 0;
-                        apply(new V1017JobProgress(kind, state, stage, detail, Math.Clamp(progress, 0, 100), provider));
+                        double value = root.TryGetProperty("progress", out var pg) && pg.TryGetDouble(out var parsed) ? parsed : 0;
+                        long sequence = root.TryGetProperty("sequence", out var seq) && seq.TryGetInt64(out var number) ? number : 0;
+                        item = new V1017JobProgress(kind, state, stage, detail, Math.Clamp(value, 0, 100), provider);
+                        if (sequence <= lastSequence) item = null;
+                        lastSequence = sequence;
                     }
                 }
+
+                if (item != null && item.Kind.Equals(expectedKind, StringComparison.OrdinalIgnoreCase))
+                {
+                    apply(item);
+                    failures = 0;
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                // Progress is best-effort; the actual inference request remains authoritative.
+                failures++;
+                if (failures == 1)
+                    GD.PushWarning($"AI progress polling failed for {expectedKind}: {ex.Message}");
+                if (failures >= 3)
+                {
+                    Label? label = expectedKind.StartsWith("2d", StringComparison.OrdinalIgnoreCase)
+                        ? _v1017ImageJobStatus
+                        : expectedKind.StartsWith("3d", StringComparison.OrdinalIgnoreCase)
+                            ? _v1093DStatus
+                            : _v108AiJobStatus;
+                    if (label != null)
+                        label.Text = $"AI status: backend progress temporarily unavailable; request still running… ({ex.Message})";
+                }
             }
+
             await Task.Delay(600);
         }
     }
@@ -566,20 +585,12 @@ public partial class Main
     void InstallV1017ViewportRecovery()
     {
         if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
-            FindChild("Viewport", true, false) is not SubViewport sub) return;
+            FindChild("Viewport", true, false) is not SubViewport)
+            return;
 
-        _v1017ViewportTexture = new TextureRect
-        {
-            Name = "3D Viewport Texture",
-            Texture = sub.GetTexture(),
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            ZIndex = 1
-        };
-        host.AddChild(_v1017ViewportTexture);
-        _v1017ViewportTexture.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-
+        // v1.0.18 uses the native SubViewportContainer surface. The historical
+        // "3D Viewport Texture" overlay is deliberately not created because it could
+        // obscure or desynchronize the actual 3D render target.
         var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
         if (tabs != null) tabs.TabChanged += V1017WorkflowTabChanged;
 
@@ -685,11 +696,7 @@ public partial class Main
         var target = new Vector2I(Math.Max(1, (int)Math.Round(size.X)), Math.Max(1, (int)Math.Round(size.Y)));
         if (sub.Size != target) sub.Size = target;
         sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
-        if (_v1017ViewportTexture != null)
-        {
-            _v1017ViewportTexture.Texture = sub.GetTexture();
-            _v1017ViewportTexture.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        }
+        // The SubViewportContainer displays the SubViewport directly in v1.0.18.
     }
 
     void V1017RebuildGrid()
