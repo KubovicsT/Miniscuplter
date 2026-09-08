@@ -17,7 +17,7 @@ from rig_api import router as rig_router
 from semantic_select import semantic_select, SMART_SELECT_COMMAND, release_model as release_smart_select
 from model_router import choose_image_provider, choose_3d_provider, routing_status, release_all_models
 from detail_pipeline import detail_2d, detail_3d, apply_detail
-from storage import validate_output_path
+from storage import DEFAULT_IMAGE_SUFFIXES, DEFAULT_MESH_SUFFIXES, validate_input_path, validate_output_directory, validate_output_path
 from job_progress import begin as begin_job, bind as bind_job, report as report_job, complete as complete_job, fail as fail_job, current as current_job, get as get_job, get_events as get_job_events, request_cancel as request_job_cancel
 
 APP_VERSION = "1.0.18"
@@ -26,11 +26,38 @@ app.include_router(geometry_router)
 app.include_router(rig_router)
 
 
-def _safe_output_path(value: str) -> str:
+def _safe_output_path(value: str, suffixes=None) -> str:
     try:
-        return str(validate_output_path(value))
+        return str(validate_output_path(value, suffixes))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+def _safe_output_directory(value: str) -> str:
+    try:
+        return str(validate_output_directory(value))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+def _safe_input_path(value: str, suffixes) -> str:
+    try:
+        return str(validate_input_path(value, suffixes))
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+def _provider_output(path: str, expected: str, suffixes) -> str:
+    try:
+        actual = validate_output_path(path, suffixes)
+        wanted = validate_output_path(expected, suffixes)
+    except ValueError as exc:
+        raise RuntimeError(f"AI provider returned an unsafe output path: {exc}") from exc
+    if actual != wanted:
+        raise RuntimeError(f"AI provider wrote an unexpected output path: {actual}")
+    if not actual.is_file() or actual.stat().st_size <= 0:
+        raise RuntimeError(f"AI provider returned no usable output file: {actual}")
+    return str(actual)
 
 
 SD_WEBUI_URL = os.getenv("MINISCULPTER_SD_URL", "").rstrip("/")
@@ -38,37 +65,37 @@ THREED_COMMAND = os.getenv("MINISCULPTER_3D_COMMAND", "")
 
 
 class ConceptRequest(BaseModel):
-    prompt: str
-    output_path: str
-    quality: str = "standard"
-    provider: str = "auto"
+    prompt: str = Field(min_length=1, max_length=8000)
+    output_path: str = Field(min_length=1, max_length=4096)
+    quality: str = Field(default="standard", max_length=64)
+    provider: str = Field(default="auto", max_length=64)
 
 
 class EditRequest(BaseModel):
-    image_path: str
-    mask_path: Optional[str] = None
-    prompt: str
-    output_path: str
-    quality: str = "standard"
-    provider: str = "auto"
+    image_path: str = Field(min_length=1, max_length=4096)
+    mask_path: Optional[str] = Field(default=None, max_length=4096)
+    prompt: str = Field(min_length=1, max_length=8000)
+    output_path: str = Field(min_length=1, max_length=4096)
+    quality: str = Field(default="standard", max_length=64)
+    provider: str = Field(default="auto", max_length=64)
     detail: bool = False
 
 
 class Generate3DRequest(BaseModel):
-    image_path: str
-    prompt: str = ""
-    output_path: str
-    quality: str = "standard"
-    provider: str = "auto"
-    role: str = "quality"
+    image_path: str = Field(min_length=1, max_length=4096)
+    prompt: str = Field(default="", max_length=8000)
+    output_path: str = Field(min_length=1, max_length=4096)
+    quality: str = Field(default="standard", max_length=64)
+    provider: str = Field(default="auto", max_length=64)
+    role: str = Field(default="quality", max_length=64)
 
 
 class GeneratePartsRequest(BaseModel):
-    image_path: str
-    output_dir: str
+    image_path: str = Field(min_length=1, max_length=4096)
+    output_dir: str = Field(min_length=1, max_length=4096)
     num_parts: int = Field(default=4, ge=1, le=16)
-    tag: str = "miniscuplter"
-    provider: str = "auto"
+    tag: str = Field(default="miniscuplter", min_length=1, max_length=64)
+    provider: str = Field(default="auto", max_length=64)
 
 
 class ComponentRequest(BaseModel):
@@ -76,37 +103,37 @@ class ComponentRequest(BaseModel):
 
 
 class SemanticSelectRequest(BaseModel):
-    input_path: str
-    query: str
+    input_path: str = Field(min_length=1, max_length=4096)
+    query: str = Field(min_length=1, max_length=1000)
 
 
 class Detail2DRequest(BaseModel):
-    image_path: str
-    mask_path: str
-    prompt: str
-    output_path: str
-    image_provider: str = "auto"
+    image_path: str = Field(min_length=1, max_length=4096)
+    mask_path: str = Field(min_length=1, max_length=4096)
+    prompt: str = Field(min_length=1, max_length=8000)
+    output_path: str = Field(min_length=1, max_length=4096)
+    image_provider: str = Field(default="auto", max_length=64)
 
 
 class Detail3DRequest(BaseModel):
-    source_mesh: str
-    image_path: str
-    mask_path: str
-    prompt: str
-    bounds_min: list[float]
-    bounds_max: list[float]
-    output_patch: str
-    output_image: str
-    output_crop: str
-    image_provider: str = "auto"
-    three_d_provider: str = "auto"
+    source_mesh: str = Field(min_length=1, max_length=4096)
+    image_path: str = Field(min_length=1, max_length=4096)
+    mask_path: str = Field(min_length=1, max_length=4096)
+    prompt: str = Field(min_length=1, max_length=8000)
+    bounds_min: list[float] = Field(min_length=3, max_length=3)
+    bounds_max: list[float] = Field(min_length=3, max_length=3)
+    output_patch: str = Field(min_length=1, max_length=4096)
+    output_image: str = Field(min_length=1, max_length=4096)
+    output_crop: str = Field(min_length=1, max_length=4096)
+    image_provider: str = Field(default="auto", max_length=64)
+    three_d_provider: str = Field(default="auto", max_length=64)
 
 
 class DetailApplyRequest(BaseModel):
-    source_mesh: str
-    patch_mesh: str
-    output_path: str
-    voxel_size: Optional[float] = None
+    source_mesh: str = Field(min_length=1, max_length=4096)
+    patch_mesh: str = Field(min_length=1, max_length=4096)
+    output_path: str = Field(min_length=1, max_length=4096)
+    voxel_size: Optional[float] = Field(default=None, ge=0.04, le=5.0)
 
 
 @app.get("/health")
@@ -188,10 +215,15 @@ def release_models():
 def _write_b64_image(data, out):
     if "," in data:
         data = data.split(",", 1)[1]
-    p = Path(out).resolve()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_bytes(base64.b64decode(data))
-    return str(p)
+    try:
+        raw = base64.b64decode(data, validate=True)
+        if not raw or len(raw) > 64 * 1024 * 1024:
+            raise ValueError("Decoded image payload is empty or above the 64 MiB safety limit.")
+        p = validate_output_path(out, DEFAULT_IMAGE_SUFFIXES)
+        p.write_bytes(raw)
+        return str(p)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(400, f"Image payload rejected: {exc}") from exc
 
 
 def _image_generate(provider, req):
@@ -221,7 +253,7 @@ def _image_edit(provider, req):
 
 @app.post("/generate-concept")
 def generate_concept(req: ConceptRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    req.output_path = _safe_output_path(req.output_path)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
     begin_job("2d-generate", x_miniscupter_job_id)
     try:
         report_job("resolving_provider", "Choosing the installed local image model for this hardware and route.", 5)
@@ -229,10 +261,8 @@ def generate_concept(req: ConceptRequest, x_miniscupter_job_id: Optional[str] = 
         report_job("preparing_runtime", "Freeing previously loaded models before the selected provider is prepared.", 10, d.provider)
         release_all_models()
         report_job("loading_model", f"Preparing {d.provider} model weights and runtime.", 18, d.provider)
-        path = _image_generate(d.provider, req)
+        path = _provider_output(_image_generate(d.provider, req), req.output_path, DEFAULT_IMAGE_SUFFIXES)
         report_job("validating_output", "Image inference returned; verifying the saved result.", 97, d.provider)
-        if not Path(path).is_file() or Path(path).stat().st_size <= 0:
-            raise RuntimeError("Image provider returned no usable output file")
         complete_job("Concept image saved and verified.", d.provider)
         return {"path": path, "provider": d.provider, "routing_reason": d.reason, "quality": req.quality}
     except Exception as e:
@@ -244,7 +274,10 @@ def generate_concept(req: ConceptRequest, x_miniscupter_job_id: Optional[str] = 
 
 @app.post("/edit-image")
 def edit_image(req: EditRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    req.output_path = _safe_output_path(req.output_path)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    if req.mask_path:
+        req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
     begin_job("2d-edit", x_miniscupter_job_id)
     try:
         report_job("resolving_provider", "Choosing the local image-edit model.", 5)
@@ -252,10 +285,8 @@ def edit_image(req: EditRequest, x_miniscupter_job_id: Optional[str] = Header(de
         report_job("preparing_runtime", "Freeing previously loaded models and preparing image-edit memory.", 10, d.provider)
         release_all_models()
         report_job("loading_model", f"Preparing {d.provider} for image editing.", 18, d.provider)
-        path = _image_edit(d.provider, req)
+        path = _provider_output(_image_edit(d.provider, req), req.output_path, DEFAULT_IMAGE_SUFFIXES)
         report_job("validating_output", "Edit inference returned; verifying the saved image.", 97, d.provider)
-        if not Path(path).is_file() or Path(path).stat().st_size <= 0:
-            raise RuntimeError("Image-edit provider returned no usable output file")
         complete_job("Edited image saved and verified.", d.provider)
         return {"path": path, "provider": d.provider, "routing_reason": d.reason, "quality": req.quality}
     except Exception as e:
@@ -284,11 +315,11 @@ def _generate_shape(provider, req, image, output):
 
 @app.post("/generate-3d")
 def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    req.output_path = _safe_output_path(req.output_path)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, (".stl",))
     begin_job("3d-generate", x_miniscupter_job_id)
-    image = str(Path(req.image_path).resolve())
-    output = str(Path(req.output_path).resolve())
-    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    image = req.image_path
+    output = req.output_path
     provider = None
     try:
         report_job("resolving_provider", "Choosing the local 3D reconstruction provider.", 5)
@@ -315,8 +346,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
                 raise RuntimeError(f"Auto 3D route failed. Primary {d.provider}: {primary}. Fallback {provider}: {fallback}") from fallback
 
         report_job("validating_output", "3D provider returned; verifying the generated mesh file.", 96, provider)
-        if not Path(path).is_file() or Path(path).stat().st_size <= 0:
-            raise RuntimeError("3D provider returned no usable mesh file")
+        path = _provider_output(path, output, (".stl",))
         report_job("cleanup", "Releasing 3D model resources before returning control to the editor.", 99, provider)
         release_all_models()
         complete_job("Generated mesh saved and verified.", provider)
@@ -334,7 +364,8 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
 
 @app.post("/generate-parts")
 def generate_parts(req: GeneratePartsRequest):
-    req.output_dir = _safe_output_path(req.output_dir)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_dir = _safe_output_directory(req.output_dir)
     try:
         d = choose_3d_provider("structured", req.provider)
         release_all_models()
@@ -344,6 +375,14 @@ def generate_parts(req: GeneratePartsRequest):
             r = __import__("specialist_3d_v105", fromlist=["generate_partpacker"]).generate_partpacker(req.image_path, req.output_dir, req.tag)
         else:
             raise RuntimeError("Selected provider does not generate structured parts")
+        parts = r.get("parts", []) if isinstance(r, dict) else []
+        if not isinstance(parts, list) or not parts:
+            raise RuntimeError("Structured provider returned no part files")
+        safe_dir = Path(req.output_dir).resolve()
+        for part in parts:
+            checked = Path(_provider_output(str(part), str(part), (".stl",)))
+            if safe_dir not in checked.parents:
+                raise RuntimeError(f"Structured provider wrote a part outside its output directory: {checked}")
         r["routing_reason"] = d.reason
         return r
     except Exception as e:
@@ -354,7 +393,9 @@ def generate_parts(req: GeneratePartsRequest):
 
 @app.post("/detail-2d")
 def detail_2d_route(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    req.output_path = _safe_output_path(req.output_path)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
     begin_job("2d-detail", x_miniscupter_job_id)
     try:
         report_job("resolving_provider", "Choosing the local detail/edit provider for the selected region.", 5)
@@ -362,9 +403,8 @@ def detail_2d_route(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = 
         result = detail_2d(req.image_path, req.mask_path, req.prompt, req.output_path, req.image_provider)
         provider = str(result.get("provider") or "")
         report_job("validating_output", "Regional enhancement returned; verifying the saved image.", 97, provider)
-        path = str(result.get("path") or "")
-        if not path or not Path(path).is_file() or Path(path).stat().st_size <= 0:
-            raise RuntimeError("Detail provider returned no usable output image")
+        path = _provider_output(str(result.get("path") or ""), req.output_path, DEFAULT_IMAGE_SUFFIXES)
+        result["path"] = path
         complete_job("Context-aware regional result saved and verified.", provider)
         return result
     except Exception as e:
@@ -376,11 +416,18 @@ def detail_2d_route(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = 
 
 @app.post("/detail-3d")
 def detail_3d_route(req: Detail3DRequest):
-    req.output_patch = _safe_output_path(req.output_patch)
-    req.output_image = _safe_output_path(req.output_image)
-    req.output_crop = _safe_output_path(req.output_crop)
+    req.source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_patch = _safe_output_path(req.output_patch, (".stl",))
+    req.output_image = _safe_output_path(req.output_image, DEFAULT_IMAGE_SUFFIXES)
+    req.output_crop = _safe_output_path(req.output_crop, DEFAULT_IMAGE_SUFFIXES)
     try:
-        return detail_3d(req.source_mesh, req.image_path, req.mask_path, req.prompt, req.bounds_min, req.bounds_max, req.output_patch, req.output_image, req.output_crop, req.image_provider, req.three_d_provider)
+        result = detail_3d(req.source_mesh, req.image_path, req.mask_path, req.prompt, req.bounds_min, req.bounds_max, req.output_patch, req.output_image, req.output_crop, req.image_provider, req.three_d_provider)
+        result["patch_path"] = _provider_output(str(result.get("patch_path") or ""), req.output_patch, (".stl",))
+        result["enhanced_image"] = _provider_output(str(result.get("enhanced_image") or ""), req.output_image, DEFAULT_IMAGE_SUFFIXES)
+        result["crop_image"] = _provider_output(str(result.get("crop_image") or ""), req.output_crop, DEFAULT_IMAGE_SUFFIXES)
+        return result
     except Exception as e:
         raise HTTPException(502, f"3D detail refinement failed: {e}") from e
     finally:
@@ -389,15 +436,20 @@ def detail_3d_route(req: Detail3DRequest):
 
 @app.post("/detail-apply")
 def detail_apply_route(req: DetailApplyRequest):
-    req.output_path = _safe_output_path(req.output_path)
+    req.source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
+    req.patch_mesh = _safe_input_path(req.patch_mesh, DEFAULT_MESH_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, (".stl",))
     try:
-        return apply_detail(req.source_mesh, req.patch_mesh, req.output_path, req.voxel_size)
+        result = apply_detail(req.source_mesh, req.patch_mesh, req.output_path, req.voxel_size)
+        result["path"] = _provider_output(str(result.get("path") or ""), req.output_path, (".stl",))
+        return result
     except Exception as e:
         raise HTTPException(502, f"Detail apply failed: {e}") from e
 
 
 @app.post("/semantic-select")
 def semantic_select_route(req: SemanticSelectRequest):
+    req.input_path = _safe_input_path(req.input_path, DEFAULT_MESH_SUFFIXES)
     try:
         return semantic_select(req.input_path, req.query)
     except Exception as e:

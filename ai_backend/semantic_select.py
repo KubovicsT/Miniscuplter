@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 
 from model_manager import component_path
 from quality_runtime import get_config
+from storage import DEFAULT_MESH_SUFFIXES, data_root, validate_input_path
 
 SMART_SELECT_COMMAND = os.getenv("MINISCULPTER_SMART_SELECT_COMMAND", "").strip()
 _MODEL = None
@@ -22,7 +23,8 @@ _DEVICE = None
 
 
 def _load_mesh(path: str) -> trimesh.Trimesh:
-    loaded = trimesh.load(path, force="mesh", process=False)
+    safe_path = validate_input_path(path, DEFAULT_MESH_SUFFIXES)
+    loaded = trimesh.load(safe_path, force="mesh", process=False)
     if isinstance(loaded, trimesh.Scene):
         if not loaded.geometry:
             raise ValueError("Mesh scene contains no geometry")
@@ -231,12 +233,13 @@ def _normalize_provider_result(data: dict, vertices: np.ndarray) -> dict:
 
 def semantic_select(input_path: str, query: str) -> dict:
     if not query or not query.strip(): raise ValueError("Selection query is empty")
-    path = str(Path(input_path).resolve())
-    if not Path(path).exists(): raise FileNotFoundError(path)
+    path = str(validate_input_path(input_path, DEFAULT_MESH_SUFFIXES))
     mesh = _load_mesh(path); vertices = np.asarray(mesh.vertices, dtype=np.float64)
 
     if SMART_SELECT_COMMAND:
-        with tempfile.TemporaryDirectory(prefix="miniscuplter_select_") as td:
+        temp_root = data_root() / "Temp" / "semantic-select"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="miniscuplter_select_", dir=str(temp_root)) as td:
             output = str(Path(td) / "selection.json")
             command = SMART_SELECT_COMMAND.format(input=shlex.quote(path), output=shlex.quote(output), query=shlex.quote(query))
             completed = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=900)

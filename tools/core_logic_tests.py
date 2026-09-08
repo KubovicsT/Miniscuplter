@@ -1,8 +1,9 @@
 from __future__ import annotations
-import tempfile,sys
+import os,tempfile,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/"ai_backend"))
 import model_manager,model_router,model_capabilities,quality_runtime,model_downloads,modern_image
+from storage import validate_input_path, validate_output_path
 def check(c,m):
     if not c:raise AssertionError(m)
 def test_quality_clamps():
@@ -31,6 +32,30 @@ def test_component_file_validation():
         with tempfile.TemporaryDirectory() as t:
             r=Path(t);model_manager.TOOLS_ROOT=r/"tools";model_manager.TOOLS_ROOT.mkdir();clip=r/"clip";clip.mkdir();check(not model_manager._component_files_valid("clipseg-smart-select",clip),"empty clip");(clip/"config.json").write_text("{}");(clip/"model.safetensors").write_bytes(b"x");check(model_manager._component_files_valid("clipseg-smart-select",clip),"clip markers")
     finally:model_manager.TOOLS_ROOT=old
+def test_storage_path_boundaries():
+    old = os.environ.get("MINISCULPTER_DATA")
+    try:
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t) / "AIData"
+            root.mkdir()
+            source = Path(t) / "source.stl"
+            source.write_bytes(b"solid")
+            os.environ["MINISCULPTER_DATA"] = str(root)
+            safe = validate_input_path(source, (".stl",), max_bytes=1024)
+            check(safe == source.resolve(), "external read-only input was not accepted")
+            output = validate_output_path("Workspace/result.stl", (".stl",))
+            check(output.parent.is_dir() and root in output.parents, "contained output was not created")
+            try:
+                validate_output_path(Path(t).parent / "escape.stl", (".stl",))
+                raise AssertionError("output path escaped the configured data root")
+            except ValueError:
+                pass
+    finally:
+        if old is None:
+            os.environ.pop("MINISCULPTER_DATA", None)
+        else:
+            os.environ["MINISCULPTER_DATA"] = old
+
 def test_uninstall_path_guard():
     try:model_manager._managed_path(ROOT);raise AssertionError("path guard accepted repo")
     except RuntimeError:pass
@@ -43,4 +68,4 @@ def test_resumable_stage_recovery():
         s=model_downloads.stage_status(root,"sdxl-base");check(s["resume_available"] and s["resume_action"]=="install","partial install not reported")
         same=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check((same/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").exists(),"matching stage was not preserved")
         fresh=model_downloads.prepare_stage(root,"sdxl-base","rev-b","manifest-a","install");check(not (fresh/"models").exists(),"stale revision payload was reused");check(not model_downloads.stage_status(root,"sdxl-base")["resume_available"],"metadata-only stage incorrectly reported as resumable")
-if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_modern_image_low_vram_strategy();test_component_file_validation();test_uninstall_path_guard();test_resumable_stage_recovery();print("v1.0.14 core logic tests passed")
+if __name__=="__main__":test_quality_clamps();test_model_routing();test_capabilities();test_modern_image_low_vram_strategy();test_component_file_validation();test_storage_path_boundaries();test_uninstall_path_guard();test_resumable_stage_recovery();print("v1.0.19 core logic tests passed")

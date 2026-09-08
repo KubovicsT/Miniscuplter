@@ -169,7 +169,8 @@ def _require_space(spec: dict[str, Any], stage: Path) -> None:
 def install_component(component_id: str, update: bool = False) -> dict[str, Any]:
     if component_id not in mm.COMPONENTS: raise ValueError(f"Unknown AI component: {component_id}")
     spec = mm.COMPONENTS[component_id]
-    mm.MODELS_ROOT.mkdir(parents=True, exist_ok=True); mm.TOOLS_ROOT.mkdir(parents=True, exist_ok=True); mm.STAGING_ROOT.mkdir(parents=True, exist_ok=True)
+    for owned_root in (mm.MODELS_ROOT, mm.TOOLS_ROOT, mm.STAGING_ROOT):
+        mm._managed_path(owned_root).mkdir(parents=True, exist_ok=True)
 
     hf_rev = mm._hf_revision(spec["repo_id"]) if spec.get("repo_id") else None
     action = "update" if update else "install"

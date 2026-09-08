@@ -11,15 +11,17 @@ import trimesh
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from storage import DEFAULT_MESH_SUFFIXES, validate_input_path, validate_output_path
+
 router = APIRouter(prefix="/rig", tags=["rig"])
 
 UNIVERSAL_RIG_COMMAND = os.getenv("MINISCULPTER_UNIVERSAL_RIG_COMMAND", "").strip()
 
 
 class RigRequest(BaseModel):
-    input_path: str
-    output_path: str
-    mode: str = "quick"
+    input_path: str = Field(min_length=1, max_length=4096)
+    output_path: str = Field(min_length=1, max_length=4096)
+    mode: str = Field(default="quick", max_length=32)
     seed: int = 0
     branch_threshold: float = Field(default=0.28, ge=0.05, le=0.8)
 
@@ -87,9 +89,17 @@ def _adaptive_quick_rig(input_path: str, output_path: str, branch_threshold: flo
         "joints": joints,
         "notes": "Geometry-derived editable skeleton; generic topology by design.",
     }
-    out = Path(output_path).resolve()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    out = validate_output_path(output_path, (".json",))
+    temp = out.with_name(f".{out.name}.tmp")
+    try:
+        temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        temp.replace(out)
+    finally:
+        try:
+            if temp.exists():
+                temp.unlink()
+        except OSError:
+            pass
     return payload
 
 
@@ -99,9 +109,8 @@ def _run_universal_command(req: RigRequest) -> dict:
             "Universal AI rig provider is not configured. Quick Rig remains available. "
             "Set MINISCULPTER_UNIVERSAL_RIG_COMMAND to a provider command that writes the Miniscuplter skeleton JSON format."
         )
-    input_path = str(Path(req.input_path).resolve())
-    output_path = str(Path(req.output_path).resolve())
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    input_path = str(validate_input_path(req.input_path, DEFAULT_MESH_SUFFIXES))
+    output_path = str(validate_output_path(req.output_path, (".json",)))
     command = UNIVERSAL_RIG_COMMAND.format(
         input=shlex.quote(input_path), output=shlex.quote(output_path), seed=req.seed
     )
@@ -131,11 +140,17 @@ def rig_status():
 @router.post("/predict-skeleton")
 def predict_skeleton(req: RigRequest):
     try:
+        input_path = str(validate_input_path(req.input_path, DEFAULT_MESH_SUFFIXES))
+        output_path = str(validate_output_path(req.output_path, (".json",)))
         mode = (req.mode or "quick").lower()
         if mode == "universal":
+            req.input_path = input_path
+            req.output_path = output_path
             payload = _run_universal_command(req)
         else:
-            payload = _adaptive_quick_rig(req.input_path, req.output_path, req.branch_threshold)
-        return {"path": str(Path(req.output_path).resolve()), "provider": payload.get("provider", "unknown"), "joints": len(payload.get("joints", []))}
+            payload = _adaptive_quick_rig(input_path, output_path, req.branch_threshold)
+        return {"path": output_path, "provider": payload.get("provider", "unknown"), "joints": len(payload.get("joints", []))}
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(400, f"Rig input/output rejected: {exc}") from exc
     except Exception as exc:
         raise HTTPException(500, f"Rig prediction failed: {exc}") from exc

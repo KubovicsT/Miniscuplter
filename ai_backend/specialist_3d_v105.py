@@ -1,5 +1,5 @@
 from __future__ import annotations
-import importlib,os,shutil,subprocess,sys
+import importlib,os,shlex,shutil,subprocess,sys
 from pathlib import Path
 from model_manager import component_path,TOOLS_ROOT
 from job_progress import report
@@ -78,7 +78,7 @@ def generate_trellis2(image,output):
     if not template:raise RuntimeError("TRELLIS.2 uses its official Linux runtime. Configure MINISCULPTER_TRELLIS2_COMMAND for native Linux or WSL2 after installation.")
     out=Path(output).resolve();out.parent.mkdir(parents=True,exist_ok=True)
     report("running_inference","TRELLIS.2 external reconstruction is running.",45,"trellis2")
-    p=subprocess.run(template.format(image=str(Path(image).resolve()),output=str(out)),shell=True,capture_output=True,text=True,timeout=10800)
+    p=subprocess.run(template.format(image=shlex.quote(str(Path(image).resolve())),output=shlex.quote(str(out))),shell=True,capture_output=True,text=True,timeout=10800)
     if p.returncode!=0 or not out.exists():raise RuntimeError((p.stderr or p.stdout or "TRELLIS.2 produced no output")[-5000:])
     report("saving_result","TRELLIS.2 output file is ready.",95,"trellis2")
     return str(out)

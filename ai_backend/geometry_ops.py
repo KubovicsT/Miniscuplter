@@ -4,12 +4,27 @@ import math
 import os
 from pathlib import Path
 from typing import Iterable
+import uuid
 
 import numpy as np
 import trimesh
 
-MAX_VOXEL_CELLS = int(os.getenv("MINISCULPTER_MAX_VOXEL_CELLS", "100000000"))
-MAX_INTERSECTION_PAIRS = int(os.getenv("MINISCULPTER_MAX_INTERSECTION_PAIRS", "200000"))
+from storage import DEFAULT_MESH_SUFFIXES, validate_input_path, validate_output_path
+
+
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+MAX_VOXEL_CELLS = _bounded_env_int("MINISCULPTER_MAX_VOXEL_CELLS", 100_000_000, 1_000_000, 2_000_000_000)
+MAX_INTERSECTION_PAIRS = _bounded_env_int("MINISCULPTER_MAX_INTERSECTION_PAIRS", 200_000, 1_000, 2_000_000)
+MAX_MESH_VERTICES = 10_000_000
+MAX_MESH_FACES = 20_000_000
+MAX_MESH_INPUT_BYTES = 1_024 * 1024 * 1024
 
 
 def _vertices_are_finite(mesh: trimesh.Trimesh) -> bool:
@@ -23,12 +38,8 @@ def _vertices_are_finite(mesh: trimesh.Trimesh) -> bool:
     return bool(vertices.size > 0 and np.isfinite(vertices).all())
 
 
-def _load_mesh(path: str) -> trimesh.Trimesh:
-    p = Path(path).resolve()
-    if not p.exists() or not p.is_file():
-        raise FileNotFoundError(f"Input mesh does not exist: {p}")
-    if p.stat().st_size == 0:
-        raise ValueError(f"Input mesh is empty on disk: {p}")
+def _load_mesh(path: str | Path) -> trimesh.Trimesh:
+    p = validate_input_path(path, DEFAULT_MESH_SUFFIXES, max_bytes=MAX_MESH_INPUT_BYTES)
     mesh = trimesh.load_mesh(p, force="mesh", process=False)
     if isinstance(mesh, trimesh.Scene):
         if not mesh.geometry:
@@ -36,6 +47,8 @@ def _load_mesh(path: str) -> trimesh.Trimesh:
         mesh = trimesh.util.concatenate(tuple(mesh.geometry.values()))
     if mesh.is_empty or len(mesh.vertices) < 3 or len(mesh.faces) < 1:
         raise ValueError(f"Mesh contains no usable triangles: {p}")
+    if len(mesh.vertices) > MAX_MESH_VERTICES or len(mesh.faces) > MAX_MESH_FACES:
+        raise ValueError(f"Mesh is above the safe geometry limit ({MAX_MESH_VERTICES:,} vertices / {MAX_MESH_FACES:,} faces): {p}")
     if not _vertices_are_finite(mesh):
         raise ValueError(f"Mesh contains non-finite coordinates: {p}")
     return mesh
@@ -248,9 +261,12 @@ def analyze_mesh(input_path: str, feature_threshold_mm: float = 0.6) -> dict:
 
 
 def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float = 0.35) -> str:
-    paths = [str(Path(p).resolve()) for p in input_paths]
-    if not paths:
+    raw_paths = list(input_paths)
+    if not raw_paths:
         raise ValueError("At least one input mesh is required")
+    if len(raw_paths) > 16:
+        raise ValueError("At most 16 input meshes may be combined in one operation")
+    paths = [str(validate_input_path(p, DEFAULT_MESH_SUFFIXES, max_bytes=MAX_MESH_INPUT_BYTES)) for p in raw_paths]
     if not math.isfinite(voxel_size) or voxel_size <= 0:
         raise ValueError("voxel_size must be a finite value greater than zero")
     meshes = [_load_mesh(p) for p in paths]
@@ -270,9 +286,19 @@ def voxel_remesh(input_paths: Iterable[str], output_path: str, voxel_size: float
     result.merge_vertices()
     if not _vertices_are_finite(result):
         raise RuntimeError("Voxel reconstruction produced invalid coordinates")
-    out = Path(output_path).resolve()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    result.export(out, file_type="stl")
+    out = validate_output_path(output_path, (".stl",))
+    temp = out.with_name(f".{out.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        result.export(temp, file_type="stl")
+        if not temp.exists() or temp.stat().st_size == 0:
+            raise RuntimeError("Voxel reconstruction produced no STL bytes")
+        os.replace(temp, out)
+    finally:
+        try:
+            if temp.exists():
+                temp.unlink()
+        except OSError:
+            pass
     if not out.exists() or out.stat().st_size == 0:
         raise RuntimeError("Voxel reconstruction finished but no STL was written")
     return str(out)

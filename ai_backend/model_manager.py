@@ -42,7 +42,23 @@ def load_state():
         d=json.loads(STATE_FILE.read_text(encoding="utf-8")); return d if isinstance(d,dict) else {"installed":{},"settings":{}}
     except Exception:return {"installed":{},"settings":{}}
 def save_state(state):
-    DATA_ROOT.mkdir(parents=True,exist_ok=True); t=STATE_FILE.with_suffix(".json.tmp"); t.write_text(json.dumps(state,indent=2),encoding="utf-8"); t.replace(STATE_FILE)
+    if not isinstance(state, dict):
+        raise ValueError("Model-manager state must be a JSON object")
+    DATA_ROOT.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_FILE.with_name(STATE_FILE.name + "." + uuid.uuid4().hex + ".tmp")
+    try:
+        payload = json.dumps(state, indent=2, ensure_ascii=False)
+        with tmp.open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        tmp.replace(STATE_FILE)
+    finally:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
 def _hf_revision(repo_id):
     from huggingface_hub import HfApi
     i=HfApi().model_info(repo_id,revision="main");
@@ -61,8 +77,17 @@ def _tool_dir(cid,tools_root=None):
 def _combined_revision(hf,tool): return f"hf:{hf[:12]} git:{tool[:12]}" if hf and tool else hf or tool
 def _remote_revisions(cid,spec): return (_hf_revision(spec["repo_id"]) if spec.get("repo_id") else None,_git_remote_revision(spec["code_url"]) if spec.get("code_url") else None)
 def _directory_has_files(path):
-    try:return path.is_dir() and any(p.is_file() for p in path.rglob("*"))
-    except OSError:return False
+    try:
+        if not path.is_dir() or path.is_symlink():
+            return False
+        for item in path.rglob("*"):
+            if item.is_symlink():
+                return False
+            if item.is_file():
+                return True
+        return False
+    except OSError:
+        return False
 def _component_files_valid(cid,path,tools_root=None):
     tools=tools_root or TOOLS_ROOT
     if not path.exists():return False
@@ -73,9 +98,14 @@ def _component_files_valid(cid,path,tools_root=None):
     if cid=="clipseg-smart-select":return (path/"config.json").is_file() and (path/"model.safetensors").is_file()
     return _directory_has_files(path)
 def component_path(cid):
-    e=load_state().get("installed",{}).get(cid)
-    if not isinstance(e,dict) or not e.get("installed") or not e.get("path"):return None
-    p=Path(e["path"]).resolve(); return p if _component_files_valid(cid,p) else None
+    e = load_state().get("installed", {}).get(cid)
+    if not isinstance(e, dict) or not e.get("installed") or not e.get("path"):
+        return None
+    try:
+        p = _managed_path(Path(str(e["path"])))
+    except (RuntimeError, ValueError, OSError):
+        return None
+    return p if _component_files_valid(cid, p) else None
 def status(check_updates=False):
     state=load_state(); result=[]; hw=hardware_info()
     try:
@@ -153,9 +183,25 @@ def update_component(cid):
     if component_path(cid) is None:raise RuntimeError("The model is not fully installed. Reinstall it instead.")
     return install_component(cid,True)
 def _managed_path(path):
-    r=path.resolve();
-    if r==DATA_ROOT or DATA_ROOT not in r.parents:raise RuntimeError(f"Refusing to remove path outside AI data: {r}")
-    return r
+    raw = Path(path).expanduser()
+    if not raw.is_absolute():
+        raw = DATA_ROOT / raw
+    candidate = Path(os.path.abspath(str(raw)))
+    if candidate == DATA_ROOT or DATA_ROOT not in candidate.parents:
+        raise RuntimeError(f"Refusing to use a managed path outside AI data: {candidate}")
+
+    current = DATA_ROOT
+    if current.is_symlink():
+        raise RuntimeError(f"Refusing to use a symlinked AI data root: {current}")
+    try:
+        relative = candidate.relative_to(DATA_ROOT)
+    except ValueError as exc:
+        raise RuntimeError(f"Refusing to use a path outside AI data: {candidate}") from exc
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise RuntimeError(f"Refusing to follow a symlink/reparse point in AI data: {current}")
+    return candidate
 def uninstall_component(cid):
     if cid not in COMPONENTS:raise ValueError(f"Unknown AI component: {cid}")
     state=load_state();e=state.get("installed",{}).get(cid);paths=[]
