@@ -37,7 +37,7 @@ public partial class Main : Node
         BuildWorld();
         AddStarterMesh();
         UpdateCamera();
-        SetStatus("Ready — Miniscuplter v1.0.18");
+        SetStatus("Ready — Miniscuplter v1.0.19");
     }
 
     void BuildUi()
