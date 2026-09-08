@@ -42,7 +42,7 @@ def test_storage_path_boundaries():
             source.write_bytes(b"solid")
             os.environ["MINISCULPTER_DATA"] = str(root)
             safe = validate_input_path(source, (".stl",), max_bytes=1024)
-            check(safe == source.resolve(), "external read-only input was not accepted")
+            check(safe.resolve() == source.resolve(), "external read-only input was not accepted")
             output = validate_output_path("Workspace/result.stl", (".stl",))
             check(output.parent.is_dir() and root in output.parents, "contained output was not created")
             try:

@@ -241,12 +241,9 @@ public partial class Main
             : "missing";
         string selected = _selected == null ? "none" : _selected.Name.ToString();
         _v1019ViewportDiagnostics.Text =
-            $"Viewport pipeline: native SubViewportContainer
-" +
-            $"Render target: {sub.Size.X}×{sub.Size.Y} · 3D {(sub.Disable3D ? "disabled" : "active")} · update Always
-" +
-            $"World parent: {worldParent} · own World3D: {sub.OwnWorld3D}
-" +
+            "Viewport pipeline: native SubViewportContainer" + Environment.NewLine +
+            $"Render target: {sub.Size.X}×{sub.Size.Y} · 3D {(sub.Disable3D ? "disabled" : "active")} · update Always" + Environment.NewLine +
+            $"World parent: {worldParent} · own World3D: {sub.OwnWorld3D}" + Environment.NewLine +
             $"Grid: {grid} · scene objects: {_objects.Count} · selected: {selected}";
     }
 
@@ -260,8 +257,8 @@ public partial class Main
             if (image == null || image.IsEmpty() || image.GetWidth() < 2 || image.GetHeight() < 2)
             {
                 if (_v1019ViewportDiagnostics != null)
-                    _v1019ViewportDiagnostics.Text += "
-Render probe: no readable frame yet; viewport will retry after layout.";
+                    _v1019ViewportDiagnostics.Text += Environment.NewLine +
+                        "Render probe: no readable frame yet; viewport will retry after layout.";
                 return;
             }
 
@@ -270,17 +267,15 @@ Render probe: no readable frame yet; viewport will retry after layout.";
             Color lower = image.GetPixel(image.GetWidth() / 2, Math.Max(1, image.GetHeight() - 2));
             float variation = V1019ColorDelta(corner, center) + V1019ColorDelta(corner, lower);
             if (_v1019ViewportDiagnostics != null)
-                _v1019ViewportDiagnostics.Text += variation > .03f
-                    ? "
-Render probe: non-flat frame received; 3D pixels are reaching the native surface."
-                    : "
-Render probe: frame is flat; inspect world/camera/material state above.";
+                _v1019ViewportDiagnostics.Text += Environment.NewLine +
+                    (variation > .03f
+                        ? "Render probe: non-flat frame received; 3D pixels are reaching the native surface."
+                        : "Render probe: frame is flat; inspect world/camera/material state above.");
         }
         catch (Exception ex)
         {
             if (_v1019ViewportDiagnostics != null)
-                _v1019ViewportDiagnostics.Text += "
-Render probe failed: " + ex.Message;
+                _v1019ViewportDiagnostics.Text += Environment.NewLine + "Render probe failed: " + ex.Message;
         }
     }
 
