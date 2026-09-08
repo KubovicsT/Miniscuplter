@@ -269,7 +269,7 @@ for token in ("MaxExpandedBytes", "MaxArchiveEntries", "ValidateExtractedTree", 
 require("ValidatePackagePath" in updater and "ValidateTargetRoot" in updater and "ValidateRestartPath" in updater, "updater command-line path containment is incomplete")
 require("MaxPackageBytes" in updater and "ReadBoundedText" in updater and "Flush(flushToDisk: true)" in updater, "updater input/journal bounds are incomplete")
 require("release.json" in build_release and "Miniscuplter-win-x64.zip.sha256" in build_release, "release package metadata/SHA sidecar missing")
-require("batches = @(3, 4)" in build_release and "dist/installer" in build_release, "v1.0.19 batch/release-output contract missing")
+require("batches = @(3, 4)" in build_release and "Join-Path $dist 'installer'" in build_release, "v1.0.19 batch/release-output contract missing")
 for token in ("data_root", "validate_input_path", "validate_output_path", "MAX_INPUT_BYTES", "Refusing to follow a symlink"):
     require(token in storage, f"backend storage boundary missing: {token}")
 

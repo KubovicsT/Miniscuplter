@@ -284,6 +284,8 @@ internal sealed class ApplicationUpdateService
                     written += n;
                     progress?.Report((int)Math.Clamp(written * 100L / info.AssetSize, 0, 99));
                 }
+                // Windows cannot reliably hash a file while another writer still owns it.
+                // Flush the async stream and then force the durable handle flush before verification.
                 await output.FlushAsync(cancellationToken);
                 output.Flush(flushToDisk: true);
             }
