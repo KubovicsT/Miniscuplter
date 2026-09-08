@@ -79,5 +79,9 @@ public partial class ExtrasInstaller : Node
         // enhancement, contained working storage, a directly inspectable preset editor and a
         // render-texture-backed 3D viewport recovery path.
         main.InstallV1017Usability();
+
+        // v1.0.19 makes the native SubViewport render path authoritative after every historical
+        // installer has composed its legacy viewport controls.
+        main.InstallV1019ViewportPipeline();
     }
 }

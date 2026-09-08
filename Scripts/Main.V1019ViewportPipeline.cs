@@ -1,0 +1,289 @@
+using Godot;
+using System;
+using System.Linq;
+
+namespace Miniscuplter;
+
+public partial class Main
+{
+    bool _v1019ViewportPipelineInstalled;
+    bool _v1019WorldConfigured;
+    Timer? _v1019ViewportRepairTimer;
+    Timer? _v1019ViewportProbeTimer;
+    Label? _v1019ViewportDiagnostics;
+
+    public void InstallV1019ViewportPipeline()
+    {
+        if (_v1019ViewportPipelineInstalled) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
+            FindChild("Viewport", true, false) is not SubViewport)
+            return;
+
+        InstallV1018ViewportFoundation();
+        if (_world == null) return;
+
+        _v1019ViewportPipelineInstalled = true;
+        host.Visible = true;
+        host.Stretch = true;
+        host.ClipContents = true;
+        host.MouseFilter = Control.MouseFilterEnum.Stop;
+        host.Modulate = Colors.White;
+        host.SelfModulate = Colors.White;
+        host.CustomMinimumSize = new Vector2(320, 240);
+
+        if (FindChild("3D", true, false) is VBoxContainer threeD &&
+            _v1019ViewportDiagnostics == null)
+        {
+            _v1019ViewportDiagnostics = new Label
+            {
+                Name = "v1.0.19 Viewport Diagnostics",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                MouseFilter = Control.MouseFilterEnum.Ignore
+            };
+            threeD.AddChild(_v1019ViewportDiagnostics);
+        }
+
+        _v1019ViewportRepairTimer = new Timer
+        {
+            Name = "v1.0.19 Viewport Repair Timer",
+            WaitTime = .25,
+            OneShot = true
+        };
+        _v1019ViewportRepairTimer.Timeout += V1019RepairViewportPipeline;
+        AddChild(_v1019ViewportRepairTimer);
+
+        _v1019ViewportProbeTimer = new Timer
+        {
+            Name = "v1.0.19 Viewport Render Probe",
+            WaitTime = 1.0,
+            OneShot = true
+        };
+        _v1019ViewportProbeTimer.Timeout += V1019ProbeRenderedFrame;
+        AddChild(_v1019ViewportProbeTimer);
+
+        host.Resized += () =>
+        {
+            V1019QueueViewportRepair();
+            V1019ArmRenderProbe();
+        };
+
+        V1019RepairViewportPipeline();
+        V1019ArmRenderProbe();
+    }
+
+    void V1019QueueViewportRepair()
+    {
+        if (!_v1019ViewportPipelineInstalled || _v1019ViewportRepairTimer == null) return;
+        _v1019ViewportRepairTimer.Stop();
+        _v1019ViewportRepairTimer.Start();
+    }
+
+    void V1019ArmRenderProbe()
+    {
+        if (!_v1019ViewportPipelineInstalled || _v1019ViewportProbeTimer == null) return;
+        _v1019ViewportProbeTimer.Stop();
+        _v1019ViewportProbeTimer.Start();
+    }
+
+    public void V1019RepairViewportPipeline()
+    {
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
+            FindChild("Viewport", true, false) is not SubViewport sub ||
+            _world == null)
+            return;
+
+        host.Visible = true;
+        host.Stretch = true;
+        host.ClipContents = true;
+        host.Modulate = Colors.White;
+        host.SelfModulate = Colors.White;
+
+        // Stretch=true is the native SubViewportContainer contract: it owns the child viewport
+        // dimensions after layout. Older installers attempted to fight that contract by assigning
+        // Size repeatedly before/after layout, which made the render path timing-dependent.
+        if (!_v1019WorldConfigured)
+        {
+            sub.World3D = new World3D();
+            _v1019WorldConfigured = true;
+        }
+        sub.OwnWorld3D = true;
+        sub.Disable3D = false;
+        sub.TransparentBg = false;
+        sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
+
+        if (!ReferenceEquals(_world.GetParent(), sub))
+        {
+            _world.GetParent()?.RemoveChild(_world);
+            sub.AddChild(_world);
+        }
+        _world.Visible = true;
+
+        if (_camera == null || !GodotObject.IsInstanceValid(_camera))
+        {
+            _camera = new Camera3D
+            {
+                Current = true,
+                Near = .01f,
+                Far = 10000f,
+                Fov = 45f
+            };
+            _world.AddChild(_camera);
+        }
+        else if (!ReferenceEquals(_camera.GetParent(), _world))
+        {
+            _camera.GetParent()?.RemoveChild(_camera);
+            _world.AddChild(_camera);
+        }
+
+        _camera.Visible = true;
+        _camera.Near = .01f;
+        _camera.Far = 10000f;
+        _camera.Current = false;
+        _camera.Current = true;
+        UpdateCamera();
+
+        foreach (var plane in _world.GetChildren().OfType<MeshInstance3D>()
+                     .Where(m => !_objects.Contains(m)).ToArray())
+            plane.Visible = false;
+
+        _objects.RemoveAll(o => !GodotObject.IsInstanceValid(o));
+        if (_objects.Count == 0)
+            AddStarterMesh();
+
+        foreach (var obj in _objects.ToArray())
+        {
+            if (!GodotObject.IsInstanceValid(obj)) continue;
+            if (!ReferenceEquals(obj.GetParent(), _world))
+            {
+                obj.GetParent()?.RemoveChild(obj);
+                _world.AddChild(obj);
+            }
+            obj.Visible = true;
+            obj.Layers = 1;
+            if (obj.MaterialOverride == null)
+            {
+                obj.MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(.62f, .64f, .68f),
+                    Roughness = .82f,
+                    CullMode = BaseMaterial3D.CullModeEnum.Disabled
+                };
+            }
+            else if (obj.MaterialOverride is StandardMaterial3D material)
+            {
+                material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+            }
+        }
+
+        if (_selected == null || !GodotObject.IsInstanceValid(_selected) || !_objects.Contains(_selected))
+        {
+            _selected = _objects.FirstOrDefault();
+            if (_selected != null) Select(_selected);
+        }
+
+        if (_v109GridRoot == null || !GodotObject.IsInstanceValid(_v109GridRoot) ||
+            !_v109GridRoot.Name.ToString().Contains("v1.0.19", StringComparison.Ordinal))
+            V1019RebuildGrid();
+
+        if (_v1017Gizmo == null || !GodotObject.IsInstanceValid(_v1017Gizmo))
+            V1017BuildGizmo();
+        V1017UpdateGizmo();
+        V1017SyncViewport();
+        V1017UpdateViewportStatus();
+        V1019UpdateViewportDiagnostics(sub);
+        V1019ArmRenderProbe();
+    }
+
+    void V1019RebuildGrid()
+    {
+        if (_world == null) return;
+        if (_v109GridRoot != null && GodotObject.IsInstanceValid(_v109GridRoot))
+            _v109GridRoot.QueueFree();
+
+        bool visible = _v109GridToggle?.ButtonPressed ?? true;
+        _v109GridRoot = new Node3D
+        {
+            Name = "Viewport Grid v1.0.19",
+            Visible = visible
+        };
+        _world.AddChild(_v109GridRoot);
+
+        var ground = new MeshInstance3D
+        {
+            Name = "Grid ground v1.0.19",
+            Mesh = new PlaneMesh { Size = new Vector2(500, 500) },
+            Position = new Vector3(0, -.03f, 0),
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(.045f, .052f, .068f),
+                Roughness = 1f,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled
+            }
+        };
+        _v109GridRoot.AddChild(ground);
+
+        // Triangle bars are deliberately brighter than the background and do not depend on
+        // driver-specific line-width behavior.
+        AddV1015GridBars(10f, .18f, new Color(.36f, .42f, .52f), false);
+        AddV1015GridBars(50f, .48f, new Color(.68f, .74f, .84f), true);
+        AddV1015AxisBar(true, .82f, new Color(.98f, .24f, .20f));
+        AddV1015AxisBar(false, .82f, new Color(.20f, .48f, 1f));
+        _v109GridRoot.Visible = visible;
+    }
+
+    void V1019UpdateViewportDiagnostics(SubViewport sub)
+    {
+        if (_v1019ViewportDiagnostics == null) return;
+        string worldParent = _world == null ? "none" : _world.GetParent()?.Name.ToString() ?? "none";
+        string grid = _v109GridRoot != null && GodotObject.IsInstanceValid(_v109GridRoot)
+            ? $"{_v109GridRoot.Name} ({_v109GridRoot.GetChildCount()} render groups)"
+            : "missing";
+        string selected = _selected == null ? "none" : _selected.Name.ToString();
+        _v1019ViewportDiagnostics.Text =
+            $"Viewport pipeline: native SubViewportContainer
+" +
+            $"Render target: {sub.Size.X}×{sub.Size.Y} · 3D {(sub.Disable3D ? "disabled" : "active")} · update Always
+" +
+            $"World parent: {worldParent} · own World3D: {sub.OwnWorld3D}
+" +
+            $"Grid: {grid} · scene objects: {_objects.Count} · selected: {selected}";
+    }
+
+    async void V1019ProbeRenderedFrame()
+    {
+        try
+        {
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            if (FindChild("Viewport", true, false) is not SubViewport sub) return;
+            Image image = sub.GetTexture().GetImage();
+            if (image == null || image.IsEmpty() || image.GetWidth() < 2 || image.GetHeight() < 2)
+            {
+                if (_v1019ViewportDiagnostics != null)
+                    _v1019ViewportDiagnostics.Text += "
+Render probe: no readable frame yet; viewport will retry after layout.";
+                return;
+            }
+
+            Color corner = image.GetPixel(1, 1);
+            Color center = image.GetPixel(image.GetWidth() / 2, image.GetHeight() / 2);
+            Color lower = image.GetPixel(image.GetWidth() / 2, Math.Max(1, image.GetHeight() - 2));
+            float variation = V1019ColorDelta(corner, center) + V1019ColorDelta(corner, lower);
+            if (_v1019ViewportDiagnostics != null)
+                _v1019ViewportDiagnostics.Text += variation > .03f
+                    ? "
+Render probe: non-flat frame received; 3D pixels are reaching the native surface."
+                    : "
+Render probe: frame is flat; inspect world/camera/material state above.";
+        }
+        catch (Exception ex)
+        {
+            if (_v1019ViewportDiagnostics != null)
+                _v1019ViewportDiagnostics.Text += "
+Render probe failed: " + ex.Message;
+        }
+    }
+
+    static float V1019ColorDelta(Color a, Color b) =>
+        Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B) + Math.Abs(a.A - b.A);
+}

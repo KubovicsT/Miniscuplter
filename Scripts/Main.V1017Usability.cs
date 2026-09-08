@@ -675,7 +675,8 @@ public partial class Main
         }
 
         if (_v109GridRoot == null || !IsInstanceValid(_v109GridRoot) ||
-            !_v109GridRoot.Name.ToString().Contains("v1.0.17", StringComparison.Ordinal))
+            (!_v109GridRoot.Name.ToString().Contains("v1.0.17", StringComparison.Ordinal) &&
+             !_v109GridRoot.Name.ToString().Contains("v1.0.19", StringComparison.Ordinal)))
             V1017RebuildGrid();
         if (_v1017Gizmo == null || !IsInstanceValid(_v1017Gizmo)) V1017BuildGizmo();
 
@@ -878,7 +879,8 @@ public partial class Main
                 var repair = new Button { Text = "Repair 3D Viewport", Name = "Repair 3D Viewport" };
                 repair.Pressed += () =>
                 {
-                    V1017RepairViewport();
+                    if (_v1019ViewportPipelineInstalled) V1019RepairViewportPipeline();
+                    else V1017RepairViewport();
                     V1017FrameAndVerifySelected();
                     SetStatus("3D viewport rebuilt, rebound and reframed.");
                 };
