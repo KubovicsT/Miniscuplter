@@ -22,21 +22,43 @@ def _positive_int(name: str, default: int, maximum: int) -> int:
 MAX_INPUT_BYTES = _positive_int("MINISCULPTER_MAX_INPUT_BYTES", DEFAULT_MAX_INPUT_BYTES, 4 * 1024 * 1024 * 1024)
 
 
-def _reject_reparse_points(root: Path, candidate: Path) -> None:
-    root = root.absolute()
-    candidate = candidate.absolute()
-    try:
-        relative = candidate.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Path escapes the Miniscuplter data root: {candidate}") from exc
+def _absolute(value: Path | str) -> Path:
+    return Path(os.path.abspath(os.fspath(value)))
 
-    current = root
-    if current.is_symlink():
-        raise ValueError(f"Refusing to follow a symlink/reparse point in Miniscuplter data: {current}")
-    for part in relative.parts:
-        current = current / part
+
+def _canonical(value: Path | str) -> Path:
+    return Path(os.path.realpath(os.fspath(value)))
+
+
+def _is_within(root: Path | str, candidate: Path | str) -> bool:
+    root_norm = os.path.normcase(os.path.normpath(str(_absolute(root))))
+    candidate_norm = os.path.normcase(os.path.normpath(str(_absolute(candidate))))
+    try:
+        return os.path.commonpath((root_norm, candidate_norm)) == root_norm
+    except ValueError:
+        return False
+
+
+def _reject_reparse_points(root: Path, candidate: Path) -> None:
+    root_abs = _absolute(root)
+    candidate_abs = _absolute(candidate)
+    canonical_root = _canonical(root_abs)
+    canonical_candidate = _canonical(candidate_abs)
+    if not _is_within(canonical_root, canonical_candidate):
+        raise ValueError(f"Path escapes the Miniscuplter data root: {candidate_abs}")
+
+    # Walk the caller's original path before returning its canonical spelling. This
+    # rejects a symlink/reparse point even when the platform also supplies an
+    # alternate path spelling (for example, a Windows 8.3 component).
+    current = candidate_abs
+    while True:
         if current.is_symlink():
             raise ValueError(f"Refusing to follow a symlink/reparse point in Miniscuplter data: {current}")
+        if current.parent == current:
+            break
+        current = current.parent
+
+
 
 
 def data_root() -> Path:
@@ -65,13 +87,9 @@ def resolve(relative: str | Path) -> Path:
     candidate = Path(relative).expanduser()
     if not candidate.is_absolute():
         candidate = root / candidate
-    candidate = Path(os.path.abspath(str(candidate)))
-    try:
-        candidate.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Path escapes the Miniscuplter data root: {candidate}") from exc
+    candidate = _absolute(candidate)
     _reject_reparse_points(root, candidate)
-    return candidate
+    return _canonical(candidate)
 
 
 def _check_suffix(path: Path, allowed_suffixes: Iterable[str] | None) -> None:
