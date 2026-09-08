@@ -67,6 +67,9 @@ internal static class Program
                 Transform = new TransformState(new Vec3(4, 5, 6), Vec3.Zero, Vec3.One)
             }), objectId);
             Assert(session.Current.Objects[objectId].Transform.Position == new Vec3(4, 5, 6), "transform command did not apply");
+            Assert(session.IsDirty, "a new transaction should mark the project dirty");
+            session.MarkSaved();
+            Assert(!session.IsDirty, "MarkSaved should establish a durable save point");
             session.Undo();
             Assert(session.Current.Objects[objectId].Transform.Position == Vec3.Zero, "undo did not restore full before state");
             session.Redo();
@@ -89,6 +92,24 @@ internal static class Program
             Assert(loaded.ProjectId == session.Current.ProjectId, "project identity changed across save/load");
             Assert(loaded.Objects.Count == 1 && loaded.MeshRevisions.Count == 3, "project graph did not round-trip");
             Assert(loaded.Candidates[candidate.Id].Status == CandidateStatus.Conflict, "candidate lineage did not round-trip");
+            session.MarkSaved();
+            Assert(!session.IsDirty, "saving the canonical state should clear the dirty flag");
+
+            await File.WriteAllTextAsync(projectPath, "{ this is intentionally corrupt");
+            var recovered = await store.LoadWithRecoveryAsync(projectPath);
+            Assert(recovered.Recovered, "recovery load should identify that it used a checkpoint");
+            Assert(recovered.State.ProjectId == session.Current.ProjectId, "recovery load changed project identity");
+            Assert(recovered.Warnings.Count > 0, "recovery load should explain the fallback");
+
+            bool invalidAssetRejected = false;
+            try
+            {
+                _ = state.WithMeshRevision(new MeshRevision(
+                    RevisionId.New(), objectId, null, "../escape.msh", new string('0', 64),
+                    4, 4, "unit-test", DateTimeOffset.UtcNow));
+            }
+            catch (InvalidDataException) { invalidAssetRejected = true; }
+            Assert(invalidAssetRejected, "project state accepted an escaping asset reference");
 
             var layout = ProjectLayout.FromManifest(projectPath);
             Assert(Directory.EnumerateFiles(layout.RecoveryDirectory, "manifest_*.json").Any(), "bounded recovery checkpoint was not created");
@@ -124,7 +145,7 @@ internal static class Program
             catch (InvalidDataException) { rejected = true; }
             Assert(rejected, "legacy path traversal was not rejected");
 
-            Console.WriteLine("v1.0.13 core foundation tests passed");
+            Console.WriteLine("v1.0.19 canonical project-state tests passed");
         }
         finally
         {

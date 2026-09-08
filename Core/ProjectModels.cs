@@ -223,51 +223,164 @@ public sealed class ProjectState
 
     public void Validate()
     {
+        ValidateCollectionSizes();
+
+        foreach (var pair in _objects)
+        {
+            RequireId(pair.Key.Value, "project object");
+            if (pair.Key != pair.Value.Id)
+                throw new InvalidDataException("Project object dictionary key does not match the embedded object identity.");
+            if (string.IsNullOrWhiteSpace(pair.Value.DisplayName))
+                throw new InvalidDataException($"Project object {pair.Key} has no display name.");
+            pair.Value.Transform.Validate();
+            if (!_meshRevisions.TryGetValue(pair.Value.ActiveMeshRevisionId, out var activeRevision))
+                throw new InvalidDataException($"Object {pair.Key} references missing mesh revision {pair.Value.ActiveMeshRevisionId}.");
+            if (activeRevision.ObjectId != pair.Key)
+                throw new InvalidDataException($"Object {pair.Key} references a mesh revision owned by another object.");
+        }
+
+        foreach (var pair in _meshRevisions)
+        {
+            RequireId(pair.Key.Value, "mesh revision");
+            var revision = pair.Value;
+            if (pair.Key != revision.Id || revision.ObjectId.Value == Guid.Empty)
+                throw new InvalidDataException("Mesh revision dictionary identity is invalid.");
+            if (revision.VertexCount <= 0 || revision.TriangleCount <= 0 ||
+                revision.VertexCount > 100_000_000 || revision.TriangleCount > 100_000_000)
+                throw new InvalidDataException($"Mesh revision {revision.Id} has invalid counts.");
+            ValidateAssetReference(revision.AssetPath, $"mesh revision {revision.Id}");
+            ValidateSha256(revision.Sha256, $"mesh revision {revision.Id}");
+            if (revision.ParentRevisionId is { } parent)
+            {
+                if (!_meshRevisions.TryGetValue(parent, out var parentRevision))
+                    throw new InvalidDataException($"Mesh revision {revision.Id} references missing parent revision {parent}.");
+                if (parentRevision.ObjectId != revision.ObjectId)
+                    throw new InvalidDataException($"Mesh revision {revision.Id} references a parent revision owned by another object.");
+            }
+        }
+
         foreach (var revision in _meshRevisions.Values)
         {
-            if (revision.Id.Value == Guid.Empty || revision.ObjectId.Value == Guid.Empty)
-                throw new InvalidDataException("Mesh revision identity cannot be empty.");
-            if (revision.VertexCount <= 0 || revision.TriangleCount <= 0)
-                throw new InvalidDataException($"Mesh revision {revision.Id} has invalid counts.");
-            if (string.IsNullOrWhiteSpace(revision.AssetPath) || string.IsNullOrWhiteSpace(revision.Sha256))
-                throw new InvalidDataException($"Mesh revision {revision.Id} has no durable asset reference.");
+            var visited = new HashSet<RevisionId>();
+            var cursor = revision;
+            while (cursor.ParentRevisionId is { } parent)
+            {
+                if (!visited.Add(cursor.Id))
+                    throw new InvalidDataException($"Mesh revision lineage contains a cycle at {cursor.Id}.");
+                cursor = _meshRevisions[parent];
+            }
         }
 
-        foreach (var obj in _objects.Values)
+        foreach (var pair in _imageRevisions)
         {
-            obj.Transform.Validate();
-            if (!_meshRevisions.TryGetValue(obj.ActiveMeshRevisionId, out var revision))
-                throw new InvalidDataException($"Object {obj.Id} references missing mesh revision {obj.ActiveMeshRevisionId}.");
-            if (revision.ObjectId != obj.Id)
-                throw new InvalidDataException($"Object {obj.Id} references a mesh revision owned by another object.");
+            RequireId(pair.Key.Value, "image revision");
+            var revision = pair.Value;
+            if (pair.Key != revision.Id)
+                throw new InvalidDataException("Image revision dictionary identity is invalid.");
+            ValidateAssetReference(revision.AssetPath, $"image revision {revision.Id}");
+            ValidateSha256(revision.Sha256, $"image revision {revision.Id}");
+            if (revision.ParentRevisionId is { } parent && !_imageRevisions.ContainsKey(parent))
+                throw new InvalidDataException($"Image revision {revision.Id} references missing parent image revision {parent}.");
         }
 
-        foreach (var selection in _selections.Values)
+        foreach (var pair in _selections)
         {
-            if (!_objects.ContainsKey(selection.ObjectId)) throw new InvalidDataException($"Selection {selection.Id} references a missing object.");
-            if (!_meshRevisions.TryGetValue(selection.MeshRevisionId, out var revision) || revision.ObjectId != selection.ObjectId)
+            RequireId(pair.Key.Value, "selection");
+            var selection = pair.Value;
+            if (pair.Key != selection.Id || selection.ObjectId.Value == Guid.Empty)
+                throw new InvalidDataException("Selection dictionary identity is invalid.");
+            if (!_objects.ContainsKey(selection.ObjectId))
+                throw new InvalidDataException($"Selection {selection.Id} references a missing object.");
+            if (!_meshRevisions.TryGetValue(selection.MeshRevisionId, out var selectionRevision) ||
+                selectionRevision.ObjectId != selection.ObjectId)
                 throw new InvalidDataException($"Selection {selection.Id} is not bound to a valid revision of its object.");
+            if (string.IsNullOrWhiteSpace(selection.Kind))
+                throw new InvalidDataException($"Selection {selection.Id} has no kind.");
+            ValidateAssetReference(selection.DataAssetPath, $"selection {selection.Id}");
         }
 
-        foreach (var rig in _rigs.Values)
+        foreach (var pair in _rigs)
         {
-            if (!_objects.ContainsKey(rig.ObjectId)) throw new InvalidDataException($"Rig {rig.Id} references a missing object.");
-            if (!_meshRevisions.TryGetValue(rig.RestMeshRevisionId, out var revision) || revision.ObjectId != rig.ObjectId)
+            RequireId(pair.Key.Value, "rig");
+            var rig = pair.Value;
+            if (pair.Key != rig.Id || rig.ObjectId.Value == Guid.Empty)
+                throw new InvalidDataException("Rig dictionary identity is invalid.");
+            if (!_objects.ContainsKey(rig.ObjectId))
+                throw new InvalidDataException($"Rig {rig.Id} references a missing object.");
+            if (!_meshRevisions.TryGetValue(rig.RestMeshRevisionId, out var restRevision) ||
+                restRevision.ObjectId != rig.ObjectId)
                 throw new InvalidDataException($"Rig {rig.Id} rest mesh is not a revision of its object.");
+            ValidateAssetReference(rig.DataAssetPath, $"rig {rig.Id}");
         }
 
-        foreach (var attachment in _attachments.Values)
+        foreach (var pair in _attachments)
         {
+            RequireId(pair.Key.Value, "attachment");
+            var attachment = pair.Value;
+            if (pair.Key != attachment.Id || attachment.ParentObjectId.Value == Guid.Empty || attachment.ChildObjectId.Value == Guid.Empty)
+                throw new InvalidDataException("Attachment dictionary identity is invalid.");
             attachment.LocalTransform.Validate();
+            if (attachment.ParentObjectId == attachment.ChildObjectId)
+                throw new InvalidDataException($"Attachment {attachment.Id} cannot attach an object to itself.");
             if (!_objects.ContainsKey(attachment.ParentObjectId) || !_objects.ContainsKey(attachment.ChildObjectId))
                 throw new InvalidDataException($"Attachment {attachment.Id} references a missing object.");
+            if (string.IsNullOrWhiteSpace(attachment.Socket))
+                throw new InvalidDataException($"Attachment {attachment.Id} has no socket name.");
         }
 
-        foreach (var candidate in _candidates.Values)
+        foreach (var pair in _candidates)
         {
-            if (!_objects.ContainsKey(candidate.ObjectId)) throw new InvalidDataException($"Candidate {candidate.Id} references a missing object.");
-            if (!_meshRevisions.ContainsKey(candidate.InputRevisionId) || !_meshRevisions.ContainsKey(candidate.OutputRevisionId))
+            RequireId(pair.Key.Value, "candidate");
+            var candidate = pair.Value;
+            if (pair.Key != candidate.Id || candidate.ObjectId.Value == Guid.Empty)
+                throw new InvalidDataException("Candidate dictionary identity is invalid.");
+            if (!_objects.ContainsKey(candidate.ObjectId))
+                throw new InvalidDataException($"Candidate {candidate.Id} references a missing object.");
+            if (!_meshRevisions.TryGetValue(candidate.InputRevisionId, out var input) ||
+                !_meshRevisions.TryGetValue(candidate.OutputRevisionId, out var output))
                 throw new InvalidDataException($"Candidate {candidate.Id} references missing input/output revisions.");
+            if (input.ObjectId != candidate.ObjectId || output.ObjectId != candidate.ObjectId)
+                throw new InvalidDataException($"Candidate {candidate.Id} references revisions from another object.");
+            if (candidate.InputRevisionId == candidate.OutputRevisionId)
+                throw new InvalidDataException($"Candidate {candidate.Id} input and output revisions must differ.");
+            if (string.IsNullOrWhiteSpace(candidate.Kind) || string.IsNullOrWhiteSpace(candidate.Provenance))
+                throw new InvalidDataException($"Candidate {candidate.Id} is missing kind or provenance.");
         }
+
+        foreach (var key in _metadata.Keys)
+            if (string.IsNullOrWhiteSpace(key))
+                throw new InvalidDataException("Project metadata contains an empty key.");
+    }
+
+    void ValidateCollectionSizes()
+    {
+        if (_objects.Count > 100_000 || _meshRevisions.Count > 500_000 || _imageRevisions.Count > 500_000 ||
+            _selections.Count > 500_000 || _rigs.Count > 100_000 || _attachments.Count > 500_000 ||
+            _candidates.Count > 500_000)
+            throw new InvalidDataException("Project graph exceeds the safe in-memory collection limits.");
+    }
+
+    static void RequireId(Guid value, string kind)
+    {
+        if (value == Guid.Empty) throw new InvalidDataException($"{kind} identity cannot be empty.");
+    }
+
+    static void ValidateSha256(string value, string kind)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length != 64 ||
+            value.Any(c => !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))))
+            throw new InvalidDataException($"{kind} does not contain a valid SHA-256 digest.");
+    }
+
+    static void ValidateAssetReference(string value, string kind)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidDataException($"{kind} has no durable asset reference.");
+        string normalized = value.Replace('\\', '/').Trim();
+        if (Path.IsPathRooted(normalized) || normalized.StartsWith("/", StringComparison.Ordinal) ||
+            normalized.Equals("..", StringComparison.Ordinal) || normalized.StartsWith("../", StringComparison.Ordinal) ||
+            normalized.Contains("/../", StringComparison.Ordinal) || normalized.EndsWith("/..", StringComparison.Ordinal) ||
+            (normalized.Length >= 3 && char.IsLetter(normalized[0]) && normalized[1] == ':' && normalized[2] == '/'))
+            throw new InvalidDataException($"{kind} asset reference must stay relative to the project asset directory.");
     }
 }

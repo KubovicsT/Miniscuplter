@@ -17,6 +17,8 @@ public sealed class ProjectSession
     readonly int _historyLimit;
 
     public ProjectState Current { get; private set; }
+    public long SavedRevisionNumber { get; private set; }
+    public bool IsDirty => Current.RevisionNumber != SavedRevisionNumber;
     public IReadOnlyCollection<ProjectTransaction> UndoTransactions => _undo.ToArray();
     public IReadOnlyCollection<ProjectTransaction> RedoTransactions => _redo.ToArray();
     public bool CanUndo => _undo.Count > 0;
@@ -27,6 +29,7 @@ public sealed class ProjectSession
         Current = initial ?? throw new ArgumentNullException(nameof(initial));
         Current.Validate();
         _historyLimit = Math.Clamp(historyLimit, 1, 1000);
+        SavedRevisionNumber = Current.RevisionNumber;
     }
 
     public ProjectTransaction Execute(string label, Func<ProjectState, ProjectState> mutation, params ObjectId[] affectedObjectIds)
@@ -43,7 +46,7 @@ public sealed class ProjectSession
             string.IsNullOrWhiteSpace(label) ? "Edit" : label.Trim(),
             before,
             after,
-            affectedObjectIds.Distinct().ToArray(),
+            affectedObjectIds.Where(x => x.Value != Guid.Empty).Distinct().ToArray(),
             DateTimeOffset.UtcNow);
 
         Current = after;
@@ -70,6 +73,28 @@ public sealed class ProjectSession
         _undo.Push(transaction);
         TrimUndo();
         return transaction;
+    }
+
+    public void MarkSaved()
+    {
+        SavedRevisionNumber = Current.RevisionNumber;
+    }
+
+    public void ReplaceFromLoad(ProjectState state)
+    {
+        if (state == null) throw new ArgumentNullException(nameof(state));
+        state.Validate();
+        Current = state;
+        _undo.Clear();
+        _redo.Clear();
+        MarkSaved();
+    }
+
+    public void ClearHistory(bool markCurrentAsSaved = false)
+    {
+        _undo.Clear();
+        _redo.Clear();
+        if (markCurrentAsSaved) MarkSaved();
     }
 
     public CandidateApplyResult ApplyCandidate(CandidateId candidateId)

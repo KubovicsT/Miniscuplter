@@ -7,6 +7,8 @@ public sealed record MigrationResult(string DestinationProject, int SourceSchema
 
 public sealed class LegacyProjectImporter
 {
+    public const long MaxLegacyManifestBytes = 32L * 1024 * 1024;
+    public const int MaxLegacyObjects = 100_000;
     readonly ProjectStore _store;
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -25,8 +27,11 @@ public sealed class LegacyProjectImporter
         if (Directory.Exists(layout.AssetsRoot) && Directory.EnumerateFileSystemEntries(layout.AssetsRoot).Any())
             throw new IOException("Migration destination asset directory is not empty; choose a fresh destination.");
 
+        var sourceInfo = new FileInfo(source);
+        if (sourceInfo.Length <= 0 || sourceInfo.Length > MaxLegacyManifestBytes)
+            throw new InvalidDataException($"Legacy project manifest size {sourceInfo.Length:N0} bytes is outside the safe limit.");
         string sourceText = await File.ReadAllTextAsync(source, cancellationToken);
-        using var document = JsonDocument.Parse(sourceText);
+        using var document = JsonDocument.Parse(sourceText, new JsonDocumentOptions { MaxDepth = 64 });
         JsonElement root = document.RootElement;
         int schema = ReadInt(root, "Version");
         if (schema is < 1 or > 6) throw new InvalidDataException($"Legacy importer supports schema 1–6, not {schema}.");
@@ -35,6 +40,7 @@ public sealed class LegacyProjectImporter
 
         string legacyAssetsRoot = Path.Combine(Path.GetDirectoryName(source)!, Path.GetFileNameWithoutExtension(source) + "_assets");
         string legacyAssetsPrefix = Path.GetFullPath(legacyAssetsRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        ProjectStore.RejectReparsePoints(legacyAssetsRoot, legacyAssetsRoot);
         var warnings = new List<string>();
         var state = ProjectState.Create(Path.GetFileNameWithoutExtension(destination))
             .WithMetadata("migration.source_schema", schema.ToString())
@@ -51,6 +57,8 @@ public sealed class LegacyProjectImporter
             state = state.WithMetadata("migration.legacy_manifest", "data/migration/legacy_manifest.json");
 
             int objectCount = 0;
+            if (objectsElement.GetArrayLength() > MaxLegacyObjects)
+                throw new InvalidDataException($"Legacy project contains more than {MaxLegacyObjects:N0} objects.");
             foreach (JsonElement item in objectsElement.EnumerateArray())
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -62,6 +70,7 @@ public sealed class LegacyProjectImporter
                 if (!meshPath.StartsWith(legacyAssetsPrefix, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException($"Legacy object '{name}' mesh reference escapes the legacy asset directory.");
                 if (!File.Exists(meshPath)) throw new FileNotFoundException($"Legacy mesh asset for '{name}' is missing.", meshPath);
+                ProjectStore.RejectReparsePoints(legacyAssetsRoot, meshPath);
 
                 MeshData mesh = LegacyStlReader.ReadBinary(meshPath);
                 ObjectId objectId = ObjectId.New();
@@ -165,6 +174,8 @@ public static class LegacyStlReader
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: false);
         if (stream.Length < 84) throw new InvalidDataException("Legacy STL is too short to be a binary STL.");
+        if (stream.Length > ProjectStore.MaxMeshAssetBytes)
+            throw new InvalidDataException("Legacy STL exceeds the safe mesh asset size limit.");
         _ = reader.ReadBytes(80);
         uint triangleCount = reader.ReadUInt32();
         if (triangleCount == 0 || triangleCount > 100_000_000) throw new InvalidDataException("Legacy STL declares an invalid triangle count.");
