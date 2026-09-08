@@ -172,7 +172,7 @@ internal sealed class LauncherForm : Form
             var progress = new Progress<int>(p => _progress.Value = Math.Clamp(p, 0, 100));
             string package = await _updates.DownloadPackageAsync(info, progress);
             _status.Text = "Update verified. Starting transactional updater…";
-            _updates.StartStagedUpdate(package, info);
+            await _updates.StartStagedUpdateAsync(package, info);
             BeginInvoke(Close);
         }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Application update failed", MessageBoxButtons.OK, MessageBoxIcon.Error); }
