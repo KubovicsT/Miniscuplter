@@ -24,6 +24,7 @@ def check(condition: bool, message: str) -> None:
 def isolated_data(tmp: str):
     previous = os.environ.get("MINISCULPTER_DATA")
     data = Path(tmp) / "AIData"
+    data.mkdir(parents=True, exist_ok=True)
     os.environ["MINISCULPTER_DATA"] = str(data)
     try:
         yield data
