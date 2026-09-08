@@ -44,7 +44,12 @@ def test_storage_path_boundaries():
             safe = validate_input_path(source, (".stl",), max_bytes=1024)
             check(safe.resolve() == source.resolve(), "external read-only input was not accepted")
             output = validate_output_path("Workspace/result.stl", (".stl",))
-            check(output.parent.is_dir() and root in output.parents, "contained output was not created")
+            try:
+                output.resolve().relative_to(root.resolve())
+                contained = True
+            except ValueError:
+                contained = False
+            check(output.parent.is_dir() and contained, "contained output was not created")
             try:
                 validate_output_path(Path(t).parent / "escape.stl", (".stl",))
                 raise AssertionError("output path escaped the configured data root")
