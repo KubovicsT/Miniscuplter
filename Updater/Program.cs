@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Miniscuplter.Updater;
@@ -8,6 +9,11 @@ namespace Miniscuplter.Updater;
 internal static class Program
 {
     const long ExtractionSafetyBytes = 128L * 1024 * 1024;
+    const long MaxPackageBytes = 8L * 1024 * 1024 * 1024;
+    const long MaxExpandedBytes = 16L * 1024 * 1024 * 1024;
+    const int MaxArchiveEntries = 100000;
+    const int MaxArgumentLength = 4096;
+    const long MaxJournalBytes = 1024 * 1024;
     const int LauncherHealthTimeoutMs = 30000;
 
     static readonly string[] DefaultPreserveTopLevel =
@@ -61,27 +67,36 @@ internal static class Program
 
         try
         {
+            using var updaterMutex = new Mutex(true, "Local\\MiniscuplterUpdater", out bool mutexCreated);
+            if (!mutexCreated)
+                throw new InvalidOperationException("Another Miniscuplter updater transaction is already running.");
+
             var map = Parse(args);
-            string package = Path.GetFullPath(Require(map, "package"));
             target = Path.GetFullPath(Require(map, "target"));
             dataRoot = Path.GetFullPath(Require(map, "data-root"));
+            ValidateDataRoot(dataRoot);
+            ValidateTargetRoot(target, dataRoot);
+            string package = ValidatePackagePath(Require(map, "package"), dataRoot);
             string expectedVersion = NormalizeVersion(Require(map, "version"));
+            if (!Version.TryParse(expectedVersion, out _))
+                throw new ArgumentException("--version must be a valid semantic version.");
             string expectedSha256 = RequireSha256(map);
             int waitPid = map.TryGetValue("wait-pid", out var p) && int.TryParse(p, out var pid) ? pid : -1;
-            restart = map.TryGetValue("restart", out var r) ? Path.GetFullPath(r) : Path.Combine(target, "Miniscuplter.Launcher.exe");
+            restart = map.TryGetValue("restart", out var r) ? ValidateRestartPath(r, target) : Path.Combine(target, "Miniscuplter.Launcher.exe");
 
             if (!File.Exists(package)) throw new FileNotFoundException("Update package not found", package);
             if (!VerifySha256(package, expectedSha256))
                 throw new InvalidDataException("Update package SHA-256 does not match the release digest. No installed files were changed.");
 
-            Directory.CreateDirectory(target);
             _preserveTop = BuildPreserveSet(target, dataRoot);
+            ValidateManagedPaths(target);
 
             if (waitPid > 0) WaitForExit(waitPid);
-            EnsureEditorClosed();
+            EnsureEditorClosed(target);
 
             string parent = Directory.GetParent(target)?.FullName
                 ?? throw new InvalidOperationException("The application installation directory has no usable parent for transactional update staging.");
+            RejectReparsePoints(parent, target);
 
             RecoverInterruptedTransactions(parent, target);
 
@@ -99,6 +114,7 @@ internal static class Program
             WriteJournal(workRoot, target, expectedVersion, backup, parked, "prepared");
 
             ZipFile.ExtractToDirectory(package, stage, true);
+            ValidateExtractedTree(stage);
             string source = NormalizePackageRoot(stage);
             ValidateReleasePackage(source, expectedVersion);
             WriteJournal(workRoot, target, expectedVersion, backup, parked, "extracted");
@@ -169,16 +185,28 @@ internal static class Program
 
     static Dictionary<string, string> Parse(string[] args)
     {
+        if (args.Length > 64)
+            throw new ArgumentException("Too many updater arguments.");
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < args.Length; i++)
-            if (args[i].StartsWith("--") && i + 1 < args.Length) map[args[i][2..]] = args[++i];
+        {
+            if (!args[i].StartsWith("--", StringComparison.Ordinal) || i + 1 >= args.Length)
+                throw new ArgumentException("Updater arguments must be named --key value pairs.");
+            string key = args[i][2..];
+            if (key.Length == 0 || !map.TryAdd(key, args[++i]))
+                throw new ArgumentException("Duplicate or empty updater argument: " + key);
+        }
         return map;
     }
 
-    static string Require(Dictionary<string, string> map, string key) =>
-        map.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
-            ? value
-            : throw new ArgumentException("Missing --" + key);
+    static string Require(Dictionary<string, string> map, string key)
+    {
+        if (!map.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Missing --" + key);
+        if (value.Length > MaxArgumentLength)
+            throw new ArgumentException("--" + key + " is too long.");
+        return value;
+    }
 
     static string RequireSha256(Dictionary<string, string> map)
     {
@@ -198,21 +226,44 @@ internal static class Program
         catch (ArgumentException) { }
     }
 
-    static void EnsureEditorClosed()
+    static void EnsureEditorClosed(string target)
     {
-        var running = Process.GetProcessesByName("Miniscuplter").Where(p => p.Id != Environment.ProcessId).ToArray();
-        try
+        string targetFull = Path.GetFullPath(target);
+        string[] expected = {
+            Path.Combine(targetFull, "App", "Miniscuplter.exe"),
+            Path.Combine(targetFull, "Miniscuplter.exe"),
+            Path.Combine(targetFull, "App", "Miniscuplter.console.exe")
+        };
+        foreach (string processName in new[] { "Miniscuplter", "Miniscuplter.console" })
         {
-            if (running.Any(p => !p.HasExited))
-                throw new InvalidOperationException("The Miniscuplter editor is still running. Close it before applying the application update.");
-        }
-        finally
-        {
-            foreach (var p in running) p.Dispose();
+            var running = Process.GetProcessesByName(processName).Where(p => p.Id != Environment.ProcessId).ToArray();
+            try
+            {
+                foreach (var process in running)
+                {
+                    if (process.HasExited) continue;
+                    try
+                    {
+                        string? executable = process.MainModule?.FileName;
+                        if (!string.IsNullOrWhiteSpace(executable) &&
+                            expected.Any(path => Path.GetFullPath(executable).Equals(path, StringComparison.OrdinalIgnoreCase)))
+                            throw new InvalidOperationException("The Miniscuplter editor is still running. Close it before applying the application update.");
+                    }
+                    catch (InvalidOperationException) { throw; }
+                    catch
+                    {
+                        throw new InvalidOperationException("A Miniscuplter editor process could not be identified safely. Close it before applying the application update.");
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var process in running) process.Dispose();
+            }
         }
     }
 
-    static HashSet<string> BuildPreserveSet(string target, string dataRoot)
+    static HashSet<string> BuildPreserveSet    static HashSet<string> BuildPreserveSet(string target, string dataRoot)
     {
         var result = new HashSet<string>(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
         _nestedDataRoot = null;
@@ -266,6 +317,11 @@ internal static class Program
 
     static bool VerifySha256(string path, string expected)
     {
+        if (!File.Exists(path))
+            return false;
+        var info = new FileInfo(path);
+        if (info.Length <= 0 || info.Length > MaxPackageBytes)
+            throw new InvalidDataException("Update package is empty or exceeds the maximum package size.");
         using var stream = File.OpenRead(path);
         string actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
         return actual.Equals(expected, StringComparison.OrdinalIgnoreCase);
@@ -274,17 +330,93 @@ internal static class Program
     static long GetExpandedSize(string package)
     {
         using var archive = ZipFile.OpenRead(package);
+        if (new FileInfo(package).Length > MaxPackageBytes)
+            throw new InvalidDataException("Update package exceeds the maximum compressed size.");
+
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         long total = 0;
+        if (archive.Entries.Count > MaxArchiveEntries)
+            throw new InvalidDataException("Update package contains too many archive entries.");
+
         foreach (var entry in archive.Entries)
         {
-            if (string.IsNullOrEmpty(entry.Name)) continue;
+            string normalized = ValidateArchiveEntryName(entry.FullName);
+            if (!names.Add(normalized))
+                throw new InvalidDataException("Update package contains duplicate archive paths.");
+            if (IsArchiveSymlink(entry))
+                throw new InvalidDataException("Update package contains a symbolic-link entry, which is not allowed.");
+
+            if (entry.Name.Length == 0) continue;
+            if (entry.Length < 0)
+                throw new InvalidDataException("Update package contains an invalid archive entry size.");
             total = checked(total + entry.Length);
+            if (total > MaxExpandedBytes)
+                throw new InvalidDataException("Update package expands beyond the maximum allowed size.");
         }
+
         if (total <= 0) throw new InvalidDataException("Update package contains no extractable files.");
         return total;
     }
 
-    static long AvailableBytes(string path)
+    static string ValidateArchiveEntryName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > MaxArgumentLength || value.Contains('\0'))
+            throw new InvalidDataException("Update package contains an invalid archive path.");
+        string normalized = value.Replace('\\', '/').TrimEnd('/');
+        if (normalized.Length == 0 || normalized.StartsWith("/", StringComparison.Ordinal) ||
+            normalized.StartsWith("//", StringComparison.Ordinal) ||
+            (normalized.Length > 1 && normalized[1] == ':'))
+            throw new InvalidDataException("Update package contains an absolute archive path.");
+
+        foreach (string segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment is "." or ".." || segment.Contains(':', StringComparison.Ordinal))
+                throw new InvalidDataException("Update package contains a traversal or alternate-stream path.");
+        }
+        return normalized;
+    }
+
+    static bool IsArchiveSymlink(ZipArchiveEntry entry)
+    {
+        int unixMode = (entry.ExternalAttributes >> 16) & 0xF000;
+        return unixMode == 0xA000;
+    }
+
+    static void ValidateExtractedTree(string root)
+    {
+        if (!Directory.Exists(root))
+            throw new InvalidDataException("Update package extraction did not produce a directory.");
+        RejectReparsePoints(root, root);
+        var pending = new Stack<string>();
+        pending.Push(root);
+        int count = 0;
+        long total = 0;
+        while (pending.Count > 0)
+        {
+            string current = pending.Pop();
+            foreach (string path in Directory.GetFileSystemEntries(current))
+            {
+                if (++count > MaxArchiveEntries)
+                    throw new InvalidDataException("Extracted update contains too many filesystem entries.");
+                RejectReparsePoints(root, path);
+                FileAttributes attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Extracted update contains a reparse point.");
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    pending.Push(path);
+                    continue;
+                }
+
+                long length = new FileInfo(path).Length;
+                total = checked(total + length);
+                if (total > MaxExpandedBytes)
+                    throw new InvalidDataException("Extracted update exceeds the maximum allowed size.");
+            }
+        }
+    }
+
+    static long AvailableBytes    static long AvailableBytes(string path)
     {
         string root = Path.GetPathRoot(Path.GetFullPath(path))
             ?? throw new InvalidOperationException("Could not resolve update staging drive.");
@@ -312,6 +444,15 @@ internal static class Program
         return files.Length == 0 && dirs.Length == 1 ? dirs[0] : stage;
     }
 
+    static void RequireReleaseFile(string root, string relative, string description)
+    {
+        string path = Path.Combine(root, relative);
+        RejectReparsePoints(root, path);
+        if (!File.Exists(path) || (File.GetAttributes(path) & FileAttributes.Directory) != 0 ||
+            new FileInfo(path).Length == 0)
+            throw new InvalidDataException("Update package is incomplete; missing required file: " + description);
+    }
+
     static void ValidateReleasePackage(string source, string expectedVersion)
     {
         string[] required =
@@ -324,12 +465,7 @@ internal static class Program
             "setup_ai_backend.bat",
             "release.json"
         };
-        foreach (string relative in required)
-        {
-            string path = Path.Combine(source, relative);
-            if (!File.Exists(path) || new FileInfo(path).Length == 0)
-                throw new InvalidDataException("Update package is incomplete; missing required file: " + relative);
-        }
+        foreach (string relative in required) RequireReleaseFile(source, relative, relative);
         ValidateReleaseManifest(Path.Combine(source, "release.json"), expectedVersion);
     }
 
@@ -343,29 +479,28 @@ internal static class Program
             Path.Combine("App", "ai_backend", "app.py"),
             "release.json"
         };
-        foreach (string relative in required)
-        {
-            string path = Path.Combine(target, relative);
-            if (!File.Exists(path) || new FileInfo(path).Length == 0)
-                throw new InvalidDataException("Updated application failed post-move validation: " + relative);
-        }
+        foreach (string relative in required) RequireReleaseFile(target, relative, relative);
         ValidateReleaseManifest(Path.Combine(target, "release.json"), expectedVersion);
     }
 
     static void ValidateReleaseManifest(string path, string expectedVersion)
     {
-        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        if (!File.Exists(path) || new FileInfo(path).Length > MaxJournalBytes)
+            throw new InvalidDataException("The release manifest is missing or too large.");
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path), new JsonDocumentOptions { MaxDepth = 16 });
+        if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("The release manifest is not a JSON object.");
         string version = doc.RootElement.TryGetProperty("version", out var value)
             ? NormalizeVersion(value.GetString() ?? "")
             : "";
         if (!version.Equals(expectedVersion, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException($"Update package version mismatch. Expected {expectedVersion}, package contains {version}.");
+            throw new InvalidDataException("Update package version mismatch. Expected " + expectedVersion + ", package contains " + version + ".");
         string asset = doc.RootElement.TryGetProperty("asset", out var ae) ? ae.GetString() ?? "" : "";
         if (!asset.Equals("Miniscuplter-win-x64.zip", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Update package manifest does not identify the expected Windows asset.");
     }
 
-    static string NormalizeVersion(string value) => value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
+    static string NormalizeVersion    static string NormalizeVersion(string value) => value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
 
     static void ParkPreservedNested(string target, string parking)
     {
@@ -555,6 +690,7 @@ internal static class Program
     static void VerifyLauncherStartup(string launcher, string target, string workRoot)
     {
         if (!File.Exists(launcher)) throw new FileNotFoundException("Updated launcher is missing before startup validation.", launcher);
+        RejectReparsePoints(target, launcher);
         string token = Path.Combine(workRoot, "launcher-healthy.token");
         TryDelete(token);
 
@@ -567,20 +703,33 @@ internal static class Program
         psi.ArgumentList.Add(token);
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the updated launcher for health validation.");
 
-        var sw = Stopwatch.StartNew();
-        while (sw.ElapsedMilliseconds < LauncherHealthTimeoutMs)
+        try
         {
-            if (File.Exists(token) && new FileInfo(token).Length > 0) return;
-            if (process.HasExited)
-                throw new InvalidOperationException($"The updated launcher exited before confirming startup health (exit code {process.ExitCode}). The previous application will be restored.");
-            Thread.Sleep(250);
+            var sw = Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds < LauncherHealthTimeoutMs)
+            {
+                if (File.Exists(token) && new FileInfo(token).Length > 0) return;
+                if (process.HasExited)
+                    throw new InvalidOperationException("The updated launcher exited before confirming startup health (exit code " + process.ExitCode + "). The previous application will be restored.");
+                Thread.Sleep(250);
+            }
+            throw new TimeoutException("The updated launcher did not confirm a healthy startup within 30 seconds. The previous application will be restored.");
         }
-
-        try { if (!process.HasExited) process.Kill(true); } catch { }
-        throw new TimeoutException("The updated launcher did not confirm a healthy startup within 30 seconds. The previous application will be restored.");
+        finally
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(true);
+                    process.WaitForExit(5000);
+                }
+            }
+            catch { }
+        }
     }
 
-    static void TryRestartRestoredLauncher(string? launcher, string target)
+    static void TryRestartRestoredLauncher    static void TryRestartRestoredLauncher(string? launcher, string target)
     {
         try
         {
@@ -599,16 +748,31 @@ internal static class Program
             if (!File.Exists(journalPath)) continue;
             try
             {
-                var journal = JsonSerializer.Deserialize<UpdateJournal>(File.ReadAllText(journalPath));
-                if (journal == null || !Path.GetFullPath(journal.Target).Equals(Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)) continue;
+                RejectReparsePoints(parent, work);
+                RejectReparsePoints(work, journalPath);
+                string json = ReadBoundedText(journalPath, MaxJournalBytes);
+                var journal = JsonSerializer.Deserialize<UpdateJournal>(json, new JsonSerializerOptions { MaxDepth = 16 });
+                if (journal == null || journal.Schema != 1 ||
+                    string.IsNullOrWhiteSpace(journal.ExpectedVersion) ||
+                    !Version.TryParse(NormalizeVersion(journal.ExpectedVersion), out _) ||
+                    !new[] { "prepared", "extracted", "preserved-parked", "backup-complete", "new-installed", "preserved-restored", "launcher-healthy", "committed" }.Contains(journal.Phase, StringComparer.OrdinalIgnoreCase) ||
+                    !Path.GetFullPath(journal.Target).Equals(Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string backup = Path.GetFullPath(journal.Backup);
+                string parked = Path.GetFullPath(journal.Parked);
+                if (!IsWithin(work, backup) || !IsWithin(work, parked) ||
+                    backup.Equals(parked, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                RejectReparsePoints(work, backup);
+                RejectReparsePoints(work, parked);
+
                 if (journal.Phase.Equals("committed", StringComparison.OrdinalIgnoreCase))
                 {
                     TryDeleteDirectory(work);
                     continue;
                 }
 
-                string backup = Path.GetFullPath(journal.Backup);
-                string parked = Path.GetFullPath(journal.Parked);
                 bool backupKnownComplete = journal.Phase.Equals("backup-complete", StringComparison.OrdinalIgnoreCase) ||
                                            journal.Phase.Equals("new-installed", StringComparison.OrdinalIgnoreCase) ||
                                            journal.Phase.Equals("preserved-restored", StringComparison.OrdinalIgnoreCase) ||
@@ -618,16 +782,12 @@ internal static class Program
                 {
                     if (backupKnownComplete)
                     {
-                        // Only once the journal proves the old managed tree was fully parked may
-                        // recovery remove a possibly-new managed tree before restoring backup.
                         if (Directory.Exists(target))
                         {
                             try { ParkPreservedNested(target, parked); } catch { }
                             try { RemoveManagedTree(target); } catch { }
                         }
                     }
-                    // For an interrupted partial backup, never clear the target first: unmoved
-                    // old files may be the only valid copies. Restore only what reached rollback.
                     RestoreManagedTreeFromBackup(backup, target);
                 }
                 if (HasParkedContent(parked)) RestoreParkedNested(parked, target);
@@ -635,13 +795,37 @@ internal static class Program
             }
             catch
             {
-                // Leave recovery material intact. A later updater run or manual recovery can use it.
+                // Leave invalid or partially inaccessible recovery material intact for manual
+                // recovery instead of deleting a path that was not fully validated.
             }
         }
     }
 
-    static void WriteJournal(string workRoot, string target, string expectedVersion, string backup, string parked, string phase)
+    static string ReadBoundedText(string path, long maxBytes)
     {
+        var info = new FileInfo(path);
+        if (!info.Exists || info.Length > maxBytes)
+            throw new InvalidDataException("Recovery metadata is missing or too large.");
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        var builder = new StringBuilder();
+        char[] buffer = new char[8192];
+        while (true)
+        {
+            int read = reader.Read(buffer, 0, buffer.Length);
+            if (read <= 0) break;
+            builder.Append(buffer, 0, read);
+            if (builder.Length > maxBytes)
+                throw new InvalidDataException("Recovery metadata is too large.");
+        }
+        return builder.ToString();
+    }
+
+    static void WriteJournal    static void WriteJournal(string workRoot, string target, string expectedVersion, string backup, string parked, string phase)
+    {
+        RejectReparsePoints(workRoot, workRoot);
+        string path = Path.Combine(workRoot, "update-journal.json");
+        RejectReparsePoints(workRoot, path);
         var journal = new UpdateJournal
         {
             Target = Path.GetFullPath(target),
@@ -651,13 +835,21 @@ internal static class Program
             Phase = phase,
             UpdatedUtc = DateTime.UtcNow
         };
-        string path = Path.Combine(workRoot, "update-journal.json");
-        string temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(journal, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temp, path, true);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(journal, new JsonSerializerOptions { WriteIndented = true });
+        string temp = Path.Combine(workRoot, ".update-journal-" + Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temp, path, true);
+        }
+        finally { TryDelete(temp); }
     }
 
-    static void MoveDirectoryWithRetry(string source, string destination)
+    static void MoveDirectoryWithRetry    static void MoveDirectoryWithRetry(string source, string destination)
     {
         Exception? last = null;
         for (int i = 0; i < 20; i++)
@@ -700,23 +892,139 @@ internal static class Program
 
     static void WriteError(string? dataRoot, Exception ex, string? workRoot)
     {
+        string detail = ex + (string.IsNullOrWhiteSpace(workRoot) ? "" : Environment.NewLine + "Recovery work directory: " + workRoot);
+        string? destination = null;
         try
         {
-            string folder = !string.IsNullOrWhiteSpace(dataRoot)
-                ? Path.Combine(dataRoot, "update-cache")
-                : Path.GetTempPath();
-            Directory.CreateDirectory(folder);
-            string detail = ex + (string.IsNullOrWhiteSpace(workRoot) ? "" : Environment.NewLine + "Recovery work directory: " + workRoot);
-            File.WriteAllText(Path.Combine(folder, "MiniscuplterUpdater.error.txt"), detail);
+            if (!string.IsNullOrWhiteSpace(dataRoot))
+            {
+                string root = Path.GetFullPath(dataRoot);
+                string folder = Path.Combine(root, "update-cache");
+                Directory.CreateDirectory(folder);
+                RejectReparsePoints(root, folder);
+                destination = Path.Combine(folder, "MiniscuplterUpdater.error.txt");
+                RejectReparsePoints(root, destination);
+            }
         }
-        catch
+        catch { }
+
+        try
         {
-            try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "MiniscuplterUpdater.error.txt"), ex.ToString()); } catch { }
+            if (destination == null)
+            {
+                string root = Path.GetFullPath(AppContext.BaseDirectory);
+                string folder = Path.Combine(root, ".MiniscuplterUpdateErrors");
+                Directory.CreateDirectory(folder);
+                RejectReparsePoints(root, folder);
+                destination = Path.Combine(folder, "MiniscuplterUpdater.error.txt");
+                RejectReparsePoints(root, destination);
+            }
+            File.WriteAllText(destination, detail);
+        }
+        catch { }
+    }
+
+    static void TryDelete(string path)    static bool IsWithin(string root, string candidate)
+    {
+        try
+        {
+            string relative = Path.GetRelativePath(Path.GetFullPath(root), Path.GetFullPath(candidate));
+            return !Path.IsPathRooted(relative) &&
+                (relative == "." || (relative != ".." &&
+                !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+                !relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)));
+        }
+        catch { return false; }
+    }
+
+    static void RejectReparsePoints(string root, string candidate)
+    {
+        string rootFull = Path.GetFullPath(root);
+        string candidateFull = Path.GetFullPath(candidate);
+        if (!IsWithin(rootFull, candidateFull))
+            throw new InvalidDataException("Updater path escapes its validated root.");
+
+        static void CheckNode(string path)
+        {
+            try
+            {
+                if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Refusing a reparse point in updater storage: " + path);
+            }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
+
+        DirectoryInfo? current = new DirectoryInfo(rootFull);
+        while (current != null)
+        {
+            CheckNode(current.FullName);
+            current = current.Parent;
+        }
+        CheckNode(candidateFull);
+
+        string relative = Path.GetRelativePath(rootFull, candidateFull);
+        string currentPath = rootFull;
+        foreach (string part in relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            currentPath = Path.Combine(currentPath, part);
+            CheckNode(currentPath);
         }
     }
 
-    static void TryDelete(string path)
+    static void ValidateDataRoot(string root)
     {
+        Directory.CreateDirectory(root);
+        RejectReparsePoints(root, root);
+    }
+
+    static void ValidateTargetRoot(string target, string dataRoot)
+    {
+        string fullTarget = Path.GetFullPath(target);
+        string volume = Path.GetPathRoot(fullTarget) ?? "";
+        if (fullTarget.Equals(volume, StringComparison.OrdinalIgnoreCase) ||
+            IsWithin(dataRoot, fullTarget) ||
+            fullTarget.Equals(Path.GetFullPath(dataRoot), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The application installation directory is not a safe updater target.");
+        Directory.CreateDirectory(fullTarget);
+        RejectReparsePoints(fullTarget, fullTarget);
+    }
+
+    static string ValidatePackagePath(string package, string dataRoot)
+    {
+        string cache = Path.Combine(Path.GetFullPath(dataRoot), "update-cache");
+        Directory.CreateDirectory(cache);
+        RejectReparsePoints(dataRoot, cache);
+        string full = Path.GetFullPath(package);
+        if (!IsWithin(cache, full) ||
+            !(full.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
+              full.EndsWith(".zip.partial", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("The update package must be inside the persistent Miniscuplter data update cache.");
+        RejectReparsePoints(dataRoot, full);
+        return full;
+    }
+
+    static string ValidateRestartPath(string value, string target)
+    {
+        string full = Path.GetFullPath(value);
+        if (!IsWithin(target, full) ||
+            !Path.GetFileName(full).Equals("Miniscuplter.Launcher.exe", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The updater restart path must be the installed Miniscuplter launcher.");
+        RejectReparsePoints(target, full);
+        return full;
+    }
+
+    static void ValidateManagedPaths(string root)
+    {
+        foreach (string relative in ManagedTopLevel.Concat(PreservedNestedPaths()).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            string path = Path.Combine(root, relative);
+            if (File.Exists(path) || Directory.Exists(path))
+                RejectReparsePoints(root, path);
+        }
+    }
+
+    static bool TryDelete(string path)    {
         try { if (File.Exists(path)) File.Delete(path); } catch { }
     }
 

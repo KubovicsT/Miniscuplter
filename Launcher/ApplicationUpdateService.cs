@@ -232,7 +232,7 @@ internal sealed class ApplicationUpdateService
                 long? rangeStart = response.Content.Headers.ContentRange?.From;
                 long? responseBytes = response.Content.Headers.ContentLength;
                 if (rangeStart != existing ||
-                    responseBytes is > 0 && responseBytes > info.AssetSize - existing)
+                    responseBytes is long returnedBytes && returnedBytes > info.AssetSize - existing)
                 {
                     TryDelete(partial);
                     continue;
