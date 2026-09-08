@@ -263,7 +263,7 @@ internal static class Program
         }
     }
 
-    static HashSet<string> BuildPreserveSet    static HashSet<string> BuildPreserveSet(string target, string dataRoot)
+    static HashSet<string> BuildPreserveSet(string target, string dataRoot)
     {
         var result = new HashSet<string>(DefaultPreserveTopLevel, StringComparer.OrdinalIgnoreCase);
         _nestedDataRoot = null;
@@ -370,7 +370,7 @@ internal static class Program
 
         foreach (string segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (segment is "." or ".." || segment.Contains(':', StringComparison.Ordinal))
+            if (segment is "." or ".." || segment.Contains(':'))
                 throw new InvalidDataException("Update package contains a traversal or alternate-stream path.");
         }
         return normalized;
@@ -416,7 +416,7 @@ internal static class Program
         }
     }
 
-    static long AvailableBytes    static long AvailableBytes(string path)
+    static long AvailableBytes(string path)
     {
         string root = Path.GetPathRoot(Path.GetFullPath(path))
             ?? throw new InvalidOperationException("Could not resolve update staging drive.");
@@ -500,7 +500,7 @@ internal static class Program
             throw new InvalidDataException("Update package manifest does not identify the expected Windows asset.");
     }
 
-    static string NormalizeVersion    static string NormalizeVersion(string value) => value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
+    static string NormalizeVersion(string value) => value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
 
     static void ParkPreservedNested(string target, string parking)
     {
@@ -729,7 +729,7 @@ internal static class Program
         }
     }
 
-    static void TryRestartRestoredLauncher    static void TryRestartRestoredLauncher(string? launcher, string target)
+    static void TryRestartRestoredLauncher(string? launcher, string target)
     {
         try
         {
@@ -821,7 +821,7 @@ internal static class Program
         return builder.ToString();
     }
 
-    static void WriteJournal    static void WriteJournal(string workRoot, string target, string expectedVersion, string backup, string parked, string phase)
+    static void WriteJournal(string workRoot, string target, string expectedVersion, string backup, string parked, string phase)
     {
         RejectReparsePoints(workRoot, workRoot);
         string path = Path.Combine(workRoot, "update-journal.json");
@@ -849,7 +849,7 @@ internal static class Program
         finally { TryDelete(temp); }
     }
 
-    static void MoveDirectoryWithRetry    static void MoveDirectoryWithRetry(string source, string destination)
+    static void MoveDirectoryWithRetry(string source, string destination)
     {
         Exception? last = null;
         for (int i = 0; i < 20; i++)
@@ -924,7 +924,7 @@ internal static class Program
         catch { }
     }
 
-    static void TryDelete(string path)    static bool IsWithin(string root, string candidate)
+    static bool IsWithin(string root, string candidate)
     {
         try
         {
@@ -1024,7 +1024,8 @@ internal static class Program
         }
     }
 
-    static bool TryDelete(string path)    {
+    static void TryDelete(string path)
+    {
         try { if (File.Exists(path)) File.Delete(path); } catch { }
     }
 

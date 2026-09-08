@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.18"
+EXPECTED = "1.0.19"
 errors: list[str] = []
 
 
@@ -47,6 +47,7 @@ commands = text("Scripts/Main.V096Commands.cs")
 detail = text("ai_backend/detail_pipeline.py")
 geometry = text("ai_backend/geometry_ops.py")
 geometry_tests = text("tools/geometry_regression_tests.py")
+storage = text("ai_backend/storage.py")
 manager = text("ai_backend/model_manager.py")
 ext = text("ai_backend/model_manager_v105.py")
 downloads = text("ai_backend/model_downloads.py")
@@ -257,11 +258,20 @@ require("releases?per_page=100" in updates and "Installable" in updates, "launch
 require("RangeHeaderValue" in updates and "update-cache" in updates and ".partial" in updates, "application ZIP resume missing")
 require("VerifyPackageFileAsync" in updates and "AssetSize" in updates, "application size/hash verification missing")
 require("UpdateCacheCandidates" in updates and "DriveInfo" in updates and "ResolveUpdateCacheAsync" in updates, "launcher update cache is not storage-aware")
+require("MaxDownloadBytes" in updates and "StartStagedUpdateAsync" in updates and "IsTrustedDownloadUrl" in updates, "application updater lacks download bounds/trusted URL/reverification guards")
+require("Path.GetTempPath()" not in updates and "FileShare.None" in updates and "ContentRange" in updates, "application updater still permits unsafe cache fallback or unvalidated resume")
 require("BuildPreserveSet" in updater and '"AIData"' in updater and '"Runtime"' in updater, "updater persistent-data preservation missing")
 require("ParkPreservedNested" in updater and "RestoreParkedNested" in updater and '".venv"' in updater, "updater nested runtime preservation missing")
 require("GetExpandedSize" in updater and "EnsureFreeSpace" in updater and "MoveManagedTreeToBackup" in updater and "InstallManagedTreeFromStage" in updater, "updater low-disk transactional flow regression")
 require("VerifySha256" in updater and "ValidateReleaseManifest" in updater, "updater independent package verification missing")
+for token in ("MaxExpandedBytes", "MaxArchiveEntries", "ValidateExtractedTree", "RejectReparsePoints", "MiniscuplterUpdater"):
+    require(token in updater, f"updater transaction safety guard missing: {token}")
+require("ValidatePackagePath" in updater and "ValidateTargetRoot" in updater and "ValidateRestartPath" in updater, "updater command-line path containment is incomplete")
+require("MaxPackageBytes" in updater and "ReadBoundedText" in updater and "Flush(flushToDisk: true)" in updater, "updater input/journal bounds are incomplete")
 require("release.json" in build_release and "Miniscuplter-win-x64.zip.sha256" in build_release, "release package metadata/SHA sidecar missing")
+require("batches = @(3, 4)" in build_release and "dist/installer" in build_release, "v1.0.19 batch/release-output contract missing")
+for token in ("data_root", "validate_input_path", "validate_output_path", "MAX_INPUT_BYTES", "Refusing to follow a symlink"):
+    require(token in storage, f"backend storage boundary missing: {token}")
 
 # Intermediate version-branch commits are validation-only. A final explicit v1.x tag is the sole release trigger.
 require("tags: [ 'v*' ]" in workflow, "version-tag workflow trigger missing")

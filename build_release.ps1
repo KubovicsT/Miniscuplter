@@ -15,7 +15,16 @@ $versionNode = $launcherProject.Project.PropertyGroup | Where-Object { $_.Versio
 $version = [string]$versionNode.Version
 if ([string]::IsNullOrWhiteSpace($version)) { throw 'Launcher project does not declare a release version.' }
 
-if (Test-Path $package) { Remove-Item $package -Recurse -Force }
+$cleanOutputs = @(
+    $package,
+    (Join-Path $dist 'launcher'),
+    (Join-Path $dist 'updater'),
+    (Join-Path $dist 'release'),
+    (Join-Path $dist 'installer')
+)
+foreach ($output in $cleanOutputs) {
+    if (Test-Path $output) { Remove-Item $output -Recurse -Force }
+}
 New-Item $appDir -ItemType Directory -Force | Out-Null
 
 Write-Host "Building Miniscuplter v$version release package..."
@@ -77,6 +86,7 @@ New-Item (Join-Path $package 'AIData') -ItemType Directory -Force | Out-Null
 @{
     schema = 1
     version = $version
+    batches = @(3, 4)
     asset = 'Miniscuplter-win-x64.zip'
     architecture = 'win-x64'
     preserves = @('AIData','configured DataRoot','Runtime','Projects','PartsLibrary','Exports','UserData','App/ai_backend/.venv','runtime caches')
