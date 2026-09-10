@@ -10,7 +10,7 @@ Last updated: 2026-09-10
 - **Latest published stable:** `v1.0.22`
 - **Stable release target:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
 - **Current development branch:** `v1.0.23`
-- **Latest bounded code/test candidate before documentation commits:** `74ec73a14645071bb2742fb68f778bedd656aabd`
+- **Latest fully validated bounded code/test candidate before documentation commits:** `74ec73a14645071bb2742fb68f778bedd656aabd`
 - **Overall completion:** **57% acceptance-weighted**
 - **Coordinator critical path:** Stage-C reference-machine acceptance; when that path is externally blocked, advance only one bounded MS-027 slice at a time in the Coordinator-approved order.
 
@@ -35,15 +35,7 @@ The immediate acceptance path is waiting on released-v1.0.22 reference-machine e
 
 `Scripts/ExtrasInstaller.cs` installs `InstallV1023UiPreferences()` **after** `InstallV1022Acceptance()`. The layer observes the fully composed workspace and deliberately does not own `V1020Generate3DAsync` or `ProjectStore` state.
 
-`tools/core_logic_tests.py` adds static guards for:
-
-- final installer ordering;
-- controlled-root preference storage;
-- both splitter persistence fields;
-- bounded font scale;
-- Interface settings + tooltip infrastructure;
-- replacement-safe preference write;
-- absence of project/Stage-C-generation ownership from the UI preference layer.
+`tools/core_logic_tests.py` adds static guards for final installer ordering, controlled-root preference storage, both splitter fields, bounded font scale, Interface settings/tooltips, replacement-safe preference writes and absence of project/Stage-C-generation ownership from the UI preference layer.
 
 Commits:
 - `f169f6e3428a64804e8778c05353b9d07a87dfe3` — implementation;
@@ -52,18 +44,18 @@ Commits:
 
 ## Validation
 
-Implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed:
+Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed:
 
-- Stage-B/Core build + tests — `core-foundation` run `34520603280`: **PASS**;
-- C# editor/launcher/updater/Core builds — `build` run `34520603310`: **PASS**;
+- Stage-B/Core build + regression suite — `core-foundation` run `34520858442`: **PASS**;
+- C# editor/launcher/updater/Core builds — `build` run `34520858529`: **PASS**;
 - Python compile/dependency resolution: **PASS**;
-- core/execution/job regressions: **PASS**;
+- core/execution/job regressions including the MS-027 wiring guard: **PASS**;
 - geometry regressions: **PASS**;
 - release audit: **PASS**;
 - portable package layout/hash: **PASS**;
 - installer-definition compilation: **PASS**.
 
-Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` has already passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs. At the time this handoff was written, its packaging/installer-definition leg was still finishing. Inspect its latest CI before claiming exact-head branch validation.
+The earlier implementation head `5faa1e528e6a81fb8db15942c68b3da71391743d` also passed the same branch-validation families in `34520603280` / `34520603310` before the explicit MS-027 guard was added.
 
 No v1.0.23 release request has been submitted. **Do not publish v1.0.23 merely because CI is green.** The current change is a secondary bounded UI increment while the critical acceptance path waits on reference-machine evidence.
 
