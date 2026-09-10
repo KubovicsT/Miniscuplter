@@ -10,84 +10,107 @@ Last updated: 2026-09-10
 - **Latest published stable:** `v1.0.22`
 - **Stable release target:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
 - **Current development branch:** `v1.0.23`
-- **Last implementation/version candidate before documentation commits:** `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`
+- **Latest bounded code/test candidate before documentation commits:** `74ec73a14645071bb2742fb68f778bedd656aabd`
 - **Overall completion:** **57% acceptance-weighted**
-- **Coordinator objective:** remove the confirmed Stage-C persistence blocker and narrow viewport/layout acceptance regressions before resuming broader work.
+- **Coordinator critical path:** Stage-C reference-machine acceptance; when that path is externally blocked, advance only one bounded MS-027 slice at a time in the Coordinator-approved order.
 
-Always resolve the exact live v1.0.22 HEAD after this documentation commit. v1.0.21 is published and immutable.
+v1.0.22 is published and immutable. All new application work belongs on v1.0.23 or later.
 
-## Work completed this Dev Cycle
+## What this Dev Cycle completed
 
-### MS-023 — one authoritative Stage-C generation owner
+The immediate acceptance path is waiting on released-v1.0.22 reference-machine evidence and no newer higher-severity unblocked regression was present. Following the explicit Coordinator/HANDOFF fallback, this cycle implemented **only the first bounded MS-027 slice**.
 
-Code inspection proved the production race without another long GPU reproduction: v1.0.17 attaches `V1017Generate3DAsync`, while v1.0.20 previously removed only the v1.0.9 handler before attaching `V1020Generate3DAsync`. Both could therefore receive one button press and race on `_v1093DBusy`; the legacy path directly imported a transient mesh and could cause the durable Stage-C path to exit.
+### MS-027 slice 1 — editor workspace preferences
 
-`Scripts/Main.V1022Acceptance.cs` is now installed last and deterministically removes v1.0.9, v1.0.17 and any duplicate Stage-C subscription, then attaches exactly one `V1020Generate3DAsync`. Existing Stage-C semantics are preserved: inference result → identity-bound Ready/Conflict candidate → explicit Apply → durable mapped object. No parallel generation architecture was introduced.
+`Scripts/Main.V1023UiPreferences.cs` now provides editor-only presentation/preferences state without changing Core project state, provider state or AI action ownership:
 
-### MS-024 / MS-009 — resize/presentation ownership
+- persists the outer/body splitter and viewport/right-panel splitter positions;
+- stores preferences under the authoritative Miniscuplter data root at `Settings/ui_preferences.json`;
+- uses a temporary file plus replacement move for preference writes;
+- clamps restored splitter positions so panels remain usable;
+- defaults the main interface font to 90% of the previous baseline;
+- exposes **UI / font scale** from 75% to 135% in a new Settings → Interface page;
+- exposes **Reset Workspace Layout** without touching model/project state;
+- adds reusable hover tooltips for core toolbar actions so future density work can remove persistent explanatory text safely.
 
-The acceptance guard reasserts outer `FullRect`/`ExpandFill` layout on window viewport size changes without assigning `SubViewport.Size`, so v1.0.21's native Stretch ownership remains intact. Native studio lighting/presentation is reasserted on viewport-host resize/recovery, and the historical opaque filled grid ground is hidden while bars/axes remain.
+`Scripts/ExtrasInstaller.cs` installs `InstallV1023UiPreferences()` **after** `InstallV1022Acceptance()`. The layer observes the fully composed workspace and deliberately does not own `V1020Generate3DAsync` or `ProjectStore` state.
 
-### MS-025 — clean empty project
+`tools/core_logic_tests.py` adds static guards for:
 
-Historical starter spheres are removed after final composition, after New Scene, and after the deferred legacy viewport-repair action. This avoids using an oversized primitive as an implicit scale reference while leaving the established first-real-object selection/framing behavior intact.
+- final installer ordering;
+- controlled-root preference storage;
+- both splitter persistence fields;
+- bounded font scale;
+- Interface settings + tooltip infrastructure;
+- replacement-safe preference write;
+- absence of project/Stage-C-generation ownership from the UI preference layer.
 
-### Regression/release protection
+Commits:
+- `f169f6e3428a64804e8778c05353b9d07a87dfe3` — implementation;
+- `5faa1e528e6a81fb8db15942c68b3da71391743d` — final composition hook;
+- `74ec73a14645071bb2742fb68f778bedd656aabd` — regression guard.
 
-`tools/core_logic_tests.py` now asserts final installer order, removal of legacy Generate-3D owners, exactly-one Stage-C rebound, candidate/apply/restore seams, starter cleanup, root client-fill, non-occluding grid and absence of new manual `SubViewport.Size` assignment. `tools/release_audit.py` now expects 1.0.22 and independently guards the v1.0.22 ownership/layout invariants.
+## Validation
 
-One failed intermediate validation is intentionally preserved: build `34518253820` at `42dd143...` failed only because the new static test matched `SubViewport.Size` in a comment. Commit `0e41b78...` narrowed the check to assignment syntax; subsequent implementation CI passed the regression.
+Implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed:
 
-Version identity is synchronized to 1.0.22 across Godot/editor, backend, launcher, updater, Windows export and installer surfaces in `36093b66...`.
+- Stage-B/Core build + tests — `core-foundation` run `34520603280`: **PASS**;
+- C# editor/launcher/updater/Core builds — `build` run `34520603310`: **PASS**;
+- Python compile/dependency resolution: **PASS**;
+- core/execution/job regressions: **PASS**;
+- geometry regressions: **PASS**;
+- release audit: **PASS**;
+- portable package layout/hash: **PASS**;
+- installer-definition compilation: **PASS**.
 
-## Validation state
+Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` has already passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs. At the time this handoff was written, its packaging/installer-definition leg was still finishing. Inspect its latest CI before claiming exact-head branch validation.
 
-For implementation commit `0e41b78d6a109bc09515a3d8877f385f91714527`:
-- Stage-B/Core: PASS
-- C# builds: PASS
-- Python compilation/dependency resolution: PASS
-- core/execution regressions: PASS
-- geometry regressions: PASS
-- release audit: PASS
-- portable package/layout/hash: PASS
+No v1.0.23 release request has been submitted. **Do not publish v1.0.23 merely because CI is green.** The current change is a secondary bounded UI increment while the critical acceptance path waits on reference-machine evidence.
 
-For release-identity commit `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`, exact-head Core, Python/execution/geometry/release-audit and C# validation are green; reconcile the latest packaging status before declaring release readiness. Documentation commits after that candidate advance the branch HEAD and must be included in the final exact-SHA release candidate.
+## Primary next task — always check this first
 
-## Exact next task
+Inspect for new user/reference-machine results from **released v1.0.22**. Any reproduced correctness, persistence, viewport, data-safety, cancellation or Stage-C regression preempts MS-027 immediately.
 
-1. Reconcile latest GitHub release, exact live v1.0.22 HEAD and all CI runs.
-2. Update/reconcile `docs/ISSUES.md` so MS-023, MS-024 and MS-025 are `FIXED - NEEDS USER VERIFICATION`, preserving the failed static-test attempt and explaining the implementation evidence.
-3. Ensure final v1.0.22 exact-head automated validation is green. Do not release if C#, Core, Python, geometry, release-audit or packaging gates are red.
-4. If the bounded v1.0.22 scope remains coherent, submit exactly one `release-requests/v1.0.22.json` on `release-control` with `candidate_sha` equal to the final live v1.0.22 HEAD. Treat that as a release freeze.
-5. Follow autonomous release through exact-SHA revalidation, real Godot 4.7.2 Windows export, output/hash verification, installer build and silent smoke-install. Diagnose any genuine failing gate; do not weaken it.
-6. On successful publication, verify GitHub latest release/tag targets the exact candidate, then create forward-only `v1.0.23` before any further application change and reconcile PROJECT_STATUS/HANDOFF there.
-7. Next user/reference-machine test should exercise: accepted 2D → Hunyuan/qualified 3D → candidate visible → Apply → save/close/reopen → same 3D object/revision → Move/Rotate/Scale → cleanup → exact STL export. Also check right-panel resize, whole-window resize, grid occlusion and absence of starter sphere.
-8. Any reproduced persistence/viewport regression outranks planned MS-026 telemetry and broader MS-019/MS-020 work.
+Target acceptance sequence:
+
+1. accepted 2D baseline;
+2. qualified/Hunyuan 3D generation;
+3. visible Ready/Conflict Stage-C candidate;
+4. explicit Apply;
+5. save → close → reopen → same durable object and active mesh revision;
+6. Move/Rotate/Scale and one supported sculpt/edit path;
+7. cleanup and exact STL export;
+8. verify right-panel drag + whole-window resize remain visually stable;
+9. verify no starter sphere/opaque floor regression;
+10. inspect storage containment and, where practical, cancellation/recovery and resource/provider evidence.
+
+Relevant issues: **MS-023, MS-009, MS-024, MS-025, MS-018, MS-013, MS-022, MS-004**.
+
+## If reference-machine evidence is still unavailable
+
+If no higher-priority unblocked issue exists, continue **exactly one** next Coordinator-approved MS-027 slice:
+
+**Next fallback slice: direct icon-based viewport tool strip.**
+
+Requirements:
+- expose the existing Move / Rotate / Scale / Sculpt / Select tool owner as direct compact controls rather than creating another tool-state machine;
+- active tool must be visibly clear;
+- reuse the current `V1018ViewportTool` state/input implementation rather than duplicating viewport action ownership;
+- preserve v1.0.22 viewport/render ownership and Stage-C transform/sculpt authority;
+- use tooltips for descriptions instead of another permanent instructional panel;
+- add focused regression guards;
+- stop after this bounded slice rather than continuing into scene tree/view cube/AI console in the same cycle.
+
+After that, Coordinator order remains: synchronized scene hierarchy → view cube/selected-object orbit → unified AI console/history → MS-026 telemetry → density/polish, always subordinate to critical-path acceptance findings.
+
+## Documentation / release rules
+
+- Keep completion at **57%** until new acceptance evidence justifies a change.
+- MS-027 remains an in-progress/opportunistic workstream, not evidence that Stage-C is accepted.
+- Do not modify `TECHNICAL_ROADMAP.md` or `COORDINATOR_LOG.md` unless correcting a safety-critical factual contradiction; they are Coordinator-owned.
+- Do not update `DECISIONS.md` for ordinary UI implementation choices.
+- A future v1.0.23 release must be scope-coherent, version-reconciled and pass the autonomous exact-SHA Godot/export/hash/installer-smoke gates before publication.
 
 ## User input
 
-No product/design decision is required. After publication, reference-machine verification is the next important dependency; do not require another long Hunyuan run before the fixed build exists.
-
-
-## Blocked-work fallback — MS-027 UI modernization
-
-If the immediate acceptance path is genuinely waiting on user/reference-machine testing or unavailable product input, and no higher-severity unblocked issue exists, the Dev Cycle is explicitly authorized to advance **one bounded MS-027 UI slice** rather than idle or invent unrelated infrastructure.
-
-Preferred order:
-1. persisted panel/splitter layout + UI/font scale + tooltip infrastructure;
-2. direct icon tool strip;
-3. synchronized collapsible scene tree;
-4. view cube + selected-object orbit pivot;
-5. unified AI command console/history routed through one authoritative dispatcher;
-6. MS-026 performance graphs;
-7. density/polish cleanup.
-
-Rules:
-- do not attempt the whole overhaul in one cycle;
-- do not let MS-027 delay a reproduced persistence/viewport/data/release/Stage-C blocker;
-- preserve project-state ownership and current AI semantics;
-- no duplicate AI action handlers;
-- persist UI layout/preferences separately from project state;
-- keep each slice independently testable and releasable.
-
-See MS-027 and TECHNICAL_ROADMAP for full acceptance criteria.
+No product/design decision is required. The important external dependency is reference-machine testing of the already-published v1.0.22 acceptance fixes.
