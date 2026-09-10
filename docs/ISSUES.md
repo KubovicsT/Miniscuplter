@@ -117,14 +117,14 @@ Last reconciled: 2026-09-10
 ## MS-009 — 3D viewport, grid, model and gizmo can be completely blank
 
 - **Severity:** Critical
-- **Status:** IN PROGRESS
+- **Status:** FIXED - NEEDS USER VERIFICATION
 - **First observed:** repeatedly through v1.0.11–v1.0.18 testing
 - **Reproduction:** launch editor or complete 3D generation; output STL may exist and status may claim success, but center 3D surface shows no model, grid, axes or gizmo.
 - **Expected:** a visible 3D workspace exists at launch; generated/imported mesh is inserted, selected, framed and rendered with grid/axes/gizmo.
 - **Actual:** user repeatedly observed a flat/empty gray viewport.
 - **Attempts/fixes:** multiple grid implementations; explicit SubViewport sizing/world/camera work; v1.0.15 triangle-bar grid; v1.0.17 recovery/rebind/material/gizmo logic; v1.0.18 native viewport tool foundation; v1.0.19 adds `Main.V1019ViewportPipeline.cs` with native `SubViewportContainer`, explicit world/camera ownership, starter mesh, visible materials, grid rebuild, selection/gizmo refresh and render-frame diagnostics.
-- **Result:** v1.0.19 code is materially stronger, but this issue is not resolved until tested on the user's actual machine.
-- **Next action:** release/test v1.0.19 when batch is ready; capture diagnostics/render probe output if still blank. Prefer fixing root scene/render ownership over adding more overlays.
+- **Result:** v1.0.19 is now published after full Windows export/hash/installer validation. The runtime/UI symptom remains unverified on the user's actual machine.
+- **Next action:** test released v1.0.19 on the target PC; if still blank, capture viewport diagnostics/render-probe output and fix root scene/render ownership rather than adding overlays.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -159,13 +159,13 @@ Last reconciled: 2026-09-10
 ## MS-013 — Miniscuplter working files leak into C:\AppData / system TEMP
 
 - **Severity:** High
-- **Status:** IN PROGRESS
+- **Status:** FIXED - NEEDS USER VERIFICATION
 - **First observed:** user screenshots before v1.0.18
 - **Expected:** generated 2D images, masks, 3D outputs, job artifacts, caches, logs and temporary files use the Miniscuplter-controlled data root, normally beside the installation/data area unless user explicitly configures another root.
 - **Actual:** paths under `C:\Users\...\AppData\Roaming\Godot\...` were visible.
 - **Attempts/fixes:** update/model temp was progressively redirected from v1.0.7 onward; v1.0.17 added contained workspace paths; v1.0.18 added authoritative `AppDataRoot` and environment redirection for APPDATA/LOCALAPPDATA/TEMP/HF/Torch/Pip/Python caches; v1.0.19 adds backend storage and Windows canonical containment hardening/tests.
-- **Result:** architecture now intends containment, but real-machine verification is required to prove no important path remains on C:.
-- **Next action:** run representative 2D edit, 3D generation, reference download, geometry operation, capture, save and cancellation; inspect all emitted paths/process environments.
+- **Result:** v1.0.19 containment hardening is now published after automated Windows validation, but real-machine verification is required to prove no important path remains on C:.
+- **Next action:** on released v1.0.19 run representative 2D edit, 3D generation, reference download, geometry operation, capture, save and cancellation; inspect all emitted paths/process environments.
 
 ## MS-014 — Quality presets were opaque and not manageable
 
@@ -214,7 +214,7 @@ Last reconciled: 2026-09-10
 - **First observed:** Astra takeover audit / reinforced by user testing
 - **Expected:** on GTX 1080/8 GB + 16 GB RAM, the user can complete `2D → accept baseline → qualified 3D → visible/editable mesh → save/reload → cleanup → validated STL`, with cancellation recovery and contained storage.
 - **Actual:** individual features exist, but historical failures in provider dependencies, viewport rendering, storage and runtime qualification mean the complete flow has not been proven.
-- **Attempts/fixes:** v1.0.12–v1.0.19 progressively harden each seam.
+- **Attempts/fixes:** v1.0.12–v1.0.19 progressively harden each seam. v1.0.19 is now the released candidate for viewport/storage acceptance.
 - **Next action:** make this the primary acceptance milestone. Choose one lightweight qualified 3D provider and test the whole path rather than adding more optional providers first.
 
 ## MS-019 — Legacy `Main.V*.cs` architecture remains authoritative
@@ -244,7 +244,7 @@ Last reconciled: 2026-09-10
 - **First observed:** 2026-09-10 autonomous-work bootstrap
 - **Evidence:** v1.0.18 repository README still identifies itself as v1.0.12; release history current-testing section also lags. Earlier handoff docs were not consistently present on release branches.
 - **Expected:** a new session can recover product truth, status, issues, decisions and current baton from the repository.
-- **Attempts/fixes:** canonical `PROJECT_CHARTER.md`, `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `HANDOFF.md` introduced on current v1.0.19 development branch.
+- **Attempts/fixes:** canonical `PROJECT_CHARTER.md`, `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `HANDOFF.md` introduced on v1.0.19 and carried into v1.0.20. This run updated them across the release transition.
 - **Next action:** recurring worker must maintain these files; later reconcile/remove misleading stale top-level documentation rather than allowing duplicate truth sources.
 
 ## MS-022 — Provider readiness is not qualified strongly enough
@@ -255,7 +255,7 @@ Last reconciled: 2026-09-10
 - **Expected:** provider registry distinguishes downloaded, installed, importable, device-tested and inference-tested, with hardware/platform/resource expectations.
 - **Actual:** provider presence/routing can still overstate practical readiness; some optional providers require fragile native tooling or exceed reference hardware.
 - **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments for some providers, dependency preflights, runtime repair and model manifests exist.
-- **Next action:** create provider self-test contract, store qualification results, define supported/default vs experimental tiers, and collect target-hardware benchmarks.
+- **Next action:** v1.0.20 should create the provider self-test contract, store qualification results, define supported/default vs experimental tiers, and collect target-hardware benchmarks.
 
 ---
 
