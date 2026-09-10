@@ -3,9 +3,9 @@
 > Authoritative technical planning document owned by the Project Coordinator. The Project Charter and accepted Decisions define product truth; this roadmap defines technical sequencing, priority, architecture direction, and version scope. `HANDOFF.md` remains the immediate Dev Cycle baton.
 
 Last coordinator review: 2026-09-10
-Current stable release: `v1.0.21`
-Stable release target: `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
-Current development branch: `v1.0.22`
+Current stable release: `v1.0.22`
+Stable release target: `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
+Current development branch: `v1.0.23`
 Latest live branch HEAD reviewed before this roadmap update: `5072e03688e4a1a101c458215e9df8a9fa288110`
 Acceptance-weighted completion: **57%**
 
@@ -259,3 +259,50 @@ Reference-machine verification now provides a split result:
 Strategic consequence: do not reopen the whole viewport architecture. Preserve the v1.0.21 single-size-owner improvements and remove the remaining **presentation/layout duplicate authority**. In particular, legacy `V1017RepairViewport()` still mutates environment colors/ambient settings despite the native v1.0.19+ pipeline; it must not remain an independent presentation owner. Separately fix the root/outer layout so the client area is always fully covered after window resizing.
 
 Priority remains: MS-023 persistence correctness first, then these narrowly reproduced MS-009/MS-024 residuals, then resume full Stage-C acceptance.
+
+
+## 13. Opportunistic UI modernization workstream — MS-027
+
+The user has approved a substantial workspace/UI modernization direction. It is **planned and actionable**, but it is not allowed to consume time while a higher-priority correctness/acceptance item is available.
+
+### When Dev Cycle may work on MS-027
+
+Dev Cycle may choose a bounded MS-027 slice when:
+- the current critical-path item is waiting on user/reference-machine verification;
+- a required user decision/input is unavailable;
+- or there is genuinely no higher-priority unblocked engineering item.
+
+A reproduced persistence, data-loss, viewport, release, provider, cancellation or Stage-C workflow blocker immediately preempts MS-027 work.
+
+### UX target
+
+The viewport should dominate the application. Replace today's text-heavy/fixed-form composition with a compact resizable modeling workspace:
+
+- icon-based direct viewport tools instead of a dropdown;
+- camera-linked clickable view cube with face/edge/corner snapping and selection-centered orbit;
+- smaller default typography plus persisted user-adjustable UI/font scale;
+- hover tooltips instead of persistent explanatory paragraphs;
+- collapsible scene tree synchronized with viewport selection;
+- performance/resources panel implementing MS-026;
+- unified AI command console with history, keyboard/button navigation and clearly named contextual AI actions;
+- all major panel sizes/layout/collapse state persisted across restart.
+
+### Architecture constraints
+
+- Do not create a second AI command ownership path; all UI actions converge on one authoritative dispatcher.
+- Scene hierarchy reflects durable project identity rather than inventing parallel state.
+- Workspace persistence is UI preference state, separate from project/model state.
+- Avoid another additive version-overlay architecture. Prefer consolidating current UI ownership as each bounded slice is migrated.
+- Each slice must preserve Stage-C generation/persistence/edit/export behavior and remain individually releasable/testable.
+
+### Suggested opportunistic slice order
+
+1. workspace-layout persistence + UI/font scale + shared tooltip behavior;
+2. direct icon tool strip;
+3. scene hierarchy tree;
+4. view cube + selected-object orbit pivot;
+5. unified AI command console/history/dispatcher;
+6. MS-026 telemetry graphs;
+7. density/spacing cleanup and retirement of superseded explanatory UI.
+
+The full acceptance definition lives in MS-027.
