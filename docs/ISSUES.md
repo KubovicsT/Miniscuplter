@@ -117,20 +117,18 @@ Last reconciled: 2026-09-10
 ## MS-009 — 3D viewport/grid/model/gizmo rendering is unstable or unreadable
 
 - **Severity:** Critical
-- **Status:** FIXED - NEEDS USER VERIFICATION
-- **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine test
-- **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect.
+- **Status:** IN PROGRESS — v1.0.21 PARTIAL TARGET PASS; RESIZE COLOR DRIFT REMAINS
+- **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine testing
+- **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect; the grid does not occlude geometry.
 - **Historical actual:** output STL could exist while the center 3D surface was completely blank.
-- **v1.0.20 user evidence:** the grid/floor and starter model finally render, so the blank-viewport failure is substantially improved. However the normal resting floor/grid is very dark blue/gray, the model is too dark to make out details, and while the AI/right-side panel divider is actively dragged the grid temporarily appears correct. This makes the rendered state resize-dependent and not yet acceptable.
-- **User UX direction:** use a Blender-like solid-workspace visual hierarchy: neutral dark gray background, clearly visible neutral grid/major lines, colored axes, and a light/mid neutral-gray model with readable studio-style lighting rather than the current near-black blue presentation.
-- **Attempts/fixes:** multiple grid implementations; explicit SubViewport sizing/world/camera work; v1.0.15 triangle-bar grid; v1.0.17 recovery/rebind/material/gizmo logic; v1.0.18 native viewport tool foundation; v1.0.19 `Main.V1019ViewportPipeline.cs` with native `SubViewportContainer`, explicit world/camera ownership, starter mesh, grid rebuild and render diagnostics.
-- **Coordinator code review after v1.0.20 evidence:** v1.0.19 stated that `Stretch=true` makes the container authoritative for viewport dimensions, but `V1017SyncViewport()` and `Main.V109Responsive.cs` still assigned `SubViewport.Size`; v1.0.18 called the same legacy sync every frame; v1.0.19 also scheduled a delayed full repair after every host resize. The symptom appearing correctly during continuous divider movement but changing after layout settled matched this overlapping resize/repair authority. World ownership was also duplicated between v1.0.17 and v1.0.19.
-- **v1.0.21 implementation:** commits `fa381d4...`, `4d064a4...`, `6b80e14...`, `88abb5c...` and `c00bfc8...` make `SubViewportContainer.Stretch` the normal size owner; make v1.0.9 responsive sizing and v1.0.18 per-frame sizing defer under the native pipeline; stop the v1.0.17 periodic viewport timer; remove delayed full repair from ordinary resize; replace the legacy tab full-repair handler with a lightweight native frame/presentation refresh; remove fresh explicit `World3D` assignment in favor of one owned world/recovery-only rebind; and apply neutral gray background/grid/materials with studio key/fill/ambient lighting. Render diagnostics now expose resize ownership, world configuration, light counts and frame luminance.
-- **Regression coverage:** v1.0.21 release audit asserts native Stretch ownership, absence of delayed resize repair and competing explicit world creation, legacy timer/per-frame/responsive deferral, and neutral studio presentation tokens.
-- **Result:** code-side root-seam remediation is implemented and compiles. It is intentionally not marked RESOLVED because the original failure is target-machine/render-driver dependent.
-- **Verification:** Stage-B/Core foundation CI passed for the code candidate; C#, Python/runtime, core/execution, geometry and v1.0.21 release-audit branch checks passed before final documentation. Full autonomous Godot Windows export/installer smoke and reference-machine behavior remain required.
-- **v1.0.20 additional user evidence:** the opaque floor/grid can visually cut through and hide the generated model, forcing the user to inspect it from above and below. Acceptance therefore requires a Blender-like non-occluding grid/ground presentation; spatial reference must not hide geometry.
-- **Next action:** retest released v1.0.21 for launch, divider drag/settle, tab switching, grid/axes contrast, non-occluding model visibility and gizmo behavior on the GTX 1080 / 16 GB reference PC. Reopen immediately if any resize-dependent, dark/unreadable, occluding or blank state remains.
+- **v1.0.20 evidence:** grid/floor and starter model finally rendered, but the resting grid/model were very dark, appearance changed after splitter resize settled, and the opaque floor could hide generated geometry.
+- **User UX direction:** Blender-like solid-workspace hierarchy: neutral dark gray background, visible neutral grid/major lines, colored axes, light/mid neutral-gray model, readable studio lighting, and non-occluding grid semantics.
+- **v1.0.21 implementation:** commits `fa381d4...`, `4d064a4...`, `6b80e14...`, `88abb5c...`, `c00bfc8...` make `SubViewportContainer.Stretch` the normal size owner; make legacy size writers defer; stop the v1.0.17 timer; remove delayed full repair on ordinary resize; replace the old tab full-repair handler with lightweight refresh; consolidate owned World3D setup; and apply neutral gray studio presentation/diagnostics.
+- **v1.0.21 target-machine result:** **partial success.** The user reports that the 3D viewport now looks good on initial presentation, confirming the palette/lighting/readability work materially improved the base state. However, resizing the right-side AI panel still changes the viewport color. Therefore the presentation is still state-dependent and MS-009 is not resolved.
+- **Residual code evidence:** shipped v1.0.21 still contains legacy `V1017RepairViewport()` palette/world mutation code that sets the environment background to approximately `(.025,.030,.040)` and older ambient settings. It is still reachable from historical code paths (including deferred install and legacy generation completion) even though the v1.0.19+ pipeline owns presentation. This is a concrete duplicate-authority seam and must be neutralized/delegated when the native pipeline is active. The exact right-panel-resize trigger still needs implementation-level tracing; do not assume this legacy call is the only cause until verified.
+- **Result:** initial viewport appearance is now usable, but resize invariance and non-occluding grid behavior remain acceptance blockers.
+- **Next action:** fix forward on v1.0.22. Make every legacy viewport repair/presentation path defer to the native v1.0.19+ owner when installed; ensure splitter resize cannot change environment/material/grid state; remove opaque ground occlusion; add regression/audit coverage for presentation-state invariance; retest initial state vs during/after right-panel resize on the reference PC.
+
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -290,13 +288,14 @@ Last reconciled: 2026-09-10
 ## MS-024 — Window resize leaves black seams/gaps around the application layout
 
 - **Severity:** High UI regression
-- **Status:** OPEN
+- **Status:** IN PROGRESS — CONFIRMED ON v1.0.21
 - **First observed:** released v1.0.20 reference-machine screenshot on 2026-09-10
 - **Actual:** resizing the application window leaves black seams/unpainted-looking strips along layout edges instead of the UI cleanly filling the resized client area.
 - **Expected:** the full application layout continuously fills the client area without black seams, stale regions or exposed backing surface at supported window sizes.
-- **Evidence:** user supplied a screenshot with the side seams marked by red arrows.
-- **Relationship:** may share viewport/layout lifecycle causes with MS-009 but is tracked separately because the visible defect extends to whole-window responsive composition rather than only 3D rendering.
-- **Next action:** retest released v1.0.21 first because it changed viewport resize ownership. If seams remain, reproduce/fix forward on v1.0.22 and add resize regression coverage where practical.
+- **v1.0.21 verification:** user retest confirms the black seams are **still present** after the viewport-owner changes. This is therefore not resolved by the v1.0.21 SubViewport resize fix and should be treated as a whole-window/root-layout defect, not merely a 3D render-target artifact.
+- **Code direction:** inspect the root `VBoxContainer` / outer split hierarchy and window/viewport resize propagation. The root Control is created directly under `Main : Node`; verify that its anchors/offsets actually track the window client rect after runtime resize and that no minimum-size/split offset leaves exposed clear-color regions.
+- **Next action:** fix forward on v1.0.22 with a responsive-root/layout invariant test where practical. Preserve the now-improved native 3D viewport ownership rather than reintroducing manual SubViewport sizing.
+
 
 ## MS-025 — Starter sphere is an inappropriate default object and scale reference
 
