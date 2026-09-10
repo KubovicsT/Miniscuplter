@@ -279,9 +279,24 @@ public static class StageCGeneration
             throw new InvalidDataException($"Stage-C candidate {candidate.Id} is missing provider/provenance.");
         if (candidate.Status == CandidateStatus.Applied)
         {
-            if (!state.Objects.TryGetValue(candidate.OutputObjectId, out var obj) || obj.ActiveMeshRevisionId != candidate.OutputMeshRevisionId)
-                throw new InvalidDataException($"Applied Stage-C candidate {candidate.Id} is not the active revision of its generated object.");
+            if (!state.Objects.TryGetValue(candidate.OutputObjectId, out var obj))
+                throw new InvalidDataException($"Applied Stage-C candidate {candidate.Id} has no generated object.");
+            if (!ActiveLineageContains(state, obj, candidate.OutputMeshRevisionId))
+                throw new InvalidDataException($"Applied Stage-C candidate {candidate.Id} is not in the active revision lineage of its generated object.");
         }
+    }
+
+    static bool ActiveLineageContains(ProjectState state, ProjectObject obj, RevisionId ancestor)
+    {
+        var visited = new HashSet<RevisionId>();
+        RevisionId cursor = obj.ActiveMeshRevisionId;
+        while (visited.Add(cursor) && state.MeshRevisions.TryGetValue(cursor, out var revision) && revision.ObjectId == obj.Id)
+        {
+            if (cursor == ancestor) return true;
+            if (revision.ParentRevisionId is not { } parent) return false;
+            cursor = parent;
+        }
+        return false;
     }
 
     static string SerializeCandidates(IEnumerable<ImageToMeshCandidateState> values)
