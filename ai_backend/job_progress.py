@@ -28,6 +28,7 @@ def _now() -> float:
 def _snapshot(entry: dict) -> dict:
     result = dict(entry)
     result["events"] = deepcopy(entry.get("events", []))
+    result["context"] = deepcopy(entry.get("context", {}))
     return result
 
 
@@ -62,11 +63,12 @@ def _record_completed_inference(kind: str, provider: str | None, elapsed_seconds
     )
 
 
-def begin(kind: str, client_job_id: str | None = None) -> str:
+def begin(kind: str, client_job_id: str | None = None, context: dict | None = None) -> str:
     global _current_id
     requested = (client_job_id or "").strip()
     job_id = requested if requested and len(requested) <= 96 else uuid4().hex
     now = _now()
+    safe_context = deepcopy(context or {})
     with _lock:
         if job_id in _jobs:
             job_id = f"{job_id}-{uuid4().hex[:8]}"
@@ -83,6 +85,7 @@ def begin(kind: str, client_job_id: str | None = None) -> str:
             "sequence": 0,
             "started_at": now,
             "updated_at": now,
+            "context": safe_context,
             "events": [],
         }
         _jobs[job_id] = entry
@@ -214,6 +217,7 @@ def current() -> dict:
                 "sequence": 0,
                 "started_at": None,
                 "updated_at": _now(),
+                "context": {},
                 "events": [],
             }
         return _snapshot(_jobs[_current_id])
