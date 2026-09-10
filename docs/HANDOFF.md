@@ -11,107 +11,88 @@ Last updated: 2026-09-10
 - **Stable release application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
 - **Current development branch:** `v1.0.20`
 - **v1.0.20 base:** exact released v1.0.19 commit above
-- **Latest application/code commit:** `cfd0352223cada181ea75843f16b25b9b5ceb541`
+- **Latest application/code commit:** `a9f7e0989d5486bdee27f054edb58713aa00cc41`
 - **Overall completion estimate:** 56% acceptance-weighted.
 
-The release/version reconciliation on this run was clean: v1.0.19 remains the immutable published release; v1.0.20 is a distinct forward-only development branch. Documentation commits after the application commit advance branch HEAD; resolve exact HEAD and current CI from Git before editing.
+The mandatory release/version reconciliation was clean at the start of this run: v1.0.19 remains the immutable published release and v1.0.20 remains a distinct forward-only development branch. Documentation commits after the application commit advance branch HEAD; resolve the exact HEAD and latest release/CI state before editing.
 
 ## What this run accomplished
 
-### Production Stage-C baseline → 3D candidate integration
+### MS-018 / MS-020 — end-to-end Stage-C transport identity
 
-The Core-only Stage-C generation contract from the prior run is now connected to the actual legacy-compatible editor path rather than remaining test infrastructure.
+The production Stage-C editor bridge already created a `GenerationJobBinding`, but the prior HTTP request still relied mainly on image/output paths. This run carried the binding identity through the existing AIClient/backend path without bypassing its request semaphore, cancellation ownership, or backend-reset recovery.
 
-New/changed code:
+Changes:
 
-- `Core/StageCAssetStore.cs`
-  - Copies the accepted source image into project-owned `images/` storage before it can become authoritative.
-  - Uses a temporary file, durable flush, atomic rename and SHA-256.
-  - Returns an immutable `ImageRevision`; deleting/moving the original external source no longer destroys the accepted project baseline.
+- `ai_backend/job_progress.py`
+  - `begin()` now accepts optional job context and stores a deep copy with the job.
+  - snapshots deep-copy the context so callers cannot mutate the authoritative in-memory record.
+  - idle progress exposes an empty context consistently.
+- `ai_backend/app.py`
+  - `Generate3DRequest` accepts optional `generation_job_id`, `project_id`, `project_revision`, `input_image_revision_id`, and `output_object_id`.
+  - Stage-C identity is all-or-nothing; partial identity is rejected.
+  - a Stage-C `generation_job_id` must agree with the `X-Miniscupter-Job-Id` transport header.
+  - the Core GenerationJobId becomes the backend job ID for Stage-C generation.
+  - the complete context is retained in backend job progress and echoed in the verified `/generate-3d` response.
+  - legacy requests with no Stage-C context remain compatible.
+- `Scripts/AIClient.cs`
+  - added typed `AiStageCGenerationContext` and `AiStageC3DResult`.
+  - `Generate3DStageCAsync()` sends the complete context through the existing serialized/cancellable request path.
+  - `PostJsonTextAsync()` can use an explicitly supplied stable job ID instead of generating a transport-only ID.
+  - the client verifies that the backend echoed exactly the expected project/job/input/output identity and rejects a missing or mismatched context before returning the result to the editor.
 - `Scripts/Main.V1020StageCBridge.cs`
-  - Rewires the existing `Accept Current Image as Baseline` button away from the path-only legacy callback after UI composition.
-  - Accept now writes a real durable `ImageRevision`, calls `StageCGeneration.AcceptBaseline()` on a real `ProjectSession`, saves through `ProjectStore`, then enables 3D generation.
-  - Rewires the v1.0.9 production Generate-3D button away from the old behavior that immediately inserted returned STL as authoritative scene state.
-  - Calls `StageCGeneration.BeginImageToMesh()` before inference and keeps the resulting stable binding for result registration.
-  - Uses the existing `AIClient` request gate/cancellation/backend-reset path; do not bypass this in the next step.
-  - Verifies returned STL, converts it to Core `MeshData`, creates a durable `MeshRevision` with the binding's reserved `ObjectId`, and calls `StageCGeneration.RegisterResult()`.
-  - Ready output stays a candidate until explicit **Apply 3D Candidate**; Conflict output is preserved and cannot be applied; Discard is explicit.
-  - Apply uses the Core transactional command, saves, then materializes the object into the legacy Godot viewport and maps its stable Core object ID.
-  - Accepted baseline and pending Ready/Conflict candidate restore from the compatibility `.msculpt2` project after restart.
-- `Scripts/Main.V1020StageCRestore.cs`
-  - Self-review found that a previously Applied candidate would survive in Core but would not reappear in the legacy viewport after restart. The new restore pass re-materializes persisted Applied Stage-C objects and reattaches their stable ObjectIds.
-- `Scripts/ExtrasInstaller.cs`
-  - Installs the Stage-C bridge after the v1.0.19 viewport pipeline and then restores applied Stage-C objects.
-- `Core.Tests/StageCGenerationTests.cs`
-  - Uses the real `StageCAssetStore` rather than synthetic ImageRevision descriptors.
-  - Verifies durable image survival after source deletion, plus existing stale-result conflict, explicit apply, undo/redo and save/reload semantics.
+  - production 3D submission now converts the Core `GenerationJobBinding` to the typed AIClient context and calls `Generate3DStageCAsync()`.
+  - candidate registration occurs only after transport identity verification and STL validation.
+  - the actual provider comes from the verified response; the old secondary progress lookup is no longer needed for provider identity.
+  - pending candidate fields are assigned only after ProjectStore save succeeds, reducing false UI state after save failure.
+- `tools/job_progress_tests.py`
+  - verifies Stage-C context retention, source-context isolation, snapshot isolation, and equality between stable generation job ID and stored backend job ID.
 
-The bridge stores its compatibility project at `AppDataRoot.Resolve("projects/stagec_working.msculpt2")`. This is intentional while the new vertical slice is proven: do not overwrite legacy `.msculpt` projects or remove migration compatibility yet.
+Relevant commits:
 
-Relevant commits from this run:
+- `ebfa4fce7691e71cbfaffc16832e171dd83bd839` — Carry Stage C context in job progress
+- `1429d9bc4c45db2cbca0a9b99b3bf2bb6f93d674` — Propagate Stage C identity through 3D backend jobs
+- `ba99de7e59303c33805565df5159d2fa83a89bc1` — Verify Stage C identity in AIClient
+- `4885f80d825213d66af957397a03045a80432328` — Bind Stage C editor generation to transport identity
+- `a9f7e0989d5486bdee27f054edb58713aa00cc41` — Test Stage C job context retention
 
-- `8bf703024753448e10dc77404f3ab7c946b3ce90` — durable Stage-C image revision storage
-- `386956ed8ee2ee80a0e52082a7ad886ed8c048a8` — initial production Stage-C bridge
-- `6f438cf7d0b400e67752acc2dfcec797bb6df945` — wire bridge into editor startup
-- `3aec484d7e125e2e393b239562fb5c3c9f5a2da7` — fix bridge wiring/binding access found in self-review
-- `04fd660296e6d9657328de6b41b03c58fde334aa` — test real durable image revisions
-- `dba4e4254717312e16b4aaf035d715b72c9b76cb` / `cfd0352223cada181ea75843f16b25b9b5ceb541` — restore applied Stage-C objects visibly after restart
+Durable architecture rule added as `MD-022`: Stage-C generation identity is end-to-end and fail-closed. Never register a result whose transport identity is absent or mismatched.
 
 ## Validation state
 
-Build run `34490666005` for `04fd660296e6d9657328de6b41b03c58fde334aa` completed **SUCCESS** and passed:
+For application HEAD `a9f7e0989d5486bdee27f054edb58713aa00cc41`:
 
-- editor / launcher / updater / Core C# restore and builds;
-- Stage-B/Core regression suite, including the Stage-C durable baseline/candidate tests;
-- Python compile and dependency resolution;
-- Python core logic tests;
-- job-progress/provider qualification tests;
-- real geometry regression tests;
-- release audit;
-- portable package layout and ZIP SHA verification;
-- Inno Setup installer-definition compilation.
+- `core-foundation` run `34493357060`: **SUCCESS**.
+- broader build run `34493356971` had already passed Python compilation/dependency resolution, core logic tests, job-progress tests, real geometry regressions, release audit, and the editor/launcher/updater/Core C# build when this handoff was written.
+- portable package build/layout/SHA verification also passed; installer-definition packaging was still finishing at the last check. Reconcile the final conclusion at the start of the next run.
 
-Fresh build run `34490945593` for the later applied-object restore commit `cfd0352223cada181ea75843f16b25b9b5ceb541` had already passed the complete C# job and complete Python/core/job/geometry/release-audit job when this handoff was written; packaging had passed portable build/layout/hash and was finishing installer-definition compilation. Reconcile its final conclusion before more code or any release decision.
+No real CUDA inference or target-machine GUI acceptance occurred in CI. No v1.0.20 release was made.
 
-No real target-GPU inference was performed by CI and no v1.0.20 release was made.
+## Current unresolved priorities
 
-## Self-review / known remaining gaps
-
-### MS-020 transport identity is still incomplete
-
-The production editor now creates and retains `GenerationJobBinding`, but `AIClient.Generate3DRoutedAsync()` still sends the historical request body based on image/output paths, prompt, role and provider. Therefore `GenerationJobId`, `ProjectId`, input project revision number, exact accepted `ImageRevisionId`, and reserved `OutputObjectId` are not yet present in the backend's authoritative job record.
-
-Do **not** work around this by creating a second ad-hoc HttpClient in the bridge; that would bypass the existing AIClient job semaphore, cancellation ownership and backend-restart recovery. Extend the existing AIClient/backend contract instead.
-
-### Save-failure rollback should be hardened
-
-The compatibility session is saved after accepted-baseline/candidate/apply transactions. If a ProjectStore save fails after the in-memory session changed, reload the last durable state (or otherwise roll back the session) so memory cannot remain ahead of disk. Orphaned immutable asset files are acceptable and can later be garbage-collected; lying about durable project state is not.
-
-### Real acceptance remains pending
-
-MS-009 viewport and MS-013 storage containment are still FIXED - NEEDS USER VERIFICATION on released v1.0.19. MS-022 still needs one real GTX1080 lightweight/default 3D inference qualification. Do not translate CI into those acceptance claims.
+1. **MS-009 — viewport/grid/model/gizmo:** v1.0.19 is published but still needs target-PC verification. A reported blank viewport immediately outranks planned work.
+2. **MS-018 — Stage-C thin slice:** baseline→qualified generation→identity-verified candidate→explicit apply→restart visibility is materially integrated; cleanup/export and full target-machine qualification remain.
+3. **MS-013 — storage containment:** v1.0.19 hardening still needs representative target-machine verification.
+4. **MS-020 — final Job Broker:** Stage-C request/result identity is now carried through production transport, but durable queue/resource ownership/crash recovery and save-failure consistency are still incomplete.
+5. **MS-022 — provider qualification:** readiness and real-success recording exist; a GTX 1080 lightweight/default provider still needs real inference evidence.
+6. **MS-019 — legacy `Main.V*.cs`:** continue migrating only the current vertical slice before broadening.
 
 ## Exact next task
 
-Continue the same Stage-C vertical slice; do not broaden into unrelated cleanup.
+Continue the same Stage-C vertical slice:
 
-1. Reconcile exact `v1.0.20` HEAD and the final result of build `34490945593` plus the latest `core-foundation` run.
-2. Extend the existing `AIClient.Generate3DRoutedAsync()` and backend `Generate3DRequest`/job-progress context so the Stage-C request carries at least:
-   - `GenerationJobId`;
-   - `ProjectId`;
-   - input project revision number;
-   - accepted `ImageRevisionId`;
-   - reserved output `ObjectId`.
-   Preserve existing AIClient serialization/job semaphore/cancellation/backend restart behavior. Have backend job status retain this context and return/echo enough data for the editor to reject a mismatched response before `RegisterResult()`.
-3. Add Python/job-progress and C# regression tests for context preservation/mismatch rejection without requiring real GPU inference.
-4. Harden `V1020SaveSessionAsync()` so a failed save cannot leave the in-memory compatibility session ahead of the durable ProjectStore state.
-5. Then continue the same persisted Stage-C object through basic cleanup and exact export-scope/validated STL integration.
-6. Separately, when real hardware is available, run the released v1.0.19 viewport/storage checks and one lightweight/default 3D provider qualification on the GTX1080/16GB reference machine.
+1. Reconcile exact v1.0.20 HEAD, latest release, and the final result of build `34493356971` plus newer documentation-only CI.
+2. Harden `V1020SaveSessionAsync()` so a failed ProjectStore save cannot leave the in-memory compatibility session ahead of durable state. Preferred behavior: after save failure, load the last recoverable ProjectStore state and `ReplaceFromLoad()` (or equivalently restore the pre-save state) before surfacing the failure. Orphaned immutable asset files are acceptable; falsely committed project state is not.
+3. Add deterministic coverage for save-failure recovery. Also add a transport mismatch regression at the lowest-cost layer that proves a wrong echoed ProjectId/ImageRevisionId/ObjectId cannot proceed to candidate registration without needing real GPU inference.
+4. Continue the persisted Stage-C object through the minimum cleanup path needed for MS-018, ensuring cleanup creates a new immutable mesh revision and changes active object state transactionally rather than overwriting the generated revision.
+5. Bind Cleanup & Export to an explicit project object/revision scope and validated STL export. STL remains interchange/output, not project authority.
+6. Keep cancellation/resource recovery on the existing AIClient/backend ownership path. Do not create parallel request mechanisms.
+7. When real target hardware is available, collect v1.0.19 viewport/storage acceptance plus one lightweight/default 3D provider inference qualification on GTX 1080/16 GB.
 
 ## Release policy
 
-Do not modify v1.0.19. Do not publish v1.0.20 yet: production Stage-C identity is not fully propagated through backend job context, the full cleanup/export slice is incomplete, and target-machine acceptance has not occurred. Before publication require all normal C#/Python/Core/job/geometry/audit gates, a real Godot Windows export, artifact/hash verification and installer smoke test. After publication verify GitHub latest-release state and create/use v1.0.21 before further application development.
+Do not modify v1.0.19. Do not publish v1.0.20 yet: the full Stage-C cleanup/export path and target-machine acceptance remain incomplete. Before publication require all normal C#/Python/Core/job/geometry/audit gates, a real Godot Windows export, artifact/hash verification and installer smoke test. After publication verify GitHub latest-release state and create/use v1.0.21 before further application development.
 
 ## User input
 
-No product/design decision currently blocks autonomous work. Real-machine test evidence is useful when available but independent engineering can continue without it.
+No product/design decision currently blocks autonomous engineering. Real-machine verification is useful when available but independent engineering can continue without it.
