@@ -11,8 +11,8 @@ Last updated: 2026-09-10
 - **Stable release target commit:** `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
 - **Current development branch:** `v1.0.22`
 - **v1.0.22 base:** exact published v1.0.21 target
-- **Overall completion:** **58% acceptance-weighted**
-- **Immediate dependency:** reference-machine verification of `MS-009`
+- **Overall completion:** **57% acceptance-weighted**
+- **Immediate P0:** `MS-023` duplicate generation ownership / lost 3D persistence; `MS-009` v1.0.21 verification proceeds in parallel
 
 v1.0.21 is published and immutable. Never commit fixes to v1.0.21; all subsequent changes belong on v1.0.22+.
 
@@ -52,29 +52,28 @@ GitHub latest-release state was verified after publication: `v1.0.21` targets ex
 
 ## Exact next task
 
-1. Reconcile latest Git/release/CI and v1.0.22 HEAD before any edit.
-2. Do **not** perform speculative additional viewport refactoring without new target-machine evidence.
-3. The critical next evidence is a reference-PC test of released v1.0.21. Verify:
-   - viewport appearance immediately after launch;
-   - appearance/state remains identical while dragging the right-panel divider and after resize settles;
-   - 2D → 3D → other workflow tab switching does not alter the viewport palette/world;
-   - model curvature/details are readable under the neutral-gray studio lighting;
-   - minor/major grid and axes remain clearly visible;
-   - selection highlight and transform gizmo remain visible and interactive;
-   - if anything remains wrong, capture the viewport diagnostics/render-probe text and screenshot.
-4. If any resize-dependent, dark/unreadable or blank viewport symptom remains, reopen MS-009 as active P0 and fix forward only on v1.0.22. Use the new diagnostics to prove the actual failing seam rather than adding another overlay or generalized repair layer.
-5. If the viewport is accepted, mark MS-009 RESOLVED with reference-machine evidence and resume **MS-018** Stage-C target qualification.
-6. Stage-C acceptance then proceeds through accepted 2D baseline → qualified lightweight 3D → visible/editable mesh → save/reload → transform/sculpt edit → cleanup → exact validated STL export, while collecting storage, cancellation and resource evidence.
-7. Follow Coordinator ordering after MS-018: MS-013 storage containment, MS-022 intended lightweight/default provider qualification, MS-004 cancellation/recovery, then broader MS-019/MS-020 work unless new evidence changes priority.
+1. Reconcile latest release/CI and exact v1.0.22 HEAD before editing.
+2. Treat **MS-023** as the immediate engineering P0. Reproduce from code/tests rather than asking the user to spend another ~7 minutes on Hunyuan merely to prove it again.
+3. Audit all Generate-3D event wiring. When the v1.0.20+ Stage-C bridge is installed, explicitly remove/disable the v1.0.17 legacy handler as well as older handlers so exactly one production owner remains.
+4. Preserve the Stage-C semantics: successful inference registers a durable Ready/Conflict candidate; do not silently import it as a committed transient object. Candidate preview may be visible, but Apply is the explicit transactional transition into the persistent editable object.
+5. Add regression/audit coverage proving only one authoritative handler and proving generate → candidate → Apply → save/reload restores the same ObjectId/active MeshRevision. Verify Move/Rotate/Scale only on the genuinely mapped applied object.
+6. Fix first-object UX coupled to this flow: remove automatic **Starter sphere** creation from launch/New Scene/recovery paths, allow a clean empty project, and automatically select/frame the first imported/applied generated object. Do not use the old sphere as an implicit scale reference.
+7. Continue **MS-009** reference-PC verification on released v1.0.21 in parallel. The grid/ground must be non-occluding; the user must never need to look above/below an opaque plane to see the generated model.
+8. Retest **MS-024** whole-window resizing for the black seams/gaps shown by the user. If v1.0.21 did not eliminate them, fix forward on v1.0.22 without reintroducing competing viewport-size owners.
+9. Resume the complete MS-018 acceptance flow after MS-023/MS-009 are usable: accepted 2D baseline → qualified 3D candidate → Apply → visible/editable persisted mesh → save/restart restore → transform/sculpt → cleanup → exact validated STL export.
+10. During provider qualification preserve the real Hunyuan evidence already obtained (~402 s; Task Manager snapshot ~97% GPU, ~5.4/8 GB dedicated VRAM, ~5.0/15.9 GB RAM, ~73 °C). Treat snapshots as observations, not peaks.
+11. **MS-026 resource graphs** are now a user-requested planned feature. Design a low-overhead ~1 Hz local telemetry panel with GPU utilization, dedicated VRAM, RAM, GPU temperature and secondary CPU where available, plus current provider/stage/elapsed time and compact post-job peak summary. Implement after current correctness blockers unless minimal telemetry directly helps MS-022.
+12. Do not broaden into full UI rewrite, provider proliferation, full Job Broker reconstruction or unrelated legacy cleanup.
 
 ## Current priority order
 
-1. **MS-009** — reference-machine verification of released v1.0.21; immediate P0 again if it fails.
-2. **MS-018** — complete Stage-C target qualification after viewport acceptance.
-3. **MS-013** — storage containment verification.
-4. **MS-022** — GTX 1080 / 16 GB lightweight/default 3D-provider qualification.
-5. **MS-004** — real cancellation/recovery stress test.
-6. **MS-019 / MS-020** — broader architecture only after acceptance unless concrete evidence makes one blocking.
+1. **MS-023** — confirmed 3D generation/candidate/persistence blocker.
+2. **MS-009** — v1.0.21 reference-machine viewport verification; fix forward on v1.0.22 if it fails.
+3. **MS-018** — complete Stage-C target qualification.
+4. **MS-024 / MS-025** — responsive resize seams and starter-sphere removal.
+5. **MS-013 / MS-022 / MS-004** — storage, provider/resource qualification, cancellation/recovery.
+6. **MS-026** — planned in-app resource telemetry supporting provider qualification.
+7. **MS-019 / MS-020** — broader architecture after acceptance unless concrete evidence makes it blocking.
 
 ## Explicit non-priorities
 
@@ -82,4 +81,4 @@ Do not start a full UI rewrite, another viewport overlay, broad legacy deletion,
 
 ## User input
 
-No product/design decision is required. The next useful user input is the v1.0.21 reference-machine viewport retest and, on failure, its screenshot/diagnostic text.
+No product/design decision is required. The MS-023 persistence failure is already sufficiently reproduced. The next useful user input is the inexpensive v1.0.21 viewport/resize retest; do not require another long Hunyuan run until the Stage-C handler/persistence fix is available.
