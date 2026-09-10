@@ -213,11 +213,11 @@ Last reconciled: 2026-09-10
 - **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit / reinforced by user testing
 - **Expected:** on GTX 1080/8 GB + 16 GB RAM, the user can complete `2D → accept baseline → qualified 3D → visible/editable mesh → save/reload → cleanup → validated STL`, with cancellation recovery and contained storage.
-- **Actual:** individual features exist, but the complete production flow has not yet been qualified on the target machine.
-- **Attempts/fixes:** v1.0.12–v1.0.19 hardened provider, viewport, storage, geometry and update seams. v1.0.20 commits through `8d394f289e02682bf27a133ed3456c7dc2852df9` added the tested Core `StageCGeneration` contract. Later v1.0.20 work through `cfd0352223cada181ea75843f16b25b9b5ceb541` made accepted images project-owned immutable revisions, rewired production baseline/3D callbacks onto `ProjectSession`, made generated STL a durable Ready/Conflict candidate requiring explicit Apply/Discard, and restored applied objects visibly after restart. Commits through `a9f7e0989d5486bdee27f054edb58713aa00cc41` then carried full generation identity through AIClient/backend job context and fail-closed response verification. This run added `ProjectSession.SaveRecoveringAsync()` (`80b1c68...`), wired Stage-C editor saves through it (`4afdbd75...`), and added deterministic failed-save/foreign-project recovery tests (`fe9079e...`).
-- **Result:** the production baseline→3D candidate seam now has durable Core state, end-to-end transport identity, and fail-closed persistence rollback. Cleanup/export integration and real GTX1080 qualification remain incomplete.
-- **Verification:** previous build `34493356971` is fully green. Current `core-foundation` run `34497651489` passed the new save-recovery regression suite; broader build `34497651608` was still running at the last check.
-- **Next action:** reconcile current build, then continue the same persisted Stage-C object through cleanup as a new immutable mesh revision and exact validated STL export scope.
+- **Actual:** the production path now reaches durable cleanup and explicit validated STL export in code, but normal mapped-object editing state is still partly widget-authoritative and the complete flow has not been qualified on the target machine.
+- **Attempts/fixes:** v1.0.12–v1.0.19 hardened provider, viewport, storage, geometry and update seams. v1.0.20 moved accepted baseline, generated candidate, explicit Apply/Discard, transport identity, and save-failure recovery onto Core/ProjectStore. This run added `StageCCleanup` (`3f34cd0...`), the Stage-C-aware repair/export bridge (`35078ab...`, installed by `55db2a7...`), and cleanup lineage/export-scope tests (`52feda4...`). The first new Core run `34499552249` failed because Applied candidate validation incorrectly required the generated revision to remain current after cleanup. That failed attempt exposed the real lineage bug. Commit `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b` fixed validation so the generated revision must remain in the active descendant lineage instead.
+- **Result:** an applied Stage-C object can now be repaired into a new immutable child `MeshRevision`, saved/reloaded with generation provenance intact, and exported from an explicit exact active object/revision scope. STL is only backend/export interchange. Target-machine qualification and authoritative normal transform/sculpt persistence remain incomplete.
+- **Verification:** failed Core run `34499552249` is retained as evidence of the discovered lineage defect. Replacement `core-foundation` run `34499826871` passed. Broader Windows build `34499826741` passed Python/core/execution tests, real geometry regressions, release audit, C# builds, portable package/layout/SHA and installer-definition compilation at the latest check.
+- **Next action:** migrate mapped Stage-C transforms and the minimum sculpt/edit mutation into ProjectSession/immutable revision transactions, then run the complete thin slice on the target machine.
 
 ## MS-019 — Legacy `Main.V*.cs` architecture remains authoritative
 
@@ -225,10 +225,10 @@ Last reconciled: 2026-09-10
 - **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit
 - **Expected target:** stable domain IDs/revisions, declarative UI, transactional commands/history, clean service boundaries.
-- **Actual:** many features still depend on partial `Main.V*.cs`, widget/scene state and compatibility reparenting.
-- **Attempts/fixes:** Stage-B `Core` introduced stable IDs, project models, immutable mesh revisions, history, indexed project storage and legacy importer; v1.0.19 extended these foundations. v1.0.20 now migrates the real accepted-baseline → 3D-generation seam through `Main.V1020StageCBridge.cs`, with legacy widgets acting as presentation/compatibility while durable baseline/candidate/object state lives in Core/ProjectStore. Save consistency is now enforced by the Core session instead of a UI-only workaround.
-- **Result:** one production vertical slice is moving off widget-owned authority without an all-at-once rewrite.
-- **Next action:** continue migrating this same vertical slice through cleanup and export before broadening to unrelated legacy subsystems.
+- **Actual:** many features still depend on partial `Main.V*.cs`, widget/scene state and compatibility reparenting. On mapped Stage-C objects, normal transform/sculpt mutations can still diverge from durable project state.
+- **Attempts/fixes:** Stage-B `Core` introduced stable IDs, project models, immutable mesh revisions, history, indexed project storage and legacy importer; v1.0.19 extended these foundations. v1.0.20 migrated accepted baseline → generation → review/apply → persistence. This run extended the same vertical slice through cleanup and final STL export: repair is now revision-bound and transactional for Stage-C objects, while legacy objects retain fallback behavior.
+- **Result:** the production Stage-C vertical slice now uses Core authority through cleanup/export, but editing between Apply and Cleanup still has legacy escape paths.
+- **Next action:** bind mapped-object move/rotate/scale and minimum sculpt commit semantics to ProjectSession transactions/new immutable revisions before broadening to unrelated subsystems.
 
 ## MS-020 — Final authoritative AI Job Broker / stale-result protection not complete
 
@@ -237,10 +237,10 @@ Last reconciled: 2026-09-10
 - **First observed:** Astra takeover audit
 - **Expected:** durable job IDs, immutable input revision, one heavy GPU owner, structured stages, real cancellation, isolated outputs, stale-result candidate semantics and crash recovery.
 - **Actual:** structured progress and backend reset behavior exist, but request/backend lifecycle is not yet the full target durable job architecture.
-- **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; v1.0.20 `StageCGeneration` added stable generation binding and production editor integration. Work through `a9f7e098...` completed transport correlation: complete Stage-C identity travels through AIClient/backend progress and mismatched/missing echoed context is rejected before candidate registration. This run addressed the next handoff gap: `ProjectSession.SaveRecoveringAsync()` makes saves fail-closed by reloading the last recoverable durable project state after save failure, clearing invalid history via `ReplaceFromLoad()`, refusing recovery from a different ProjectId, and surfacing an aggregate failure if durable recovery itself fails. `V1020SaveSessionAsync()` now uses that boundary for baseline/candidate/apply/discard state.
-- **Result:** the migrated Stage-C seam can no longer remain falsely advanced in memory after a failed manifest save. Orphaned immutable asset files may remain, but they are not authoritative state. Durable queue/resource ownership and crash recovery beyond ProjectStore recovery are still incomplete.
-- **Verification:** deterministic Core tests simulate save failure without depending on filesystem permissions and verify rollback, dirty/saved state, invalid-history clearing, and foreign-project rejection. `core-foundation` run `34497651489` passed.
-- **Next action:** continue toward cleanup/export revision transactions, then return to durable queue/resource ownership/recovery after the vertical slice is working end to end.
+- **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; v1.0.20 added stable generation binding, end-to-end transport correlation and fail-closed save recovery. Stage-C cleanup continues to reuse the existing AIClient/backend geometry path rather than creating a parallel request mechanism; its Core binding rejects stale object revisions before applying results.
+- **Result:** generation stale/replay safety and project-save consistency are hardened, and cleanup is also revision-bound at the project boundary. Durable queue/resource ownership and crash recovery beyond ProjectStore recovery are still incomplete.
+- **Verification:** deterministic Core tests cover generation/candidate identity, save rollback, cleanup stale-result rejection and revision lineage.
+- **Next action:** finish the Stage-C editing-state migration, then return to durable queue/resource ownership/recovery.
 
 ## MS-021 — Canonical documentation was stale/incomplete
 
