@@ -7,8 +7,8 @@ Last manager review/update: 2026-09-10 21:40 Europe/Budapest
 ## Stable hierarchy
 
 1. User / PROJECT_CHARTER — fundamental product intent, scope, hard constraints, difficult-to-reverse product decisions.
-2. Project Coordinator — technical roadmap, architecture direction, milestone decomposition, issue priority, dependency ordering, next-version scope.
-3. Dev Cycle — implementation worker, validation, execution-state docs, release readiness/publication.
+2. Project Coordinator — technical roadmap, architecture direction, milestone decomposition, issue priority, dependency ordering, next-version scope, release readiness, and release publication.
+3. Dev Cycle — implementation worker, validation, execution-state docs, HANDOFF, and preparation of exact release candidates for Coordinator review.
 4. Automation Manager — process/agent supervision and automation-change proposals, subject to user approval.
 5. Daily Report — reporting only.
 
@@ -48,6 +48,25 @@ Last manager review/update: 2026-09-10 21:40 Europe/Budapest
 - Last completed scheduled run visible at this checkpoint: 2026-09-10 18:47:00 Europe/Budapest.
 - Role: process/automation supervision only.
 - Current scheduled prompt is an earlier Manager charter. The dedicated-chat charter supplied by the user on 2026-09-10 adds material cross-chat user-facing-response review, richer no-race/release-freeze checks, explicit MS-027 blocked-work context, and more detailed durable-memory requirements. This mismatch is tracked as AMP-002 and is not being silently applied.
+
+## User-directed release ownership change — 2026-09-10
+
+The user explicitly moved release ownership from Dev Cycle to Project Coordinator.
+
+Effective operating model:
+- Coordinator owns release readiness decisions, autonomous release-control request creation/update, release-freeze supervision, release-workflow outcome handling, publication verification, and post-release forward-version reconciliation.
+- Dev Cycle owns implementation, validation, and preparation of an exact candidate SHA with evidence/risks in HANDOFF/PROJECT_STATUS. Dev must not create release requests, tags, or GitHub Releases unless the user changes this ownership again.
+- Automation Manager audits whether the handoff between Dev candidate preparation and Coordinator release action is efficient and safe.
+- Daily Report reports release decisions/publication as Coordinator outcomes.
+
+The active scheduled prompts for Minisculpter Coordination, Minisculpter Dev, Minisculpter Automation, and Daily Minisculpter report were synchronized to this user-directed model on 2026-09-10. Schedules and enablement were preserved.
+
+Verification focus:
+1. Dev stops cleanly at READY FOR COORDINATOR RELEASE REVIEW.
+2. Coordinator independently verifies candidate scope/gates before release.
+3. Coordinator initiates and monitors release-control without racing Dev.
+4. Frozen release branches remain immutable.
+5. After publication, Coordinator reconciles the next forward semantic-version branch before Dev resumes ordinary application work.
 
 ## Management principles
 
@@ -205,6 +224,14 @@ Status: **PROPOSED - AWAITING USER APPROVAL**
 None.
 
 ## Review history
+
+### 2026-09-10 — Release ownership moved to Coordinator
+- User explicitly reassigned release ownership from Dev Cycle to Project Coordinator.
+- Updated active Dev prompt so it prepares/validates exact release candidates and stops before publication.
+- Updated active Coordinator prompt so it owns release readiness, release-control initiation/freeze supervision, workflow outcome handling, publication verification and post-release version transition.
+- Updated Daily Report and Automation Manager prompts to evaluate/report against the new ownership model.
+- No schedules or enablement states were changed.
+- Next Manager reviews should verify the Dev → Coordinator release handoff works without duplicate authority or ready-candidate delay.
 
 ### 2026-09-10 — Initial manager audit on v1.0.19
 - Found published-v1.0.19 / stale-HANDOFF contradiction and post-release work on the published semantic-version branch.
