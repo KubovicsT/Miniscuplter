@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Miniscuplter.Core;
 
 internal static class StageCGenerationTests
@@ -26,15 +25,17 @@ internal static class StageCGenerationTests
 
     static async Task<ImageRevision> CreateImageRevisionAsync(string projectPath, string name, RevisionId? parent = null)
     {
-        var layout = ProjectLayout.FromManifest(projectPath);
-        layout.EnsureDirectories();
-        var id = RevisionId.New();
-        string relative = $"images/{id}.png";
-        string path = ProjectStore.ResolveAsset(layout, relative);
-        byte[] payload = System.Text.Encoding.UTF8.GetBytes("fake-png-payload-" + name + "-" + id);
-        await File.WriteAllBytesAsync(path, payload);
-        string hash = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
-        return new ImageRevision(id, parent, relative, hash, "3d-baseline", "unit-test:" + name, DateTimeOffset.UtcNow);
+        string source = Path.Combine(Path.GetDirectoryName(projectPath)!, $"source-{name}.png");
+        byte[] payload = System.Text.Encoding.UTF8.GetBytes("fake-png-payload-" + name + "-" + Guid.NewGuid().ToString("N"));
+        await File.WriteAllBytesAsync(source, payload);
+        var revision = await StageCAssetStore.CreateImageRevisionAsync(projectPath, source, "3d-baseline", "unit-test:" + name, parent);
+        string durable = StageCAssetStore.ResolveImagePath(projectPath, revision);
+        Assert(File.Exists(durable), "accepted image was not copied into durable project storage");
+        Assert(!Path.GetFullPath(durable).Equals(Path.GetFullPath(source), StringComparison.OrdinalIgnoreCase), "accepted image revision still points at external/source storage");
+        Assert(await File.ReadAllBytesAsync(durable) is var copied && copied.SequenceEqual(payload), "durable image revision payload changed during copy");
+        File.Delete(source);
+        Assert(File.Exists(durable), "durable accepted image disappeared when the original source was removed");
+        return revision;
     }
 
     public static async Task RunAsync(string root)
