@@ -1,6 +1,6 @@
 # Miniscuplter Handoff
 
-> Operational baton for the next development run. A new agent must inspect actual Git/release/CI state first; repository state wins over this document if they differ.
+> Operational baton for the next development run. Inspect actual Git/release/CI state first; repository state wins over this document if they differ.
 
 Last updated: 2026-09-10
 
@@ -11,109 +11,59 @@ Last updated: 2026-09-10
 - **Stable application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
 - **Current development branch:** `v1.0.20`
 - **v1.0.20 base:** exact released v1.0.19 commit above
-- **Overall completion estimate:** 56% acceptance-weighted; unchanged pending real-machine Stage-C acceptance.
+- **Latest application/code commit from this run:** `8cd00173b78577fed040cce5d71e05738cf404be`
+- **Overall completion estimate:** 56% acceptance-weighted; unchanged pending target-machine Stage-C evidence.
 
-The documentation commits on v1.0.20 advance HEAD beyond the stable base. Resolve exact branch HEAD from Git at the beginning of the next run.
+Documentation commits after the application commit advance branch HEAD. Resolve exact branch HEAD and CI from Git at the start of the next run.
 
-## Read first
+## What this run did
 
-1. `docs/PROJECT_CHARTER.md`
-2. `docs/PROJECT_STATUS.md`
-3. `docs/ISSUES.md`
-4. `docs/DECISIONS.md`
-5. this file
-6. `docs/REFACTOR_PLAN.md`
-7. relevant recent commits/code/tests on `v1.0.20`
+Continued **MS-022 provider qualification**. Added `ai_backend/provider_readiness.py` and integrated it with 3D routing.
 
-## What this run accomplished
+The readiness contract now represents downloaded, installed, importable, device-tested and inference-tested separately, with timestamp, runtime/provider revision, device details, failure detail and optional benchmark metadata. Lightweight generation-time probes cover the main single-mesh Stage-C candidates: TripoSR, Hunyuan3D 2mini, Hunyuan3D 2.1 Shape, Stable Fast 3D and SPAR3D. Probes validate provider imports and CUDA visibility without loading model weights or pretending a real inference occurred.
 
-### v1.0.19 publication
+3D Auto routing now skips an installed provider that fails readiness preflight and chooses only a readiness-eligible fallback. Explicit provider selection remains strict: if that provider is installed but its runtime/device probe fails, the request fails early with the concrete readiness state/failure rather than silently substituting another model.
 
-The existing v1.0.19 batch was reviewed as coherent enough for target-machine acceptance testing and published rather than adding more unverified viewport layers first.
+`routing_status()`/health polling deliberately uses cached/persisted readiness only. The first integration risked running subprocess probes from ordinary health polling; senior self-review caught that before release and commit `b8b07f2399b9c5b48c977b826d3b3a00ece9e9d9` separated cheap status inspection from generation-time preflight.
 
-The first temporary publication-helper run (`34469184758`) failed during revalidation because the helper referenced a nonexistent `Core.Tests/Core.Tests.csproj`. This was a helper-workflow mistake, not an application failure. The canonical Stage-B project is `Core.Tests/Miniscuplter.Core.Tests.csproj`.
+Regression coverage was added to `tools/core_logic_tests.py` for readiness-aware fallback, explicit-provider failure, independent readiness states and inference-success benchmark persistence. A test-fixture persistence bug was found while reviewing the first CI attempt and corrected in `8cd00173b78577fed040cce5d71e05738cf404be`.
 
-The helper was corrected and the second publication run (`34469538260`) passed:
+Relevant commits:
 
-- editor C# build;
-- launcher C# build;
-- updater C# build;
-- Python compilation and core tests;
-- job-progress tests;
-- real geometry regression tests;
-- Stage-B Core restore/build/tests;
-- release audit;
-- verified Godot 4.7.2 .NET/templates download;
-- real Windows Godot export;
-- release ZIP/hash verification;
-- silent installer smoke-install;
-- immutable v1.0.19 GitHub Release publication.
+- `5d6b5dde8d9159699c2524eb21753e4c8d1aa994` — Add 3D provider readiness preflight
+- `b8b07f2399b9c5b48c977b826d3b3a00ece9e9d9` — Keep health checks free of provider subprocess probes
+- `ab60bd1e73ef0f074ce9d1806fe94247d6f0b7f1` — Fix provider readiness regression fixture
+- `8cd00173b78577fed040cce5d71e05738cf404be` — Fix readiness state test persistence
 
-GitHub `/releases/latest` resolves to v1.0.19. Published assets include:
+## Validation state
 
-- `Miniscuplter-win-x64.zip` — 173,859,707 bytes — SHA-256 `358181ec86c152a083cc6072de9a984d03f701b6589af22bbba6f217ee602ca2`
-- `Miniscuplter-Setup-1.0.19.exe` — 120,038,819 bytes — SHA-256 `62e53a0f08061ace6d6b0a5ed4abbf5f9ef9a663a0b266ba88e9a8f2541a264c`
+The earlier build on `ab60bd1...` proved editor/launcher/updater/Core C# build and portable packaging/installer compilation, but its Python core-logic step failed in the newly added mocked persistence fixture. That was a test bug, not a demonstrated application/runtime failure, and it was fixed in `8cd00173...`.
 
-The temporary publication branch was reset to the exact released application commit so helper workflow code is not retained as product code.
+At handoff-write time, fresh `build` and `core-foundation` workflows for `8cd00173...` had started and were still running. Reconcile their final result before making a release decision. No v1.0.20 release was made in this run.
 
-### v1.0.20 started
+Real CUDA inference was **not** performed by CI. Do not mark a provider inference-tested because import/device preflight passed. `record_inference_success()` exists to store real successful inference/benchmark evidence, but the normal `/generate-3d` success path does not yet call it automatically.
 
-Created `v1.0.20` from the exact v1.0.19 released commit. Updated project status and issue ledger for the release transition.
+## Current unresolved priorities
 
-MS-009 (viewport/grid/model/gizmo) and MS-013 (storage containment) are now **FIXED - NEEDS USER VERIFICATION**, not RESOLVED. Their fixes are distributed but CI cannot prove the historical real-machine symptoms are gone.
+1. **MS-009 — viewport/grid/model/gizmo:** v1.0.19 fix is published but still needs target-PC verification. Any reported blank viewport becomes immediate priority.
+2. **MS-018 — Stage-C thin slice:** still the critical product acceptance gap.
+3. **MS-013 — storage containment:** v1.0.19 hardening is published but still needs representative real-machine path verification.
+4. **MS-022 — provider qualification:** now materially in progress; runtime/import/device preflight exists, but real inference qualification/default-provider benchmark evidence is not complete.
+5. **MS-020 — authoritative Job Broker/stale-result safety:** next vertical-slice architecture work.
+6. **MS-019 — legacy `Main.V*.cs`:** migrate one reliable slice at a time rather than adding new widget-owned state.
 
-## User verification requested, but not blocking autonomous work
+## Exact next task
 
-On v1.0.19, the user should test:
+First reconcile CI for `8cd00173b78577fed040cce5d71e05738cf404be`; if the new readiness work fails, fix it before continuing.
 
-1. launch into the 3D workspace and confirm grid/starter/generated mesh are visible;
-2. select/move/rotate/scale and confirm the gizmo is visible and usable;
-3. generate/import a 3D mesh and confirm it is selected/framed/rendered;
-4. if blank, copy the v1.0.19 viewport diagnostics/render-probe text;
-5. run representative 2D edit, reference download, 3D generation, geometry operation, capture/save/cancel and check that working paths stay under the configured Miniscuplter data root rather than C:\ AppData/TEMP.
+If green, finish the useful MS-022 seam by wiring a **verified successful `/generate-3d` output** to `record_inference_success()` using the final provider actually used (including Auto fallback) and elapsed time, without marking input-specific failures as globally broken. Expose/retain enough hardware context for target-machine benchmark evidence. Keep health/status polling non-blocking.
 
-A failure in either MS-009 or MS-013 becomes the immediate priority when reported.
+Then move directly into **MS-018 + MS-020**: bind `accepted 2D baseline revision → qualified 3D job → candidate mesh revision → explicit transactional accept/apply`. The job must carry immutable project/object/input revision identity; if the baseline/current object changes while inference runs, the result becomes a candidate/conflict and must never silently overwrite newer state.
 
-## Highest-priority autonomous work on v1.0.20
+## User verification requested, not blocking autonomous work
 
-### Primary: MS-022 — provider qualification/self-test contract
-
-Build the provider-readiness layer needed for Stage C. Do not equate downloaded weights with a usable provider.
-
-Required direction:
-
-- define readiness states at least for downloaded / installed / importable / device-tested / inference-tested;
-- add a provider self-test result structure with timestamp, runtime/provider version, device/hardware context, failure detail and optional benchmark data;
-- start with the lightweight/default 3D provider path intended for the GTX 1080 target;
-- preflight missing Python/native dependencies before committing to a long generation job;
-- expose/use readiness in routing so Auto does not select a provider known to be broken;
-- preserve explicit user selection semantics: explicit selection should explain failure, not silently substitute another provider;
-- add tests for readiness transitions and failure reporting.
-
-### Then: MS-018 + MS-020 — bind the Stage-C AI handoff to stable revisions
-
-Move one vertical slice onto the Stage-B core:
-
-`accepted 2D baseline revision → qualified 3D job → candidate mesh revision → explicit accept/apply`
-
-The job must carry immutable project/object/input revision identity. If the baseline/current object changes while the job runs, the result must become a candidate/conflict and must not silently overwrite newer state. Accept/apply should be a transactional history command.
-
-Keep legacy UI compatibility while migrating this slice; do not create another permanent widget-owned source of truth.
-
-## Architectural cautions discovered/reconfirmed
-
-The v1.0.19 viewport path still coexists with legacy viewport repair/sizing handlers in older `Main.V*.cs` layers. Do not add more overlapping viewport ownership unless the released v1.0.19 test proves it is still necessary. If MS-009 persists, consolidate conflicting ownership rather than layering another recovery surface.
-
-Similarly, Stage-B Core is materially implemented but still not authoritative throughout the editor. Prefer migrating vertical slices rather than a risky all-at-once rewrite.
+On released v1.0.19, test the 3D viewport/grid/starter or generated mesh/gizmo on the GTX 1080 machine and representative 2D/3D/storage operations. If the viewport is blank, retain the v1.0.19 viewport diagnostic/render-probe text. If storage escapes the configured data root, record the unexpected path(s).
 
 ## Release policy
 
-- Never mutate v1.0.19.
-- Application changes now belong on v1.0.20.
-- Do not publish v1.0.20 merely because a scheduled run ends; publish when its intended batch is coherent and all gates pass.
-- Before publication: C#/Python/Core/geometry/job tests + release audit + real Godot Windows export + artifact/hash verification + installer smoke test.
-- After publication, verify `/releases/latest`, update canonical docs, and branch v1.0.21 before further application changes.
-
-## Exact next action
-
-On `v1.0.20`, inspect the existing provider registry/model-manager/routing and Stage-B project/revision APIs, then implement **MS-022 provider readiness/self-tests for the intended lightweight 3D route**, with tests and routing integration. After that, begin the accepted-baseline → 3D candidate stable-revision handoff (MS-018/MS-020) unless a v1.0.19 target-machine regression is reported first.
+Do not mutate v1.0.19. Do not publish v1.0.20 merely because a run ends. Before publication, require the relevant C#/Python/Core/job/geometry/release-audit gates plus a real Godot Windows export, artifact/hash verification and installer smoke test. After publication, verify GitHub latest-release state and create/use v1.0.21 before further application changes.
