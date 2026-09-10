@@ -195,3 +195,31 @@ Do not answer this failure by adding another render overlay or by broad UI refac
 ### User decision
 
 No additional decision is required. The requested Blender-like visual direction is sufficiently specific for implementation-level color/lighting choices.
+
+
+---
+
+## 2026-09-10 — v1.0.21 viewport partial-pass verification
+
+### User evidence
+
+The user retested released v1.0.21 on the reference Windows/GTX 1080 machine.
+
+Observed:
+- initial 3D viewport now looks good and is materially more readable;
+- resizing the right-side AI panel still changes viewport color;
+- whole-window resize still leaves black seams/gaps.
+
+### Coordinator interpretation
+
+This is a **partial success**, not a failed overall direction. v1.0.21 proved the new native viewport sizing/lighting/palette direction improves the baseline. The remaining failures are narrower state-ownership/layout defects.
+
+Repository inspection shows one residual duplicate presentation owner: legacy `V1017RepairViewport()` still writes the old dark environment/ambient settings and remains reachable from historical paths even when the v1.0.19+ native pipeline is installed. This must be neutralized/delegated in v1.0.22. The exact right-panel resize trigger must still be traced before claiming it is the sole cause.
+
+MS-024 is now confirmed independently of the SubViewport fix and should be treated as outer/root responsive-layout failure. Inspect root Control/client-area fill behavior rather than reviving competing SubViewport sizing.
+
+### Priority
+
+MS-023 remains immediate P0 because successful generated 3D work can disappear after restart. MS-009/MS-024 are the next narrow correctness/usability fixes. No broad viewport rewrite is warranted.
+
+No user product decision is required.
