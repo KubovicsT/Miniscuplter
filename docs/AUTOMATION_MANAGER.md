@@ -239,6 +239,13 @@ None.
 - Cross-chat exact response text was not surfaced, so user-facing response wording was not invented or scored.
 - Proposed AMP-002 to synchronize the scheduled Manager prompt with the new dedicated-chat charter; no automation was modified.
 
+### 2026-09-10 — Daily Report executive-summary prompt change
+- User explicitly requested that the Daily Report be much shorter and more executive-focused.
+- Applied directly to enabled task `Daily Minisculpter report` (task ID `6aa30a0e2a448191ba7b6263645b94f7`).
+- Schedule unchanged: daily at 22:15 Europe/Budapest.
+- Prompt now targets roughly 200–350 words, at most four compact sections, no per-workstream matrix/commit list/detailed CI dump, and points to Dev Cycle / Project Coordinator / Automation Manager dialogues for deeper detail.
+- Verification plan: review the next two completed Daily Report outputs for brevity, executive usefulness, correct escalation of blockers/user actions, and whether detail is appropriately delegated to the specialist dialogues.
+
 ## Next review focus
 
 1. Check whether the next Coordinator run reconciles the stale main body/header of TECHNICAL_ROADMAP with v1.0.22/v1.0.23 and the current acceptance/MS-027 state.
