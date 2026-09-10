@@ -42,9 +42,6 @@ public partial class Main
             _v109ResponsiveSplit.Resized += SyncV109ResponsiveSplit;
         }
 
-        // These used to be large fixed-height blocks inside a non-scrollable tab. Keep useful
-        // minimums, but let the tab itself own vertical overflow so long AI status text can never
-        // make later controls (especially the 2D preview) unreachable.
         if (_prompt != null) _prompt.CustomMinimumSize = new Vector2(0, 105);
         if (_aiPreview != null)
         {
@@ -100,9 +97,6 @@ public partial class Main
         float width = _v109ResponsiveSplit.Size.X;
         if (width <= 1) return;
 
-        // Keep the tool panel useful but bounded. It grows slightly on wide windows while the
-        // 3D viewport receives essentially all additional space instead of being stuck at the
-        // old absolute 890 px split offset.
         float sidebar = Math.Clamp(width * 0.27f, 300f, 420f);
         int maxViewport = Math.Max(1, (int)Math.Floor(width - _v109ResponsiveTabs.CustomMinimumSize.X));
         int desiredViewport = Math.Max(1, (int)Math.Round(width - sidebar));
@@ -112,11 +106,15 @@ public partial class Main
 
     void QueueV109ViewportResize()
     {
+        if (_v1019ViewportPipelineInstalled) return;
         CallDeferred(nameof(SyncV109SubViewportToHost));
     }
 
     void SyncV109SubViewportToHost()
     {
+        // v1.0.19+ native viewport pipeline uses SubViewportContainer.Stretch as the single
+        // normal resize owner. Keep this legacy path only for older composition states.
+        if (_v1019ViewportPipelineInstalled) return;
         if (_v109ResponsiveHost == null || _v109ResponsiveSubViewport == null) return;
         Vector2 size = _v109ResponsiveHost.Size;
         var target = new Vector2I(Math.Max(1, (int)Math.Round(size.X)), Math.Max(1, (int)Math.Round(size.Y)));
