@@ -47,19 +47,19 @@ def _event(entry: dict, stage: str, detail: str, progress: float | None = None) 
 
 
 def _record_completed_inference(kind: str, provider: str | None, elapsed_seconds: float) -> None:
-    """Persist qualification only after a real, verified 3D job completed.
-
-    This is deliberately best-effort and lazy-imported: job progress must never depend on
-    model-manager state writes, and ordinary 2D/geometry jobs must not be mistaken for
-    provider inference qualification.
-    """
+    """Persist qualification only after a real, verified 3D job completed."""
     if kind != "3d-generate" or not provider:
         return
     component_id = _3D_PROVIDER_COMPONENTS.get(provider)
     if component_id is None:
         return
+    from model_manager import hardware_info
     from provider_readiness import record_inference_success
-    record_inference_success(component_id, elapsed_seconds=elapsed_seconds)
+    record_inference_success(
+        component_id,
+        elapsed_seconds=elapsed_seconds,
+        benchmark={"hardware": hardware_info()},
+    )
 
 
 def begin(kind: str, client_job_id: str | None = None) -> str:
