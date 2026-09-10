@@ -309,3 +309,63 @@ The direct controls correctly reuse V1018 tool authority, but the new presentati
 ### User dependency
 
 No new product decision is required. The reference-machine v1.0.22 acceptance pass remains the main external dependency once the branch build is restored.
+
+
+---
+
+## 2026-09-10 — Release ownership transition / v1.0.23 readiness checkpoint
+
+### Repository / no-race checkpoint
+
+- User-directed authority now makes the Coordinator the exclusive release owner.
+- Dev owns candidate preparation only.
+- No active Dev/release workflow was changing repository state at the substantive review gate.
+- Latest published stable remains `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
+- Current development branch is `v1.0.23`.
+- Exact HEAD reviewed before Coordinator writes: `47722291cf771865c21304fd245dc2c2bab51103`.
+- Exact-head branch Core and broader build validation are green.
+- No v1.0.23 release-control request exists.
+- Acceptance-weighted completion remains **57%**.
+
+### Dev trajectory
+
+Since the previous Coordinator checkpoint:
+- MS-028 was repaired narrowly and validation returned green.
+- Dev then completed the Coordinator-approved synchronized scene-hierarchy slice.
+- The hierarchy uses a stable version-neutral presentation file, reflects existing object/parent state, and delegates selection to existing authority rather than inventing a second scene model.
+
+This is architectural convergence and follows the bounded MS-027 fallback policy.
+
+### Release decision
+
+**v1.0.23 is NOT READY FOR RELEASE REVIEW at this checkpoint.**
+
+The Coordinator did not create a release request because:
+- Dev has not marked an exact candidate **READY FOR COORDINATOR RELEASE REVIEW**;
+- v1.0.23 remains an active development branch with one further bounded fallback slice available;
+- released-v1.0.22 target-machine acceptance evidence is still outstanding and may preempt UI work;
+- ordinary branch CI does not substitute for the Coordinator's release-readiness decision or the exact-SHA Windows/Godot release pipeline.
+
+This is a sequencing decision, not a rejection of the current implementation.
+
+### Direction decision
+
+**PRESERVE** the Stage-C critical path and selective-refactor architecture.
+
+Continue one bounded fallback slice only while reference-machine acceptance is unavailable. The next approved slice is view cube + selected-object orbit pivot, reusing existing camera/selection authority.
+
+### Release-owner operating rule
+
+When Dev believes the v1.0.23 increment is coherent:
+1. stop candidate-invalidating work;
+2. record exact SHA and validation evidence in HANDOFF/STATUS;
+3. mark **READY FOR COORDINATOR RELEASE REVIEW**;
+4. do not publish.
+
+Coordinator will then independently review scope/gates and either:
+- publish via exact-SHA release-control under branch freeze; or
+- return the candidate to Dev with a concrete blocking reason.
+
+### User dependency
+
+No new product decision is required. Released-v1.0.22 target-machine verification remains the main external dependency.
