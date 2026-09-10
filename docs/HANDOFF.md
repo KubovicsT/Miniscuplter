@@ -8,129 +8,109 @@ Last updated: 2026-09-10
 
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7` (immutable).
 - **Current development branch:** `v1.0.23`.
-- **Latest fully validated bounded code candidate before documentation commits:** `ed58f35f6ae4e4a951ae1e551c8a34a955d12f12`.
-- **MS-028 repair commit:** `75e4990e04e273c00bf3eecc66e0ae93924b5571`.
+- **Latest fully validated bounded code/test checkpoint before documentation commits:** `ae1b081f195332028a2ad929381236030fcfefde`.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Critical path:** released-v1.0.22 Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety regression preempts UI fallback work.
+- **Release state:** DEVELOPMENT CONTINUES / NO v1.0.23 RELEASE FREEZE. Dev must not create release requests/tags/releases.
+- **Critical path:** released-v1.0.22 Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts UI fallback work.
 
 ## What this Dev Cycle completed
 
-The run first honored the Coordinator's P0 gate and repaired **MS-028**, then—only after exact-head validation was green and reference-machine evidence was still unavailable—implemented exactly one next Coordinator-approved MS-027 slice.
+With no new reference-machine evidence available and no release freeze, this run implemented exactly one Coordinator-approved MS-027 fallback slice: **view cube + selected-object orbit pivot**.
 
-### MS-028 — compile regression repaired
+### View cube
 
-`Main.V1023ViewportToolStrip.cs` had a private `InstallV1023ViewportToolStrip()` composition entry point even though `ExtrasInstaller` calls it from another class. Commit `75e4990e04e273c00bf3eecc66e0ae93924b5571` changes only that entry point to `public`, matching the existing public composition contract used by `InstallV1023UiPreferences()`.
+New stable version-neutral `Scripts/Main.ViewCube.cs`:
 
-The repair passed exact-head Core, C#, Python/runtime, geometry, release-audit, portable package/hash and installer-definition validation before additional feature work began.
+- overlays a compact camera-linked view selector in the existing `ViewportHost`;
+- exposes six orthographic face snaps: Front / Back / Left / Right / Top / Bottom;
+- repositions/filters face controls from the existing live camera basis so the selector reflects camera orientation;
+- snaps by changing the existing `_yaw` / `_pitch` state and calling the existing `UpdateCamera()` owner;
+- does not create another `Camera3D`, project state, viewport sizing owner or tool/input state machine.
 
-### MS-027 slice 3 — synchronized collapsible scene hierarchy
+### Selected-object orbit pivot
 
-New stable version-neutral presentation file `Scripts/Main.SceneHierarchy.cs` adds a Godot `Tree` in the existing SCENE region:
+The view-cube layer observes RMB press on the existing viewport input surface only to prepare the pivot before V1018 orbit motion:
 
-- visible hierarchy is collapsible through normal Tree parent/child nodes;
-- entries are rebuilt from the existing live `_objects` collection and actual parent relationships;
-- no durable/project/scene state is stored by the hierarchy;
-- tree selection calls the existing `Select(obj)` owner and existing gizmo refresh path;
-- viewport/object selection is reflected back into the tree;
-- additions, removals, renames and reparenting are observed and rebuilt from live scene state;
-- the old `_sceneList` remains alive but hidden so legacy calls to `RebuildSceneList()` continue safely during migration;
-- synchronization runs at 5 Hz and performs a full rebuild only when the live object signature changes;
-- `ExtrasInstaller` composes `InstallSceneHierarchy()` after the v1.0.23 preferences/tool-strip layers.
+- when a valid object is selected, the selected object's global AABB center becomes `_focus`;
+- current camera position is preserved;
+- existing `_distance`, `_pitch` and `_yaw` are recomputed from the current camera position to the new focus before orbit motion, preventing a pivot-change jump;
+- when no object is selected, existing empty-scene focus behavior is untouched;
+- V1018 remains the owner of `_orbiting`, mouse motion, panning, zoom and viewport tools.
+
+Composition: `ExtrasInstaller` calls `InstallViewCube()` after the earlier v1.0.23 preference/tool-strip/hierarchy presentation slices.
 
 Commits:
-- `c02b10d6ef9ee7660e9c955f8cc78b1b02fe25cc` — hierarchy implementation;
-- `ed58f35f6ae4e4a951ae1e551c8a34a955d12f12` — final composition wiring.
+- `8264391a70c49652f036cc749f447a9f0ce715ca` — initial view cube;
+- `8e926f11ca7fc60bff125947c460d439c5efcb6c` — selected-orbit-pivot observer;
+- `ce38692e29d60b47a8716422d2f6553eb5856eb8` — composition;
+- `58f3c2e5ea19eeb2379a874a7199d717c104c115` — initial wiring regression guard;
+- `ae1b081f195332028a2ad929381236030fcfefde` — corrected wiring guard.
+
+## Failed attempt retained
+
+`core-foundation` run `34535187018` at `58f3c2e...` failed the newly added static guard with `front/back face snaps missing`. The product implementation was present; the test incorrectly searched for literal runtime button names even though names are generated from `AddViewCubeFace(...)`. Commit `ae1b081...` corrected the assertion to inspect the six actual registrations. Do not reinterpret this as a product/runtime failure.
 
 ## Validation
 
-Exact code candidate `ed58f35f6ae4e4a951ae1e551c8a34a955d12f12` passed:
+Exact code/test checkpoint `ae1b081f195332028a2ad929381236030fcfefde`:
 
-- `core-foundation` run `34530230515`: **PASS**;
-- `build` run `34530230570` C# editor/launcher/updater/Core job: **PASS**;
-- Python compile and dependency resolution: **PASS**;
+- `core-foundation` run `34535418564`: **PASS**;
+- `build` run `34535418525` dotnet job: **PASS** — editor, launcher, updater and Core tests build/run;
+- Python compile/dependency resolution: **PASS**;
 - core/execution/job regressions: **PASS**;
-- real geometry regressions: **PASS**;
+- geometry regressions: **PASS**;
 - release audit: **PASS**;
-- portable package layout/hash: **PASS**;
+- portable package layout + ZIP SHA-256: **PASS**;
 - installer-definition compilation: **PASS**.
 
-The full Windows/Godot release and publish jobs were intentionally skipped because this was an ordinary development-branch push, not a release request.
-
-No v1.0.23 release request exists. **Do not publish v1.0.23 merely because branch CI is green.**
-
-Documentation-only commits after `ed58f35...` may trigger another exact-head branch workflow; the code candidate above is the fully validated implementation reference for this handoff.
+Full Windows/Godot release and publication jobs are not part of ordinary development pushes. `ae1b081...` is a useful validated checkpoint only; it is **not** a release decision and does not freeze v1.0.23.
 
 ## Primary next task — always check this first
 
-Inspect for new user/reference-machine results from **released v1.0.22**. Any reproduced correctness, persistence, viewport, data-safety, cancellation or Stage-C regression preempts MS-027 immediately.
+Consume any new user/reference-machine results from released **v1.0.22**. Any serious Stage-C/persistence/viewport/storage/cancellation regression immediately supersedes MS-027.
 
 Target acceptance sequence:
 
 1. accepted 2D baseline;
-2. qualified/Hunyuan 3D generation;
-3. visible Ready/Conflict Stage-C candidate;
+2. intended local/Hunyuan 3D generation;
+3. visible Ready/Conflict candidate;
 4. explicit Apply;
-5. save → close → reopen → same durable object and active mesh revision;
-6. Move/Rotate/Scale and one supported sculpt/edit path;
-7. cleanup and exact STL export;
-8. verify right-panel drag + whole-window resize remain visually stable;
-9. verify no starter sphere/opaque floor regression;
-10. inspect storage containment and, where practical, cancellation/recovery and resource/provider evidence.
+5. save → close → reopen → same durable object and active revision;
+6. Move/Rotate/Scale + one supported sculpt/edit path;
+7. cleanup + exact STL export;
+8. right-panel and whole-window resize stability;
+9. no starter sphere / opaque floor regression;
+10. storage containment plus provider/resource and cancellation/recovery evidence where practical.
 
 Relevant issues: **MS-023, MS-018, MS-009, MS-024, MS-025, MS-013, MS-022, MS-004**.
 
 ## If reference-machine evidence is still unavailable
 
-If exact-head branch state remains green and no higher-priority unblocked issue exists, continue exactly one next Coordinator-approved MS-027 slice:
+If branch state is green, no release freeze exists and no higher-priority issue is unblocked, continue exactly one next Coordinator-approved MS-027 slice:
 
-**Next fallback slice: view cube + selected-object orbit pivot.**
+**Next fallback slice: unified AI command/history/dispatcher.**
 
-Requirements:
-- use the existing camera yaw/pitch/focus/distance owners rather than creating another camera state machine;
-- cube faces snap Front/Back/Left/Right/Top/Bottom; edges/corners may provide diagonal/isometric snaps if the bounded slice remains coherent;
-- cube orientation reflects the current camera;
-- normal orbit pivots around the current selected entity when one exists, while preserving the existing empty-scene focus behavior;
-- do not change durable project/object authority;
-- preserve v1.0.22 viewport/render ownership and the existing viewport tool/input owner;
-- add focused validation and stop before the AI console/telemetry work.
+Guardrails:
+- converge existing AI actions on one authoritative dispatcher; do not create parallel generation/edit ownership;
+- provide one primary command entry/history surface with Up/Down history navigation and previous/next controls;
+- expose clearly named buttons only for real existing actions;
+- reuse existing Stage-C candidate/apply and provider execution paths;
+- no durable project-state duplication;
+- stop after this bounded slice, before MS-026 telemetry/density polish.
 
-Subsequent Coordinator order remains unified AI command/history/dispatcher → MS-026 telemetry → density/polish, always subordinate to critical-path acceptance findings.
+## Documentation / issue notes
 
-## Documentation note
+- `PROJECT_STATUS.md` is reconciled through the view-cube checkpoint.
+- No new product issue ID was created for the failed `58f3c2e...` assertion because it was a development test false negative detected and corrected within this slice; its failed evidence is preserved here.
+- Existing MS-028 is already RESOLVED in the Coordinator roadmap; do not reopen it for this unrelated static-test mistake.
+- Do not edit `TECHNICAL_ROADMAP.md`, `COORDINATOR_LOG.md` or `AUTOMATION_MANAGER.md` from Dev unless required for execution safety.
 
-`PROJECT_STATUS.md` has been reconciled to the repaired/hierarchy state. The existing MS-028 ledger entry may still show its pre-fix OPEN wording because the available GitHub contents write is whole-file replacement and this run avoided risking a destructive rewrite of the large canonical issue ledger from a truncated retrieval. Treat the exact repository/CI evidence and this HANDOFF as authoritative for MS-028: the compile blocker is fixed and validated at `75e4990...` / carried through `ed58f35...`. The next safe full-ledger maintenance pass should change MS-028 to RESOLVED while preserving its failed-build history.
+## Release ownership / continuous development
 
-## Release rules
+Release readiness, release chunk size, freeze and publication belong exclusively to the Project Coordinator.
 
-- Keep completion at **57%** until new acceptance evidence justifies a change.
-- MS-027 remains opportunistic and does not imply Stage-C acceptance.
-- Do not modify `TECHNICAL_ROADMAP.md` or `COORDINATOR_LOG.md` from Dev Cycle unless correcting an execution-safety factual contradiction.
-- A future v1.0.23 release must be scope-coherent, version-reconciled and pass the autonomous exact-SHA Godot/export/hash/installer-smoke gates before publication.
+Dev may record exact validated checkpoints and continue roadmap work. A checkpoint is advisory and does not freeze the branch. Only an actual Coordinator release-control request freezes the source semantic-version branch. If Coordinator later freezes v1.0.23 and creates/identifies a forward branch from that SHA, continue work only on the forward branch while publication runs.
 
 ## User dependency
 
-No product/design decision is required. The external dependency remains reference-machine testing of released v1.0.22. Autonomous engineering can continue under the Coordinator fallback while that evidence is unavailable.
-
-
-## Release ownership / continuous-development handoff
-
-Release ownership belongs exclusively to the Project Coordinator.
-
-Dev Cycle must not create/update release-control requests, tags or GitHub Releases.
-
-Current v1.0.23 release state: **DEVELOPMENT CONTINUES / NO RELEASE FREEZE**.
-
-Release-worthy checkpoints are informational only. Dev may record an exact checkpoint SHA plus validation evidence in HANDOFF/PROJECT_STATUS and then continue implementing the Coordinator roadmap. A checkpoint does **not** require Dev to stop and does **not** freeze v1.0.23.
-
-Only an actual Coordinator release decision/request creates a freeze.
-
-When Coordinator decides the accumulated current version is coherent and substantial enough to release:
-- release boundary is the exact current semantic-version branch HEAD;
-- Coordinator creates/uses the next forward semantic-version development branch from that same frozen SHA;
-- HANDOFF/STATUS/ROADMAP on the forward branch identify it as the writable development branch;
-- Coordinator submits release-control for the frozen prior version;
-- Dev continues on the forward branch while publication runs;
-- no one mutates the frozen release source branch until the release workflow succeeds or Coordinator explicitly diagnoses and manages a failed-release fix-forward path.
-
-Do not rewind a moving semantic-version branch to an older recorded checkpoint. Larger coherent Coordinator-curated release chunks are preferred over publishing every checkpoint.
-
+No product/design decision is required. The external dependency remains target-machine verification of released v1.0.22. Autonomous engineering may continue under the Coordinator fallback while that evidence is unavailable.
