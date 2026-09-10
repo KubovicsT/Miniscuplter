@@ -284,3 +284,20 @@ The principal user dependency remains reference-machine testing of released v1.0
 plus right-panel resize, whole-window resize, no starter sphere/opaque floor, transform/sculpt, cleanup/export and storage behavior.
 
 Autonomous engineering can continue under the current roadmap.
+
+---
+
+## User override — continuous-development release model (2026-09-10)
+
+This section supersedes any earlier roadmap wording that says Dev must stop after marking a candidate ready for Coordinator review.
+
+- Release ownership remains exclusively with the Coordinator.
+- Dev may record exact release-worthy checkpoint SHAs and validation evidence, then continue roadmap work. A checkpoint is advisory and does not freeze the branch.
+- Coordinator owns release chunk size and should prefer meaningful accumulated releases rather than publishing every green checkpoint.
+- Only an actual Coordinator release request freezes the semantic-version source branch.
+- The release candidate is the exact current HEAD at the chosen release boundary; do not rewind a moving version branch to an older checkpoint.
+- Before or as release-control is initiated, create/use the next forward semantic-version development branch from that frozen SHA and make it the writable Dev branch.
+- Dev continues on the forward branch while the prior version publishes.
+- Frozen release branches must not move while release-control is active. If release-control fails, diagnose first, then manage the smallest safe fix-forward path and propagate required fixes to the forward branch.
+
+For current v1.0.23, development continues until the Coordinator explicitly chooses a release boundary. Recording a checkpoint alone is not a stop condition.
