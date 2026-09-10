@@ -9,11 +9,6 @@ public partial class ExtrasInstaller : Node
     void Install()
     {
         if (GetParent() is not Main main) return;
-
-        // The release-facing tab is called "Model", but all additive version installers from
-        // v0.4 onward target the stable internal node name "Print". A base-UI rename in v1.0
-        // accidentally changed the node itself to "Model", causing those installers to skip
-        // their controls silently. Restore the compatibility name before any extras install.
         if (main.FindChild("Print", true, false) == null && main.FindChild("Model", true, false) is Control modelTab)
             modelTab.Name = "Print";
 
@@ -47,67 +42,23 @@ public partial class ExtrasInstaller : Node
         main.InstallV100ReleasePolish();
         main.InstallV108AiFeedback();
         main.InstallV109Experience();
-
-        // v1.0.11 consolidates the visible workflow after historical controls have installed.
         main.InstallV1011Workflow();
         main.InstallV109ResponsiveLayout();
-
-        // v1.0.12 is a safety bridge: patch the final composed UI so export/autosave and other
-        // critical entry points cannot fall back to older unguarded implementations.
         main.InstallV1012SafetyBridge();
-
-        // v1.0.13 starts the replacement project model beside the legacy editor. The bridge only
-        // creates new .msculpt2 copies and never replaces the proven .msculpt path while migration
-        // and semantic adapters are still being validated.
         main.InstallV1013FoundationBridge();
-
-        // Current Python model adapters are synchronous. Cancelling only the editor's HTTP request
-        // leaves the server-side CUDA work alive, so every cancel action is wired to an owned
-        // backend-process restart and all following jobs wait for that health recovery.
         main.InstallV1013CancellationRecovery();
-
-        // v1.0.15 makes the first end-to-end creative slice testable on the target machine: the
-        // center workspace becomes the actual 2D editing canvas in the 2D tab, references become
-        // visible/selectable images, and the 3D workspace gets a driver-robust triangle grid.
         main.InstallV1015ThinSlice();
-
-        // v1.0.16 replaces only the visible reference-search surface after the v1.0.15 canvas is
-        // installed. The older Commons implementation remains underneath as a rollback-safe layer.
         main.InstallV1016ReferenceSearch();
-
-        // v1.0.17 patches the final composed release UI with observable AI stages, contextual 2D
-        // enhancement, contained working storage, a directly inspectable preset editor and a
-        // render-texture-backed 3D viewport recovery path.
         main.InstallV1017Usability();
-
-        // v1.0.19 makes the native SubViewport render path authoritative after every historical
-        // installer has composed its legacy viewport controls.
         main.InstallV1019ViewportPipeline();
-
-        // v1.0.20 moves the production accepted-baseline -> generated-mesh seam onto the Stage-B
-        // project/revision model. Generated meshes remain candidates until explicit transactional
-        // apply, and stale baseline results are preserved as conflicts instead of overwriting work.
         main.InstallV1020StageCBridge();
         main.InstallV1020AppliedObjectRestore();
-
-        // Continue that same object/revision authority through the minimum cleanup/export slice.
-        // Stage-C objects repair into a new immutable child revision and export from an explicit
-        // ProjectObject + active MeshRevision scope; unrelated legacy objects keep the safe fallback.
         main.InstallV1020StageCCleanupExport();
-
-        // Close the remaining in-slice dual-authority gap without replacing the user's established
-        // tools: committed transforms and one bounded sculpt-stroke path project through Core state,
-        // persistence and transactional undo/redo for mapped Stage-C objects.
         main.InstallV1020StageCEditingAuthority();
-
-        // v1.0.22 acceptance guard runs after the historical application layers so the production
-        // Generate-3D action has one owner, starter-scene leftovers are removed, and native
-        // viewport/client layout ownership is reasserted without manual SubViewport.Size writes.
         main.InstallV1022Acceptance();
 
-        // v1.0.23 begins the Coordinator-authorized MS-027 modernization with editor-only preference
-        // state: persisted splitter widths, adjustable interface font scale and reusable tooltips.
-        // It runs last because it observes the fully composed workspace and must not own project/AI state.
+        // v1.0.23 MS-027 remains presentation-only and composes after accepted viewport ownership.
         main.InstallV1023UiPreferences();
+        main.InstallV1023ViewportToolStrip();
     }
 }
