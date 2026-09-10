@@ -19,7 +19,7 @@ Last manager review/update: 2026-09-10
 - Schedule: 04:30, 10:30, 16:30, 22:30 Europe/Budapest.
 - Role: technical director / lead architect / roadmap owner.
 - Durable outputs: `docs/TECHNICAL_ROADMAP.md`, `docs/COORDINATOR_LOG.md`.
-- Current observation: first manually-triggered coordinator review respected the no-race gate and deferred because the preceding Dev Cycle/validation state was still moving. No roadmap/log files have been created yet on `v1.0.20`; this is appropriate for a deferred run, not a coordinator failure.
+- Current observation: initial substantive review completed successfully after the earlier deferred no-race run. It created a bounded Stage-C roadmap, preserved the selective-refactor direction, narrowed v1.0.20 scope, and separated release readiness from post-release target-machine acceptance.
 
 ### Miniscuplter Dev Cycle
 - Status: enabled.
@@ -27,11 +27,13 @@ Last manager review/update: 2026-09-10
 - Role: implementation worker executing Coordinator roadmap + HANDOFF.
 - AMP-001 release/version reconciliation gate remains applied.
 - Release authority remains with Dev Cycle, but releases are readiness-based, not time-based.
+- Current observation: latest completed cycle followed Coordinator P0 directly, implemented authoritative mapped-object transforms plus one bounded sculpt/edit path, retained failed-attempt evidence, and prepared a coherent v1.0.20 release candidate instead of broadening scope.
 
 ### Miniscuplter Daily Report
 - Status: enabled.
 - Schedule: daily 20:00 Europe/Budapest.
 - Role: reporting only; includes Coordinator and Automation Manager summaries.
+- No completed report had run yet at this checkpoint.
 
 ### Miniscuplter Automation Manager
 - Status: enabled; excluded from worker scoring.
@@ -56,11 +58,13 @@ Last manager review/update: 2026-09-10
 - Repository: `KubovicsT/Miniscuplter`.
 - Latest published stable: `v1.0.19` at application commit `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`.
 - Current development branch: `v1.0.20`.
-- Exact branch HEAD observed during this review: `2925f6e271fd3fc0e992ddc0b671cb0b4a223a24` (`Hand off Stage C editing-state migration`).
-- Latest application/code commit named by HANDOFF: `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b`.
-- Acceptance-weighted completion: 57%.
-- Current Stage-C state: accepted baseline → identity-bound generation → explicit Apply → save/reload → immutable cleanup child revision → explicitly-scoped validated STL export is integrated in code; normal transform/sculpt authority and target-machine qualification remain.
-- Exact-head C# / broader build for documentation HEAD `2925f6e...` was still in progress when checked. The preceding application HEAD `dfedbf...` had Core cleanup tests passing and the previous HANDOFF reported the broader build's constituent gates passing before final workflow conclusion.
+- Exact branch HEAD reviewed: `08fcf8d710fd3b5100321028d6063c9b7da11c4d` (`Finalize v1.0.20 release handoff`).
+- Release-candidate application commit: `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`.
+- Acceptance-weighted completion: 58%.
+- Coordinator roadmap and log are now present and coherent with HANDOFF.
+- Exact-head `core-foundation` run `34503646237`: SUCCESS.
+- Exact-head broader `build` run `34503646371`: SUCCESS.
+- v1.0.20 is not yet published because the established release workflow is tag-triggered and the currently exposed GitHub connector actions do not include tag creation.
 
 ## Process findings
 
@@ -74,13 +78,13 @@ AMP-001 added a mandatory release/version reconciliation gate to the Dev Cycle. 
 Severity: High
 Status: MITIGATED
 
-Current `v1.0.20` HANDOFF and PROJECT_STATUS now agree with GitHub: `v1.0.19` is stable and `v1.0.20` is development.
+Current `v1.0.20` HANDOFF and PROJECT_STATUS agree with Git/release truth.
 
 ### PF-003 — Historical red post-release C# CI
 Severity: High
 Status: CLOSED AS PROCESS FINDING
 
-The worker did not mutate the published release. Subsequent `v1.0.20` work reports green C#/Core/build gates before continuing Stage-C migration. Current exact-head workflow was still running at this manager checkpoint, so no claim is made about its final conclusion.
+The worker did not mutate the published release. Subsequent `v1.0.20` work reached green Core and broader build gates.
 
 ### PF-004 — Manager schedule discrepancy
 Severity: Medium
@@ -88,20 +92,35 @@ Status: USER-MANAGED
 
 User stated timing was changed/saved separately. Do not alter unless new explicit user direction or a future proposal is approved.
 
-### PF-005 — Coordinator bootstrap correctly deferred under no-race gate
+### PF-005 — Coordinator no-race behavior
 Severity: Informational / positive
+Status: WORKING AS INTENDED
 
-The first coordinator run encountered a moving Dev Cycle / active validation state and declined to create or rewrite the roadmap from a partial snapshot. This is the desired conservative behavior. Because `TECHNICAL_ROADMAP.md` and `COORDINATOR_LOG.md` do not yet exist on v1.0.20, the next completed Coordinator run should initialize them once it can review a stable completed worker state.
+The first coordinator attempt deferred while Dev/CI state was still moving. The next clean review initialized the roadmap/log from a completed state and did not compete with implementation work.
+
+### PF-006 — Release publication blocked by connector capability, not process failure
+Severity: Medium operational constraint
+Status: OPEN / TOOLING-LIMITED
+
+Evidence:
+- The Dev Cycle reached a coherent v1.0.20 release-candidate state and exact-head branch CI is green.
+- The established release workflow is intentionally triggered from a semantic-version tag.
+- Current GitHub connector discovery exposes branch/ref movement but no tag-creation or release-creation action.
+
+Assessment:
+This is not evidence of a bad Dev prompt or bad release architecture. Do not weaken the tag-gated release process or repurpose a branch as a fake tag. If the connector remains unchanged, user-side tag creation may be required to trigger the existing release pipeline.
 
 ## Successful practices worth preserving
 
 - Dev Cycle repaired branch/release discipline instead of rewriting published history.
-- HANDOFF is specific about exact next work and retains failed CI/regression attempts.
-- Stage-C work is converging vertically: Core identity/persistence → cleanup/export → normal editing-state migration, instead of broad feature accumulation.
-- Cleanup regression caught an actual lineage-design defect; the worker fixed the root contract and preserved the failed run as evidence.
-- User-observed viewport/storage issues remain pending target-machine verification rather than being falsely resolved.
-- Coordinator respected the no-race gate on its first invocation.
-- Daily Report prompt remains reporting-only and now has explicit Coordinator/Manager summary sections.
+- Coordinator set a bounded milestone instead of reopening architecture globally.
+- Dev Cycle followed Coordinator P0 directly: mapped transforms became Core-authoritative and exactly one bounded sculpt/edit path moved to immutable revision semantics.
+- HANDOFF preserves failed release-audit and accidental backend-edit history rather than hiding it.
+- Self-review caught an accidental `ai_backend/app.py` truncation before release and restored it before proceeding.
+- v1.0.20 scope did not expand into full sculpt migration, full Job Broker work, Rig/Pose, kitbash, provider expansion, or UI rewrite.
+- Exact-head Core and broader CI are green before release publication.
+- User-observed viewport/storage issues remain pending real-machine verification rather than being falsely resolved.
+- No-race behavior has worked for both Coordinator and Manager interactions so far.
 
 ## Proposal registry
 
@@ -109,19 +128,21 @@ The first coordinator run encountered a moving Dev Cycle / active validation sta
 Status: **APPROVED / APPLIED — HELPED**
 
 Evidence of outcome:
-- GitHub latest release remains `v1.0.19`.
-- Dev work now occurs on forward branch `v1.0.20`.
-- HANDOFF/PROJECT_STATUS explicitly identify `v1.0.19` as immutable stable and `v1.0.20` as current development.
-- No evidence in this review of published-release history being rewritten.
+- `v1.0.19` remains the published stable release.
+- Development moved forward to `v1.0.20`.
+- HANDOFF/PROJECT_STATUS track the correct release/development split.
+- No evidence of published-release history being rewritten.
+- Current v1.0.20 release-candidate work stayed on the forward branch and preserved semantic-version discipline.
 
-Verification conclusion: HELPED. Continue watching future release transitions (`v1.0.20` → `v1.0.21`) to ensure the behavior remains stable.
+Verification conclusion: HELPED. Continue watching the actual v1.0.20 → v1.0.21 transition after publication.
 
 ### Manager coordination/no-race rules
-Status: **USER-DIRECTED / APPLIED — HELPED SO FAR**
+Status: **USER-DIRECTED / APPLIED — HELPED**
 
 Observed outcome:
-- Coordinator's first review deferred rather than competing with an active/moving Dev Cycle state.
-- No automation mutation occurred during the active worker interval.
+- Coordinator deferred a partial-state review once, then completed a later stable review.
+- Manager avoided changing active worker tasks.
+- No automation race has been observed in this checkpoint.
 
 ## Active proposals awaiting user approval
 
@@ -143,20 +164,24 @@ None.
 - Manager received no-race / no-live-mutation rules.
 
 ### 2026-09-10 — First v1.0.20 manager review
-- Reviewed current Coordinator, Dev Cycle, Daily Report, and Manager definitions.
-- Verified stable hierarchy is explicit across prompts.
-- Verified `v1.0.19` remains latest published release and `v1.0.20` is the forward development branch.
-- Verified AMP-001 outcome as HELPED.
-- Reviewed current HANDOFF / PROJECT_STATUS and Stage-C cleanup/export trajectory.
-- Observed Coordinator's first manual run correctly defer under no-race conditions; roadmap/log not yet initialized, appropriately.
-- Exact-head CI for documentation HEAD was still in progress; no final CI conclusion claimed.
-- No new automation prompt/schedule proposal warranted.
+- Verified hierarchy across Coordinator, Dev Cycle, Daily Report and Manager.
+- Classified AMP-001 as HELPED.
+- Confirmed Coordinator's first manual run correctly deferred under no-race conditions.
+- No new automation proposal warranted.
+
+### 2026-09-10 — Coordinator/Dev alignment and release-candidate audit
+- Verified Coordinator created `TECHNICAL_ROADMAP.md` and `COORDINATOR_LOG.md` from a stable completed Dev state.
+- Coordinator preserved the selective-refactor direction, narrowed v1.0.20 to Stage-C state authority, and explicitly prevented unrelated architecture work from delaying the version.
+- Dev Cycle followed that roadmap: authoritative transforms, one bounded immutable sculpt/edit path, regression coverage, release-version reconciliation and release-candidate preparation.
+- Exact branch HEAD `08fcf8d...` passed Core and broader build CI.
+- Release publication is now blocked only by the absence of a tag-creation action in the exposed connector, not by unfinished roadmap work or red CI.
+- No prompt/schedule change is justified from current evidence.
 
 ## Next review focus
 
-1. Verify the next completed Coordinator run initializes `TECHNICAL_ROADMAP.md` and `COORDINATOR_LOG.md` from a stable completed Dev Cycle state.
-2. Check whether Coordinator priorities remain stable and evidence-based rather than oscillating.
-3. Check Dev Cycle alignment with the Coordinator roadmap once it exists.
-4. Confirm v1.0.20 editing-state migration continues the Stage-C critical path rather than broadening into unrelated legacy cleanup.
-5. Confirm exact-head CI completes successfully before release-readiness claims.
-6. Monitor next release transition to verify AMP-001 remains effective beyond this first branch change.
+1. Observe whether v1.0.20 is tagged/released through the existing gated workflow without bypassing release safeguards.
+2. Verify the post-release branch transition to v1.0.21; this is the next strong AMP-001 durability test.
+3. Review the Daily Report after its first completed run for faithful Coordinator/Dev/Manager synthesis.
+4. After v1.0.20 target-machine testing, check whether Coordinator reprioritizes from actual MS-009/MS-013/MS-018/MS-022 evidence rather than speculative work.
+5. Continue watching Coordinator stability: preserve direction unless new evidence justifies change.
+6. Continue watching Dev Cycle scope discipline after release, especially avoiding premature broad legacy migration before real acceptance evidence.
