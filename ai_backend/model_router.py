@@ -1,8 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
-from typing import Callable, Any
+from typing import Any
 from model_manager import component_path, hardware_info
 from model_capabilities import role_options
+from provider_readiness import inspect_provider, readiness_status, route_eligible
 
 @dataclass(frozen=True)
 class RouteDecision:
@@ -15,10 +16,27 @@ THREED_IDS={"triposr":"triposr","sf3d":"sf3d","spar3d":"spar3d","hunyuan-mini":"
 
 def _first(candidates:list[str])->str|None:
     return next((x for x in candidates if installed(x)),None)
+
+def _first_ready(candidates:list[str])->str|None:
+    for cid in candidates:
+        if not installed(cid):
+            continue
+        ready,_=route_eligible(cid)
+        if ready:
+            return cid
+    return None
+
 def _provider(cid:str)->str:
     for p,c in {**IMAGE_IDS,**THREED_IDS}.items():
         if c==cid:return p
     return cid
+
+def _readiness_failure(mode:str, result:dict[str,Any])->RuntimeError:
+    detail=result.get("failure") or "provider readiness preflight did not pass"
+    state=[]
+    for key in ("downloaded","installed","importable","device_tested","inference_tested"):
+        state.append(f"{key}={result.get(key)}")
+    return RuntimeError(f"Requested 3D provider '{mode}' is not ready: {detail} ({', '.join(state)})")
 
 def choose_image_provider(role="generate",mode="auto"):
     role=(role or "generate").lower();mode=(mode or "auto").lower();v=int(hardware_info().get("vram_mb",0) or 0)
@@ -41,18 +59,28 @@ def choose_3d_provider(role="quality",mode="auto"):
         cid=THREED_IDS.get(mode)
         if not cid:raise RuntimeError(f"Unknown 3D provider '{mode}'")
         if not installed(cid):raise RuntimeError(f"Requested 3D provider '{mode}' is not installed")
-        return RouteDecision(role,mode,"explicit user/provider selection")
+        ready,result=route_eligible(cid)
+        if not ready:raise _readiness_failure(mode,result)
+        return RouteDecision(role,mode,"explicit user/provider selection; readiness preflight passed")
     if role in {"parts","structured"}:order=["partpacker","partcrafter"] if v>=16000 else ["partcrafter","partpacker"]
     elif role in {"fast","draft","rough"}:order=["spar3d","sf3d","triposr"] if v>=12000 else ["sf3d","triposr","spar3d"]
     elif v>=24000:order=["trellis2","hunyuan21-shape","spar3d","hunyuan2mini","sf3d","triposr"]
     elif v>=10000:order=["hunyuan21-shape","spar3d","hunyuan2mini","sf3d","triposr","trellis2"]
     else:order=["hunyuan2mini","sf3d","triposr","spar3d","hunyuan21-shape"]
-    cid=_first(order)
-    if not cid:raise RuntimeError("No local 3D model is installed")
-    fb=_first([x for x in order if x!=cid]);return RouteDecision(role,_provider(cid),f"hardware-aware auto route ({v//1024}GB VRAM class)",_provider(fb) if fb else None)
+    cid=_first_ready(order)
+    if not cid:
+        installed_ids=[x for x in order if installed(x)]
+        if installed_ids:
+            failures=[]
+            for candidate in installed_ids:
+                r=inspect_provider(candidate,probe=False)
+                failures.append(f"{_provider(candidate)}: {r.get('failure') or 'readiness preflight failed'}")
+            raise RuntimeError("No installed 3D provider passed readiness preflight. " + "; ".join(failures))
+        raise RuntimeError("No local 3D model is installed")
+    fb=_first_ready([x for x in order if x!=cid]);return RouteDecision(role,_provider(cid),f"hardware-aware auto route ({v//1024}GB VRAM class); readiness preflight passed",_provider(fb) if fb else None)
 
 def routing_status()->dict[str,Any]:
-    hw=hardware_info();r={"image":{},"three_d":{},"capabilities":{}}
+    hw=hardware_info();r={"image":{},"three_d":{},"capabilities":{},"provider_readiness":readiness_status(probe=False)}
     for role in ("generate","edit","detail"):
         try:r["image"][role]=asdict(choose_image_provider(role))
         except Exception as e:r["image"][role]={"error":str(e)}
