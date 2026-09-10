@@ -5,184 +5,149 @@
 Last coordinator review: 2026-09-10
 Current stable release: `v1.0.19`
 Current development branch: `v1.0.20`
-Latest validated application commit reviewed: `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b`
-Acceptance-weighted completion at review: **57%**
+Latest validated application/release-candidate code commit: `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`
+Latest live branch HEAD reviewed before this roadmap update: `6ead6ae2f3c2823b7b3b93f2fae805e6808f6f57`
+Acceptance-weighted completion: **58%**
 
 ## 1. Current technical objective
 
-Finish one trustworthy Stage-C vertical slice on the replacement Core architecture and ship it as a meaningful testable increment before broadening migration.
+Publish the already-bounded v1.0.20 Stage-C foundation slice without reopening application scope, then use the released build to obtain the target-machine evidence required for Stage-C acceptance.
 
-The target slice is:
+The implemented slice is:
 
-`2D source → accepted immutable image baseline → revision-bound local 3D generation → explicit candidate Apply → visible project-owned object → save/reload → authoritative transform + one committed mesh edit → immutable cleanup revision → exact validated STL export`
+`2D source → accepted immutable image baseline → revision-bound local 3D generation → explicit candidate Apply → visible project-owned object → save/reload → Core-authoritative transform + one committed immutable mesh edit → immutable cleanup revision → exact validated STL export`
 
-The purpose is not to make every historical 3D feature Core-native before release. It is to prove that the new identity/revision/persistence model can own a complete practical path without falling back to widget/STL authority for the state that matters to that path.
+The application milestone is now structurally complete enough to be a release candidate. The immediate blocker is release orchestration, not missing product architecture.
 
 ## 2. Technical-direction assessment
 
-**Direction: PRESERVE, with tighter milestone boundaries.**
+**Direction: PRESERVE.**
 
-The major-refactor-with-selective-rewrites strategy remains correct. Recent work is converging vertically rather than creating another parallel architecture:
+The selective-refactor strategy remains correct and recent Dev Cycle work followed the intended convergence path. The bounded v1.0.20 scope was completed without broadening into full sculpt migration, Job Broker reconstruction, Rig/Pose, kitbash, provider expansion, global `Main.V*.cs` removal, or UI rewrite.
 
-- accepted images are project-owned immutable revisions;
-- generation is bound to stable project/image/object/job identity and rejects stale/mismatched results;
-- Apply/Discard and save recovery are transactional;
-- cleanup creates immutable child mesh revisions instead of overwriting meshes;
-- export resolves exact durable object/revision scope and treats STL only as interchange/output.
+Do not start another architectural migration on v1.0.20. Do not reopen already-green Stage-C application work merely because the autonomous release controller is failing. Fix the release-control mechanism at its own boundary, publish the candidate when all gates pass, then move application work forward to v1.0.21.
 
-Do not replace this with a ground-up rewrite. Do not broaden Core migration horizontally yet. Continue using compatibility bridges only where they move this same vertical slice onto Core authority; they are transitional seams, not the final presentation architecture.
+## 3. Current milestone — publish v1.0.20
 
-## 3. Current milestone — v1.0.20 Stage-C foundation slice
+### Application scope already satisfied
 
-### Required before v1.0.20 release candidate
+- mapped Stage-C transforms commit through `ProjectSession` and persist through save/reload;
+- Stage-C-aware undo/redo restores durable project state;
+- one bounded sculpt/edit path creates immutable child `MeshRevision` state with stale-parent protection;
+- cleanup advances immutable revision lineage;
+- export resolves durable object/revision state and validated STL output scope;
+- prior release-candidate Core/build/Python/geometry/release-audit/package validation is green.
 
-1. **Transform authority**
-   - Move/rotate/scale for mapped Stage-C objects must update `ProjectObject.Transform` through `ProjectSession` transactions.
-   - Save/reload and export must reproduce the visible transform from durable project state.
-   - Undo/redo must restore the complete transform state.
-   - Export must not read uncommitted Godot/widget transforms as a shortcut.
+### Remaining release gate
 
-2. **One authoritative mesh-edit path**
-   - Migrate the minimum practical sculpt/mesh mutation needed to prove editable Stage-C ownership.
-   - A committed edit on a mapped Stage-C object must create a new immutable `MeshRevision`, parent it to the exact active input revision, transactionally advance the object's active revision, and preserve generation provenance through descendant lineage.
-   - Full sculpt subsystem migration is explicitly NOT required for v1.0.20.
+The permanent `release-control` workflow must successfully:
 
-3. **Revision-to-export acceptance seam**
-   - Preserve exact object/revision export scope.
-   - Add the lowest-cost deterministic testable seam for `MeshRevision + ProjectObject.Transform → validated STL artifact` if practical without duplicating UI/backend paths.
-   - Existing destination safety/validation must remain fail-closed.
+1. parse one exact-SHA semantic-version release request;
+2. prove the requested source branch still equals that candidate SHA;
+3. rebuild/retest the exact candidate;
+4. perform real Godot Windows export;
+5. verify release outputs and hashes;
+6. create and smoke-install the installer;
+7. recheck branch immutability before publication;
+8. create the version tag and GitHub Release only after all gates pass.
 
-4. **Automated release gates**
-   - Exact application HEAD Core/Stage-C regressions green.
-   - Broader Windows C#/Python/geometry/release-audit/package gates green.
-   - Real Godot Windows export, artifact/hash verification, and installer smoke-install pass before publication.
+The latest retry, autonomous-release run `34506900865`, failed **after successfully validating the v1.0.20 request** but before build/export. The PowerShell validation step intentionally probes `gh release view` to confirm that the release does not already exist; the expected nonzero native exit code remains in `$LASTEXITCODE`, so the otherwise-successful step terminates with exit code 1. This is a release-orchestration defect, not evidence against the v1.0.20 source candidate.
 
-### Explicitly NOT required before v1.0.20 publication
+## 4. Ordered critical path
 
-- complete migration of all sculpt tools;
-- full durable Job Broker/queue/crash-recovery architecture;
-- broad provider-framework expansion;
-- Rig & Pose migration;
-- kitbash/parts migration;
-- removal of legacy `Main.V*.cs` globally;
-- complete UI rewrite;
-- target-machine verification of every historical `FIXED - NEEDS USER VERIFICATION` issue before a testable build exists.
+### P0 — Repair autonomous release orchestration
 
-## 4. Release / target-machine strategy
+Dev Cycle should modify only the `release-control` workflow as needed to make the expected absent-release probe return a successful workflow step while preserving the immutable-release check. Do not weaken request validation, exact-SHA binding, branch-freeze behavior, build/export/hash/smoke gates, or published-release immutability.
 
-Target-machine acceptance is a real product gate, but it should not become a circular prerequisite that prevents shipping the build needed to obtain that evidence.
+After the workflow repair:
 
-For **v1.0.20**:
+- update the existing `release-requests/v1.0.20.json` to the exact final v1.0.20 branch HEAD;
+- freeze v1.0.20 while that request is pending;
+- inspect the resulting workflow through completion;
+- if a genuine source/build gate fails, fix forward and resubmit a new exact candidate;
+- if the workflow succeeds, verify tag/release v1.0.20 and latest-release state.
 
-- finish the bounded Stage-C state-authority scope above;
-- pass all automated and Windows packaging/release gates;
-- publish v1.0.20 as the immutable testable increment;
-- immediately move further application development to `v1.0.21`;
-- use released v1.0.20 on the GTX 1080 / 16 GB reference PC to collect acceptance evidence for MS-009, MS-013, MS-018, and MS-022.
+### P1 — Transition to v1.0.21 after publication
 
-If target-machine testing exposes a release-blocking defect, fix it forward in v1.0.21. Do not mutate v1.0.20.
+Immediately after v1.0.20 publication:
 
-This does not lower the definition of acceptance: Stage-C is not considered accepted until real-machine evidence exists. It only separates **release readiness** from **post-release target-machine qualification** where publication is needed to perform that qualification.
+- reconcile canonical docs to stable v1.0.20;
+- create/use forward-only `v1.0.21` before any further application change;
+- never modify the published v1.0.20 tag/release.
 
-## 5. Ordered critical path
+### P2 — Reference-machine acceptance
 
-### P0 — Finish in-slice state authority (`MS-019` serving `MS-018`)
+Use released v1.0.20 on the GTX 1080 / 8 GB VRAM / 16 GB RAM reference PC to collect evidence for:
 
-1. Map transform gizmo/move/rotate/scale commit paths to `ProjectSession` transactions for Stage-C objects.
-2. Persist/reload/undo those transforms and ensure export uses only durable state.
-3. Migrate one bounded committed sculpt/mesh edit to immutable child-revision semantics.
-4. Add stale/undo/reload/export interaction regressions.
+1. **MS-009** — viewport/grid/model/gizmo visibility and interaction;
+2. **MS-013** — representative storage containment including caches/temp/intermediates;
+3. **MS-018** — the complete Stage-C path through save/reload/edit/cleanup/export;
+4. **MS-022** — one intended lightweight/default 3D route with elapsed time and practical RAM/VRAM behavior;
+5. cancellation/recovery where practical in the same test session.
 
-Rationale: cleanup/export now trust ProjectStore. Visible edits that escape Core would make the user's apparent model disagree with the saved/exported model; that is the largest remaining in-slice architectural correctness gap.
+Any reproduced target-machine failure immediately outranks planned post-release refactor work and must be fixed forward in v1.0.21.
 
-### P1 — Harden exact export artifact seam (`MS-018`)
+### P3 — Post-acceptance structural work
 
-Extract/test revision-to-STL artifact generation below UI when this can be done without adding another authority path. Preserve STL as output/interchange only.
+Only after target-machine findings are addressed or acceptance evidence is collected:
 
-### P2 — Cut v1.0.20 release candidate and publish when gates pass
+1. resume `MS-020` authoritative durable job ownership/queue/crash recovery;
+2. continue `MS-019` outward from the proven Stage-C editing seam;
+3. use measured `MS-022` evidence to define default/supported/experimental provider tiers;
+4. then advance broader Stage-D practical editing priorities.
 
-Do not hold v1.0.20 merely to accumulate unrelated architecture work. Once P0/P1 are coherent and required release gates pass, publish.
+## 5. Issue priority
 
-### P3 — Reference-machine acceptance
+1. **MS-018 — Critical milestone:** code slice is release-candidate complete; publication + target qualification remain.
+2. **Release-control orchestration defect — release-critical:** latest workflow validates the request but exits incorrectly before application gates. Treat as immediate P0 operational work supporting MS-018, not as product-scope expansion.
+3. **MS-009 — Critical verification risk:** becomes immediate P0 if the released viewport remains blank on the target machine.
+4. **MS-013 — High verification risk:** verify before further speculative storage work unless a concrete new leak appears.
+5. **MS-022 — High:** qualify one intended route before adding provider breadth.
+6. **MS-019 — broader migration:** bounded v1.0.20 requirement is met; remaining migration waits behind release/acceptance.
+7. **MS-020 — High but sequenced later:** resume after Stage-C release/acceptance unless a concrete lifecycle defect blocks testing.
 
-On released v1.0.20 collect evidence for:
+## 6. Architecture and ownership boundaries
 
-- `MS-009`: viewport/grid/model/gizmo visibility and interaction;
-- `MS-013`: representative storage containment, especially caches/temp/intermediates;
-- `MS-018`: full Stage-C user flow through save/reload/edit/cleanup/export;
-- `MS-022`: at least one intended lightweight/default 3D route, with elapsed time and practical RAM/VRAM behavior;
-- cancellation/recovery where practical in the same test session.
-
-A real failure here immediately outranks planned post-release architecture work.
-
-### P4 — Post-Stage-C structural work
-
-Only after the v1.0.20 slice is released and acceptance evidence is available:
-
-1. address any target-machine regressions first;
-2. continue `MS-020` toward authoritative durable job ownership/queue/crash recovery;
-3. continue `MS-019` outward from the proven slice into practical editing architecture;
-4. use measured `MS-022` evidence to define default/supported/experimental provider tiers;
-5. then advance Stage D practical editing priorities.
-
-## 6. Issue priority
-
-### Active critical-path priority
-
-1. **MS-018 — Critical:** primary milestone. The production path is structurally close but not accepted until editing authority and target qualification are complete.
-2. **MS-019 — High architectural risk, currently P0:** narrow focus on transform + one mesh edit for Stage-C. Do not broaden legacy migration yet.
-3. **MS-009 — Critical verification risk:** if target testing still shows a blank viewport, it becomes immediate P0. Until new runtime evidence exists, do not spend autonomous cycles adding speculative viewport overlays/fixes.
-4. **MS-013 — High verification risk:** same principle; verify on target machine before more speculative containment work unless CI/code review finds a concrete leak.
-5. **MS-022 — High:** collect one real intended 3D-provider qualification on reference hardware; do not expand provider count first.
-6. **MS-020 — High but temporarily behind Stage-C closure:** existing correlation/cancellation/save-safety work is sufficient for the thin slice. Resume durable broker work after the slice/release unless a concrete job-lifecycle bug blocks it.
-
-### Lower-priority / deferred while Stage-C closes
-
-- optional provider additions;
-- full UI declarative rewrite;
-- broad sculpt architecture migration;
-- Rig & Pose modernization;
-- kitbash expansion;
-- node-graph/animation-suite/cloud features;
-- cleanup feature breadth beyond the minimum reliable path.
-
-## 7. Dependency notes
-
-- Stage-C release readiness depends on in-slice editing authority, not on completion of the whole Stage-B refactor.
-- Transform persistence must precede trustworthy export acceptance because export intentionally reads durable `ProjectObject.Transform`.
-- One mesh-edit revision path must precede claiming the Stage-C object is meaningfully editable under the replacement state model.
-- Target-machine provider qualification depends on having a published/installable build and installed runtime/model state; it should feed provider policy rather than be simulated by CI.
-- Broader Job Broker work should reuse the proven project/revision identity semantics rather than invent another identity model.
-- Legacy removal remains blocked on migration/acceptance coverage; compatibility fallbacks for non-migrated objects remain legitimate for now.
-
-## 8. Architecture ownership boundaries
-
-- **Core C# domain/state:** project identity, objects, immutable image/mesh revisions, provenance, transactions/history, persistence contracts, stale-result rules, cleanup/edit revision contracts.
-- **Godot presentation/editor:** viewport, input tools, visual scene projection of Core state, dialogs, user interactions. For migrated Stage-C objects Godot must project authoritative Core state, not independently own durable model state.
-- **Python backend:** inference and geometry execution, provider/runtime management, structured progress. It receives immutable/revision-bound job inputs and returns isolated artifacts; it does not become project-state authority.
-- **Launcher/updater:** delivery/runtime/update ownership and data preservation; do not mix this with project editing state.
+- **Core C# domain/state:** durable project identity, immutable revisions, transforms, transactions/history, persistence, stale-result rules.
+- **Godot presentation/editor:** projection and interaction for Core-owned Stage-C state; no independent durable truth for migrated objects.
+- **Python backend:** inference/geometry execution and provider/runtime management, not project-state authority.
+- **Launcher/updater:** delivery/runtime/data-preservation responsibilities.
+- **release-control:** release-request validation and gated delivery orchestration only; it must not become an application-development branch.
 - **STL:** interchange/export artifact only.
 
-## 9. Technical risks to watch
+## 7. Explicit non-priorities while v1.0.20 is pending
 
-1. **Dual authority during migration:** Godot scene mutations can visually succeed while durable Core state remains unchanged. This is the current highest architectural risk.
-2. **Compatibility bridge accumulation:** `Main.V1020...` bridges are acceptable only while shrinking widget authority in the active slice. Do not let them become permanent parallel business logic.
-3. **False acceptance from CI:** rendering/CUDA/storage behavior still requires reference-machine evidence.
-4. **Provider-framework drift:** readiness infrastructure must serve one reliable default route before supporting more adapters.
-5. **Release starvation:** do not keep v1.0.20 open for unrelated refactor work once its bounded Stage-C increment is coherent.
-6. **Release regression churn:** target-machine failures should be fixed forward in the next semantic version, never by altering a published build.
+Do not spend v1.0.20 cycles on:
 
-## 10. Next Coordinator-level objectives for Dev Cycle
+- full sculpt migration;
+- broad legacy `Main.V*.cs` removal;
+- full durable Job Broker architecture;
+- Rig & Pose modernization;
+- kitbash/parts expansion;
+- provider proliferation;
+- full UI rewrite;
+- optional cleanup feature breadth.
 
-Until superseded by a later Coordinator review, the Dev Cycle should:
+## 8. Technical risks to watch
 
-1. finish authoritative Stage-C transform transactions/persistence/undo;
-2. migrate exactly one bounded mesh-edit/sculpt commit path to immutable child revisions;
-3. regression-test save/reload/undo/stale cleanup/export interactions;
-4. harden the revision→validated-STL seam if it can be done without duplicate authority;
-5. once those are coherent and release gates pass, publish v1.0.20 rather than broadening scope;
-6. after publication, move code work to v1.0.21 and prioritize actual reference-machine findings over speculative refactor work.
+1. Release orchestration churn must not cause application-scope churn.
+2. Repeated release-control fixes must preserve all safety gates rather than progressively bypass them.
+3. v1.0.20 must remain frozen during an active release request so request SHA and branch state cannot diverge.
+4. Target-machine acceptance still cannot be inferred from CI, even after a successful Windows release workflow.
+5. Published versions remain immutable; failures discovered after release are fixed in v1.0.21+.
+6. Compatibility bridges remain transitional and should only be broadened after Stage-C evidence justifies it.
 
-## 11. User input
+## 9. Next Coordinator-level objectives for Dev Cycle
 
-No product-level decision currently blocks development. The user will be needed for reference-machine acceptance once v1.0.20 is published, especially viewport/storage behavior and real 3D provider qualification.
+Until superseded by a later Coordinator review:
+
+1. repair the release-control PowerShell success/exit handling without weakening any gate;
+2. resubmit the exact final v1.0.20 HEAD through the existing release request and freeze the branch;
+3. drive the autonomous release to a definitive success or genuine failing gate;
+4. on success, verify v1.0.20 publication and move all further application development to v1.0.21;
+5. prioritize real reference-machine findings over speculative architecture work;
+6. only after acceptance evidence, resume broader MS-019/MS-020 work.
+
+## 10. User input
+
+No product-level decision or manual release action currently blocks autonomous engineering. User involvement becomes necessary after v1.0.20 publication for reference-machine acceptance evidence.
