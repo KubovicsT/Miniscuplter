@@ -124,7 +124,7 @@ Last reconciled: 2026-09-10
 - **Actual:** user repeatedly observed a flat/empty gray viewport.
 - **Attempts/fixes:** multiple grid implementations; explicit SubViewport sizing/world/camera work; v1.0.15 triangle-bar grid; v1.0.17 recovery/rebind/material/gizmo logic; v1.0.18 native viewport tool foundation; v1.0.19 adds `Main.V1019ViewportPipeline.cs` with native `SubViewportContainer`, explicit world/camera ownership, starter mesh, visible materials, grid rebuild, selection/gizmo refresh and render-frame diagnostics.
 - **Result:** v1.0.19 is now published after full Windows export/hash/installer validation. The runtime/UI symptom remains unverified on the user's actual machine.
-- **Next action:** test released v1.0.19 on the target PC; if still blank, capture viewport diagnostics/render-probe output and fix root scene/render ownership rather than adding overlays.
+- **Next action:** test released v1.0.20 once published; if still blank, capture viewport diagnostics/render-probe output and fix root scene/render ownership rather than adding overlays.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -164,8 +164,8 @@ Last reconciled: 2026-09-10
 - **Expected:** generated 2D images, masks, 3D outputs, job artifacts, caches, logs and temporary files use the Miniscuplter-controlled data root, normally beside the installation/data area unless user explicitly configures another root.
 - **Actual:** paths under `C:\Users\...\AppData\Roaming\Godot\...` were visible.
 - **Attempts/fixes:** update/model temp was progressively redirected from v1.0.7 onward; v1.0.17 added contained workspace paths; v1.0.18 added authoritative `AppDataRoot` and environment redirection for APPDATA/LOCALAPPDATA/TEMP/HF/Torch/Pip/Python caches; v1.0.19 adds backend storage and Windows canonical containment hardening/tests.
-- **Result:** v1.0.19 containment hardening is now published after automated Windows validation, but real-machine verification is required to prove no important path remains on C:.
-- **Next action:** on released v1.0.19 run representative 2D edit, 3D generation, reference download, geometry operation, capture, save and cancellation; inspect all emitted paths/process environments.
+- **Result:** containment hardening is published in v1.0.19 and carried into v1.0.20, but real-machine verification is required to prove no important path remains on C:.
+- **Next action:** on released v1.0.20 run representative 2D edit, 3D generation, reference download, geometry operation, capture, save and cancellation; inspect emitted paths/process environments.
 
 ## MS-014 — Quality presets were opaque and not manageable
 
@@ -213,11 +213,13 @@ Last reconciled: 2026-09-10
 - **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit / reinforced by user testing
 - **Expected:** on GTX 1080/8 GB + 16 GB RAM, the user can complete `2D → accept baseline → qualified 3D → visible/editable mesh → save/reload → cleanup → validated STL`, with cancellation recovery and contained storage.
-- **Actual:** the production path now reaches durable cleanup and explicit validated STL export in code, but normal mapped-object editing state is still partly widget-authoritative and the complete flow has not been qualified on the target machine.
-- **Attempts/fixes:** v1.0.12–v1.0.19 hardened provider, viewport, storage, geometry and update seams. v1.0.20 moved accepted baseline, generated candidate, explicit Apply/Discard, transport identity, and save-failure recovery onto Core/ProjectStore. This run added `StageCCleanup` (`3f34cd0...`), the Stage-C-aware repair/export bridge (`35078ab...`, installed by `55db2a7...`), and cleanup lineage/export-scope tests (`52feda4...`). The first new Core run `34499552249` failed because Applied candidate validation incorrectly required the generated revision to remain current after cleanup. That failed attempt exposed the real lineage bug. Commit `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b` fixed validation so the generated revision must remain in the active descendant lineage instead.
-- **Result:** an applied Stage-C object can now be repaired into a new immutable child `MeshRevision`, saved/reloaded with generation provenance intact, and exported from an explicit exact active object/revision scope. STL is only backend/export interchange. Target-machine qualification and authoritative normal transform/sculpt persistence remain incomplete.
-- **Verification:** failed Core run `34499552249` is retained as evidence of the discovered lineage defect. Replacement `core-foundation` run `34499826871` passed. Broader Windows build `34499826741` passed Python/core/execution tests, real geometry regressions, release audit, C# builds, portable package/layout/SHA and installer-definition compilation at the latest check.
-- **Next action:** migrate mapped Stage-C transforms and the minimum sculpt/edit mutation into ProjectSession/immutable revision transactions, then run the complete thin slice on the target machine.
+- **Actual:** the bounded production path is now coherent in code/tests through committed transform and one bounded sculpt edit, but the complete workflow has not yet been qualified on the target machine.
+- **Attempts/fixes:** v1.0.12–v1.0.19 hardened provider, viewport, storage, geometry and update seams. Earlier v1.0.20 work moved accepted baseline, generated candidate, explicit Apply/Discard, transport identity, recovery-safe saves, cleanup and exact STL export onto Core/ProjectStore. This run added `StageCEditing` and production hooks so toolbar/native-gizmo transforms become `ProjectObject.Transform` transactions and one native sculpt stroke becomes a new immutable child `MeshRevision`. Commits include `e67a2d3...`, `01db848...`, `68725d0...`, `b556602...`, `df8730b...`, `eb2aefc...`, `0ecdbc9...`, and `e71d55f...`.
+- **Self-review results:** viewport commit observation is delayed until the authoritative v1.0.18 viewport handler is installed; duplicate legacy sculpt undo is removed after the Core commit/revert; transform-only commits avoid unnecessary mesh reloads; stale sculpt output is rejected.
+- **Release-prep history:** build `34502642479` at `a588afa...` failed release audit because version metadata was only partially advanced to 1.0.20; this was corrected. An accidental connector-side truncation of `ai_backend/app.py` was caught before release by compare and fully restored in `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`; compare against `e71d55f...` confirms the backend delta is now only APP_VERSION +1/-1.
+- **Result:** the Coordinator-defined bounded v1.0.20 Stage-C code scope is complete enough to publish a test build once release gates pass. Stage-C itself remains unaccepted pending real GTX1080/16 GB evidence.
+- **Verification:** `core-foundation` run `34503132325` for `bc3106d...` passed. Build `34503132420` passed Python compilation/dependencies, core/execution/job tests, real geometry regressions, v1.0.20 release audit, C# builds, and portable package/layout/SHA; installer-definition completion must be reconciled before tagging.
+- **Next action:** publish immutable v1.0.20 through the existing tag-gated real Godot/export/installer-smoke workflow, then run the complete thin slice on the target machine.
 
 ## MS-019 — Legacy `Main.V*.cs` architecture remains authoritative
 
@@ -225,10 +227,10 @@ Last reconciled: 2026-09-10
 - **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit
 - **Expected target:** stable domain IDs/revisions, declarative UI, transactional commands/history, clean service boundaries.
-- **Actual:** many features still depend on partial `Main.V*.cs`, widget/scene state and compatibility reparenting. On mapped Stage-C objects, normal transform/sculpt mutations can still diverge from durable project state.
-- **Attempts/fixes:** Stage-B `Core` introduced stable IDs, project models, immutable mesh revisions, history, indexed project storage and legacy importer; v1.0.19 extended these foundations. v1.0.20 migrated accepted baseline → generation → review/apply → persistence. This run extended the same vertical slice through cleanup and final STL export: repair is now revision-bound and transactional for Stage-C objects, while legacy objects retain fallback behavior.
-- **Result:** the production Stage-C vertical slice now uses Core authority through cleanup/export, but editing between Apply and Cleanup still has legacy escape paths.
-- **Next action:** bind mapped-object move/rotate/scale and minimum sculpt commit semantics to ProjectSession transactions/new immutable revisions before broadening to unrelated subsystems.
+- **Actual:** legacy architecture remains authoritative outside migrated vertical slices, but the immediate Stage-C dual-authority gap targeted for v1.0.20 is now bounded.
+- **Attempts/fixes:** Stage-B Core introduced stable IDs, immutable revisions, history, project storage and migration. v1.0.20 migrated baseline → generation → review/apply → persistence → cleanup/export. This run added `Core/StageCEditing.cs` plus `Main.V1020StageCEditing.cs`: mapped move/rotate/scale/native-gizmo commits now update durable transforms, and one bounded native sculpt stroke advances an immutable child revision transactionally. Applied-object restore projects the durable transform back into Godot after restart.
+- **Result:** normal mapped Stage-C transform plus one committed mesh-edit path now use Core authority and full-state history. This does **not** resolve the broader legacy architecture issue or migrate all sculpt/tool paths.
+- **Next action:** do not broaden v1.0.20. Publish/qualify the Stage-C increment, then let the Coordinator sequence the next post-release migration slice.
 
 ## MS-020 — Final authoritative AI Job Broker / stale-result protection not complete
 
@@ -236,21 +238,21 @@ Last reconciled: 2026-09-10
 - **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit
 - **Expected:** durable job IDs, immutable input revision, one heavy GPU owner, structured stages, real cancellation, isolated outputs, stale-result candidate semantics and crash recovery.
-- **Actual:** structured progress and backend reset behavior exist, but request/backend lifecycle is not yet the full target durable job architecture.
-- **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; v1.0.20 added stable generation binding, end-to-end transport correlation and fail-closed save recovery. Stage-C cleanup continues to reuse the existing AIClient/backend geometry path rather than creating a parallel request mechanism; its Core binding rejects stale object revisions before applying results.
-- **Result:** generation stale/replay safety and project-save consistency are hardened, and cleanup is also revision-bound at the project boundary. Durable queue/resource ownership and crash recovery beyond ProjectStore recovery are still incomplete.
-- **Verification:** deterministic Core tests cover generation/candidate identity, save rollback, cleanup stale-result rejection and revision lineage.
-- **Next action:** finish the Stage-C editing-state migration, then return to durable queue/resource ownership/recovery.
+- **Actual:** structured progress/reset behavior and Stage-C identity exist, but request/backend lifecycle is not yet the full durable job architecture.
+- **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; v1.0.20 added stable generation binding, end-to-end transport correlation, fail-closed save recovery, revision-bound cleanup, and now stale-safe committed Stage-C editing state.
+- **Result:** the current Stage-C vertical slice has substantially stronger identity/persistence safety without creating a parallel request mechanism. Durable queue/resource ownership and crash recovery beyond current ProjectStore/backend reset behavior remain incomplete.
+- **Verification:** deterministic Core tests cover generation/candidate identity, save rollback, cleanup stale-result rejection, transform transactions, immutable edit lineage and stale sculpt rejection.
+- **Next action:** resume broader durable queue/resource ownership/crash-recovery work after v1.0.20 release/Stage-C acceptance unless a concrete lifecycle defect blocks release.
 
 ## MS-021 — Canonical documentation was stale/incomplete
 
 - **Severity:** Medium project-management risk
 - **Status:** IN PROGRESS
 - **First observed:** 2026-09-10 autonomous-work bootstrap
-- **Evidence:** v1.0.18 repository README still identifies itself as v1.0.12; release history current-testing section also lags. Earlier handoff docs were not consistently present on release branches.
-- **Expected:** a new session can recover product truth, status, issues, decisions and current baton from the repository.
-- **Attempts/fixes:** canonical `PROJECT_CHARTER.md`, `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `HANDOFF.md` introduced on v1.0.19 and carried into v1.0.20. Recurring development runs are maintaining status/issues/handoff after coherent engineering work.
-- **Next action:** continue maintaining canonical files; later reconcile/remove misleading stale top-level documentation rather than allowing duplicate truth sources.
+- **Evidence:** older top-level documentation lagged release state; earlier handoff docs were not consistently present on release branches.
+- **Expected:** a new session can recover product truth, status, issues, decisions, Coordinator direction and current baton from the repository.
+- **Attempts/fixes:** canonical `PROJECT_CHARTER.md`, `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `HANDOFF.md` introduced and maintained; Coordinator planning now lives in `TECHNICAL_ROADMAP.md` / `COORDINATOR_LOG.md` with stable role separation.
+- **Next action:** continue maintaining canonical files; reconcile misleading duplicate top-level docs only when Coordinator priority permits.
 
 ## MS-022 — Provider readiness is not qualified strongly enough
 
@@ -261,8 +263,8 @@ Last reconciled: 2026-09-10
 - **Actual:** provider presence/routing historically overstated practical readiness; some optional providers require fragile native tooling or exceed reference hardware.
 - **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments, dependency preflights, runtime repair and model manifests existed before v1.0.20. v1.0.20 added persisted readiness states, lightweight import/CUDA probes for main single-mesh routes, readiness-aware Auto/explicit routing, non-blocking health status, and verified successful-inference qualification for the actual final provider with elapsed time/hardware context. Failed/cancelled jobs do not qualify or blacklist a provider; CI does not fake inference-tested status.
 - **Result:** the readiness contract is materially implemented, but target GTX1080 evidence and supported/default-vs-experimental provider policy remain incomplete.
-- **Verification:** v1.0.20 branch validation through the Stage-C bridge continues to pass Python/provider regression coverage; real provider inference remains target-machine work.
-- **Next action:** collect target-machine inference qualification for one intended lightweight/default 3D route and use measured evidence for default/support tiers.
+- **Verification:** v1.0.20 branch validation continues to pass Python/provider regression coverage; real provider inference remains target-machine work.
+- **Next action:** after v1.0.20 publication, collect target-machine inference qualification for one intended lightweight/default 3D route and use measured evidence for default/support tiers.
 
 ---
 
