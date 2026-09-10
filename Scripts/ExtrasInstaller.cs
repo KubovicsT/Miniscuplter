@@ -94,5 +94,10 @@ public partial class ExtrasInstaller : Node
         // Stage-C objects repair into a new immutable child revision and export from an explicit
         // ProjectObject + active MeshRevision scope; unrelated legacy objects keep the safe fallback.
         main.InstallV1020StageCCleanupExport();
+
+        // Close the remaining in-slice dual-authority gap without replacing the user's established
+        // tools: committed transforms and one bounded sculpt-stroke path project through Core state,
+        // persistence and transactional undo/redo for mapped Stage-C objects.
+        main.InstallV1020StageCEditingAuthority();
     }
 }
