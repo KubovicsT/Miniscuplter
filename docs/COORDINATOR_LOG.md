@@ -369,3 +369,21 @@ Coordinator will then independently review scope/gates and either:
 ### User dependency
 
 No new product decision is required. Released-v1.0.22 target-machine verification remains the main external dependency.
+
+---
+
+## 2026-09-10 — User-directed continuous-development release model
+
+The user refined the Coordinator-owned release process so Dev does not stop merely because it has reached or recorded a release-worthy checkpoint.
+
+Effective operating rule:
+- Dev may record exact checkpoint SHAs and validation evidence, then continue implementing the roadmap.
+- Checkpoints are advisory only and do not freeze the semantic-version branch.
+- Coordinator owns release chunk size and decides when accumulated scope is coherent/substantial enough to publish.
+- Only an actual Coordinator release request creates a freeze.
+- The release candidate is the exact current HEAD at the chosen boundary; do not rewind the moving version branch to an older checkpoint.
+- Before or as release-control is initiated, create/use the next forward semantic-version branch from the frozen SHA and make it the writable Dev branch.
+- Dev continues there while the prior version publishes.
+- A failed release preserves the frozen source until diagnosis; required fixes are managed forward without rewriting published history.
+
+This supersedes earlier same-day wording that required Dev to stop candidate-invalidating work merely after marking READY FOR COORDINATOR RELEASE REVIEW. The goal is continuous Dev throughput plus larger Coordinator-curated releases.
