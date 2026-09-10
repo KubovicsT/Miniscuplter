@@ -117,17 +117,19 @@ Last reconciled: 2026-09-10
 ## MS-009 — 3D viewport/grid/model/gizmo rendering is unstable or unreadable
 
 - **Severity:** Critical
-- **Status:** IN PROGRESS — REOPENED BY v1.0.20 REFERENCE-MACHINE TEST
-- **First observed:** repeatedly through v1.0.11–v1.0.18; new evidence on released v1.0.20
+- **Status:** FIXED - NEEDS USER VERIFICATION
+- **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine test
 - **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect.
 - **Historical actual:** output STL could exist while the center 3D surface was completely blank.
 - **v1.0.20 user evidence:** the grid/floor and starter model finally render, so the blank-viewport failure is substantially improved. However the normal resting floor/grid is very dark blue/gray, the model is too dark to make out details, and while the AI/right-side panel divider is actively dragged the grid temporarily appears correct. This makes the rendered state resize-dependent and not yet acceptable.
 - **User UX direction:** use a Blender-like solid-workspace visual hierarchy: neutral dark gray background, clearly visible neutral grid/major lines, colored axes, and a light/mid neutral-gray model with readable studio-style lighting rather than the current near-black blue presentation.
 - **Attempts/fixes:** multiple grid implementations; explicit SubViewport sizing/world/camera work; v1.0.15 triangle-bar grid; v1.0.17 recovery/rebind/material/gizmo logic; v1.0.18 native viewport tool foundation; v1.0.19 `Main.V1019ViewportPipeline.cs` with native `SubViewportContainer`, explicit world/camera ownership, starter mesh, grid rebuild and render diagnostics.
-- **Coordinator code review after v1.0.20 evidence:** v1.0.19 states that `Stretch=true` makes the container authoritative for viewport dimensions, but `V1017SyncViewport()` and `Main.V109Responsive.cs` still assign `SubViewport.Size`; v1.0.19 also schedules a delayed full repair after every host resize. The symptom appearing correctly during continuous divider movement but changing after layout settles strongly implicates this overlapping resize/repair authority. World ownership is also duplicated: v1.0.17 performs a one-time OwnWorld3D rebind, while v1.0.19 later assigns a fresh World3D without necessarily forcing the existing world/lights through the same re-registration path. These are evidence-backed hypotheses pending implementation proof.
-- **Result:** NOT RESOLVED. v1.0.20 proves that 3D pixels now reach the viewport, but MS-009 remains an acceptance blocker because the stable frame is visually wrong and model detail is unreadable.
-- **Next action:** fix forward on v1.0.21. Make one normal viewport-size owner, make world/light/environment/camera ownership idempotent, stop routine resize from performing destructive/full repair, adopt the Blender-like neutral-gray palette/lighting, add targeted regression/diagnostic coverage, publish a narrow test build when release-ready, then repeat launch/resize/settle/tab-switch/manual-repair checks on the reference machine.
-
+- **Coordinator code review after v1.0.20 evidence:** v1.0.19 stated that `Stretch=true` makes the container authoritative for viewport dimensions, but `V1017SyncViewport()` and `Main.V109Responsive.cs` still assigned `SubViewport.Size`; v1.0.18 called the same legacy sync every frame; v1.0.19 also scheduled a delayed full repair after every host resize. The symptom appearing correctly during continuous divider movement but changing after layout settled matched this overlapping resize/repair authority. World ownership was also duplicated between v1.0.17 and v1.0.19.
+- **v1.0.21 implementation:** commits `fa381d4...`, `4d064a4...`, `6b80e14...`, `88abb5c...` and `c00bfc8...` make `SubViewportContainer.Stretch` the normal size owner; make v1.0.9 responsive sizing and v1.0.18 per-frame sizing defer under the native pipeline; stop the v1.0.17 periodic viewport timer; remove delayed full repair from ordinary resize; replace the legacy tab full-repair handler with a lightweight native frame/presentation refresh; remove fresh explicit `World3D` assignment in favor of one owned world/recovery-only rebind; and apply neutral gray background/grid/materials with studio key/fill/ambient lighting. Render diagnostics now expose resize ownership, world configuration, light counts and frame luminance.
+- **Regression coverage:** v1.0.21 release audit asserts native Stretch ownership, absence of delayed resize repair and competing explicit world creation, legacy timer/per-frame/responsive deferral, and neutral studio presentation tokens.
+- **Result:** code-side root-seam remediation is implemented and compiles. It is intentionally not marked RESOLVED because the original failure is target-machine/render-driver dependent.
+- **Verification:** Stage-B/Core foundation CI passed for the code candidate; C#, Python/runtime, core/execution, geometry and v1.0.21 release-audit branch checks passed before final documentation. Full autonomous Godot Windows export/installer smoke and reference-machine behavior remain required.
+- **Next action:** publish the narrow immutable v1.0.21 test build through release-control once all release gates pass, then verify launch, divider drag/settle, tab switching, manual recovery, grid/axes contrast, model readability and gizmo behavior on the GTX 1080 / 16 GB reference PC. Reopen immediately if any resize-dependent or dark/unreadable state remains.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -222,7 +224,7 @@ Last reconciled: 2026-09-10
 - **Release-prep history:** build `34502642479` at `a588afa...` failed release audit because version metadata was only partially advanced to 1.0.20; this was corrected. An accidental connector-side truncation of `ai_backend/app.py` was caught before release by compare and fully restored in `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`; compare against `e71d55f...` confirms the backend delta is now only APP_VERSION +1/-1.
 - **Result:** the Coordinator-defined bounded v1.0.20 Stage-C code scope is complete enough to publish a test build once release gates pass. Stage-C itself remains unaccepted pending real GTX1080/16 GB evidence.
 - **Verification:** `core-foundation` run `34503132325` for `bc3106d...` passed. Build `34503132420` passed Python compilation/dependencies, core/execution/job tests, real geometry regressions, v1.0.20 release audit, C# builds, and portable package/layout/SHA; installer-definition completion must be reconciled before tagging.
-- **Next action:** publish immutable v1.0.20 through the existing tag-gated real Godot/export/installer-smoke workflow, then run the complete thin slice on the target machine.
+- **Next action:** v1.0.20 is now published; resume complete Stage-C target-machine qualification after MS-009 viewport verification no longer blocks visual inspection.
 
 ## MS-019 — Legacy `Main.V*.cs` architecture remains authoritative
 
@@ -233,7 +235,7 @@ Last reconciled: 2026-09-10
 - **Actual:** legacy architecture remains authoritative outside migrated vertical slices, but the immediate Stage-C dual-authority gap targeted for v1.0.20 is now bounded.
 - **Attempts/fixes:** Stage-B Core introduced stable IDs, immutable revisions, history, project storage and migration. v1.0.20 migrated baseline → generation → review/apply → persistence → cleanup/export. This run added `Core/StageCEditing.cs` plus `Main.V1020StageCEditing.cs`: mapped move/rotate/scale/native-gizmo commits now update durable transforms, and one bounded native sculpt stroke advances an immutable child revision transactionally. Applied-object restore projects the durable transform back into Godot after restart.
 - **Result:** normal mapped Stage-C transform plus one committed mesh-edit path now use Core authority and full-state history. This does **not** resolve the broader legacy architecture issue or migrate all sculpt/tool paths.
-- **Next action:** do not broaden v1.0.20. Publish/qualify the Stage-C increment, then let the Coordinator sequence the next post-release migration slice.
+- **Next action:** keep broad migration behind the current viewport/Stage-C acceptance work unless the Coordinator reprioritizes from new evidence.
 
 ## MS-020 — Final authoritative AI Job Broker / stale-result protection not complete
 
@@ -245,7 +247,7 @@ Last reconciled: 2026-09-10
 - **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; v1.0.20 added stable generation binding, end-to-end transport correlation, fail-closed save recovery, revision-bound cleanup, and now stale-safe committed Stage-C editing state.
 - **Result:** the current Stage-C vertical slice has substantially stronger identity/persistence safety without creating a parallel request mechanism. Durable queue/resource ownership and crash recovery beyond current ProjectStore/backend reset behavior remain incomplete.
 - **Verification:** deterministic Core tests cover generation/candidate identity, save rollback, cleanup stale-result rejection, transform transactions, immutable edit lineage and stale sculpt rejection.
-- **Next action:** resume broader durable queue/resource ownership/crash-recovery work after v1.0.20 release/Stage-C acceptance unless a concrete lifecycle defect blocks release.
+- **Next action:** resume broader durable queue/resource ownership/crash-recovery work after Stage-C acceptance unless a concrete lifecycle defect blocks testing.
 
 ## MS-021 — Canonical documentation was stale/incomplete
 
@@ -266,8 +268,8 @@ Last reconciled: 2026-09-10
 - **Actual:** provider presence/routing historically overstated practical readiness; some optional providers require fragile native tooling or exceed reference hardware.
 - **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments, dependency preflights, runtime repair and model manifests existed before v1.0.20. v1.0.20 added persisted readiness states, lightweight import/CUDA probes for main single-mesh routes, readiness-aware Auto/explicit routing, non-blocking health status, and verified successful-inference qualification for the actual final provider with elapsed time/hardware context. Failed/cancelled jobs do not qualify or blacklist a provider; CI does not fake inference-tested status.
 - **Result:** the readiness contract is materially implemented, but target GTX1080 evidence and supported/default-vs-experimental provider policy remain incomplete.
-- **Verification:** v1.0.20 branch validation continues to pass Python/provider regression coverage; real provider inference remains target-machine work.
-- **Next action:** after v1.0.20 publication, collect target-machine inference qualification for one intended lightweight/default 3D route and use measured evidence for default/support tiers.
+- **Verification:** v1.0.20 branch validation passed Python/provider regression coverage; real provider inference remains target-machine work.
+- **Next action:** after viewport acceptance, collect target-machine inference qualification for one intended lightweight/default 3D route and use measured evidence for default/support tiers.
 
 ---
 
