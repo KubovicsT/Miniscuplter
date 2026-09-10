@@ -8,42 +8,105 @@ Last updated: 2026-09-10
 
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7` (immutable).
 - **Current development branch:** `v1.0.23`.
-- **Current MS-027 tool-strip head:** `637282b2831a1c33d5fab9872b88b534e04593bf`.
-- **Previous fully validated bounded candidate:** `74ec73a14645071bb2742fb68f778bedd656aabd`.
+- **Latest fully validated bounded code candidate before documentation commits:** `ed58f35f6ae4e4a951ae1e551c8a34a955d12f12`.
+- **MS-028 repair commit:** `75e4990e04e273c00bf3eecc66e0ae93924b5571`.
 - **Overall completion:** **57% acceptance-weighted**.
 - **Critical path:** released-v1.0.22 Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety regression preempts UI fallback work.
 
-## This run
+## What this Dev Cycle completed
 
-Reference-machine evidence was still unavailable and no newer severe blocker was present, so the run executed exactly one Coordinator-approved MS-027 fallback slice: **direct viewport tool controls**.
+The run first honored the Coordinator's P0 gate and repaired **MS-028**, then—only after exact-head validation was green and reference-machine evidence was still unavailable—implemented exactly one next Coordinator-approved MS-027 slice.
 
-- `Main.V1023ViewportToolStrip.cs` hides the historical dropdown and presents compact direct Select / Move / Rotate / Scale / Sculpt controls.
-- Buttons are presentation-only: they call the existing `V1018ToolSelected` path and read the existing `_v1018Tool`; no second tool/input state machine was introduced.
-- The active tool is visibly latched through `ButtonPressed`.
-- Each compact control carries a tooltip instead of adding another instructional panel.
-- Existing v1.0.18 viewport input, v1.0.22 viewport ownership and Stage-C transform/sculpt authority remain unchanged.
-- `ExtrasInstaller` composes the strip after `InstallV1023UiPreferences()`.
+### MS-028 — compile regression repaired
+
+`Main.V1023ViewportToolStrip.cs` had a private `InstallV1023ViewportToolStrip()` composition entry point even though `ExtrasInstaller` calls it from another class. Commit `75e4990e04e273c00bf3eecc66e0ae93924b5571` changes only that entry point to `public`, matching the existing public composition contract used by `InstallV1023UiPreferences()`.
+
+The repair passed exact-head Core, C#, Python/runtime, geometry, release-audit, portable package/hash and installer-definition validation before additional feature work began.
+
+### MS-027 slice 3 — synchronized collapsible scene hierarchy
+
+New stable version-neutral presentation file `Scripts/Main.SceneHierarchy.cs` adds a Godot `Tree` in the existing SCENE region:
+
+- visible hierarchy is collapsible through normal Tree parent/child nodes;
+- entries are rebuilt from the existing live `_objects` collection and actual parent relationships;
+- no durable/project/scene state is stored by the hierarchy;
+- tree selection calls the existing `Select(obj)` owner and existing gizmo refresh path;
+- viewport/object selection is reflected back into the tree;
+- additions, removals, renames and reparenting are observed and rebuilt from live scene state;
+- the old `_sceneList` remains alive but hidden so legacy calls to `RebuildSceneList()` continue safely during migration;
+- synchronization runs at 5 Hz and performs a full rebuild only when the live object signature changes;
+- `ExtrasInstaller` composes `InstallSceneHierarchy()` after the v1.0.23 preferences/tool-strip layers.
 
 Commits:
-- `78175d712239449eb525ee12391d3c66c55ebde7` — direct tool strip;
-- `637282b2831a1c33d5fab9872b88b534e04593bf` — final composition wiring.
+- `c02b10d6ef9ee7660e9c955f8cc78b1b02fe25cc` — hierarchy implementation;
+- `ed58f35f6ae4e4a951ae1e551c8a34a955d12f12` — final composition wiring.
 
 ## Validation
 
-Exact-head validation has now completed and is **RED**. Core-foundation passed, and Python/runtime/geometry/release-audit plus packaging passed, but broader build fails in C# with `CS0122`: `ExtrasInstaller` calls `Main.InstallV1023ViewportToolStrip()` while that method is inaccessible. The later documentation-only head repeats the same C# failure. The previous v1.0.23 candidate `74ec73a...` remains the last fully green bounded candidate. **Do not start another feature slice until MS-028 is fixed and exact-head validation is green.**
+Exact code candidate `ed58f35f6ae4e4a951ae1e551c8a34a955d12f12` passed:
 
-No v1.0.23 release request exists. Do not release merely because this secondary UI slice becomes green.
+- `core-foundation` run `34530230515`: **PASS**;
+- `build` run `34530230570` C# editor/launcher/updater/Core job: **PASS**;
+- Python compile and dependency resolution: **PASS**;
+- core/execution/job regressions: **PASS**;
+- real geometry regressions: **PASS**;
+- release audit: **PASS**;
+- portable package layout/hash: **PASS**;
+- installer-definition compilation: **PASS**.
 
-## Primary next task
+The full Windows/Godot release and publish jobs were intentionally skipped because this was an ordinary development-branch push, not a release request.
 
-First inspect released-v1.0.22 target-machine evidence for MS-023/MS-024/MS-025/MS-018 and related MS-013/MS-022/MS-004 evidence. If any serious acceptance failure exists, fix it before UI work.
+No v1.0.23 release request exists. **Do not publish v1.0.23 merely because branch CI is green.**
 
-If acceptance evidence is still unavailable:
-1. **fix MS-028 first**: the C# `CS0122` accessibility/composition error for `InstallV1023ViewportToolStrip()`;
-2. obtain green exact-head C#/Core/Python/geometry/release-audit/packaging validation and update this handoff to the repaired SHA;
-3. if green and no acceptance blocker exists, take exactly one next Coordinator-approved MS-027 slice: **synchronized collapsible scene hierarchy**, reusing existing scene/object selection authority rather than creating duplicate project state;
-4. stop before view cube/AI console/telemetry in that cycle.
+Documentation-only commits after `ed58f35...` may trigger another exact-head branch workflow; the code candidate above is the fully validated implementation reference for this handoff.
+
+## Primary next task — always check this first
+
+Inspect for new user/reference-machine results from **released v1.0.22**. Any reproduced correctness, persistence, viewport, data-safety, cancellation or Stage-C regression preempts MS-027 immediately.
+
+Target acceptance sequence:
+
+1. accepted 2D baseline;
+2. qualified/Hunyuan 3D generation;
+3. visible Ready/Conflict Stage-C candidate;
+4. explicit Apply;
+5. save → close → reopen → same durable object and active mesh revision;
+6. Move/Rotate/Scale and one supported sculpt/edit path;
+7. cleanup and exact STL export;
+8. verify right-panel drag + whole-window resize remain visually stable;
+9. verify no starter sphere/opaque floor regression;
+10. inspect storage containment and, where practical, cancellation/recovery and resource/provider evidence.
+
+Relevant issues: **MS-023, MS-018, MS-009, MS-024, MS-025, MS-013, MS-022, MS-004**.
+
+## If reference-machine evidence is still unavailable
+
+If exact-head branch state remains green and no higher-priority unblocked issue exists, continue exactly one next Coordinator-approved MS-027 slice:
+
+**Next fallback slice: view cube + selected-object orbit pivot.**
+
+Requirements:
+- use the existing camera yaw/pitch/focus/distance owners rather than creating another camera state machine;
+- cube faces snap Front/Back/Left/Right/Top/Bottom; edges/corners may provide diagonal/isometric snaps if the bounded slice remains coherent;
+- cube orientation reflects the current camera;
+- normal orbit pivots around the current selected entity when one exists, while preserving the existing empty-scene focus behavior;
+- do not change durable project/object authority;
+- preserve v1.0.22 viewport/render ownership and the existing viewport tool/input owner;
+- add focused validation and stop before the AI console/telemetry work.
+
+Subsequent Coordinator order remains unified AI command/history/dispatcher → MS-026 telemetry → density/polish, always subordinate to critical-path acceptance findings.
+
+## Documentation note
+
+`PROJECT_STATUS.md` has been reconciled to the repaired/hierarchy state. The existing MS-028 ledger entry may still show its pre-fix OPEN wording because the available GitHub contents write is whole-file replacement and this run avoided risking a destructive rewrite of the large canonical issue ledger from a truncated retrieval. Treat the exact repository/CI evidence and this HANDOFF as authoritative for MS-028: the compile blocker is fixed and validated at `75e4990...` / carried through `ed58f35...`. The next safe full-ledger maintenance pass should change MS-028 to RESOLVED while preserving its failed-build history.
+
+## Release rules
+
+- Keep completion at **57%** until new acceptance evidence justifies a change.
+- MS-027 remains opportunistic and does not imply Stage-C acceptance.
+- Do not modify `TECHNICAL_ROADMAP.md` or `COORDINATOR_LOG.md` from Dev Cycle unless correcting an execution-safety factual contradiction.
+- A future v1.0.23 release must be scope-coherent, version-reconciled and pass the autonomous exact-SHA Godot/export/hash/installer-smoke gates before publication.
 
 ## User dependency
 
-No product decision is required. The external dependency remains reference-machine testing of released v1.0.22: generate → candidate → Apply → save/close/reopen → same durable object/revision, then transform/sculpt, cleanup/export, resize/presentation, storage containment and provider/resource behavior.
+No product/design decision is required. The external dependency remains reference-machine testing of released v1.0.22. Autonomous engineering can continue under the Coordinator fallback while that evidence is unavailable.
