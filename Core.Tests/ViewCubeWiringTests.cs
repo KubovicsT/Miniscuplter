@@ -16,9 +16,9 @@ internal static class ViewCubeWiringTests
 
         Assert(installer.Contains("InstallViewCube();", StringComparison.Ordinal), "view cube is not composed");
         Assert(installer.IndexOf("InstallSceneHierarchy();", StringComparison.Ordinal) < installer.IndexOf("InstallViewCube();", StringComparison.Ordinal), "view cube must compose after the earlier MS-027 presentation slices");
-        Assert(cube.Contains("ViewCubeFront", StringComparison.Ordinal) && cube.Contains("ViewCubeBack", StringComparison.Ordinal), "front/back face snaps missing");
-        Assert(cube.Contains("ViewCubeLeft", StringComparison.Ordinal) && cube.Contains("ViewCubeRight", StringComparison.Ordinal), "left/right face snaps missing");
-        Assert(cube.Contains("ViewCubeTop", StringComparison.Ordinal) && cube.Contains("ViewCubeBottom", StringComparison.Ordinal), "top/bottom face snaps missing");
+        Assert(cube.Contains("AddViewCubeFace(\"Front\"", StringComparison.Ordinal) && cube.Contains("AddViewCubeFace(\"Back\"", StringComparison.Ordinal), "front/back face snaps missing");
+        Assert(cube.Contains("AddViewCubeFace(\"Left\"", StringComparison.Ordinal) && cube.Contains("AddViewCubeFace(\"Right\"", StringComparison.Ordinal), "left/right face snaps missing");
+        Assert(cube.Contains("AddViewCubeFace(\"Top\"", StringComparison.Ordinal) && cube.Contains("AddViewCubeFace(\"Bottom\"", StringComparison.Ordinal), "top/bottom face snaps missing");
         Assert(cube.Contains("host.GuiInput += ViewCubeObserveViewportInput", StringComparison.Ordinal), "selected-object orbit pivot observer missing");
         Assert(cube.Contains("FocusCameraOnSelectionPreservingPosition", StringComparison.Ordinal), "selected-object focus helper missing");
         Assert(cube.Contains("_yaw = Mathf.Atan2", StringComparison.Ordinal) && cube.Contains("_pitch = Math.Clamp", StringComparison.Ordinal), "orbit retarget does not reuse existing camera state");
