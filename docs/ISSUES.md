@@ -315,6 +315,84 @@ Last reconciled: 2026-09-10
 - **Product value:** supports MS-022 provider qualification and future evidence-based Fast/Balanced/Quality routing instead of being decorative monitoring.
 - **Priority:** implement after the current correctness/persistence and viewport blockers unless minimal sampling directly helps MS-022 acceptance.
 
+## MS-027 — Modular resizable workspace UI overhaul
+
+- **Severity:** Medium product/UX modernization
+- **Status:** PLANNED — OPPORTUNISTIC WORKSTREAM
+- **User direction:** 2026-09-10 annotated UI screenshot and follow-up specification.
+- **Scheduling rule:** this work must not displace an active correctness, persistence, data-safety, release, or acceptance blocker. The Dev Cycle may advance a bounded MS-027 slice when the critical path is genuinely blocked on user testing/input or there is otherwise no higher-priority unblocked task. Any newly reproduced critical-path regression immediately preempts MS-027 work.
+- **Primary goal:** make Miniscuplter feel like a compact modeling application rather than a large form full of explanatory text, while preserving the existing backend/state semantics.
+
+### Required workspace structure
+
+1. **Viewport tool bar**
+   - Move, Rotate, Scale, Sculpt and other real viewport tools are separate icon buttons, not a dropdown.
+   - Active tool is visibly highlighted.
+   - Long explanatory text moves to hover tooltips/help rather than permanently occupying viewport space.
+
+2. **Interactive view selector cube**
+   - viewport-corner orientation cube rotates with the camera;
+   - clickable faces snap to Front/Back/Left/Right/Top/Bottom;
+   - clickable edges/corners snap to diagonal/isometric views;
+   - normal orbit pivots around the currently selected scene entity when one exists.
+
+3. **Compact information density**
+   - smaller default text than the current UI;
+   - user-adjustable UI/font scale in Settings;
+   - unnecessary always-visible instructional paragraphs removed;
+   - tooltips provide explanations on hover;
+   - important state, errors, progress and destructive-action warnings remain directly visible.
+
+4. **Scene hierarchy**
+   - left scene area becomes a collapsible tree/hierarchy for every scene entity;
+   - parent/child structure is represented;
+   - tree selection and viewport selection stay synchronized;
+   - this is a presentation of durable project/object identity, not a second independent scene-state model.
+
+5. **Performance/resource panel**
+   - integrate the MS-026 rolling resource telemetry here;
+   - GPU utilization, dedicated VRAM, system RAM, GPU temperature and useful CPU data where available;
+   - provider/job stage/elapsed time and compact peak summary.
+
+6. **Unified AI command console**
+   - one primary AI prompt/command entry surface;
+   - previous commands/history are visible and reusable;
+   - keyboard Up/Down history navigation plus explicit previous/next controls;
+   - action buttons on the right invoke correctly named contextual AI operations, e.g. Generate 2D Concept, Edit Selected Region, Enhance Selected Region, Generate 3D from Accepted Image, Generate Alternative, Smart Select, and only other actions that actually exist;
+   - all buttons and typed commands route through one authoritative command/action dispatch layer. Do not create duplicate AI handlers or parallel state ownership.
+
+### Global requirements
+
+- Major workspace regions must be resizable where sensible.
+- Persist workspace layout across restarts: splitter positions, panel dimensions, collapsed/expanded states, UI/font scale and other layout choices.
+- The viewport remains the dominant visual area.
+- Do not implement the overhaul as one monolithic rewrite. Deliver small reversible slices that preserve existing Stage-C behavior.
+- Prefer a single current UI composition owner rather than adding another versioned overlay on top of legacy UI.
+- Maintain keyboard/mouse accessibility and sensible minimum sizes at normal Windows display scaling.
+
+### Recommended implementation order when opportunistic work is allowed
+
+1. persistent workspace-layout settings + UI/font scale + tooltip infrastructure;
+2. icon-based viewport tool strip;
+3. scene hierarchy tree synchronized with selection;
+4. view cube + selection-centered orbit;
+5. unified AI command console/history using one dispatch owner;
+6. MS-026 performance graphs inside the planned performance region;
+7. spacing/polish and removal of obsolete explanatory UI.
+
+### Acceptance
+
+- restart reproduces saved workspace layout and UI scale;
+- major panels can be resized without black seams or viewport-state changes;
+- viewport tools are directly accessible as icons;
+- scene-tree and viewport selection agree;
+- view cube snaps correctly and tracks camera orientation;
+- orbit uses the selected entity as pivot;
+- AI history navigation works and actions are routed once;
+- tooltips replace nonessential persistent explanations;
+- resource panel is low-overhead and local-only per MS-026;
+- no Stage-C persistence, generation, transform, cleanup/export or cancellation regression.
+
 ---
 
 ## Issue handling rules
