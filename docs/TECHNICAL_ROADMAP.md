@@ -246,3 +246,16 @@ This feature is especially valuable as instrumentation for **MS-022** provider q
 ### First Hunyuan reference-machine evidence
 
 A successful Hunyuan-mini run completed in roughly **402 s** on the GTX 1080 reference PC. The supplied Task Manager snapshot showed approximately **97% GPU utilization**, **5.4/8.0 GB dedicated VRAM**, **5.0/15.9 GB system RAM used**, and **73 °C GPU temperature**. These are observed snapshot values, not measured peaks. They are sufficient to preserve as useful MS-022 evidence while the application-side telemetry feature is built later.
+
+
+### v1.0.21 viewport retest outcome
+
+Reference-machine verification now provides a split result:
+
+- **PASS:** the initial 3D viewport presentation is finally good/readable on the target PC.
+- **FAIL:** resizing the right-side AI panel still changes viewport color.
+- **FAIL:** whole-window resize still exposes black seams/gaps (MS-024).
+
+Strategic consequence: do not reopen the whole viewport architecture. Preserve the v1.0.21 single-size-owner improvements and remove the remaining **presentation/layout duplicate authority**. In particular, legacy `V1017RepairViewport()` still mutates environment colors/ambient settings despite the native v1.0.19+ pipeline; it must not remain an independent presentation owner. Separately fix the root/outer layout so the client area is always fully covered after window resizing.
+
+Priority remains: MS-023 persistence correctness first, then these narrowly reproduced MS-009/MS-024 residuals, then resume full Stage-C acceptance.
