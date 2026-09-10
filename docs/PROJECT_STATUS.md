@@ -82,3 +82,12 @@ No release request has been submitted for v1.0.23. v1.0.23 is **development-only
 ## User input currently required
 
 No product/design decision is required. The important external dependency is reference-machine verification of released v1.0.22; until that arrives, bounded MS-027 work may continue under the Coordinator fallback rule.
+
+
+## Release ownership / readiness
+
+Release ownership belongs exclusively to the Project Coordinator.
+
+Dev Cycle prepares and validates candidate SHAs but does not publish. Current v1.0.23 state is **development-only / NOT READY FOR COORDINATOR RELEASE REVIEW**. No v1.0.23 release request exists.
+
+When a candidate is ready, HANDOFF/STATUS must record the exact SHA, validation evidence, remaining risks and explicit **READY FOR COORDINATOR RELEASE REVIEW** status. Coordinator then independently decides whether to freeze and publish the exact candidate.
