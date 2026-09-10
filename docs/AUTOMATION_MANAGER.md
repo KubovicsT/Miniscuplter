@@ -17,7 +17,7 @@ Last manager review/update: 2026-09-10 23:39 Europe/Budapest
 ### Miniscuplter Coordination
 - Task ID: `6aa30b540870819184a402ac09186176`.
 - Status: enabled.
-- Schedule: 00:30, 06:30, 12:30, 18:30 Europe/Budapest.
+- Schedule: 00:30, 03:30, 06:30, 09:30, 12:30, 15:30, 18:30, 21:30 Europe/Budapest.
 - Latest visible run at this checkpoint: 2026-09-10 23:30 Europe/Budapest.
 - Role: technical director / roadmap owner / exclusive release-readiness and release-publication owner.
 - Current observation: the latest Coordinator review reconciled the roadmap to v1.0.22/v1.0.23, preserved the Stage-C acceptance priority, resolved the MS-028 planning-state inconsistency, and explicitly kept v1.0.23 NOT READY FOR COORDINATOR RELEASE REVIEW.
@@ -33,7 +33,7 @@ Last manager review/update: 2026-09-10 23:39 Europe/Budapest
 ### Daily Minisculpter report
 - Task ID: `6aa30a0e2a448191ba7b6263645b94f7`.
 - Status: enabled.
-- Schedule: daily 22:15 Europe/Budapest.
+- Schedule: daily 22:45 Europe/Budapest.
 - Latest visible run at this checkpoint: 2026-09-10 23:27 Europe/Budapest.
 - Role: reporting only; executive-summary format, with specialist-chat pointers for detail.
 - Current observation: the new concise-report prompt is active. Timing still sits only 15 minutes after the 22:00 Dev start, so the no-race gate may often have to wait for Dev to finish.
@@ -150,13 +150,13 @@ The Manager attempted to recover current Dev Cycle, Coordinator and Daily Report
 
 ### PF-010 — Coordinator release-review latency after ownership transfer
 Severity: Medium
-Status: OPEN — AMP-003 PROPOSED
+Status: MITIGATION APPLIED — AMP-003
 
 The Coordinator is now the exclusive release owner but still runs only every six hours. Once Dev marks a candidate READY FOR COORDINATOR RELEASE REVIEW and stops candidate-invalidating work, a candidate can sit blocked for nearly six hours before the next release decision. This is a process-design consequence of the ownership transfer, not a current release failure.
 
 ### PF-011 — Daily Report timing is close to hourly Dev start
 Severity: Low/Medium
-Status: OPEN — AMP-004 PROPOSED
+Status: MITIGATION APPLIED — AMP-004
 
 The executive Daily Report runs at 22:15 while Dev starts at 22:00. Because Dev cycles can legitimately exceed 15 minutes, the report's no-race gate may repeatedly wait or risk reporting an in-progress day state. The shorter executive format makes a later :45 slot practical.
 
@@ -202,7 +202,7 @@ Observed outcome:
 ## Active proposals awaiting user approval
 
 ### AMP-003 — Increase Coordinator cadence for release-owner responsiveness
-Status: **PROPOSED - AWAITING USER APPROVAL**
+Status: **APPROVED / APPLIED — INCONCLUSIVE PENDING VERIFICATION**
 
 - **Target task:** Minisculpter Coordination
 - **Task ID:** `6aa30b540870819184a402ac09186176`
@@ -214,7 +214,7 @@ Status: **PROPOSED - AWAITING USER APPROVAL**
 - **Verification plan:** over the next two release-candidate handoffs, measure candidate-ready → Coordinator decision latency and watch for priority churn or repeated scheduler collisions.
 
 ### AMP-004 — Move Daily Report from :15 to :45
-Status: **PROPOSED - AWAITING USER APPROVAL**
+Status: **APPROVED / APPLIED — INCONCLUSIVE PENDING VERIFICATION**
 
 - **Target task:** Daily Minisculpter report
 - **Task ID:** `6aa30a0e2a448191ba7b6263645b94f7`
@@ -230,6 +230,14 @@ Status: **PROPOSED - AWAITING USER APPROVAL**
 None.
 
 ## Review history
+
+### 2026-09-10 — AMP-003 and AMP-004 approved/applied
+- User explicitly approved both proposals.
+- AMP-003: changed `Minisculpter Coordination` from every six hours to every three hours at :30: 00:30, 03:30, 06:30, 09:30, 12:30, 15:30, 18:30, 21:30 Europe/Budapest.
+- AMP-004: changed `Daily Minisculpter report` from 22:15 to 22:45 Europe/Budapest.
+- Prompts, titles and enablement were preserved.
+- Verification remains pending: measure release-candidate-ready → Coordinator-decision latency, watch for Coordinator churn/races, and check whether Daily Report avoids in-progress snapshots.
+
 
 ### 2026-09-10 23:39 — Manual Manager review after release-ownership transition
 - No-race gate passed after the 23:30 Coordinator write and exact-head CI completed.
