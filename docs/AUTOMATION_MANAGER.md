@@ -2,7 +2,7 @@
 
 > Durable supervisory memory for scheduled-task/process reviews. Read this file completely at the start of every manager run. Preserve failed/rejected history.
 
-Last manager review/update: 2026-09-10 21:40 Europe/Budapest
+Last manager review/update: 2026-09-10 23:39 Europe/Budapest
 
 ## Stable hierarchy
 
@@ -14,40 +14,37 @@ Last manager review/update: 2026-09-10 21:40 Europe/Budapest
 
 ## Current task registry
 
-### Miniscuplter Project Coordinator
-- Task ID: `6aa2d384de1c8191b1c8dc27c369e1d4`.
+### Miniscuplter Coordination
+- Task ID: `6aa30b540870819184a402ac09186176`.
 - Status: enabled.
-- Schedule: 04:30, 10:30, 16:30, 22:30 Europe/Budapest.
-- Last completed run visible to scheduler at this checkpoint: 2026-09-10 19:41:05 Europe/Budapest.
-- Role: technical director / lead architect / roadmap owner.
-- Durable outputs: `docs/TECHNICAL_ROADMAP.md`, `docs/COORDINATOR_LOG.md`.
-- Prompt materially includes a Dev no-race gate, roadmap ownership, architecture/priority authority, and a prohibition on routine implementation/automation mutation.
-- Current observation: strategic direction is evidence-driven and stable, including the v1.0.21/v1.0.22 acceptance corrections and the bounded MS-027 fallback. However, the main body/header of `TECHNICAL_ROADMAP.md` is stale relative to its own later addenda, HANDOFF, PROJECT_STATUS and actual v1.0.22/v1.0.23 state. This must be reconciled by the Coordinator rather than silently worked around long-term.
+- Schedule: 00:30, 06:30, 12:30, 18:30 Europe/Budapest.
+- Latest visible run at this checkpoint: 2026-09-10 23:30 Europe/Budapest.
+- Role: technical director / roadmap owner / exclusive release-readiness and release-publication owner.
+- Current observation: the latest Coordinator review reconciled the roadmap to v1.0.22/v1.0.23, preserved the Stage-C acceptance priority, resolved the MS-028 planning-state inconsistency, and explicitly kept v1.0.23 NOT READY FOR COORDINATOR RELEASE REVIEW.
 
-### Miniscuplter Dev Cycle
-- Task ID: `6aa283cdd0648191be0ef0590591c59a`.
+### Miniscuplter Dev
+- Task ID: `6aa30b48fcd88191b7cb88cddfaa8b49`.
 - Status: enabled.
 - Schedule: hourly on whole hours.
-- Last completed run visible to scheduler at this checkpoint: 2026-09-10 21:37:02 Europe/Budapest.
-- Role: implementation worker executing Coordinator roadmap + HANDOFF.
-- AMP-001 release/version reconciliation gate remains applied.
-- Current observation: the latest completed cycle was aligned with the Coordinator fallback. With released-v1.0.22 acceptance externally blocked on target-machine testing, it implemented exactly one bounded MS-027 UI-preference slice, added focused ownership/storage regression guards, kept the acceptance path as P0, and did not submit a v1.0.23 release merely because CI was green.
+- Latest visible run at this checkpoint: 2026-09-10 23:10 Europe/Budapest.
+- Role: implementation worker; prepares and validates exact release candidates but does not publish them.
+- Current observation: HANDOFF cleanly states the new candidate-handoff contract and current v1.0.23 state is NOT READY FOR COORDINATOR RELEASE REVIEW.
 
-### Miniscuplter Daily Report
-- Task ID: `6aa283d6f8708191896518d6a62eec15`.
+### Daily Minisculpter report
+- Task ID: `6aa30a0e2a448191ba7b6263645b94f7`.
 - Status: enabled.
-- Schedule: daily 20:00 Europe/Budapest.
-- Last completed run visible to scheduler at this checkpoint: 2026-09-10 20:00:48 Europe/Budapest.
-- Role: reporting only; includes Coordinator, Dev Cycle and Automation Manager synthesis.
-- Current observation: exact user-facing output from the separate report chat was not surfaced to this Manager review, so response accuracy is not invented. The run occurred before the 21:23 local publication of v1.0.22 and before the later v1.0.23 UI work, so omission of those later events would not itself indicate report staleness.
+- Schedule: daily 22:15 Europe/Budapest.
+- Latest visible run at this checkpoint: 2026-09-10 23:27 Europe/Budapest.
+- Role: reporting only; executive-summary format, with specialist-chat pointers for detail.
+- Current observation: the new concise-report prompt is active. Timing still sits only 15 minutes after the 22:00 Dev start, so the no-race gate may often have to wait for Dev to finish.
 
-### Miniscuplter Automation Manager
-- Task ID: `6aa2b5d15dbc81919417034c3741b419`.
+### Minisculpter Automation
+- Task ID: `6aa30b550bfc8191a5b885b413ebc2f4`.
 - Status: enabled; excluded from worker scoring.
-- Schedule definition: `RRULE:FREQ=HOURLY;INTERVAL=12;BYMINUTE=0`.
-- Last completed scheduled run visible at this checkpoint: 2026-09-10 18:47:00 Europe/Budapest.
+- Schedule: 05:30 and 17:30 Europe/Budapest.
+- Latest visible scheduled run: none yet since the new task was created.
 - Role: process/automation supervision only.
-- Current scheduled prompt is an earlier Manager charter. The dedicated-chat charter supplied by the user on 2026-09-10 adds material cross-chat user-facing-response review, richer no-race/release-freeze checks, explicit MS-027 blocked-work context, and more detailed durable-memory requirements. This mismatch is tracked as AMP-002 and is not being silently applied.
+- Current observation: the active task already uses the dedicated Manager charter and the Coordinator-owned release model. The older disabled Manager automation is no longer the live task and should not drive current proposals.
 
 ## User-directed release ownership change — 2026-09-10
 
@@ -86,17 +83,14 @@ Verification focus:
 - Repository: `KubovicsT/Miniscuplter`.
 - Latest published stable: `v1.0.22`.
 - Stable release target: `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
-- v1.0.22 published: 2026-09-10 21:23:03 Europe/Budapest through the autonomous verified release path.
 - Current development branch: `v1.0.23`.
-- Exact branch HEAD reviewed: `39c0ed92ec4a0b2f64f13e3d0d2cb9ba176eae83` (`docs: finalize v1.0.23 UI handoff validation`).
-- Latest bounded application/test candidate before documentation-only commits: `74ec73a14645071bb2742fb68f778bedd656aabd`.
-- Acceptance-weighted completion: **57%**.
-- Exact-head `core-foundation` run `34521310884`: SUCCESS.
-- Exact-head broader `build` run `34521310943`: SUCCESS.
-- No v1.0.23 release request is recorded in HANDOFF; v1.0.23 remains development-only.
-- No-race checkpoint: the latest Dev Cycle and its exact-head CI had completed before this Manager write; the next Coordinator run is scheduled for 22:30 local.
-- Canonical execution state in HANDOFF/PROJECT_STATUS is coherent with actual release/branch truth.
-- Coordinator planning state is only partially coherent: latest addenda and HANDOFF reflect v1.0.22/v1.0.23 and MS-027 fallback, but the main roadmap header/current-objective/priority sections still describe v1.0.21/MS-009 as the immediate live state.
+- Exact current branch HEAD reviewed: `5d6132ee0d8e13c40ff264261298aa65ee2d2206` (`coord: resolve validated MS-028 regression`).
+- Exact-head `core-foundation` run `34532537710`: SUCCESS.
+- Exact-head broader `build` run `34532537725`: SUCCESS.
+- No `v1.0.23` release-control request exists.
+- HANDOFF / PROJECT_STATUS / TECHNICAL_ROADMAP now agree that v1.0.23 is development-only and NOT READY FOR COORDINATOR RELEASE REVIEW.
+- Acceptance-weighted completion remains **57%**.
+- No-race checkpoint passed: the latest Coordinator repository write and exact-head CI completed before this Manager review; no active v1.0.23 release freeze exists.
 
 ## Process findings
 
@@ -130,46 +124,41 @@ Status: WORKING AS INTENDED
 
 The first coordinator attempt deferred while Dev/CI state was still moving. The next clean review initialized the roadmap/log from a completed state and did not compete with implementation work.
 
-### PF-006 — Release publication blocked by connector capability, not process failure
-Severity: Medium operational constraint
-Status: OPEN / TOOLING-LIMITED
-
-Evidence:
-- The Dev Cycle reached a coherent v1.0.20 release-candidate state and exact-head branch CI is green.
-- The established release workflow is intentionally triggered from a semantic-version tag.
-- Current GitHub connector discovery exposes branch/ref movement but no tag-creation or release-creation action.
-
-Assessment:
-This is not evidence of a bad Dev prompt or bad release architecture. Do not weaken the tag-gated release process or repurpose a branch as a fake tag. If the connector remains unchanged, user-side tag creation may be required to trigger the existing release pipeline.
-
-### PF-007 — TECHNICAL_ROADMAP main body lags current release/acceptance state
+### PF-006 — Historical release-publication connector limitation
 Severity: Medium
-Status: OPEN — COORDINATOR DOCUMENT-COHERENCE ISSUE
+Status: CLOSED / SUPERSEDED
 
-Evidence:
-- Actual stable is v1.0.22 and development is v1.0.23.
-- HANDOFF/PROJECT_STATUS correctly say released-v1.0.22 acceptance is awaiting user/reference-machine verification and permit bounded MS-027 fallback work.
-- ROADMAP addenda contain the later MS-023/MS-024/MS-025 and MS-027 decisions, but the main header/current technical objective/ordered priorities still describe v1.0.21 and MS-009 as the immediate live release objective.
+Earlier connector limitations no longer represent the live release path. The repository's autonomous exact-SHA release-control workflow successfully published later releases including v1.0.22. Release publication is now Coordinator-owned and should continue through that verified mechanism.
 
-Assessment:
-This has not caused current Dev drift because HANDOFF and the later roadmap addenda are explicit, but it weakens the roadmap's role as one coherent medium/long-horizon source. The Coordinator should reconcile the main body on its next completed review. No automation prompt change is proposed yet because the existing Coordinator prompt already requires a current coherent roadmap; first observe whether the next run corrects it.
-
-### PF-008 — Scheduled Manager prompt lags the new dedicated-chat operating charter
+### PF-007 — TECHNICAL_ROADMAP main body lagged current release/acceptance state
 Severity: Medium
-Status: OPEN — AMP-002 PROPOSED
+Status: CLOSED
 
-Evidence:
-- The live scheduled Manager task still uses the earlier prompt.
-- The user supplied a materially expanded Manager charter on 2026-09-10 covering cross-chat user-facing-response review, stronger no-race/release-freeze evidence, MS-027 blocked-work interpretation, richer task-registry requirements and explicit response-quality auditing.
+The latest Coordinator review reconciled the roadmap main body to stable v1.0.22, development v1.0.23, 57% acceptance-weighted completion, Stage-C reference-machine acceptance as P0, bounded MS-027 fallback sequencing, and the new Coordinator-owned release model. No prompt change is needed for this finding.
 
-Assessment:
-The current chat follows the new charter, but future scheduled Manager runs are not guaranteed to. This is a prompt-state mismatch, not a worker failure.
+### PF-008 — Scheduled Manager prompt lagged the dedicated-chat operating charter
+Severity: Medium
+Status: CLOSED / SUPERSEDED
+
+The user created the active `Minisculpter Automation` task with the dedicated Manager charter and later synchronized it to the Coordinator-owned release model. The older Manager task is disabled. AMP-002 is therefore obsolete and requires no user action.
 
 ### PF-009 — Exact cross-chat response text unavailable at this checkpoint
 Severity: Informational
 Status: TOOL/CONTEXT-LIMITED
 
 The Manager attempted to recover current Dev Cycle, Coordinator and Daily Report user-facing outputs from project context, but no exact response text was surfaced. Per policy, absence is not treated as evidence that no response occurred. Repository/scheduler evidence is used instead, and response wording/verbosity claims are left unscored for this checkpoint.
+
+### PF-010 — Coordinator release-review latency after ownership transfer
+Severity: Medium
+Status: OPEN — AMP-003 PROPOSED
+
+The Coordinator is now the exclusive release owner but still runs only every six hours. Once Dev marks a candidate READY FOR COORDINATOR RELEASE REVIEW and stops candidate-invalidating work, a candidate can sit blocked for nearly six hours before the next release decision. This is a process-design consequence of the ownership transfer, not a current release failure.
+
+### PF-011 — Daily Report timing is close to hourly Dev start
+Severity: Low/Medium
+Status: OPEN — AMP-004 PROPOSED
+
+The executive Daily Report runs at 22:15 while Dev starts at 22:00. Because Dev cycles can legitimately exceed 15 minutes, the report's no-race gate may repeatedly wait or risk reporting an in-progress day state. The shorter executive format makes a later :45 slot practical.
 
 ## Successful practices worth preserving
 
@@ -184,6 +173,11 @@ The Manager attempted to recover current Dev Cycle, Coordinator and Daily Report
 - No-race behavior has worked for both Coordinator and Manager interactions so far.
 
 ## Proposal registry
+
+### AMP-002 — Synchronize the scheduled Automation Manager with the new dedicated-chat charter
+Status: **SUPERSEDED / NO ACTION REQUIRED**
+
+The active `Minisculpter Automation` task was created with the dedicated Manager charter and has since been synchronized to the Coordinator-owned release model. The previous target task is disabled. No user approval is needed and no further mutation should be made for AMP-002.
 
 ### AMP-001 — Harden Dev Cycle release/branch reconciliation
 Status: **APPROVED / APPLIED — HELPED**
@@ -207,23 +201,46 @@ Observed outcome:
 
 ## Active proposals awaiting user approval
 
-### AMP-002 — Synchronize the scheduled Automation Manager with the new dedicated-chat charter
+### AMP-003 — Increase Coordinator cadence for release-owner responsiveness
 Status: **PROPOSED - AWAITING USER APPROVAL**
 
-- **Target task:** Miniscuplter Automation Manager
-- **Task ID:** `6aa2b5d15dbc81919417034c3741b419`
-- **Evidence:** the live scheduled task still contains the earlier Manager prompt, while the user supplied a materially expanded dedicated-chat charter on 2026-09-10.
-- **Root cause:** moving the Automation Manager into its own Project chat and expanding cross-chat/process responsibilities did not automatically rewrite the existing scheduled task definition.
-- **Exact proposed change:** replace only the scheduled Manager task prompt with the user's new dedicated-chat Automation Manager charter from 2026-09-10. Preserve task ID, enablement state and current 12-hour schedule. Do not modify Coordinator, Dev Cycle or Daily Report automations.
-- **Expected benefit:** scheduled reviews use the same hierarchy/no-race rules as this chat; review user-facing cross-chat responses when available; correctly treat MS-027 fallback work; maintain the richer task registry and prior-change verification; avoid the scheduled Manager silently operating under older rules.
-- **Possible downside:** longer prompt and additional repository/context checks may increase scheduled-run tool usage and runtime.
-- **Verification plan:** over the next two completed Manager runs, verify that task IDs/schedules are recorded, exact cross-chat outputs are reviewed only when actually surfaced, missing chat output is not invented, MS-027 is not falsely labeled drift, previous AMP outcomes are classified, and no unapproved automation mutation occurs.
+- **Target task:** Minisculpter Coordination
+- **Task ID:** `6aa30b540870819184a402ac09186176`
+- **Evidence:** Coordinator is now the exclusive release owner; Dev must stop candidate-invalidating work once a candidate is marked READY FOR COORDINATOR RELEASE REVIEW. Current Coordinator cadence is every six hours.
+- **Root cause:** release ownership changed, but the strategic-review schedule was left at its prior six-hour cadence.
+- **Exact proposed change:** change Coordinator schedule from 00:30/06:30/12:30/18:30 to every three hours at :30 (00:30/03:30/06:30/09:30/12:30/15:30/18:30/21:30). Preserve prompt, title and enablement.
+- **Expected benefit:** cuts worst-case release-candidate decision latency roughly in half and reduces time a ready candidate can block Dev.
+- **Possible downside:** doubles Coordinator runs and may increase no-race waits/strategic-review overhead.
+- **Verification plan:** over the next two release-candidate handoffs, measure candidate-ready → Coordinator decision latency and watch for priority churn or repeated scheduler collisions.
+
+### AMP-004 — Move Daily Report from :15 to :45
+Status: **PROPOSED - AWAITING USER APPROVAL**
+
+- **Target task:** Daily Minisculpter report
+- **Task ID:** `6aa30a0e2a448191ba7b6263645b94f7`
+- **Evidence:** Daily Report is scheduled 22:15, only 15 minutes after the hourly 22:00 Dev start, while its own no-race rule requires completed state.
+- **Root cause:** report timing predates the current whole-hour Dev cadence and the executive-report simplification.
+- **Exact proposed change:** move the report from 22:15 to 22:45 Europe/Budapest. Preserve prompt, title and enablement.
+- **Expected benefit:** gives the 22:00 Dev run substantially more time to finish while retaining a same-evening executive report.
+- **Possible downside:** report arrives 30 minutes later.
+- **Verification plan:** review the next two reports for fewer in-progress/deferred snapshots and confirm the report still completes before the next meaningful coordination boundary.
 
 ## Approved but pending application
 
 None.
 
 ## Review history
+
+### 2026-09-10 23:39 — Manual Manager review after release-ownership transition
+- No-race gate passed after the 23:30 Coordinator write and exact-head CI completed.
+- Verified stable v1.0.22, development v1.0.23, HEAD `5d6132ee...`, exact-head Core/build green, and no v1.0.23 release request.
+- Verified ROADMAP, STATUS and HANDOFF now consistently encode Coordinator-owned release readiness/publication and Dev-only candidate preparation.
+- Verified Coordinator explicitly decided v1.0.23 is NOT READY FOR COORDINATOR RELEASE REVIEW; no premature release request was created.
+- Closed PF-006/PF-007/PF-008 as obsolete or corrected.
+- Closed AMP-002 as SUPERSEDED because the new active Manager task already carries the dedicated charter.
+- Proposed AMP-003 to reduce release-owner decision latency and AMP-004 to reduce Daily Report/Dev timing overlap.
+- No automation was changed.
+
 
 ### 2026-09-10 — Release ownership moved to Coordinator
 - User explicitly reassigned release ownership from Dev Cycle to Project Coordinator.
@@ -274,6 +291,15 @@ None.
 - Verification plan: review the next two completed Daily Report outputs for brevity, executive usefulness, correct escalation of blockers/user actions, and whether detail is appropriately delegated to the specialist dialogues.
 
 ## Next review focus
+
+1. Verify the next Dev cycle continues to obey the new release boundary and does not publish.
+2. When the first READY FOR COORDINATOR RELEASE REVIEW candidate appears, measure handoff-to-decision latency and validate the freeze.
+3. Verify Coordinator either publishes or returns a concrete blocking reason without duplicate authority.
+4. Review the next two executive Daily Reports for brevity and snapshot stability.
+5. If AMP-003 or AMP-004 is approved, apply only the approved schedule delta after re-reading the live target task and confirming it is idle.
+6. Continue to prioritize v1.0.22 reference-machine acceptance evidence over UI fallback work.
+
+
 
 1. Check whether the next Coordinator run reconciles the stale main body/header of TECHNICAL_ROADMAP with v1.0.22/v1.0.23 and the current acceptance/MS-027 state.
 2. Review released-v1.0.22 target-machine evidence as soon as it exists; verify Coordinator reprioritizes from that evidence and Dev immediately preempts UI fallback for any reproduced high-severity blocker.
