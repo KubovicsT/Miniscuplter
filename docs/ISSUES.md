@@ -210,12 +210,14 @@ Last reconciled: 2026-09-10
 ## MS-018 — No qualified end-to-end Stage-C thin slice yet
 
 - **Severity:** Critical
-- **Status:** OPEN
+- **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit / reinforced by user testing
 - **Expected:** on GTX 1080/8 GB + 16 GB RAM, the user can complete `2D → accept baseline → qualified 3D → visible/editable mesh → save/reload → cleanup → validated STL`, with cancellation recovery and contained storage.
-- **Actual:** individual features exist, but historical failures in provider dependencies, viewport rendering, storage and runtime qualification mean the complete flow has not been proven.
-- **Attempts/fixes:** v1.0.12–v1.0.19 progressively harden each seam. v1.0.19 is now the released candidate for viewport/storage acceptance.
-- **Next action:** make this the primary acceptance milestone. Choose one lightweight qualified 3D provider and test the whole path rather than adding more optional providers first.
+- **Actual:** individual features exist, but historical failures in provider dependencies, viewport rendering, storage and runtime qualification mean the complete production flow has not been proven.
+- **Attempts/fixes:** v1.0.12–v1.0.19 progressively hardened each seam. v1.0.19 is the released candidate for viewport/storage acceptance. v1.0.20 commits `8f0333d36429268fd9e98d03ee363bfe910ce72d`, `051c6048655d3714d7a4a2a4be3ef7b7528216fa`, and `8d394f289e02682bf27a133ed3456c7dc2852df9` add and test `Core/StageCGeneration.cs`: accepted `ImageRevision` → immutable generation binding → generated `MeshRevision` review candidate → explicit transactional apply/discard. If the accepted baseline changes while generation is running, the result is preserved as `Conflict` and cannot become authoritative automatically. Tests cover ready/conflict state, explicit apply, undo/redo and save/reload persistence.
+- **Result:** the Stage-C stale-result/candidate contract is now proven at the Core level, but the production legacy editor/backend path still needs to use it and the target-machine full workflow remains unqualified.
+- **Verification:** `core-foundation` passed the new Stage-C tests; the broader Windows branch validation for `8d394f...` also passed C#, Python/core/job tests, real geometry regressions, release audit, portable packaging/hash checks and installer-definition compilation.
+- **Next action:** integrate the existing Accept 2D Baseline and 3D-generation editor paths with the new Core bridge, persist verified outputs as durable mesh revisions/candidates, require explicit apply, then run the whole thin slice on the GTX 1080 target machine.
 
 ## MS-019 — Legacy `Main.V*.cs` architecture remains authoritative
 
@@ -224,18 +226,19 @@ Last reconciled: 2026-09-10
 - **First observed:** Astra takeover audit
 - **Expected target:** stable domain IDs/revisions, declarative UI, transactional commands/history, clean service boundaries.
 - **Actual:** many features still depend on partial `Main.V*.cs`, widget/scene state and compatibility reparenting.
-- **Attempts/fixes:** Stage-B `Core` introduces stable IDs, project models, immutable mesh revisions, history, indexed project storage and legacy importer; v1.0.19 further extends ProjectStore/ProjectHistory/ProjectModels.
-- **Next action:** migrate one vertical slice at a time. Do not rewrite everything at once without migration/tests; do not add permanent new product state to legacy widgets when avoidable.
+- **Attempts/fixes:** Stage-B `Core` introduces stable IDs, project models, immutable mesh revisions, history, indexed project storage and legacy importer; v1.0.19 further extends ProjectStore/ProjectHistory/ProjectModels. v1.0.20 adds the Core-owned Stage-C generation bridge so the next editor migration can consume stable baseline/job/candidate state instead of adding more widget-owned state.
+- **Next action:** migrate the 2D baseline → 3D generation vertical slice onto `StageCGeneration` and real `ProjectSession`/`ProjectStore`; do not rewrite everything at once and do not add permanent new product state to legacy widgets.
 
 ## MS-020 — Final authoritative AI Job Broker / stale-result protection not complete
 
 - **Severity:** High
-- **Status:** OPEN
+- **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit
 - **Expected:** durable job IDs, immutable input revision, one heavy GPU owner, structured stages, real cancellation, isolated outputs, stale-result candidate semantics and crash recovery.
 - **Actual:** structured progress and backend reset behavior exist, but request/backend lifecycle is not yet the full target job architecture.
-- **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; Stage-B domain revisions make future stale-result binding possible.
-- **Next action:** integrate job identity with Project/Object/Revision IDs and make apply/accept a transactional command.
+- **Attempts/fixes:** cancellation reset in v1.0.13; job progress in v1.0.17/v1.0.18; Stage-B domain revisions made stale-result binding possible. v1.0.20 `StageCGeneration` now adds stable `GenerationJobId`/`GenerationJobBinding` carrying project identity, project revision, exact accepted input `ImageRevision` and reserved output `ObjectId`; result registration preserves stale baselines as conflicts and explicit apply is transactional. The production HTTP/job transport does not yet carry all of this identity, and durable queue/resource ownership/recovery are still pending.
+- **Result:** stale-result semantics for the first Stage-C vertical slice are now implemented/tested in Core, substantially reducing the architectural gap without claiming the final Job Broker is complete.
+- **Next action:** propagate the `GenerationJobBinding` through the actual editor/backend request context, then continue toward durable job persistence, resource ownership and recovery after the vertical slice is working end to end.
 
 ## MS-021 — Canonical documentation was stale/incomplete
 
@@ -244,8 +247,8 @@ Last reconciled: 2026-09-10
 - **First observed:** 2026-09-10 autonomous-work bootstrap
 - **Evidence:** v1.0.18 repository README still identifies itself as v1.0.12; release history current-testing section also lags. Earlier handoff docs were not consistently present on release branches.
 - **Expected:** a new session can recover product truth, status, issues, decisions and current baton from the repository.
-- **Attempts/fixes:** canonical `PROJECT_CHARTER.md`, `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `HANDOFF.md` introduced on v1.0.19 and carried into v1.0.20. This run updated them across the release transition.
-- **Next action:** recurring worker must maintain these files; later reconcile/remove misleading stale top-level documentation rather than allowing duplicate truth sources.
+- **Attempts/fixes:** canonical `PROJECT_CHARTER.md`, `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `HANDOFF.md` introduced on v1.0.19 and carried into v1.0.20. Recurring development runs are maintaining status/issues/handoff after coherent engineering work.
+- **Next action:** continue maintaining canonical files; later reconcile/remove misleading stale top-level documentation rather than allowing duplicate truth sources.
 
 ## MS-022 — Provider readiness is not qualified strongly enough
 
@@ -254,10 +257,10 @@ Last reconciled: 2026-09-10
 - **First observed:** Astra takeover audit; reinforced by TripoSR/Hunyuan/Z-Image failures
 - **Expected:** provider registry distinguishes downloaded, installed, importable, device-tested and inference-tested, with hardware/platform/resource expectations.
 - **Actual:** provider presence/routing historically overstated practical readiness; some optional providers require fragile native tooling or exceed reference hardware.
-- **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments for some providers, dependency preflights, runtime repair and model manifests existed before v1.0.20. v1.0.20 commit `5d6b5dde8d9159699c2524eb21753e4c8d1aa994` added a persisted readiness contract plus lightweight import/CUDA probes for the main single-mesh 3D routes and readiness-aware Auto/explicit routing. During self-review, the first routing integration was found to make ordinary health/status polling capable of launching provider subprocess probes; `b8b07f2399b9c5b48c977b826d3b3a00ece9e9d9` separated cheap cached status inspection from generation-time preflight. The first new core-logic CI attempt then exposed defects in the mocked readiness-persistence test fixture rather than production code; commits `ab60bd1e73ef0f074ce9d1806fe94247d6f0b7f1` and `8cd00173b78577fed040cce5d71e05738cf404be` corrected those fixture problems and triggered clean revalidation.
-- **Result:** downloaded/installed/importable/device-tested/inference-tested are now represented separately; known-broken preferred 3D routes can be skipped before expensive inference, while explicit selections fail early with readiness details. `inference_tested` is intentionally not promoted by CI/import probing. Target-machine inference qualification and benchmark/default-provider evidence are still missing.
-- **Verification:** fresh branch CI for `8cd00173b78577fed040cce5d71e05738cf404be` was still running when this ledger entry was written. Real GPU inference has not been claimed.
-- **Next action:** wire verified successful `/generate-3d` completion to `record_inference_success()` using the provider actually used and measured elapsed/hardware context, then collect GTX 1080 evidence for the preferred lightweight route. After that, continue MS-018/MS-020 accepted-baseline → stable job → candidate-revision handoff.
+- **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments for some providers, dependency preflights, runtime repair and model manifests existed before v1.0.20. Commit `5d6b5dde8d9159699c2524eb21753e4c8d1aa994` added a persisted readiness contract plus lightweight import/CUDA probes for the main single-mesh 3D routes and readiness-aware Auto/explicit routing. `b8b07f2399b9c5b48c977b826d3b3a00ece9e9d9` kept normal health/status polling free of provider subprocess probes. Test-fixture defects were corrected in `ab60bd1e73ef0f074ce9d1806fe94247d6f0b7f1` and `8cd00173b78577fed040cce5d71e05738cf404be`. This run then added `60443dbb1e420034faa400ae2edc7b8cf4b3acdb`, `c9983b02bc17c60f3887b6424a21aad819d0753b`, and `b9dce88f8b50d99f9074ecf7f380b798feb17990`: after a real `3d-generate` reaches verified completion, inference qualification is persisted for the final provider actually used, with elapsed time and hardware context; failed/cancelled jobs do not qualify or globally blacklist a provider, and qualification state-write failure cannot fail an already verified job.
+- **Result:** downloaded/installed/importable/device-tested/inference-tested are represented separately; known-broken preferred routes can be skipped before expensive inference, explicit selection fails early with details, and real successful 3D runs now produce durable qualification/benchmark evidence automatically. CI still does not synthesize GPU inference qualification.
+- **Verification:** v1.0.20 branch validation through `8d394f289e02682bf27a133ed3456c7dc2852df9` passed C#, Python/core/job tests, real geometry regressions, release audit, Stage-B Core tests, portable package/hash checks and installer-definition compilation. Real GTX 1080 provider inference remains to be collected.
+- **Next action:** collect target-machine qualification evidence for the intended lightweight/default 3D route while production Stage-C integration proceeds; use that evidence to decide supported/default vs experimental provider tiers.
 
 ---
 
