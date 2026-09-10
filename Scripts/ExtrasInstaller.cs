@@ -61,5 +61,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV1023UiPreferences();
         main.InstallV1023ViewportToolStrip();
         main.InstallSceneHierarchy();
+        main.InstallViewCube();
     }
 }
