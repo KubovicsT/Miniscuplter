@@ -32,7 +32,7 @@ def test_provider_readiness_contract():
     state={"installed":{"triposr":{"installed":True,"path":"."}},"provider_qualification":{}}
     try:
         provider_readiness.model_manager.load_state=lambda:state
-        provider_readiness.model_manager.save_state=lambda value:(state.clear(),state.update(value))
+        provider_readiness.model_manager.save_state=lambda value:None
         provider_readiness.model_manager.component_path=lambda cid:Path(".") if cid=="triposr" else None
         provider_readiness._provider_revision=lambda cid:"hf:abc git:def"
         provider_readiness._probe_python=lambda cid:{"supported":True,"importable":True,"device_tested":True,"runtime_version":"python 3.10 / torch test","device":{"cuda_available":True,"name":"GPU","vram_bytes":8},"failure":None}
