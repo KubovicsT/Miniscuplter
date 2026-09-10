@@ -56,7 +56,6 @@ internal static class StageCGenerationTests
         Assert(staleJob.InputImageRevisionId == firstImage.Id, "generation job did not capture immutable baseline revision");
         Assert(staleJob.InputProjectRevisionNumber == session.Current.RevisionNumber, "generation job did not capture project revision number");
 
-        // User advances the accepted baseline while inference is still running.
         StageCGeneration.AcceptBaseline(session, secondImage.Id);
         var staleMesh = await store.CreateMeshRevisionAsync(projectPath, staleJob.OutputObjectId, Tetra(), "unit-test:stale-generated");
         var staleCandidate = StageCGeneration.RegisterResult(session, staleJob, staleMesh, "sf3d", "unit-test:stale-result");
@@ -64,8 +63,6 @@ internal static class StageCGenerationTests
         Assert(!session.Current.Objects.ContainsKey(staleJob.OutputObjectId), "stale generation result silently created/replaced an active object");
         Assert(StageCGeneration.ReadCandidates(session.Current).Single(x => x.Id == staleCandidate.Id).ConflictReason != null, "stale candidate did not retain conflict reason");
 
-        // A job from the current accepted baseline may become a ready candidate, but must not
-        // become visible/active project state until the explicit transactional apply.
         var currentJob = StageCGeneration.BeginImageToMesh(session.Current);
         var generatedMesh = await store.CreateMeshRevisionAsync(projectPath, currentJob.OutputObjectId, Tetra(1.25f), "unit-test:generated");
         var ready = StageCGeneration.RegisterResult(session, currentJob, generatedMesh, "sf3d", "unit-test:ready-result");
@@ -85,6 +82,39 @@ internal static class StageCGenerationTests
         session.Redo();
         Assert(session.Current.Objects.ContainsKey(currentJob.OutputObjectId), "redo did not restore generated object apply");
 
+        // Cleanup is a child revision of the exact active generated revision. The generated source
+        // remains immutable and export scope must fail closed if a caller asks for the old revision.
+        var cleanupBinding = StageCCleanup.Begin(session.Current, currentJob.OutputObjectId);
+        Assert(cleanupBinding.InputMeshRevisionId == generatedMesh.Id, "cleanup did not bind the exact active generated revision");
+        var cleanedMesh = await store.CreateMeshRevisionAsync(
+            projectPath,
+            currentJob.OutputObjectId,
+            Tetra(1.10f),
+            "unit-test:cleanup",
+            cleanupBinding.InputMeshRevisionId);
+        long beforeCleanupRevision = session.Current.RevisionNumber;
+        StageCCleanup.ApplyResult(session, cleanupBinding, cleanedMesh);
+        Assert(session.Current.RevisionNumber == beforeCleanupRevision + 1, "cleanup apply was not one project transaction");
+        Assert(session.Current.Objects[currentJob.OutputObjectId].ActiveMeshRevisionId == cleanedMesh.Id, "cleanup did not advance the same object to its new revision");
+        Assert(session.Current.MeshRevisions.ContainsKey(generatedMesh.Id), "cleanup removed or overwrote the generated source revision");
+        Assert(session.Current.MeshRevisions[cleanedMesh.Id].ParentRevisionId == generatedMesh.Id, "cleanup revision lost its generated parent lineage");
+        bool staleExportRejected = false;
+        try { _ = StageCCleanup.ResolveExportRevision(session.Current, currentJob.OutputObjectId, generatedMesh.Id); }
+        catch (InvalidOperationException) { staleExportRejected = true; }
+        Assert(staleExportRejected, "export scope accepted a stale/non-active revision");
+        Assert(StageCCleanup.ResolveExportRevision(session.Current, currentJob.OutputObjectId, cleanedMesh.Id).Id == cleanedMesh.Id, "export scope did not resolve the exact active cleanup revision");
+
+        // A result bound before another edit must not overwrite the newer active revision.
+        var staleCleanupBinding = StageCCleanup.Begin(session.Current, currentJob.OutputObjectId);
+        var newerRevision = await store.CreateMeshRevisionAsync(projectPath, currentJob.OutputObjectId, Tetra(1.05f), "unit-test:newer-edit", cleanedMesh.Id);
+        StageCCleanup.ApplyResult(session, staleCleanupBinding, newerRevision);
+        var lateCleanupRevision = await store.CreateMeshRevisionAsync(projectPath, currentJob.OutputObjectId, Tetra(.95f), "unit-test:late-cleanup", cleanedMesh.Id);
+        bool staleCleanupRejected = false;
+        try { StageCCleanup.ApplyResult(session, staleCleanupBinding, lateCleanupRevision); }
+        catch (InvalidOperationException) { staleCleanupRejected = true; }
+        Assert(staleCleanupRejected, "stale cleanup result overwrote a newer active revision");
+        Assert(session.Current.Objects[currentJob.OutputObjectId].ActiveMeshRevisionId == newerRevision.Id, "stale cleanup changed the active object revision");
+
         await store.SaveAsync(session.Current, projectPath);
         var loaded = await store.LoadAsync(projectPath);
         Assert(StageCGeneration.AcceptedBaseline(loaded) == secondImage.Id, "accepted baseline did not survive project save/reload");
@@ -92,10 +122,9 @@ internal static class StageCGenerationTests
         Assert(loadedCandidates.Count == 2, "generated candidate provenance did not survive save/reload");
         Assert(loadedCandidates.Single(x => x.Id == staleCandidate.Id).Status == CandidateStatus.Conflict, "stale conflict state did not survive save/reload");
         Assert(loadedCandidates.Single(x => x.Id == ready.Id).Status == CandidateStatus.Applied, "applied candidate state did not survive save/reload");
+        Assert(loaded.MeshRevisions.ContainsKey(generatedMesh.Id) && loaded.MeshRevisions.ContainsKey(cleanedMesh.Id), "cleanup lineage did not survive save/reload");
+        Assert(loaded.Objects[currentJob.OutputObjectId].ActiveMeshRevisionId == newerRevision.Id, "active post-cleanup revision did not survive save/reload");
 
-        // A save failure must not leave the in-memory session ahead of durable state. The helper
-        // is delegate-driven so this regression is deterministic and does not depend on filesystem
-        // permissions, disk exhaustion, or platform-specific file locking behavior.
         var recoveringSession = new ProjectSession(loaded);
         recoveringSession.Execute("Unsaved edit before simulated failure", current =>
             current.WithMetadata("save_failure_probe", "must-not-survive"));
@@ -117,8 +146,6 @@ internal static class StageCGenerationTests
         Assert(!recoveringSession.IsDirty, "recovered session should be aligned with its durable revision");
         Assert(!recoveringSession.CanUndo && !recoveringSession.CanRedo, "rollback to durable state retained invalid pre-failure history");
 
-        // Recovery must also be fail-closed across project identity. Never replace a failed save
-        // with a state from another project even if a recovery provider is buggy or mis-scoped.
         var mismatchSession = new ProjectSession(loaded);
         mismatchSession.Execute("Unsaved edit before identity mismatch", current =>
             current.WithMetadata("identity_mismatch_probe", "pending"));
