@@ -20,6 +20,7 @@ public partial class Main
         V1022InstallViewportPresentationGuard();
         V1022InstallClientFillGuard();
 
+        CallDeferred(nameof(V1022InstallDeferredRecoveryGuards));
         CallDeferred(nameof(V1022ReassertClientFill));
         CallDeferred(nameof(V1022ReassertNativeViewportPresentation));
     }
@@ -50,6 +51,22 @@ public partial class Main
             .FirstOrDefault(button => button.Text.Equals("New", StringComparison.OrdinalIgnoreCase));
         if (newButton != null)
             newButton.Pressed += () => CallDeferred(nameof(V1022RemoveLegacyStarterSphere));
+    }
+
+    void V1022InstallDeferredRecoveryGuards()
+    {
+        // The settings viewport-repair button is created by a deferred v1.0.17 settings
+        // upgrade. Attach after that deferred composition so a manual native recovery cannot
+        // leave the historical starter primitive behind in an intentionally empty project.
+        foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>()
+                     .Where(button => button.Text.Equals("Repair 3D Viewport", StringComparison.OrdinalIgnoreCase)))
+        {
+            button.Pressed += () =>
+            {
+                CallDeferred(nameof(V1022RemoveLegacyStarterSphere));
+                CallDeferred(nameof(V1022ReassertNativeViewportPresentation));
+            };
+        }
     }
 
     void V1022RemoveLegacyStarterSphere()
