@@ -9,7 +9,7 @@ Last reconciled: 2026-09-10
 - **Latest published stable release:** `v1.0.22`
 - **Stable release target commit:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
 - **Current development branch:** `v1.0.23`
-- **Current bounded implementation candidate before documentation commits:** `74ec73a14645071bb2742fb68f778bedd656aabd`
+- **Current validated bounded code/test candidate before documentation commits:** `74ec73a14645071bb2742fb68f778bedd656aabd`
 - **Overall completion:** **57% acceptance-weighted**
 
 v1.0.22 is published and immutable. v1.0.23 is the forward application branch. No application changes belong on v1.0.22.
@@ -40,18 +40,20 @@ Implementation commits: `f169f6e3428a64804e8778c05353b9d07a87dfe3`, `5faa1e528e6
 
 ## Validation
 
-For implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d`:
+Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed:
 
-- Stage-B/Core build and regression suite: **PASS** (`core-foundation` run `34520603280`);
-- C# editor/launcher/updater/Core builds: **PASS** (`build` run `34520603310`);
+- Stage-B/Core build and regression suite — `core-foundation` run `34520858442`: **PASS**;
+- C# editor/launcher/updater/Core builds — `build` run `34520858529`: **PASS**;
 - Python compile/dependency resolution: **PASS**;
-- core/execution/job regressions: **PASS**;
-- geometry regressions and release audit: **PASS**;
-- portable package layout/hash and installer-definition compile: **PASS**.
+- core/execution/job regressions including the new MS-027 ownership/persistence guards: **PASS**;
+- real geometry regressions: **PASS**;
+- release audit: **PASS**;
+- portable package layout/hash: **PASS**;
+- installer-definition compilation: **PASS**.
 
-Commit `74ec73a14645071bb2742fb68f778bedd656aabd` adds explicit MS-027 static ownership/persistence guards. Its exact-head Core/build workflows were running at this reconciliation point; do not describe the test commit as fully validated until those workflows finish.
+The earlier implementation head `5faa1e528e6a81fb8db15942c68b3da71391743d` also passed the same branch-validation families in runs `34520603280` / `34520603310` before the explicit MS-027 regression guard was added.
 
-No release request has been submitted for v1.0.23. This secondary UI slice is not being published merely because branch validation is green; release remains readiness/scope based.
+No release request has been submitted for v1.0.23. This secondary UI slice is not being published merely because branch validation is green; release remains readiness/scope based and the primary acceptance dependency is still the already-published v1.0.22 build.
 
 ## Current priorities
 
