@@ -318,10 +318,15 @@ Last reconciled: 2026-09-10
 ## MS-027 — Modular resizable workspace UI overhaul
 
 - **Severity:** Medium product/UX modernization
-- **Status:** PLANNED — OPPORTUNISTIC WORKSTREAM
+- **Status:** IN PROGRESS — OPPORTUNISTIC WORKSTREAM
 - **User direction:** 2026-09-10 annotated UI screenshot and follow-up specification.
 - **Scheduling rule:** this work must not displace an active correctness, persistence, data-safety, release, or acceptance blocker. The Dev Cycle may advance a bounded MS-027 slice when the critical path is genuinely blocked on user testing/input or there is otherwise no higher-priority unblocked task. Any newly reproduced critical-path regression immediately preempts MS-027 work.
 - **Primary goal:** make Miniscuplter feel like a compact modeling application rather than a large form full of explanatory text, while preserving the existing backend/state semantics.
+- **v1.0.23 slice 1 implementation:** commits `f169f6e3428a64804e8778c05353b9d07a87dfe3`, `5faa1e528e6a81fb8db15942c68b3da71391743d` and `74ec73a14645071bb2742fb68f778bedd656aabd` add a final editor-only preference layer after `InstallV1022Acceptance()`. It persists the outer/body and viewport/right-panel splitter positions under `AppDataRoot.Resolve("Settings/ui_preferences.json")`, clamps restored panel widths, defaults the main UI text scale to 90%, exposes a 75–135% Settings → Interface font-scale control plus Reset Workspace Layout, and seeds reusable hover tooltips for core toolbar actions. It does not reference `ProjectStore` or own Stage-C generation/actions.
+- **v1.0.23 regression coverage:** `tools/core_logic_tests.py` now guards final installer ordering, controlled-root preference storage, both splitter fields, bounded font scale, Interface settings/tooltips, replacement-safe preference writes, and absence of project/Stage-C-generation ownership from the preference layer.
+- **Validation:** implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed Stage-B/Core, full C# builds, Python/core/execution/geometry/release-audit validation, portable package layout/hash and installer-definition compilation. Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs; packaging was still finishing when this ledger entry was written and must be checked before claiming exact-head validation.
+- **Result:** first bounded modernization slice is implemented without broadening into a UI rewrite or displacing the v1.0.22 acceptance dependency. Real restart/layout/scale behavior still needs target/UI verification before the slice can be considered accepted.
+- **Next action:** first consume any new v1.0.22 reference-machine evidence. If acceptance remains externally blocked and no higher-priority unblocked issue exists, the next bounded MS-027 slice is the direct icon-based viewport tool strip, reusing the existing `V1018ViewportTool` state/input owner rather than creating a parallel tool state machine.
 
 ### Required workspace structure
 
