@@ -324,8 +324,9 @@ public partial class Main
     async Task V1020SaveSessionAsync()
     {
         var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
-        await _v1020StageCStore.SaveAsync(session.Current, _v1020StageCProjectPath);
-        session.MarkSaved();
+        await session.SaveRecoveringAsync(
+            state => _v1020StageCStore.SaveAsync(state, _v1020StageCProjectPath),
+            async () => (await _v1020StageCStore.LoadWithRecoveryAsync(_v1020StageCProjectPath)).State);
     }
 
     async Task V1020RestoreStageCStateAsync()
