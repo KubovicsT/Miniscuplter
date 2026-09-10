@@ -24,6 +24,27 @@ def test_job_identity_and_event_history() -> None:
     assert job_progress.get_events(job_id, 0)[-1]["stage"] == "completed"
 
 
+def test_stage_c_context_is_retained_and_snapshot_isolated() -> None:
+    context = {
+        "generation_job_id": "0123456789abcdef0123456789abcdef",
+        "project_id": "11111111111111111111111111111111",
+        "project_revision": 7,
+        "input_image_revision_id": "22222222222222222222222222222222",
+        "output_object_id": "33333333333333333333333333333333",
+    }
+    job_id = job_progress.begin("3d-generate", context["generation_job_id"], context)
+    context["project_revision"] = 999
+    first = job_progress.get(job_id)
+    assert first is not None
+    assert first["context"]["project_revision"] == 7
+    first["context"]["project_revision"] = 123
+    second = job_progress.get(job_id)
+    assert second is not None
+    assert second["context"]["project_revision"] == 7
+    assert second["job_id"] == second["context"]["generation_job_id"]
+    job_progress.fail("test cleanup")
+
+
 def test_cancel_state() -> None:
     job_id = job_progress.begin("cancel-test", "client-cancel-job")
     assert not job_progress.is_cancel_requested(job_id)
@@ -83,6 +104,7 @@ def test_qualification_recording_failure_cannot_fail_completed_job() -> None:
 
 if __name__ == "__main__":
     test_job_identity_and_event_history()
+    test_stage_c_context_is_retained_and_snapshot_isolated()
     test_cancel_state()
     test_only_verified_3d_completion_records_qualification()
     test_qualification_recording_failure_cannot_fail_completed_job()
