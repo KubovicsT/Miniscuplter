@@ -8,7 +8,6 @@ public partial class Main
 {
     bool _v1019ViewportPipelineInstalled;
     bool _v1019WorldConfigured;
-    Timer? _v1019ViewportRepairTimer;
     Timer? _v1019ViewportProbeTimer;
     Label? _v1019ViewportDiagnostics;
 
@@ -43,15 +42,6 @@ public partial class Main
             threeD.AddChild(_v1019ViewportDiagnostics);
         }
 
-        _v1019ViewportRepairTimer = new Timer
-        {
-            Name = "v1.0.19 Viewport Repair Timer",
-            WaitTime = .25,
-            OneShot = true
-        };
-        _v1019ViewportRepairTimer.Timeout += V1019RepairViewportPipeline;
-        AddChild(_v1019ViewportRepairTimer);
-
         _v1019ViewportProbeTimer = new Timer
         {
             Name = "v1.0.19 Viewport Render Probe",
@@ -61,21 +51,19 @@ public partial class Main
         _v1019ViewportProbeTimer.Timeout += V1019ProbeRenderedFrame;
         AddChild(_v1019ViewportProbeTimer);
 
+        // Stretch=true makes the SubViewportContainer the normal resize owner. A full repair after
+        // every splitter resize used to rebuild/rebind render state after the drag settled, which
+        // made the resting frame differ from the frame shown while dragging. Normal resize now only
+        // refreshes diagnostics/probing; V1019RepairViewportPipeline is recovery-only.
         host.Resized += () =>
         {
-            V1019QueueViewportRepair();
+            if (FindChild("Viewport", true, false) is SubViewport sub)
+                V1019UpdateViewportDiagnostics(sub);
             V1019ArmRenderProbe();
         };
 
         V1019RepairViewportPipeline();
         V1019ArmRenderProbe();
-    }
-
-    void V1019QueueViewportRepair()
-    {
-        if (!_v1019ViewportPipelineInstalled || _v1019ViewportRepairTimer == null) return;
-        _v1019ViewportRepairTimer.Stop();
-        _v1019ViewportRepairTimer.Start();
     }
 
     void V1019ArmRenderProbe()
@@ -98,23 +86,21 @@ public partial class Main
         host.Modulate = Colors.White;
         host.SelfModulate = Colors.White;
 
-        // Stretch=true is the native SubViewportContainer contract: it owns the child viewport
-        // dimensions after layout. Older installers attempted to fight that contract by assigning
-        // Size repeatedly before/after layout, which made the render path timing-dependent.
-        if (!_v1019WorldConfigured)
-        {
-            sub.World3D = new World3D();
-            _v1019WorldConfigured = true;
-        }
+        // OwnWorld3D is established before the scene root is rebound. Do not assign a separate
+        // World3D object and then also enable OwnWorld3D: that creates competing world ownership.
+        // Reparent once when first configuring the native pipeline (or only if recovery finds the
+        // world under the wrong parent), then leave the scene graph stable on ordinary operations.
         sub.OwnWorld3D = true;
         sub.Disable3D = false;
         sub.TransparentBg = false;
         sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
 
-        if (!ReferenceEquals(_world.GetParent(), sub))
+        bool needsWorldRebind = !_v1019WorldConfigured || !ReferenceEquals(_world.GetParent(), sub);
+        if (needsWorldRebind)
         {
             _world.GetParent()?.RemoveChild(_world);
             sub.AddChild(_world);
+            _v1019WorldConfigured = true;
         }
         _world.Visible = true;
 
@@ -142,6 +128,8 @@ public partial class Main
         _camera.Current = true;
         UpdateCamera();
 
+        V1019ConfigureStudioLighting();
+
         foreach (var plane in _world.GetChildren().OfType<MeshInstance3D>()
                      .Where(m => !_objects.Contains(m)).ToArray())
             plane.Visible = false;
@@ -149,6 +137,12 @@ public partial class Main
         _objects.RemoveAll(o => !GodotObject.IsInstanceValid(o));
         if (_objects.Count == 0)
             AddStarterMesh();
+
+        if (_selected == null || !GodotObject.IsInstanceValid(_selected) || !_objects.Contains(_selected))
+        {
+            _selected = _objects.FirstOrDefault();
+            if (_selected != null) Select(_selected);
+        }
 
         foreach (var obj in _objects.ToArray())
         {
@@ -160,25 +154,17 @@ public partial class Main
             }
             obj.Visible = true;
             obj.Layers = 1;
-            if (obj.MaterialOverride == null)
+            if (obj.MaterialOverride is not StandardMaterial3D material)
             {
-                obj.MaterialOverride = new StandardMaterial3D
-                {
-                    AlbedoColor = new Color(.62f, .64f, .68f),
-                    Roughness = .82f,
-                    CullMode = BaseMaterial3D.CullModeEnum.Disabled
-                };
+                material = new StandardMaterial3D();
+                obj.MaterialOverride = material;
             }
-            else if (obj.MaterialOverride is StandardMaterial3D material)
-            {
-                material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-            }
-        }
-
-        if (_selected == null || !GodotObject.IsInstanceValid(_selected) || !_objects.Contains(_selected))
-        {
-            _selected = _objects.FirstOrDefault();
-            if (_selected != null) Select(_selected);
+            material.AlbedoColor = ReferenceEquals(obj, _selected)
+                ? new Color(.66f, .66f, .66f)
+                : new Color(.55f, .55f, .55f);
+            material.Roughness = .68f;
+            material.Metallic = 0f;
+            material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
         }
 
         if (_v109GridRoot == null || !GodotObject.IsInstanceValid(_v109GridRoot) ||
@@ -188,10 +174,51 @@ public partial class Main
         if (_v1017Gizmo == null || !GodotObject.IsInstanceValid(_v1017Gizmo))
             V1017BuildGizmo();
         V1017UpdateGizmo();
-        V1017SyncViewport();
         V1017UpdateViewportStatus();
         V1019UpdateViewportDiagnostics(sub);
         V1019ArmRenderProbe();
+    }
+
+    void V1019ConfigureStudioLighting()
+    {
+        if (_world == null) return;
+
+        var envNode = _world.GetChildren().OfType<WorldEnvironment>().FirstOrDefault();
+        if (envNode == null)
+        {
+            envNode = new WorldEnvironment { Name = "Viewport Studio Environment" };
+            envNode.Environment = new Godot.Environment();
+            _world.AddChild(envNode);
+        }
+        envNode.Environment ??= new Godot.Environment();
+        var env = envNode.Environment;
+        env.BackgroundMode = Godot.Environment.BGMode.Color;
+        env.BackgroundColor = new Color(.115f, .115f, .115f);
+        env.AmbientLightSource = Godot.Environment.AmbientSource.Color;
+        env.AmbientLightColor = new Color(.78f, .78f, .78f);
+        env.AmbientLightEnergy = .72f;
+
+        var key = _world.GetChildren().OfType<DirectionalLight3D>().FirstOrDefault();
+        if (key == null)
+        {
+            key = new DirectionalLight3D { Name = "Viewport Studio Key" };
+            _world.AddChild(key);
+        }
+        key.RotationDegrees = new Vector3(-50f, -35f, 0f);
+        key.LightColor = new Color(1f, .98f, .95f);
+        key.LightEnergy = 1.05f;
+        key.ShadowEnabled = true;
+
+        var fill = _world.GetChildren().OfType<OmniLight3D>().FirstOrDefault();
+        if (fill == null)
+        {
+            fill = new OmniLight3D { Name = "Viewport Studio Fill" };
+            _world.AddChild(fill);
+        }
+        fill.Position = new Vector3(-55f, 75f, 70f);
+        fill.OmniRange = 300f;
+        fill.LightColor = new Color(.82f, .88f, 1f);
+        fill.LightEnergy = 1.35f;
     }
 
     void V1019RebuildGrid()
@@ -215,7 +242,7 @@ public partial class Main
             Position = new Vector3(0, -.03f, 0),
             MaterialOverride = new StandardMaterial3D
             {
-                AlbedoColor = new Color(.045f, .052f, .068f),
+                AlbedoColor = new Color(.145f, .145f, .145f),
                 Roughness = 1f,
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled
@@ -223,12 +250,12 @@ public partial class Main
         };
         _v109GridRoot.AddChild(ground);
 
-        // Triangle bars are deliberately brighter than the background and do not depend on
-        // driver-specific line-width behavior.
-        AddV1015GridBars(10f, .18f, new Color(.36f, .42f, .52f), false);
-        AddV1015GridBars(50f, .48f, new Color(.68f, .74f, .84f), true);
-        AddV1015AxisBar(true, .82f, new Color(.98f, .24f, .20f));
-        AddV1015AxisBar(false, .82f, new Color(.20f, .48f, 1f));
+        // Triangle bars avoid driver-specific line-width behavior while matching a neutral
+        // modeling-viewport hierarchy: quiet minor grid, stronger major grid, colored X/Z axes.
+        AddV1015GridBars(10f, .14f, new Color(.29f, .29f, .29f), false);
+        AddV1015GridBars(50f, .38f, new Color(.43f, .43f, .43f), true);
+        AddV1015AxisBar(true, .76f, new Color(.90f, .22f, .18f));
+        AddV1015AxisBar(false, .76f, new Color(.20f, .42f, .92f));
         _v109GridRoot.Visible = visible;
     }
 
@@ -240,11 +267,13 @@ public partial class Main
             ? $"{_v109GridRoot.Name} ({_v109GridRoot.GetChildCount()} render groups)"
             : "missing";
         string selected = _selected == null ? "none" : _selected.Name.ToString();
+        int keyLights = _world?.GetChildren().OfType<DirectionalLight3D>().Count() ?? 0;
+        int fillLights = _world?.GetChildren().OfType<OmniLight3D>().Count() ?? 0;
         _v1019ViewportDiagnostics.Text =
-            "Viewport pipeline: native SubViewportContainer" + Environment.NewLine +
+            "Viewport pipeline: native SubViewportContainer · resize owner: Stretch" + Environment.NewLine +
             $"Render target: {sub.Size.X}×{sub.Size.Y} · 3D {(sub.Disable3D ? "disabled" : "active")} · update Always" + Environment.NewLine +
-            $"World parent: {worldParent} · own World3D: {sub.OwnWorld3D}" + Environment.NewLine +
-            $"Grid: {grid} · scene objects: {_objects.Count} · selected: {selected}";
+            $"World parent: {worldParent} · own World3D: {sub.OwnWorld3D} · configured: {_v1019WorldConfigured}" + Environment.NewLine +
+            $"Lighting: {keyLights} key / {fillLights} fill · Grid: {grid} · scene objects: {_objects.Count} · selected: {selected}";
     }
 
     async void V1019ProbeRenderedFrame()
@@ -266,10 +295,12 @@ public partial class Main
             Color center = image.GetPixel(image.GetWidth() / 2, image.GetHeight() / 2);
             Color lower = image.GetPixel(image.GetWidth() / 2, Math.Max(1, image.GetHeight() - 2));
             float variation = V1019ColorDelta(corner, center) + V1019ColorDelta(corner, lower);
+            float backgroundLuma = V1019Luminance(corner);
+            float centerLuma = V1019Luminance(center);
             if (_v1019ViewportDiagnostics != null)
                 _v1019ViewportDiagnostics.Text += Environment.NewLine +
                     (variation > .03f
-                        ? "Render probe: non-flat frame received; 3D pixels are reaching the native surface."
+                        ? $"Render probe: non-flat frame · background luma {backgroundLuma:0.00} · center {centerLuma:0.00}."
                         : "Render probe: frame is flat; inspect world/camera/material state above.");
         }
         catch (Exception ex)
@@ -281,4 +312,6 @@ public partial class Main
 
     static float V1019ColorDelta(Color a, Color b) =>
         Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B) + Math.Abs(a.A - b.A);
+
+    static float V1019Luminance(Color c) => .2126f * c.R + .7152f * c.G + .0722f * c.B;
 }
