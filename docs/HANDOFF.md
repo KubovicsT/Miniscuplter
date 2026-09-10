@@ -10,9 +10,8 @@ Last updated: 2026-09-10
 - **Latest published stable:** `v1.0.18`
 - **Stable application commit:** `ce2d876fc145e615d63bd8d9fc809610f6038301`
 - **Current development branch:** `v1.0.19`
-- **Last code-bearing HEAD before project-management bootstrap:** `87601d0f343e9117c172097ad9a64cef574b1f0f`
-- **Current HEAD:** resolve from Git at run start; documentation updates advance the branch.
-- **Overall completion estimate:** 56% acceptance-weighted; see `PROJECT_STATUS.md`.
+- **Latest code commit from this autonomous run:** `59757d04eeb0f9e19cd7eb8fc812701373e0d03f` — `Make viewport sizing deterministic across legacy handlers`
+- **Overall completion estimate:** remains 56% acceptance-weighted; this change removes a concrete viewport ownership conflict but does not count as real-machine acceptance proof.
 
 ## Read first
 
@@ -22,48 +21,39 @@ Last updated: 2026-09-10
 4. `docs/DECISIONS.md`
 5. this file
 6. `docs/REFACTOR_PLAN.md`
-7. relevant recent commits/code/tests on `v1.0.19`
+7. relevant recent commits/code/tests on the current development branch
 
 The repository/code/release state wins if any document is stale. Update the documents when a mismatch is found.
 
-## What was already present on v1.0.19 before this handoff
+## Work completed in the latest run
 
-`v1.0.19` was already an active development branch, 12 commits ahead of v1.0.18 branch state. The compare includes substantive changes in:
+The v1.0.19 viewport pipeline was reconciled against older viewport layers. A concrete ownership conflict was found:
 
-- `Scripts/Main.V1019ViewportPipeline.cs` — native SubViewport repair/rebind pipeline, grid/model/material/camera/selection/gizmo enforcement and render diagnostics;
-- Stage-B `Core` project models/history/store and legacy importer;
-- updater/application-update hardening;
-- backend storage containment/canonicalization;
-- geometry/runtime/provider contracts and tests;
-- release-audit coverage.
+- v1.0.19 configured `SubViewportContainer.Stretch = true` and documented the container as the owner of render-target dimensions;
+- legacy v1.0.9 and v1.0.17 code still explicitly assigns `SubViewport.Size` on resize and repeatedly during viewport synchronization;
+- v1.0.18 processing also calls the v1.0.17 sync path continuously.
 
-The latest observed v1.0.19 build/core-foundation workflows at code HEAD `87601d0f...` passed.
+This meant two incompatible sizing contracts were active at once and could make the native 3D render surface timing-dependent during startup, tab changes and splitter resizing.
 
-Do not reset v1.0.19 to v1.0.18 or recreate the work that is already there.
+Commit `59757d04...` makes the current transitional architecture deterministic: v1.0.19 now deliberately uses `Stretch = false` and one explicit host-to-SubViewport sizing contract until the legacy sizing handlers are removed as part of MS-019. Diagnostics now show both host and render-target dimensions so a real-machine blank viewport can immediately reveal a size mismatch.
 
-## Project-management bootstrap completed in this session
+No published release was modified.
 
-The repository now has canonical project memory designed for autonomous continuation:
+## Validation state
 
-- `PROJECT_CHARTER.md` — mission, boundaries, finished-product definition, architecture, requirements, Astra direction and release rules;
-- `PROJECT_STATUS.md` — weighted completion, current branch/release state, working/partial/missing areas and immediate priorities;
-- `ISSUES.md` — stable MS-xxx issue ledger with symptoms, attempts, outcomes and verification status;
-- `DECISIONS.md` — durable product/architecture decisions and escalation rules;
-- `HANDOFF.md` — this baton.
+The change was pushed to `v1.0.19`, which triggered the normal `build` and `core-foundation` GitHub Actions workflows. At the end of the coding portion of this run, those workflows had started and were still running. The next run must inspect their final conclusions before building on the change. If either fails, diagnose/fix that failure first.
 
-No application code was changed by this bootstrap.
+Real GUI/render verification remains impossible in CI and MS-009 must stay open/in-progress until tested on the target Windows/GTX 1080 machine.
 
 ## Highest-priority unresolved work
 
 ### 1. MS-009 — 3D viewport/grid/model/gizmo reliability
 
-v1.0.19 contains the strongest viewport repair attempt so far, including a native `SubViewportContainer`, explicit world/camera ownership, starter mesh, visible material, grid rebuild, selection/gizmo update and render probe diagnostics.
-
-**Next action:** inspect the v1.0.19 viewport pipeline and related legacy viewport code for conflicting ownership or duplicate repair paths. Strengthen deterministic tests/diagnostics where possible. When the v1.0.19 batch is complete and release gates pass, publish it and request real-machine verification. If still blank, use the render diagnostics to isolate whether pixels, world, camera, materials or UI surface are failing.
+Status remains **IN PROGRESS**. v1.0.19 now has explicit world/camera/material/grid/gizmo enforcement plus a deterministic transitional sizing contract. This is stronger than the previous code but still needs real-machine verification.
 
 ### 2. MS-018 — Stage-C end-to-end thin slice not qualified
 
-Primary product acceptance gap remains:
+Primary acceptance gap remains:
 
 `2D → accept durable baseline → one qualified 3D provider → visible/editable mesh → save/reload → cleanup → validated STL`
 
@@ -71,59 +61,25 @@ on GTX 1080 8 GB + 16 GB RAM, including cancellation recovery and contained stor
 
 ### 3. MS-013 — storage containment
 
-v1.0.18 introduced `AppDataRoot`; v1.0.19 adds more backend/Windows containment work. Real-machine verification must confirm representative operations no longer write significant working artifacts into arbitrary C: AppData/TEMP paths.
+v1.0.18/v1.0.19 contain substantial containment work, but representative real-machine operations still need verification for stray C:/AppData/TEMP writes.
 
 ### 4. MS-020 / MS-019 — Job Broker and legacy architecture migration
 
-Continue moving one vertical slice at a time onto stable IDs/revisions/project history. Avoid adding new permanent state to legacy widgets when the new core can own it.
+Continue moving one vertical slice at a time onto stable IDs/revisions/project history. The duplicate viewport sizing ownership found in this run is another concrete example of why overlapping version-layer ownership must be retired safely.
 
 ### 5. MS-022 — provider qualification
 
-Add provider self-tests/readiness states and target-hardware benchmarks. Prefer one trustworthy default 3D route before adding more optional provider breadth.
-
-## Autonomous engineering policy
-
-Continue independently unless a decision materially changes product scope, UX direction with hard-to-reverse tradeoffs, user-data safety, backward compatibility, payment/credentials/external services, minimum hardware, or local-first/privacy assumptions.
-
-When ordinary engineering choices arise:
-
-- make a reasoned decision;
-- implement/test it;
-- document it;
-- continue.
-
-When blocked on one task, log the blocker and work on the highest-value independent task instead of stopping the whole project.
+Add provider self-tests/readiness states and target-hardware benchmarks. Prefer one trustworthy default 3D route before adding provider breadth.
 
 ## Release policy
 
-Do not mutate published releases.
+Do not mutate published releases. Do not publish v1.0.19 merely because an autonomous run is ending.
 
-For v1.0.19:
-
-1. finish the coherent intended batch;
-2. review as a senior engineer;
-3. update `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md` if needed and rewrite this handoff;
-4. run C#/Python/core/geometry/release-audit/packaging validation;
-5. perform real Godot Windows export;
-6. verify hashes/artifacts;
-7. smoke-install the installer;
-8. publish immutable v1.0.19;
-9. verify `/releases/latest`;
-10. start future application changes on `v1.0.20`.
-
-User-observed runtime/UI fixes should remain `FIXED - NEEDS USER VERIFICATION` until tested on the actual machine.
-
-## Required end-of-run handoff
-
-Before every autonomous run ends:
-
-- update issue statuses and append new attempts/results;
-- update workstream completion only with evidence;
-- record current stable/development versions;
-- record what changed and tests run;
-- record any user decision or real-machine verification required;
-- replace this file's `Next action` with the exact next engineering task.
+Publish v1.0.19 only when the intended batch is coherent and all required gates pass: C#/Python/core/geometry/release audit, real Godot Windows export, artifact/hash verification and installer smoke test. Runtime/UI issues remain `FIXED - NEEDS USER VERIFICATION` until tested on the user's actual machine.
 
 ## Exact next action
 
-Reconcile the existing v1.0.19 code as a whole, with special focus on **MS-009 viewport pipeline conflicts and Stage-C reliability**, then continue the highest-value unblocked implementation work. Do not release merely because a scheduled run is ending; release when the v1.0.19 batch is coherent and all required gates pass.
+1. Check the final `build` and `core-foundation` results for code commit `59757d04eeb0f9e19cd7eb8fc812701373e0d03f`.
+2. If green, continue MS-009 reconciliation by inspecting remaining viewport/world ownership paths for conflicts with `Main.V1019ViewportPipeline.cs`; avoid another compatibility overlay unless a distinct root cause is proven.
+3. Then advance MS-022/Stage-C by adding an early provider readiness/self-test contract for the chosen lightweight 3D route, so dependency/device failures happen before a long generation job.
+4. Keep MS-009 and MS-013 awaiting real-machine verification; do not raise the 56% completion estimate from this code-only change.
