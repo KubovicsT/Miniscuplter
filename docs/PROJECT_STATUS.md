@@ -20,25 +20,44 @@ The bounded Stage-C foundation shipped in v1.0.20:
 
 `accepted 2D baseline → revision-bound 3D candidate → explicit Apply → Core-authoritative transform → one immutable sculpt/edit commit → save/reload → revision-bound cleanup → exact validated STL export`
 
-Real reference-machine acceptance is underway.
+Reference-machine testing reopened **MS-009** as the immediate P0. v1.0.20 renders the floor/grid and starter model, but the resting viewport is dark/unreadable and changes appearance after splitter resize settles.
 
-## New v1.0.20 target-machine finding
+## v1.0.21 viewport candidate
 
-**MS-009 has been reopened and is the immediate P0.**
+The narrow Coordinator-directed MS-009 fix is implemented without broadening application scope:
 
-The user's v1.0.20 screenshot confirms important progress: the grid/floor and starter 3D model now render instead of the historical fully blank viewport. But the viewport is not yet usable enough for acceptance:
+- `SubViewportContainer.Stretch` is the normal viewport-size owner once the native pipeline is installed;
+- v1.0.9 responsive sizing defers instead of writing `SubViewport.Size` under the native pipeline;
+- v1.0.18 no longer calls the legacy size synchronizer every frame under the native pipeline;
+- the v1.0.17 periodic viewport timer is stopped once native ownership is established;
+- ordinary host resize no longer schedules a delayed full world repair;
+- workflow-tab changes replace the legacy full-repair handler with a lightweight native frame/presentation refresh;
+- `OwnWorld3D` is established once and the existing scene world is rebound only during initial configuration or genuine recovery;
+- background, grid, mesh material and key/fill/ambient lighting use a neutral studio-style gray presentation with clearer contrast;
+- viewport diagnostics now expose resize ownership, world configuration, light counts and rendered-frame luminance;
+- release audit now asserts the new ownership and presentation invariants;
+- visible release identity has been advanced consistently to `1.0.21`.
 
-- normal/resting grid/floor appears very dark blue/gray;
-- the grid temporarily appears correct while the right-side panel divider is actively moved;
-- the model is too dark to inspect details;
-- the requested visual target is a Blender-like neutral-gray viewport with readable model shading.
+This is a code-level fix only. MS-009 cannot be resolved until the immutable build is tested on the reference PC.
 
-Repository inspection points to overlapping resize/world ownership as the likely seam: the native v1.0.19 viewport says Stretch owns sizing, while legacy paths still assign SubViewport.Size, and a delayed full repair runs after resize. World3D ownership/rebind logic is also duplicated. Root cause must be proven by the implementation fix rather than assumed.
+## Validation
+
+For the v1.0.21 code candidate before final documentation commits:
+
+- Stage-B/Core foundation CI: **PASS**;
+- C# editor/launcher/updater/Core builds: **PASS**;
+- Python compilation and dependency resolution: **PASS**;
+- core logic and execution regressions: **PASS**;
+- real geometry regressions: **PASS**;
+- v1.0.21 release audit including viewport ownership assertions: **PASS**;
+- portable package / installer-definition branch gate: **running at last reconciliation**.
+
+The autonomous release controller remains the final authority for real Godot 4.7.2 Windows export, output/hash verification, installer creation and silent installer smoke-install before publication.
 
 ## Current priorities
 
-1. **MS-009 — P0:** deterministic/readable viewport on v1.0.21; single resize/world owner + Blender-like palette/lighting.
-2. **MS-018:** resume full Stage-C target qualification after the viewport blocker.
+1. **MS-009 — P0:** finish validation/publish narrow v1.0.21, then reference-PC launch/resize/settle/tab-switch verification.
+2. **MS-018:** resume full Stage-C target qualification after viewport retest.
 3. **MS-013:** storage containment verification.
 4. **MS-022:** qualify one intended lightweight/default 3D provider on GTX 1080 / 16 GB.
 5. **MS-004:** cancellation/recovery during a real job.
@@ -46,18 +65,8 @@ Repository inspection points to overlapping resize/world ownership as the likely
 
 ## Immediate engineering priority
 
-Fix MS-009 forward on v1.0.21 without adding another viewport overlay or broad UI rewrite.
-
-Required result:
-- correct appearance immediately after launch;
-- no visual state change caused by splitter resize/settle;
-- readable neutral-gray model shading;
-- clearly visible grid/axes;
-- stable tab-switch/manual-repair behavior;
-- existing 2D canvas and Stage-C object authority preserved.
-
-When the narrow fix is coherent and all release gates pass, v1.0.21 may be published as the immutable test build needed for real-machine verification.
+Do not add unrelated v1.0.21 functionality. Finish release validation for the viewport candidate. If all release gates pass, publish v1.0.21 through `release-control` and keep MS-009 at `FIXED - NEEDS USER VERIFICATION` until the actual reference-machine result is known.
 
 ## User input currently required
 
-No additional product decision is required. The user should continue reporting v1.0.20 findings; after v1.0.21 is published, the viewport fix specifically needs real-machine verification before MS-009 can be resolved.
+No product/design decision is required. After v1.0.21 is published, the user should verify that the viewport stays visually identical before/during/after divider resize, remains readable after tab switches, and shows a clearly lit neutral-gray model/grid.
