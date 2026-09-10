@@ -51,40 +51,85 @@ This is evidence of architectural convergence, not churn. The previous P0 state-
 
 ### Autonomous release-control assessment
 
-The permanent `release-control` mechanism is strategically acceptable. It preserves the important separation between a Dev Cycle release decision and an independently gated exact-SHA Windows build/export/smoke/publication process. Keep the historical explicit-tag workflow as fallback; do not weaken release safety merely for automation convenience.
+The permanent `release-control` mechanism is strategically acceptable. It preserves separation between a Dev Cycle release decision and an independently gated exact-SHA Windows build/export/smoke/publication process. Keep the historical explicit-tag workflow as fallback; do not weaken release safety merely for automation convenience.
 
-The autonomous release path has nevertheless exposed orchestration defects during bootstrap:
+Two bootstrap defects were observed:
 
-1. The first release request failed because request discovery examined only the triggering commit rather than the full push range. The Dev Cycle repaired that without weakening release gates.
-2. Latest autonomous-release run `34506900865` successfully parsed and validated the exact request for v1.0.20 at `6ead6ae2f3c2823b7b3b93f2fae805e6808f6f57`, then the same PowerShell step exited with code 1 before build/export gates ran.
+1. request discovery initially examined only the triggering commit rather than the full push range;
+2. an expected failing `gh release view` probe left `$LASTEXITCODE` nonzero after otherwise-successful validation.
 
-The second failure is explained by the release-existence probe: `gh release view` is expected to return nonzero when the release does not exist, but that native exit code remains in `$LASTEXITCODE`. The script continues, emits its successful validation message and outputs, yet the step ends as failed because the native exit code was not neutralized/structured into an explicit success path.
-
-### Coordinator conclusion
-
-This is a **release-orchestration defect**, not a v1.0.20 application defect and not evidence that the selective-refactor direction is wrong.
-
-Do not reopen application implementation on v1.0.20. The immediate critical path is:
-
-1. Dev Cycle fixes only the release-control validation exit handling while preserving the existing-release immutability guard and all exact-SHA/build/export/hash/smoke gates.
-2. Update/reissue the existing v1.0.20 request against the exact final branch HEAD and freeze v1.0.20 while it runs.
-3. Drive the release workflow to a definitive success or a genuine application/release gate failure.
-4. On publication, verify v1.0.20 and immediately move application development to v1.0.21.
-5. Obtain user/reference-machine evidence for MS-009, MS-013, MS-018 and MS-022.
-6. Any target-machine regression outranks planned post-release architecture work; otherwise resume broader MS-019/MS-020 work after acceptance evidence.
+Both were classified as release-orchestration defects rather than source-candidate defects. The Dev Cycle was directed to repair them without reopening v1.0.20 application scope or weakening gates.
 
 ### Priority change
 
-Previous P0 (`MS-019` bounded transform + one mesh-edit authority) is complete enough for the release candidate. Current P0 is release orchestration in service of `MS-018` publication/qualification. This is a sequencing change, not a product-architecture change.
+Previous P0 (`MS-019` bounded transform + one mesh-edit authority) was complete enough for the release candidate. Release orchestration became immediate P0 in service of `MS-018` publication/qualification.
 
-### Risks
+---
 
-- release-controller debugging creating unnecessary application commits;
-- weakening safety checks after repeated orchestration failures;
-- moving the source branch after submitting an exact-SHA release request;
-- interpreting CI/release success as target-machine acceptance;
-- resuming broad migration before actual Stage-C acceptance evidence.
+## 2026-09-10 — v1.0.20 published / target-acceptance checkpoint
 
-### User input
+### No-race and repository checkpoint
 
-No product/design decision and no manual release action is required at this checkpoint. User input becomes necessary after v1.0.20 publication for real GTX 1080 / 16 GB acceptance testing.
+- The latest Dev Cycle completed before substantive review.
+- `v1.0.20` is now the published stable release.
+- Published target: `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
+- Autonomous-release run `34508060099` completed successfully through exact-SHA validation, C#/Core, Python/runtime, job/geometry regressions, release audit, verified Godot 4.7.2 Windows export, output/hash verification, installer creation, silent installer smoke-install, immutable-target recheck, tag creation and GitHub Release publication.
+- Forward-only development branch `v1.0.21` exists from the exact published target.
+- v1.0.21 HEAD reviewed before Coordinator roadmap update: `214b890b3c46be4ef7451c5c9a8fd60f03eee10f`.
+- Exact-head v1.0.21 Core, C#, Python/geometry/release-audit and packaging jobs are green. Full Windows-release/publication jobs were correctly skipped for an ordinary branch push.
+- Acceptance-weighted completion remains **58%** because release publication does not substitute for target-machine acceptance.
+
+### Outcome of previous direction
+
+The Dev Cycle followed the roadmap successfully:
+
+- it fixed the release-controller `$LASTEXITCODE` defect at the release-control boundary;
+- it did not reopen or broaden v1.0.20 application scope;
+- it preserved exact-SHA, build/export/hash/smoke and immutability gates;
+- it drove the controller to a successful real Windows release;
+- it preserved v1.0.20 immutability and moved forward to v1.0.21.
+
+This validates both the bounded-release sequencing and the permanent autonomous release-control architecture. The explicit-tag release path remains fallback only.
+
+### Strategic assessment
+
+**Preserve the selective-refactor direction.** No architectural reset is warranted.
+
+The critical path has now moved from architecture implementation and release orchestration to **real reference-machine acceptance**. The correct response is not to immediately begin another broad migration. The project needs runtime evidence on the intended GTX 1080 / 8 GB VRAM / 16 GB RAM machine before deciding which structural work should follow.
+
+### Priority decision
+
+Current order:
+
+1. `MS-018` — complete the released v1.0.20 Stage-C flow on the reference machine.
+2. `MS-009` — verify viewport/grid/model/gizmo; reproduced blank viewport becomes immediate P0.
+3. `MS-013` — verify storage containment; severe leakage/safety regression becomes P0.
+4. `MS-022` — qualify one intended lightweight/default 3D provider with elapsed time and RAM/VRAM evidence.
+5. `MS-004` — cancellation/recovery during a real job where practical.
+6. broader `MS-019` / `MS-020` work waits behind acceptance unless a concrete runtime blocker requires it.
+
+### v1.0.21 scope decision
+
+Until target-machine evidence arrives, v1.0.21 is primarily a forward-fix/acceptance-support branch.
+
+Allowed work:
+- fixes for reproduced v1.0.20 defects;
+- diagnostics directly needed to establish acceptance evidence;
+- regressions for observed failures;
+- accurate acceptance documentation.
+
+Do not use scheduled-cycle availability as a reason to start full sculpt migration, broad legacy removal, full Job Broker reconstruction, Rig/Pose, kitbash, provider proliferation, UI rewrite, or optional cleanup breadth.
+
+If target-machine acceptance is green, the next Coordinator review should sequence the next structural milestone. Current default ordering after acceptance is `MS-020` durable job ownership/queue/crash recovery, then `MS-019` outward migration from the proven Stage-C seam, provider-tier decisions from measured `MS-022` evidence, then broader Stage-D practical editing work.
+
+### Risks to monitor
+
+- treating CI/release success as real-machine acceptance;
+- Dev Cycles drifting into generalized infrastructure while waiting for user evidence;
+- v1.0.21 becoming a broad migration branch before acceptance;
+- compatibility bridges becoming long-term duplicate authority;
+- provider policy being based on theoretical support instead of measured reference-machine behavior.
+
+### User dependency
+
+No product-level decision is required. The important dependency is now real testing of released v1.0.20 on the reference machine. Concrete pass/fail observations should drive v1.0.21 fixes. If testing exposes a difficult-to-reverse product tradeoff, escalate that decision to the user rather than embedding it in an implementation fix.
