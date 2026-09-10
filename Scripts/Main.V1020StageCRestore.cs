@@ -29,7 +29,7 @@ public partial class Main
 
                 foreach (var candidate in applied)
                 {
-                    if (!session.Current.Objects.ContainsKey(candidate.OutputObjectId))
+                    if (!session.Current.Objects.TryGetValue(candidate.OutputObjectId, out ProjectObject? durableObject))
                         continue;
                     if (_v1013ObjectIds.Values.Contains(candidate.OutputObjectId))
                         continue;
@@ -37,7 +37,10 @@ public partial class Main
                     ArrayMesh mesh = V1020LoadCandidateMesh(candidate);
                     AddMeshObject(mesh, $"AI 3D — {candidate.Provider}");
                     if (_selected != null)
+                    {
                         _v1013ObjectIds[_selected.GetInstanceId()] = candidate.OutputObjectId;
+                        V1020ProjectObjectStateToScene(_selected, durableObject);
+                    }
                 }
 
                 if (applied.Length > 0 && _selected != null)
