@@ -146,8 +146,9 @@ internal static class Program
             Assert(rejected, "legacy path traversal was not rejected");
 
             await StageCGenerationTests.RunAsync(root);
+            await StageCEditingTests.RunAsync(root);
 
-            Console.WriteLine("v1.0.20 canonical project-state and Stage-C generation tests passed; core foundation tests passed");
+            Console.WriteLine("v1.0.20 canonical project-state, Stage-C generation and editing tests passed; core foundation tests passed");
         }
         finally
         {
