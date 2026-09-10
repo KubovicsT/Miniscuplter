@@ -17,6 +17,8 @@ public record AiComponentInfo(string Id, string Name, string Kind, bool Installe
 public record AiHardwareInfo(string? Gpu, int VramMb, bool CudaAvailable, string RecommendedProfile);
 public record AiComponentStatus(AiHardwareInfo Hardware, List<AiComponentInfo> Components, string DataRoot);
 public record AiJobProgress(string JobId, string Kind, string State, string Stage, string Detail, double Progress, string Provider, bool Active, bool CancelRequested, long Sequence);
+public record AiStageCGenerationContext(string GenerationJobId, string ProjectId, long ProjectRevision, string InputImageRevisionId, string OutputObjectId);
+public record AiStageC3DResult(string Path, string Provider, AiStageCGenerationContext Context);
 
 public sealed class AIClient
 {
@@ -118,6 +120,61 @@ public sealed class AIClient
         => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath, quality, provider = Quality3DProvider, role = "quality" });
     public async Task<string> Generate3DRoutedAsync(string imagePath, string prompt, string outputPath, string role, string provider = "auto")
         => await PostForFileAsync("/generate-3d", new { image_path = imagePath, prompt, output_path = outputPath, quality = "standard", provider, role });
+
+    public async Task<AiStageC3DResult> Generate3DStageCAsync(
+        string imagePath,
+        string prompt,
+        string outputPath,
+        string role,
+        string provider,
+        AiStageCGenerationContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        string requestedJobId = context.GenerationJobId?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(requestedJobId) || requestedJobId.Length > 96)
+            throw new ArgumentException("Stage-C generation job identity is invalid.", nameof(context));
+
+        string body = await PostJsonTextAsync("/generate-3d", new {
+            image_path = imagePath,
+            prompt,
+            output_path = outputPath,
+            quality = "standard",
+            provider,
+            role,
+            generation_job_id = requestedJobId,
+            project_id = context.ProjectId,
+            project_revision = context.ProjectRevision,
+            input_image_revision_id = context.InputImageRevisionId,
+            output_object_id = context.OutputObjectId
+        }, true, requestedJobId);
+
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        string path = root.GetProperty("path").GetString() ?? throw new InvalidOperationException("Backend returned no file path.");
+        if (!File.Exists(path)) throw new InvalidOperationException($"Backend reported success but output file does not exist: {path}");
+        if (new FileInfo(path).Length == 0) throw new InvalidOperationException($"Backend reported success but output file is empty: {path}");
+        string actualProvider = root.TryGetProperty("provider", out var providerNode) ? providerNode.GetString() ?? provider : provider;
+        if (!root.TryGetProperty("context", out var contextNode) || contextNode.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("Backend omitted the Stage-C generation identity from its response.");
+
+        string ReadRequired(string name) => contextNode.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? ""
+            : "";
+        long returnedRevision = contextNode.TryGetProperty("project_revision", out var revisionNode) && revisionNode.TryGetInt64(out var revision)
+            ? revision : long.MinValue;
+        var returned = new AiStageCGenerationContext(
+            ReadRequired("generation_job_id"),
+            ReadRequired("project_id"),
+            returnedRevision,
+            ReadRequired("input_image_revision_id"),
+            ReadRequired("output_object_id"));
+        if (returned != context)
+            throw new InvalidOperationException(
+                $"Backend returned a mismatched Stage-C generation identity. Expected job {context.GenerationJobId} / project {context.ProjectId} / image {context.InputImageRevisionId} / object {context.OutputObjectId}; " +
+                $"received job {returned.GenerationJobId} / project {returned.ProjectId} / image {returned.InputImageRevisionId} / object {returned.OutputObjectId}.");
+        return new AiStageC3DResult(path, actualProvider, returned);
+    }
+
     public async Task<string> GeneratePartsAsync(string imagePath, string outputDir, int numParts, string tag = "miniscuplter", string provider = "auto")
         => await PostJsonTextAsync("/generate-parts", new { image_path = imagePath, output_dir = outputDir, num_parts = numParts, tag, provider }, true);
     public async Task<string> Detail2DAsync(string imagePath, string maskPath, string prompt, string outputPath)
@@ -163,12 +220,16 @@ public sealed class AIClient
         return path;
     }
 
-    async Task<string> PostJsonTextAsync(string route, object payload, bool cancellable = false)
+    async Task<string> PostJsonTextAsync(string route, object payload, bool cancellable = false, string? requestedJobId = null)
     {
         await WaitForCancellationRecoveryAsync();
         CancellationTokenSource? cts = cancellable ? new CancellationTokenSource() : null;
         bool gateHeld = false;
-        string? jobId = cancellable ? Guid.NewGuid().ToString("N") : null;
+        string? jobId = cancellable
+            ? (string.IsNullOrWhiteSpace(requestedJobId) ? Guid.NewGuid().ToString("N") : requestedJobId.Trim())
+            : null;
+        if (jobId is { Length: > 96 })
+            throw new ArgumentException("AI job identity exceeds the 96-character transport limit.", nameof(requestedJobId));
         try
         {
             if (cancellable)
