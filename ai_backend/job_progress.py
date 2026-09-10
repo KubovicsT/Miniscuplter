@@ -11,6 +11,15 @@ _jobs: dict[str, dict] = {}
 _current_id: str | None = None
 _MAX_EVENTS = 96
 
+_3D_PROVIDER_COMPONENTS = {
+    "triposr": "triposr",
+    "sf3d": "sf3d",
+    "spar3d": "spar3d",
+    "hunyuan-mini": "hunyuan2mini",
+    "hunyuan": "hunyuan21-shape",
+    "trellis2": "trellis2",
+}
+
 
 def _now() -> float:
     return time()
@@ -35,6 +44,22 @@ def _event(entry: dict, stage: str, detail: str, progress: float | None = None) 
     events.append(event)
     if len(events) > _MAX_EVENTS:
         del events[:-_MAX_EVENTS]
+
+
+def _record_completed_inference(kind: str, provider: str | None, elapsed_seconds: float) -> None:
+    """Persist qualification only after a real, verified 3D job completed.
+
+    This is deliberately best-effort and lazy-imported: job progress must never depend on
+    model-manager state writes, and ordinary 2D/geometry jobs must not be mistaken for
+    provider inference qualification.
+    """
+    if kind != "3d-generate" or not provider:
+        return
+    component_id = _3D_PROVIDER_COMPONENTS.get(provider)
+    if component_id is None:
+        return
+    from provider_readiness import record_inference_success
+    record_inference_success(component_id, elapsed_seconds=elapsed_seconds)
 
 
 def begin(kind: str, client_job_id: str | None = None) -> str:
@@ -101,21 +126,36 @@ def complete(detail: str = "Completed.", provider: str | None = None) -> None:
     job_id = current_job_id()
     if not job_id:
         return
+    qualification: tuple[str, str | None, float] | None = None
     with _lock:
         entry = _jobs.get(job_id)
         if entry is None:
             return
+        completed_at = _now()
         entry.update({
             "active": False,
             "state": "completed",
             "stage": "completed",
             "detail": detail,
             "progress": 100.0,
-            "updated_at": _now(),
+            "updated_at": completed_at,
         })
         if provider:
             entry["provider"] = provider
         _event(entry, "completed", detail, 100.0)
+        qualification = (
+            str(entry.get("kind") or ""),
+            entry.get("provider"),
+            max(0.0, completed_at - float(entry.get("started_at") or completed_at)),
+        )
+
+    # Never hold the progress lock while persisting provider qualification. A slow or failed
+    # state write must not block polling or turn an already verified inference into a failed job.
+    if qualification is not None:
+        try:
+            _record_completed_inference(*qualification)
+        except Exception:
+            pass
 
 
 def fail(detail: str) -> None:
