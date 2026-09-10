@@ -9,76 +9,35 @@ Last reconciled: 2026-09-10
 - **Latest published stable release:** `v1.0.21`
 - **Stable release target commit:** `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
 - **Current development branch:** `v1.0.22`
-- **v1.0.22 branch base:** exact published v1.0.21 target
+- **Current validated implementation candidate before documentation commits:** `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`
 - **Overall completion:** **57% acceptance-weighted**
 
-v1.0.21 is published and immutable. All subsequent fixes belong on v1.0.22+.
+v1.0.21 is published and immutable. v1.0.22 remains the only forward application branch for the current acceptance fixes.
 
 ## Current phase
 
-The bounded Stage-C foundation shipped in v1.0.20. Reference-machine testing then reopened **MS-009** because v1.0.20 rendered the viewport but the resting grid/model were dark and the appearance changed after splitter resize settled.
+The Coordinator-defined critical path remains Stage-C target acceptance. The v1.0.21 reference-machine test proved the native viewport is readable initially, but also exposed three concrete blockers now addressed in v1.0.22 code:
 
-v1.0.21 is the narrow evidence-driven viewport remediation release. It establishes one normal resize/world ownership path, removes routine legacy size/full-repair competition, replaces legacy tab full-repair behavior with lightweight native refresh, and uses a neutral gray studio-style viewport presentation with stronger diagnostics.
+1. **MS-023 — Stage-C generation ownership/persistence.** v1.0.17 and v1.0.20 could both own the same Generate-3D button. v1.0.22 installs a final acceptance guard that removes the v1.0.9, v1.0.17 and duplicate v1.0.20 subscriptions and then attaches exactly one `V1020Generate3DAsync` owner. Successful generation therefore enters the existing revision-bound candidate path instead of racing a transient legacy import.
+2. **MS-024 — whole-window resize seams.** v1.0.22 reasserts FullRect/ExpandFill ownership for the outer UI on native viewport size changes without writing `SubViewport.Size`, preserving the v1.0.21 native render-target ownership model.
+3. **MS-025 / MS-009 presentation residuals.** v1.0.22 removes the legacy starter sphere from launch/New/recovery-composed scenes, keeps the empty viewport usable, hides the opaque historical grid floor while preserving grid bars/axes, and reasserts the native studio presentation after host resize/recovery.
 
-MS-009 remains **FIXED - NEEDS USER VERIFICATION**, not resolved, because the failure is render-driver/reference-machine dependent.
+The durable Core save/reload path was re-audited during implementation: applied objects already restore from their `ActiveMeshRevisionId`; no speculative Core rewrite was needed.
 
-## v1.0.21 release validation
+## Validation
 
-Autonomous release run `34513308015` passed against exact candidate `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`:
+Implementation commit `0e41b78d6a109bc09515a3d8877f385f91714527` passed Stage-B/Core, C#, Python compilation/dependency, execution, geometry and release-audit validation after correcting one test-only false positive. The failed intermediate build at `42dd143661a81185c110e7e761d12d41ead15cf7` is retained in issue history: its new static test incorrectly matched the words `SubViewport.Size` inside a comment; the assertion was narrowed to actual assignment syntax.
 
-- exact request/SHA and branch-freeze validation: **PASS**;
-- C# editor/launcher/updater/Core builds and Core regressions: **PASS**;
-- Python compilation/runtime dependency resolution: **PASS**;
-- core/job regressions: **PASS**;
-- real geometry regressions and v1.0.21 release audit: **PASS**;
-- verified Godot 4.7.2 .NET + export templates: **PASS**;
-- real Windows release build/export: **PASS**;
-- versioned release outputs and ZIP hash verification: **PASS**;
-- generated installer silent smoke-install: **PASS**;
-- immutable target recheck and GitHub publication: **PASS**.
-
-GitHub latest release now reports `v1.0.21` at the exact candidate with installer, ZIP and SHA sidecar assets.
-
-## New reference-machine Stage-C evidence
-
-The same v1.0.20 session that produced the first useful Hunyuan-mini result also exposed a production-integration blocker:
-
-- Hunyuan-mini completed successfully in about **402 s** on the GTX 1080 reference PC.
-- A Task Manager snapshot during the run showed about **97% GPU**, **5.4/8.0 GB dedicated VRAM**, **5.0/15.9 GB system RAM** and **73 °C GPU temperature**. These are useful observed values, not established peaks.
-- The generated mesh appeared in the viewport, but the Stage-C UI still said **`3D candidate: none`**.
-- After closing and reopening Miniscuplter, the 2D image returned but the generated 3D model did not.
-- Code review confirms duplicate legacy/Stage-C Generate-button handlers can let the legacy path import a transient scene mesh while the Stage-C handler exits on the shared busy flag.
-
-This is tracked as **MS-023** and blocks end-to-end Stage-C acceptance. The acceptance-weighted estimate is reduced from 58% to **57%** because real-machine evidence shows the shipped UI is not actually exercising the durable candidate/apply/persistence path for this successful generation.
-
-Additional user findings are tracked as **MS-024** (black seams/gaps on window resize), **MS-025** (remove oversized starter sphere), and **MS-026** (planned in-app resource telemetry/graphs). The opaque floor/grid also remains part of MS-009 acceptance because it must not hide geometry.
-
-## v1.0.21 reference-machine viewport result
-
-The user has now retested the released v1.0.21 viewport:
-
-- **Initial 3D viewport appearance: materially improved / good.** The grid and starter sphere are clearly visible with useful neutral-gray lighting.
-- **Right-panel resize: still fails invariance.** After resizing the right-side AI panel, the viewport color changes.
-- **Whole-window resize: MS-024 persists.** Black seams/gaps still appear around the application layout.
-- Therefore MS-009 moves from "fixed - needs verification" back to **IN PROGRESS (partial target pass)**, while MS-024 is explicitly confirmed on v1.0.21.
-- Shipped code still exposes an older `V1017RepairViewport()` presentation mutation path alongside the native v1.0.19+ viewport owner. v1.0.22 should remove/delegate that duplicate presentation authority and separately correct root-window layout fill behavior.
-
-This does not change the current top priority: **MS-023 lost 3D persistence remains the immediate correctness P0**. MS-009/MS-024 follow immediately because they are inexpensive to reproduce and directly affect editing usability.
+Release-identity commit `36093b66f1a9e746e2a46f5c0d55afd35aa35b84` advances all editor/backend/launcher/updater/export/installer version surfaces to `1.0.22` and strengthens release audit coverage for the new acceptance guard. Exact-head CI has already passed Core plus the Python/execution/geometry/release-audit and C# legs; packaging is the remaining branch-validation leg at this reconciliation point.
 
 ## Current priorities
 
-1. **MS-023 — active engineering P0:** fix duplicate legacy/Stage-C 3D-generation ownership so successful generation becomes a durable candidate/applied object and survives restart.
-2. **MS-009 / MS-024 — confirmed UI blockers:** initial v1.0.21 viewport is good, but right-panel resize still changes viewport color and whole-window resize still leaves black seams. Fix forward on v1.0.22 after MS-023.
-3. **MS-018:** resume/complete full Stage-C target qualification once MS-023 is fixed and MS-009 is usable.
-4. **MS-024 / MS-025:** fix residual whole-window resize seams and remove the oversized automatic starter sphere.
-5. **MS-013 / MS-022 / MS-004:** storage containment, provider/resource qualification and cancellation/recovery.
-6. **MS-026:** add low-overhead in-app resource telemetry after current correctness blockers, using it to support provider qualification.
-7. **MS-019 / MS-020:** broader architecture remains behind acceptance unless concrete evidence makes it blocking.
-
-## Immediate engineering priority
-
-While v1.0.21 viewport verification remains a parallel user dependency, v1.0.22 engineering should first correct MS-023 because it is a confirmed production persistence blocker. Do not spend another long target-machine generation merely to reproduce it: the screenshot/restart evidence plus duplicate handler wiring are sufficient to implement a deterministic fix and regression test. After that, use v1.0.21/v1.0.22 reference-machine testing to close MS-009 and resume the complete MS-018 flow.
+1. Complete exact-head v1.0.22 validation and publish only if all autonomous Windows export/hash/installer-smoke gates pass.
+2. Reference-machine retest of released v1.0.22: generate → visible Ready/Conflict candidate → Apply → save/close/reopen → same durable object/active mesh revision; verify Move/Rotate/Scale, cleanup and STL export.
+3. In the same session verify initial/right-panel/whole-window viewport presentation and absence of black seams/opaque floor/starter sphere.
+4. Then continue MS-018, MS-013, MS-022 and MS-004 acceptance evidence.
+5. MS-026 telemetry and broader MS-019/MS-020 architecture remain behind the current acceptance blockers unless the Coordinator changes priority.
 
 ## User input currently required
 
-Reference-machine verification of released v1.0.21 is now the critical dependency. No product/design decision is required.
+No product/design decision is required. After v1.0.22 is released, reference-machine verification is the next important evidence dependency.
