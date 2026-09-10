@@ -78,6 +78,7 @@ class EditRequest(BaseModel):
     output_path: str = Field(min_length=1, max_length=4096)
     quality: str = Field(default="standard", max_length=64)
     provider: str = Field(default="auto", max_length=64)
+    detail: bool = False
 
 
 class Generate3DRequest(BaseModel):
@@ -87,19 +88,28 @@ class Generate3DRequest(BaseModel):
     quality: str = Field(default="standard", max_length=64)
     provider: str = Field(default="auto", max_length=64)
     role: str = Field(default="quality", max_length=64)
-    generation_job_id: Optional[str] = Field(default=None, min_length=1, max_length=96)
-    project_id: Optional[str] = Field(default=None, min_length=1, max_length=96)
+    generation_job_id: Optional[str] = Field(default=None, min_length=32, max_length=96)
+    project_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
     project_revision: Optional[int] = Field(default=None, ge=0)
-    input_image_revision_id: Optional[str] = Field(default=None, min_length=1, max_length=96)
-    output_object_id: Optional[str] = Field(default=None, min_length=1, max_length=96)
+    input_image_revision_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
+    output_object_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
 
 
-class PartsRequest(BaseModel):
+class GeneratePartsRequest(BaseModel):
     image_path: str = Field(min_length=1, max_length=4096)
     output_dir: str = Field(min_length=1, max_length=4096)
-    num_parts: int = Field(default=6, ge=1, le=64)
-    tag: str = Field(default="miniscuplter", max_length=64)
+    num_parts: int = Field(default=4, ge=1, le=16)
+    tag: str = Field(default="miniscuplter", min_length=1, max_length=64)
     provider: str = Field(default="auto", max_length=64)
+
+
+class ComponentRequest(BaseModel):
+    id: str
+
+
+class SemanticSelectRequest(BaseModel):
+    input_path: str = Field(min_length=1, max_length=4096)
+    query: str = Field(min_length=1, max_length=1000)
 
 
 class Detail2DRequest(BaseModel):
@@ -128,51 +138,44 @@ class DetailApplyRequest(BaseModel):
     source_mesh: str = Field(min_length=1, max_length=4096)
     patch_mesh: str = Field(min_length=1, max_length=4096)
     output_path: str = Field(min_length=1, max_length=4096)
-    voxel_size: Optional[float] = Field(default=None, gt=0.0)
+    voxel_size: Optional[float] = Field(default=None, ge=0.04, le=5.0)
 
 
-class QualityConfigRequest(BaseModel):
-    image_size: Optional[int] = Field(default=None, ge=256, le=1536)
-    image_steps: Optional[int] = Field(default=None, ge=4, le=80)
-    image_guidance: Optional[float] = Field(default=None, ge=0.0, le=20.0)
-    image_edit_strength: Optional[float] = Field(default=None, ge=0.05, le=1.0)
-    max_input_px: Optional[int] = Field(default=None, ge=256, le=2048)
-    shape_steps: Optional[int] = Field(default=None, ge=4, le=100)
-    remesh_voxel_mm: Optional[float] = Field(default=None, ge=0.03, le=3.0)
-    repair_voxel_mm: Optional[float] = Field(default=None, ge=0.03, le=3.0)
-    max_voxel_cells: Optional[int] = Field(default=None, ge=500_000, le=50_000_000)
-    thickness_samples: Optional[int] = Field(default=None, ge=500, le=100_000)
-    smart_select_views: Optional[int] = Field(default=None, ge=3, le=16)
-    smart_select_render_size: Optional[int] = Field(default=None, ge=128, le=1024)
-
-
-def _job_context(req: Generate3DRequest) -> Optional[dict]:
-    values = {
-        "generation_job_id": req.generation_job_id,
-        "project_id": req.project_id,
-        "project_revision": req.project_revision,
-        "input_image_revision_id": req.input_image_revision_id,
-        "output_object_id": req.output_object_id,
+def _stage_c_context(req: Generate3DRequest, header_job_id: Optional[str]) -> dict:
+    values = [
+        req.generation_job_id,
+        req.project_id,
+        req.project_revision,
+        req.input_image_revision_id,
+        req.output_object_id,
+    ]
+    present = [value is not None and (not isinstance(value, str) or bool(value.strip())) for value in values]
+    if any(present) and not all(present):
+        raise HTTPException(400, "Stage-C 3D identity must be supplied as one complete context.")
+    if not any(present):
+        return {}
+    context = {
+        "generation_job_id": str(req.generation_job_id).strip(),
+        "project_id": str(req.project_id).strip(),
+        "project_revision": int(req.project_revision),
+        "input_image_revision_id": str(req.input_image_revision_id).strip(),
+        "output_object_id": str(req.output_object_id).strip(),
     }
-    populated = {key: value for key, value in values.items() if value is not None}
-    if not populated:
-        return None
-    if len(populated) != len(values):
-        missing = ", ".join(sorted(key for key, value in values.items() if value is None))
-        raise HTTPException(400, f"Stage-C generation context must be all-or-nothing; missing: {missing}.")
-    return values
+    if header_job_id and header_job_id.strip() != context["generation_job_id"]:
+        raise HTTPException(400, "Stage-C generation job id does not match the transport job id.")
+    return context
 
 
 @app.get("/health")
 def health():
     return {
-        "status": "ok",
+        "ok": True,
         "version": APP_VERSION,
-        "sd_webui": SD_WEBUI_URL,
-        "has_3d_command": bool(THREED_COMMAND),
-        "components": component_status(),
         "routing": routing_status(),
-        "job": current_job(),
+        "geometry_provider": "trimesh-voxel + model-analysis + transactional-detail-union",
+        "rig_provider": "adaptive-quick + optional-universal-command",
+        "smart_select_provider": "local-clipseg-or-geometry",
+        "components": component_status(),
     }
 
 
@@ -186,221 +189,305 @@ def components():
     return component_status()
 
 
+@app.get("/job-progress/current")
+def job_progress_current():
+    return current_job()
+
+
 @app.get("/job-progress/{job_id}")
-def job_progress(job_id: str):
-    return get_job(job_id)
+def job_progress_by_id(job_id: str):
+    result = get_job(job_id)
+    if result is None:
+        raise HTTPException(404, "Unknown AI job id.")
+    return result
 
 
 @app.get("/job-progress/{job_id}/events")
-def job_progress_events(job_id: str, since_sequence: int = 0):
-    return get_job_events(job_id, since_sequence)
+def job_progress_events(job_id: str, after: int = 0):
+    result = get_job_events(job_id, max(0, after))
+    if result is None:
+        raise HTTPException(404, "Unknown AI job id.")
+    return {"job_id": job_id, "events": result}
 
 
-@app.post("/job-cancel/{job_id}")
-def job_cancel(job_id: str):
-    return request_job_cancel(job_id)
+@app.post("/job-progress/{job_id}/cancel")
+def job_progress_cancel(job_id: str):
+    result = request_job_cancel(job_id)
+    if result is None:
+        raise HTTPException(404, "Unknown AI job id.")
+    return result
+
+
+@app.post("/components/install")
+def install(req: ComponentRequest):
+    try:
+        release_all_models()
+        return install_component(req.id)
+    except Exception as e:
+        raise HTTPException(500, f"Component installation failed: {e}") from e
+
+
+@app.post("/components/uninstall")
+def uninstall(req: ComponentRequest):
+    try:
+        release_all_models()
+        return uninstall_component(req.id)
+    except Exception as e:
+        raise HTTPException(500, f"Component removal failed: {e}") from e
+
+
+@app.post("/release-models")
+def release_models():
+    release_all_models()
+    return {"ok": True}
+
+
+def _write_b64_image(data, out):
+    if "," in data:
+        data = data.split(",", 1)[1]
+    try:
+        raw = base64.b64decode(data, validate=True)
+        if not raw or len(raw) > 64 * 1024 * 1024:
+            raise ValueError("Decoded image payload is empty or above the 64 MiB safety limit.")
+        p = validate_output_path(out, DEFAULT_IMAGE_SUFFIXES)
+        p.write_bytes(raw)
+        return str(p)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(400, f"Image payload rejected: {exc}") from exc
+
+
+def _image_generate(provider, req):
+    if provider == "sdxl":
+        return __import__("sdxl_image", fromlist=["generate_concept"]).generate_concept(req.prompt, req.output_path)
+    if provider == "flux":
+        return __import__("flux_klein", fromlist=["generate_concept"]).generate_concept(req.prompt, req.output_path)
+    if provider == "sd21":
+        return __import__("local_image", fromlist=["generate_concept"]).generate_concept(req.prompt, req.output_path, req.quality)
+    if provider in {"zimage", "qwen"}:
+        cid = {"zimage": "z-image-turbo", "qwen": "qwen-image-2512"}[provider]
+        return __import__("modern_image", fromlist=["generate"]).generate(cid, req.prompt, req.output_path)
+    raise RuntimeError(f"Unsupported image provider: {provider}")
+
+
+def _image_edit(provider, req):
+    if provider == "sdxl":
+        return __import__("sdxl_image", fromlist=["edit_image"]).edit_image(req.image_path, req.mask_path, req.prompt, req.output_path, detail=req.detail)
+    if provider == "flux":
+        return __import__("flux_klein", fromlist=["edit_image"]).edit_image(req.image_path, req.mask_path, req.prompt, req.output_path, detail=req.detail)
+    if provider == "sd21":
+        return __import__("local_image", fromlist=["edit_image"]).edit_image(req.image_path, req.mask_path, req.prompt, req.output_path, req.quality)
+    if provider == "qwen-edit":
+        return __import__("modern_image", fromlist=["edit"]).edit("qwen-image-edit", req.image_path, req.mask_path, req.prompt, req.output_path)
+    raise RuntimeError(f"Unsupported image edit provider: {provider}")
 
 
 @app.post("/generate-concept")
 def generate_concept(req: ConceptRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    out = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
-    job_id = begin_job("image-generate", req.provider, "queued", "Concept generation queued", x_miniscupter_job_id)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
+    begin_job("2d-generate", x_miniscupter_job_id)
     try:
-        provider = choose_image_provider("generate", req.provider)
-        bind_job(job_id, provider.id, "loading", f"Loading {provider.id}", 0.03)
-        result = provider.generate(req.prompt, out, req.quality)
-        path = _provider_output(result, out, DEFAULT_IMAGE_SUFFIXES)
+        report_job("resolving_provider", "Choosing the installed local image model for this hardware and route.", 5)
+        d = choose_image_provider("generate", req.provider)
+        report_job("preparing_runtime", "Freeing previously loaded models before the selected provider is prepared.", 10, d.provider)
         release_all_models()
-        complete_job(job_id, "done", "Concept image ready")
-        return {"path": path, "provider": provider.id, "quality": req.quality}
-    except Exception as exc:
-        fail_job(job_id, str(exc))
-        release_all_models()
-        raise HTTPException(502, str(exc))
+        report_job("loading_model", f"Preparing {d.provider} model weights and runtime.", 18, d.provider)
+        path = _provider_output(_image_generate(d.provider, req), req.output_path, DEFAULT_IMAGE_SUFFIXES)
+        report_job("validating_output", "Image inference returned; verifying the saved result.", 97, d.provider)
+        complete_job("Concept image saved and verified.", d.provider)
+        return {"path": path, "provider": d.provider, "routing_reason": d.reason, "quality": req.quality}
+    except Exception as e:
+        fail_job(f"2D image provider failed: {e}")
+        raise HTTPException(502, f"2D image provider failed: {e}") from e
+    finally:
+        bind_job(None)
 
 
 @app.post("/edit-image")
 def edit_image(req: EditRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
-    mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES) if req.mask_path else None
-    out = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
-    job_id = begin_job("image-edit", req.provider, "queued", "Image edit queued", x_miniscupter_job_id)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    if req.mask_path:
+        req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
+    begin_job("2d-edit", x_miniscupter_job_id)
     try:
-        provider = choose_image_provider("edit", req.provider)
-        bind_job(job_id, provider.id, "loading", f"Loading {provider.id}", 0.03)
-        result = provider.edit(image_path, mask_path, req.prompt, out, req.quality)
-        path = _provider_output(result, out, DEFAULT_IMAGE_SUFFIXES)
+        report_job("resolving_provider", "Choosing the local image-edit model.", 5)
+        d = choose_image_provider("detail" if req.detail else "edit", req.provider)
+        report_job("preparing_runtime", "Freeing previously loaded models and preparing image-edit memory.", 10, d.provider)
         release_all_models()
-        complete_job(job_id, "done", "Image edit ready")
-        return {"path": path, "provider": provider.id, "quality": req.quality}
-    except Exception as exc:
-        fail_job(job_id, str(exc))
-        release_all_models()
-        raise HTTPException(502, str(exc))
+        report_job("loading_model", f"Preparing {d.provider} for image editing.", 18, d.provider)
+        path = _provider_output(_image_edit(d.provider, req), req.output_path, DEFAULT_IMAGE_SUFFIXES)
+        report_job("validating_output", "Edit inference returned; verifying the saved image.", 97, d.provider)
+        complete_job("Edited image saved and verified.", d.provider)
+        return {"path": path, "provider": d.provider, "routing_reason": d.reason, "quality": req.quality}
+    except Exception as e:
+        fail_job(f"2D image edit provider failed: {e}")
+        raise HTTPException(502, f"2D image edit provider failed: {e}") from e
+    finally:
+        bind_job(None)
+
+
+def _generate_shape(provider, req, image, output):
+    if provider == "hunyuan":
+        return __import__("hunyuan_shape", fromlist=["generate_shape"]).generate_shape(image, output, req.prompt, req.quality)
+    if provider == "triposr":
+        return __import__("triposr_shape", fromlist=["generate_shape"]).generate_shape(image, output, mc_resolution=192 if req.role in {"fast", "rough", "draft"} else 320)
+    s = __import__("specialist_3d_v105", fromlist=["x"])
+    if provider == "sf3d":
+        return s.generate_sf3d(image, output)
+    if provider == "spar3d":
+        return s.generate_spar3d(image, output, low_vram=int(__import__("model_manager").hardware_info().get("vram_mb", 0)) < 10000)
+    if provider == "hunyuan-mini":
+        return s.generate_hunyuan_mini(image, output)
+    if provider == "trellis2":
+        return s.generate_trellis2(image, output)
+    raise RuntimeError(f"Provider {provider} is not a single-mesh generator")
 
 
 @app.post("/generate-3d")
 def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
-    out = _safe_output_path(req.output_path, DEFAULT_MESH_SUFFIXES)
-    stage_c_context = _job_context(req)
-    requested_job_id = x_miniscupter_job_id
-    if stage_c_context is not None:
-        if requested_job_id and requested_job_id != req.generation_job_id:
-            raise HTTPException(400, "Stage-C generation job identity does not match the transport job header.")
-        requested_job_id = req.generation_job_id
-
-    job_id = begin_job("image-to-3d", req.provider, "queued", "3D reconstruction queued", requested_job_id, context=stage_c_context)
-    d = None
-    actual_provider = ""
-    primary_provider = ""
-    start = __import__("time").monotonic()
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, (".stl",))
+    stage_c_context = _stage_c_context(req, x_miniscupter_job_id)
+    transport_job_id = stage_c_context.get("generation_job_id") or x_miniscupter_job_id
+    begin_job("3d-generate", transport_job_id, stage_c_context)
+    image = req.image_path
+    output = req.output_path
+    provider = None
     try:
+        report_job("resolving_provider", "Choosing the local 3D reconstruction provider.", 5)
         d = choose_3d_provider(req.role, req.provider)
-        primary_provider = d.provider
-        bind_job(job_id, d.provider, "loading", f"Loading {d.provider}", 0.04)
+        provider = d.provider
+        report_job("preparing_runtime", "Releasing other models and reserving resources for 3D reconstruction.", 10, provider)
         release_all_models()
-        report_job(job_id, "running", f"Generating mesh with {d.provider}", 0.10, d.provider)
         try:
-            _generate_shape(d.provider, image_path, req.prompt, out, req.quality)
-            actual_provider = d.provider
-        except Exception as primary_exc:
-            if req.provider == "auto" and d.fallback and d.fallback != d.provider:
-                report_job(job_id, "fallback", f"{d.provider} failed; trying {d.fallback}: {primary_exc}", 0.12, d.fallback)
-                release_all_models()
-                _generate_shape(d.fallback, image_path, req.prompt, out, req.quality)
-                actual_provider = d.fallback
-            else:
+            report_job("loading_model", f"Preparing {provider} model weights and runtime.", 18, provider)
+            path = _generate_shape(provider, req, image, output)
+            reason = d.reason
+            fallback_from = None
+        except Exception as primary:
+            if (req.provider or "auto").lower() != "auto" or not d.fallback or d.fallback == d.provider:
                 raise
-        path = _provider_output(out, out, DEFAULT_MESH_SUFFIXES)
-        elapsed = __import__("time").monotonic() - start
-        from provider_readiness import record_inference_success
-        record_inference_success(actual_provider, elapsed_seconds=elapsed, benchmark={"source": "verified-generate-3d"})
+            release_all_models()
+            provider = d.fallback
+            report_job("loading_model", f"Primary provider failed ({primary}). Preparing automatic fallback {provider}.", 20, provider)
+            try:
+                path = _generate_shape(provider, req, image, output)
+                reason = f"{d.reason}; {d.provider} failed ({primary}); automatic fallback to {provider}"
+                fallback_from = d.provider
+            except Exception as fallback:
+                raise RuntimeError(f"Auto 3D route failed. Primary {d.provider}: {primary}. Fallback {provider}: {fallback}") from fallback
+
+        report_job("validating_output", "3D provider returned; verifying the generated mesh file.", 96, provider)
+        path = _provider_output(path, output, (".stl",))
+        report_job("cleanup", "Releasing 3D model resources before returning control to the editor.", 99, provider)
         release_all_models()
-        complete_job(job_id, "done", "3D mesh ready")
-        response = {"path": path, "provider": actual_provider, "routing_reason": d.reason, "role": req.role, "quality": req.quality}
-        if stage_c_context is not None:
-            response["context"] = stage_c_context
-        if primary_provider and actual_provider and primary_provider != actual_provider:
-            response["fallback_from"] = primary_provider
-        return response
-    except Exception as exc:
-        fail_job(job_id, str(exc))
+        complete_job("Generated mesh saved and verified.", provider)
+        result = {"path": path, "provider": provider, "routing_reason": reason, "role": req.role, "quality": req.quality, "context": stage_c_context}
+        if fallback_from:
+            result["fallback_from"] = fallback_from
+        return result
+    except Exception as e:
+        fail_job(f"3D provider failed: {e}")
         release_all_models()
-        raise HTTPException(502, str(exc))
+        raise HTTPException(502, f"3D provider failed: {e}") from e
+    finally:
+        bind_job(None)
 
 
 @app.post("/generate-parts")
-def generate_parts(req: PartsRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    from model_router import choose_3d_provider
-    image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
-    output_dir = _safe_output_directory(req.output_dir)
-    d = choose_3d_provider("structured-parts", req.provider)
-    job_id = begin_job("structured-parts", d.provider, "queued", "Part generation queued", x_miniscupter_job_id)
-    bind_job(job_id, d.provider, "running", f"Generating editable parts with {d.provider}", 0.05)
+def generate_parts(req: GeneratePartsRequest):
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_dir = _safe_output_directory(req.output_dir)
     try:
-        from specialist_3d_v105 import generate_partpacker, generate_partcrafter
-        if d.provider == "partpacker":
-            manifest = generate_partpacker(image_path, output_dir, max(1, req.num_parts), req.tag)
+        d = choose_3d_provider("structured", req.provider)
+        release_all_models()
+        if d.provider == "partcrafter":
+            r = __import__("partcrafter_shape", fromlist=["generate_parts"]).generate_parts(req.image_path, req.output_dir, req.num_parts, req.tag)
+        elif d.provider == "partpacker":
+            r = __import__("specialist_3d_v105", fromlist=["generate_partpacker"]).generate_partpacker(req.image_path, req.output_dir, req.tag)
         else:
-            manifest = generate_partcrafter(image_path, output_dir, max(1, req.num_parts), req.tag)
-        complete_job(job_id, "done", "Editable parts ready")
+            raise RuntimeError("Selected provider does not generate structured parts")
+        parts = r.get("parts", []) if isinstance(r, dict) else []
+        if not isinstance(parts, list) or not parts:
+            raise RuntimeError("Structured provider returned no part files")
+        safe_dir = Path(req.output_dir).resolve()
+        for part in parts:
+            checked = Path(_provider_output(str(part), str(part), (".stl",)))
+            if safe_dir not in checked.parents:
+                raise RuntimeError(f"Structured provider wrote a part outside its output directory: {checked}")
+        r["routing_reason"] = d.reason
+        return r
+    except Exception as e:
+        raise HTTPException(502, f"Structured 3D generation failed: {e}") from e
+    finally:
         release_all_models()
-        return {"path": manifest, "provider": d.provider, "routing_reason": d.reason, "role": "structured-parts"}
-    except Exception as exc:
-        fail_job(job_id, str(exc))
-        release_all_models()
-        raise HTTPException(502, str(exc))
 
 
 @app.post("/detail-2d")
-def run_detail_2d(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
-    job_id = begin_job("detail-2d", req.image_provider, "queued", "Detail image queued", x_miniscupter_job_id)
-    bind_job(job_id, req.image_provider, "running", "Editing detail crop", 0.10)
+def detail_2d_route(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
+    begin_job("2d-detail", x_miniscupter_job_id)
     try:
-        result = detail_2d(req.image_path, req.mask_path, req.prompt, output_path, req.image_provider)
-        path = _provider_output(result, output_path, DEFAULT_IMAGE_SUFFIXES)
-        complete_job(job_id, "done", "Detail image ready")
-        return {"path": path}
-    except Exception as exc:
-        fail_job(job_id, str(exc))
-        raise HTTPException(502, str(exc))
+        report_job("resolving_provider", "Choosing the local detail/edit provider for the selected region.", 5)
+        report_job("preparing_inputs", "Preparing the selected mask and surrounding image context.", 12)
+        result = detail_2d(req.image_path, req.mask_path, req.prompt, req.output_path, req.image_provider)
+        provider = str(result.get("provider") or "")
+        report_job("validating_output", "Regional enhancement returned; verifying the saved image.", 97, provider)
+        path = _provider_output(str(result.get("path") or ""), req.output_path, DEFAULT_IMAGE_SUFFIXES)
+        result["path"] = path
+        complete_job("Context-aware regional result saved and verified.", provider)
+        return result
+    except Exception as e:
+        fail_job(f"2D detail refinement failed: {e}")
+        raise HTTPException(502, f"2D detail refinement failed: {e}") from e
+    finally:
+        bind_job(None)
 
 
 @app.post("/detail-3d")
-def run_detail_3d(req: Detail3DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    output_patch = _safe_output_path(req.output_patch, DEFAULT_MESH_SUFFIXES)
-    output_image = _safe_output_path(req.output_image, DEFAULT_IMAGE_SUFFIXES)
-    output_crop = _safe_output_path(req.output_crop, DEFAULT_IMAGE_SUFFIXES)
-    job_id = begin_job("detail-3d", req.three_d_provider, "queued", "Detail reconstruction queued", x_miniscupter_job_id)
-    bind_job(job_id, req.three_d_provider, "running", "Reconstructing selected detail", 0.10)
+def detail_3d_route(req: Detail3DRequest):
+    req.source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_patch = _safe_output_path(req.output_patch, (".stl",))
+    req.output_image = _safe_output_path(req.output_image, DEFAULT_IMAGE_SUFFIXES)
+    req.output_crop = _safe_output_path(req.output_crop, DEFAULT_IMAGE_SUFFIXES)
     try:
-        result = detail_3d(req.source_mesh, req.image_path, req.mask_path, req.prompt, req.bounds_min, req.bounds_max,
-                           output_patch, output_image, output_crop, req.image_provider, req.three_d_provider)
-        complete_job(job_id, "done", "Detail patch ready")
+        result = detail_3d(req.source_mesh, req.image_path, req.mask_path, req.prompt, req.bounds_min, req.bounds_max, req.output_patch, req.output_image, req.output_crop, req.image_provider, req.three_d_provider)
+        result["patch_path"] = _provider_output(str(result.get("patch_path") or ""), req.output_patch, (".stl",))
+        result["enhanced_image"] = _provider_output(str(result.get("enhanced_image") or ""), req.output_image, DEFAULT_IMAGE_SUFFIXES)
+        result["crop_image"] = _provider_output(str(result.get("crop_image") or ""), req.output_crop, DEFAULT_IMAGE_SUFFIXES)
         return result
-    except Exception as exc:
-        fail_job(job_id, str(exc))
-        raise HTTPException(502, str(exc))
+    except Exception as e:
+        raise HTTPException(502, f"3D detail refinement failed: {e}") from e
+    finally:
+        release_all_models()
 
 
 @app.post("/detail-apply")
-def run_detail_apply(req: DetailApplyRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
-    source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
-    patch_mesh = _safe_input_path(req.patch_mesh, DEFAULT_MESH_SUFFIXES)
-    output_path = _safe_output_path(req.output_path, DEFAULT_MESH_SUFFIXES)
-    job_id = begin_job("detail-apply", "geometry", "queued", "Detail apply queued", x_miniscupter_job_id)
-    bind_job(job_id, "geometry", "running", "Applying detail patch", 0.10)
+def detail_apply_route(req: DetailApplyRequest):
+    req.source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
+    req.patch_mesh = _safe_input_path(req.patch_mesh, DEFAULT_MESH_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, (".stl",))
     try:
-        result = apply_detail(source_mesh, patch_mesh, output_path, req.voxel_size)
-        path = _provider_output(result, output_path, DEFAULT_MESH_SUFFIXES)
-        complete_job(job_id, "done", "Detail applied")
-        return {"path": path}
-    except Exception as exc:
-        fail_job(job_id, str(exc))
-        raise HTTPException(502, str(exc))
+        result = apply_detail(req.source_mesh, req.patch_mesh, req.output_path, req.voxel_size)
+        result["path"] = _provider_output(str(result.get("path") or ""), req.output_path, (".stl",))
+        return result
+    except Exception as e:
+        raise HTTPException(502, f"Detail apply failed: {e}") from e
 
 
-@app.post("/geometry/quality-config")
-def apply_quality_config(req: QualityConfigRequest):
-    from quality_config import update_quality_config
-    return update_quality_config(req.model_dump(exclude_none=True))
+@app.post("/semantic-select")
+def semantic_select_route(req: SemanticSelectRequest):
+    req.input_path = _safe_input_path(req.input_path, DEFAULT_MESH_SUFFIXES)
+    try:
+        return semantic_select(req.input_path, req.query)
+    except Exception as e:
+        raise HTTPException(502, f"Smart Select failed: {e}") from e
 
 
-def _generate_shape(provider: str, image_path: str, prompt: str, out: str, quality: str):
-    if provider == "hunyuan-mini":
-        from specialist_3d_v105 import generate_hunyuan_mini
-        return generate_hunyuan_mini(image_path, out)
-    if provider == "sf3d":
-        from specialist_3d_v105 import generate_sf3d
-        return generate_sf3d(image_path, out)
-    if provider == "spar3d":
-        from specialist_3d_v105 import generate_spar3d
-        return generate_spar3d(image_path, out)
-    if provider == "trellis2":
-        from specialist_3d_v105 import generate_trellis2
-        return generate_trellis2(image_path, out)
-    if provider == "triposr":
-        from triposr_shape import generate_shape
-        return generate_shape(image_path, out, quality)
-    if provider == "hunyuan":
-        from hunyuan_shape import generate_hunyuan_shape
-        return generate_hunyuan_shape(image_path, out, quality)
-    if provider == "command":
-        return _generate_shape_command(image_path, prompt, out)
-    raise RuntimeError(f"Unknown 3D provider {provider}")
-
-
-def _generate_shape_command(image_path: str, prompt: str, out: str):
-    if not THREED_COMMAND:
-        raise RuntimeError("MINISCULPTER_3D_COMMAND is not configured")
-    args = shlex.split(THREED_COMMAND, posix=False) + ["--image", image_path, "--prompt", prompt, "--output", out]
-    subprocess.run(args, check=True)
-    return out
-
-
-def _data_uri(path: str) -> str:
-    suffix = Path(path).suffix.lower()
-    mime = {".jpg":"image/jpeg", ".jpeg":"image/jpeg", ".webp":"image/webp"}.get(suffix, "image/png")
-    return f"data:{mime};base64,{base64.b64encode(Path(path).read_bytes()).decode('ascii')}"
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=7868, log_level="info")
