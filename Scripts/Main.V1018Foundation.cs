@@ -38,7 +38,8 @@ public partial class Main
         if (!_v1018ViewportInstalled) return;
 
         RemoveLegacyViewportSurface();
-        V1017SyncViewport();
+        if (!_v1019ViewportPipelineInstalled)
+            V1017SyncViewport();
         V1017UpdateGizmo();
         if (_v1018ToolStatus != null)
         {
