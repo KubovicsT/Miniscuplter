@@ -79,17 +79,17 @@ No new durable product decision was needed; this implements MD-006/007/008/018 a
 
 For application HEAD `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b`:
 
-- `core-foundation` run `34499826871`: **PASS** including cleanup lineage/stale/export/save-reload regressions.
-- broader Windows build run `34499826741`:
-  - Python compile/dependency resolution: **PASS**;
-  - core logic/execution tests: **PASS**;
-  - real geometry regressions: **PASS**;
-  - release audit: **PASS**;
-  - editor/launcher/updater/Core C# restore/build: **PASS**;
-  - portable package build/layout/SHA verification: **PASS**;
-  - installer-definition compilation: **PASS** at the latest check; final workflow cleanup/conclusion should still be reconciled at the start of the next run.
+- `core-foundation` run `34499826871`: **SUCCESS**, including cleanup lineage/stale/export/save-reload regressions.
+- broader Windows build run `34499826741`: **SUCCESS**.
+- Python compile/dependency resolution: **PASS**.
+- core logic/execution tests: **PASS**.
+- real geometry regressions: **PASS**.
+- release audit: **PASS**.
+- editor/launcher/updater/Core C# restore/build: **PASS**.
+- portable package build/layout/SHA verification: **PASS**.
+- installer-definition compilation: **PASS**.
 
-The earlier Core run `34499552249` **FAILED** and directly exposed the Applied-candidate lineage defect fixed by `dfedbf533...`; this is expected historical evidence, not an unresolved current failure.
+The earlier Core run `34499552249` **FAILED** and directly exposed the Applied-candidate lineage defect fixed by `dfedbf533...`; this is retained historical evidence, not an unresolved current failure.
 
 A real Godot Windows release export and installer smoke-install were not run because v1.0.20 is not yet release-ready. No real CUDA inference or target-machine GUI acceptance occurred. No v1.0.20 release was made.
 
@@ -106,7 +106,7 @@ A real Godot Windows release export and installer smoke-install were not run bec
 
 Continue the **same Stage-C vertical slice**; do not broaden into unrelated feature work:
 
-1. Reconcile actual release/branch/CI first, including final conclusion of build `34499826741` and any newer documentation-only CI. Stable should remain v1.0.19 unless a release was genuinely published.
+1. Reconcile actual release/branch/CI first. Stable should remain v1.0.19 unless a release was genuinely published; application HEAD `dfedbf533...` was fully green at this handoff, but newer documentation-only commits may have triggered redundant CI.
 2. Audit normal move/rotate/scale handlers and transform gizmo commit paths for mapped Stage-C objects. Make those edits update the corresponding `ProjectObject.Transform` through `ProjectSession` transactions, preserving stable `ObjectId` and active mesh revision. Keep legacy fallback for non-migrated objects.
 3. Save at an appropriate durable boundary so save/reload and Stage-C export reproduce the visible transform. Do not make export read uncommitted widget transforms as a shortcut; durable project state remains authority.
 4. Migrate the minimum sculpt/edit mutation needed for Stage-C acceptance: a committed mesh edit on a mapped Stage-C object must create a new immutable child `MeshRevision` with parent/provenance and transactionally advance the object rather than only replacing `MeshInstance3D.Mesh`. Ensure Applied candidate provenance remains valid through that descendant lineage.
