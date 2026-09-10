@@ -3,11 +3,11 @@
 > Authoritative technical planning document owned by the Project Coordinator. The Project Charter and accepted Decisions define product truth; this roadmap defines technical sequencing, priority, architecture direction, and version scope. `HANDOFF.md` remains the immediate Dev Cycle baton.
 
 Last coordinator review: 2026-09-10
-Current stable release: `v1.0.20`
-Stable release target: `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
-Current development branch: `v1.0.21`
+Current stable release: `v1.0.21`
+Stable release target: `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
+Current development branch: `v1.0.22`
 Latest live branch HEAD reviewed before this roadmap update: `5072e03688e4a1a101c458215e9df8a9fa288110`
-Acceptance-weighted completion: **58%**
+Acceptance-weighted completion: **57%**
 
 ## 1. Current technical objective
 
@@ -205,3 +205,44 @@ Not in scope unless new target evidence makes it blocking:
 No product-level decision is required. The color-direction request is clear enough to implement: use Blender-like neutral-gray readability rather than the current dark blue/near-black presentation.
 
 The user can continue reporting additional v1.0.20 findings; any data-loss, storage-safety, crash, or complete-workflow blocker may reprioritize the immediate fix list.
+
+
+## 12. User-directed reference-machine addendum — 2026-09-10
+
+This addendum records new user acceptance evidence received after the previous Coordinator checkpoint. It is authoritative product/test input for the next Coordinator reconciliation and Dev Cycle; it does not erase the prior roadmap history.
+
+### Confirmed correctness blocker
+
+**MS-023** now precedes further long Stage-C qualification work. A successful Hunyuan-mini generation appeared in the live viewport while the Stage-C panel said `3D candidate: none`; after closing/reopening Miniscuplter the persisted 2D image returned but the 3D model was gone. Code inspection shows duplicate legacy and Stage-C Generate-button handlers can produce exactly this behavior. v1.0.22 must restore one authoritative Stage-C generation owner and prove generate → candidate → Apply → save/restart restore before asking for another expensive target-machine run.
+
+### Viewport / responsive acceptance additions
+
+- Whole-window resizing must not leave the black seams/gaps shown in the user's v1.0.20 screenshot (**MS-024**).
+- The grid/ground must provide spatial reference without behaving as an opaque slab that hides part of the generated mesh. Blender-like non-occluding grid semantics are part of **MS-009** acceptance.
+- Remove the automatic oversized Starter sphere (**MS-025**). New projects should be empty and the first real object should be selected/framed automatically. Provider units/scale should be handled deliberately rather than by a starter primitive.
+
+### Planned resource telemetry
+
+The user explicitly requested in-app resource graphs because long AI runs are currently monitored through Task Manager. Track as **MS-026**.
+
+Planned panel:
+- rolling GPU utilization;
+- dedicated VRAM use;
+- system RAM use;
+- GPU temperature;
+- secondary CPU use where useful/available;
+- provider, current job stage and elapsed time;
+- compact post-job observed peak summary.
+
+Implementation constraints:
+- local-only;
+- low overhead (approximately 1 Hz is sufficient);
+- degrade gracefully when a sensor/API is unavailable;
+- do not invent unsupported metrics;
+- telemetry must not materially slow inference.
+
+This feature is especially valuable as instrumentation for **MS-022** provider qualification and future evidence-based Fast/Balanced/Quality routing. It is planned now but should not delay MS-023/MS-009 correctness work.
+
+### First Hunyuan reference-machine evidence
+
+A successful Hunyuan-mini run completed in roughly **402 s** on the GTX 1080 reference PC. The supplied Task Manager snapshot showed approximately **97% GPU utilization**, **5.4/8.0 GB dedicated VRAM**, **5.0/15.9 GB system RAM used**, and **73 °C GPU temperature**. These are observed snapshot values, not measured peaks. They are sufficient to preserve as useful MS-022 evidence while the application-side telemetry feature is built later.
