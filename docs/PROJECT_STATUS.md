@@ -6,19 +6,18 @@ Last reconciled: 2026-09-10
 
 ## Current release / development state
 
-- **Latest published stable release:** `v1.0.18`
-- **Stable release application commit:** `ce2d876fc145e615d63bd8d9fc809610f6038301`
-- **v1.0.18 branch head after release-workflow restoration:** `67a76087e32144845b9a4ff06d4b9e6c7cb06c26`
-- **Current development branch:** `v1.0.19`
-- **Last code-bearing v1.0.19 HEAD before this documentation bootstrap:** `87601d0f343e9117c172097ad9a64cef574b1f0f`
-- **v1.0.19 branch validation at that code HEAD:** latest observed `core-foundation` and build workflow runs passed.
-- **Current branch HEAD:** always resolve from Git at the start of a run; documentation commits may advance it beyond the code-bearing SHA above.
+- **Latest published stable release:** `v1.0.19`
+- **Stable release application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
+- **Current development branch:** `v1.0.20`
+- **v1.0.20 starting point:** exact v1.0.19 released commit above.
+- **v1.0.19 release validation:** passed editor/launcher/updater C# builds, Python compilation/core tests, job-progress tests, real geometry regressions, Stage-B Core tests, release audit, verified Godot 4.7.2 Windows export, release hash verification and silent installer smoke-install.
+- **Release pipeline run:** `34469538260`.
 
-`v1.0.19` already existed when the autonomous-project documentation was bootstrapped. It is 12 commits ahead of the v1.0.18 branch and includes substantive work in viewport rendering/interaction, storage containment, updater hardening, project-store/history foundations, backend storage and geometry/runtime contracts. Do not discard or recreate that work.
+The first publication helper attempt failed only because the temporary helper workflow referenced the wrong Stage-B test project filename (`Core.Tests/Core.Tests.csproj`). The actual project is `Core.Tests/Miniscuplter.Core.Tests.csproj`. No application defect was found by that failure. The helper was corrected, the full pipeline passed, v1.0.19 was published, and the helper branch was reset to the released application commit.
 
 ## Current development phase
 
-The project is in the transition between **Stage B (replacement foundation/migration harness)** and **Stage C (prove one reliable end-to-end thin slice)** from the accepted Astra refactor plan.
+The project remains in the transition between **Stage B (replacement foundation/migration harness)** and **Stage C (prove one reliable end-to-end thin slice)** from the accepted Astra refactor plan.
 
 Stage A safety work is substantially implemented. Stage B exists materially in code but remains mixed with the legacy editor. Stage C is not yet considered acceptance-proven on the real target machine.
 
@@ -26,7 +25,7 @@ Stage A safety work is substantially implemented. Stage B exists materially in c
 
 **56% toward the defined finished product**.
 
-This is an acceptance-based weighted estimate, not a count of implemented controls. Existing legacy features receive partial credit when they are not yet integrated with the replacement state/history architecture or not proven reliable on target hardware.
+This remains unchanged after publishing v1.0.19 because publication/CI does not prove the user-observed viewport and storage defects are resolved on the GTX 1080 target machine. Completion is acceptance-based, not a count of commits or controls.
 
 | Workstream | Weight | Estimated completion | Basis |
 |---|---:|---:|---|
@@ -47,13 +46,11 @@ Do not increase this number simply because code was written. Increase workstream
 
 ## Working / comparatively mature areas
 
-These are present and have meaningful implementation/test history. They may still contain bugs.
-
 - Windows launcher/updater and GitHub Release delivery.
 - Data-preserving application update path with integrity checking and rollback safeguards.
 - AI runtime setup/repair, CUDA validation and resumable model installation.
 - 2D concept generation and user-image input.
-- Large/center 2D image workflow and regional image selection.
+- Center/large 2D image workflow and regional selection.
 - Prompt-driven AI edit and context-aware regional Enhance implementation.
 - Openverse + Wikimedia reference discovery and adoption into the 2D workflow.
 - Explicit 2D baseline acceptance concept.
@@ -66,19 +63,17 @@ These are present and have meaningful implementation/test history. They may stil
 - Structured backend job-progress infrastructure.
 - Editable Low/Medium/High/Ultra/custom quality settings in the newer Settings surface.
 
+## Released in v1.0.19, awaiting real-machine acceptance
+
+### 3D viewport — MS-009
+
+v1.0.19 contains `Main.V1019ViewportPipeline.cs`, which explicitly configures the native `SubViewportContainer`, world/camera ownership, starter mesh, materials, grid, selection/gizmo and a rendered-frame diagnostic probe. This is now distributed to users, but historical failures were machine/UI-render specific. Status remains **FIXED - NEEDS USER VERIFICATION** until tested on the actual machine.
+
+### Storage containment — MS-013
+
+v1.0.18 introduced `AppDataRoot`; v1.0.19 adds backend storage canonicalization/containment and additional Windows path tests. This is now distributed, but representative real jobs must confirm no important working artifacts still escape to C:\ AppData/TEMP. Status is **FIXED - NEEDS USER VERIFICATION**.
+
 ## Partially working / not yet acceptance-proven
-
-### 3D viewport
-
-v1.0.18 introduced a native viewport tool foundation; v1.0.19 contains a further `Main.V1019ViewportPipeline.cs` repair/rebind/render-probe implementation. It explicitly configures a native `SubViewportContainer`, world/camera, starter mesh, materials, grid, selection/gizmo and render diagnostics.
-
-Historical user testing repeatedly found a blank viewport even when generated STL output existed. Until v1.0.19 is released and verified on the real machine, this remains an active high-severity issue rather than a resolved claim.
-
-### Storage containment
-
-v1.0.18 added a single `AppDataRoot` that defaults to `InstallRoot/AIData`, sets backend/cache/temp environment variables under that root and rejects path escape. v1.0.19 contains additional backend/storage and Windows canonicalization work.
-
-Historical user testing showed artifacts under `C:\Users\...\AppData\Roaming\Godot`. This remains `FIXED - NEEDS USER VERIFICATION` / in-progress until target-machine testing confirms no important paths leak to C:.
 
 ### AI job feedback
 
@@ -86,15 +81,15 @@ v1.0.17/v1.0.18 added job progress for concept generation, image edit and 3D ope
 
 ### Quality presets
 
-The newer Settings quality panel exposes preset parameters and custom preset create/clone/rename/save/delete operations. This needs continued UX verification and should eventually become part of the cleaner declarative UI rather than legacy additive composition.
+The newer Settings quality panel exposes preset parameters and custom preset create/clone/rename/save/delete operations. It still needs real UX verification and eventual migration into the cleaner declarative UI.
 
-### Image-to-3D
+### Image-to-3D / provider readiness
 
 Several providers exist, but the project does not yet have a small, fully qualified default provider set with repeatable target-machine benchmarks and self-tests. Provider presence/install state must not be confused with inference readiness.
 
 ### New project foundation
 
-`Core` contains meaningful Stage-B work, but the normal editor still relies heavily on legacy scene/widget state. The `.msculpt2`/replacement project model is not yet the sole production source of truth.
+`Core` contains meaningful Stage-B work, but the normal editor still relies heavily on legacy scene/widget state. The replacement project model is not yet the sole production source of truth.
 
 ## Known missing or incomplete product work
 
@@ -117,27 +112,24 @@ Several providers exist, but the project does not yet have a small, fully qualif
 
 ## Current highest-priority issues
 
-See `ISSUES.md` for full records. The most important current items are:
+1. **MS-009 — 3D viewport/grid/gizmo reliability.** v1.0.19 is now released; needs target-machine verification.
+2. **MS-018 — Stage-C end-to-end thin slice is not yet qualified.** This remains the primary product-level acceptance gap.
+3. **MS-013 — storage containment.** v1.0.19 is released; needs representative real-machine path verification.
+4. **MS-022 — provider qualification/self-tests.** This is the highest-value independent engineering task while v1.0.19 awaits user verification.
+5. **MS-020 — authoritative Job Broker/stale-result handling.** Current progress infrastructure is useful but not the final architecture.
+6. **MS-019 — legacy application-state architecture.** Stage-B replacement exists but is not yet authoritative.
 
-1. **MS-009 — 3D viewport/grid/gizmo reliability.** v1.0.19 contains a major repair pipeline; needs target-machine verification.
-2. **MS-018 — Stage-C end-to-end thin slice is not yet qualified.** This is the key product-level acceptance gap.
-3. **MS-013 — storage containment.** v1.0.18/v1.0.19 contain fixes; needs verification that significant working files no longer land on C:.
-4. **MS-020 — authoritative job broker/stale-result handling.** Current progress infrastructure is useful but not the final architecture.
-5. **MS-019 — legacy application-state architecture.** Stage-B replacement exists but is not yet authoritative.
-6. **MS-022 — provider qualification/self-tests.** Needed before a trustworthy default bundle can be claimed.
+## Immediate engineering priority for v1.0.20
 
-## Immediate engineering priority
+While v1.0.19 awaits real-machine viewport/storage verification, advance Stage C without depending on that feedback:
 
-Unless a new user-observed regression has higher severity, the next autonomous work should advance **Stage C reliability while continuing safe Stage-B migration**.
+1. Build a provider self-test/readiness contract that distinguishes downloaded, installed, importable, device-tested and inference-tested states.
+2. Start with the intended lightweight/default 3D route rather than broad optional-provider expansion.
+3. Bind accepted 2D baseline → 3D job → resulting candidate/import to stable Project/Object/Revision identity.
+4. Prevent a stale AI result from silently overwriting a newer revision; make acceptance/apply transactional.
+5. Keep legacy UI compatibility while moving this one vertical slice onto the Stage-B core.
 
-Recommended sequence:
-
-1. Reconcile and test the existing v1.0.19 viewport/storage/updater/project-store changes.
-2. Strengthen automated viewport/scene-import diagnostics where CI can help, while leaving real rendering verification for the user's machine.
-3. Build/extend provider self-test contracts so a chosen 3D provider fails before a long job when dependencies/device support are missing.
-4. Move the accepted 2D baseline → 3D generation → candidate/import handoff onto stable project/revision identity.
-5. Ensure stale results cannot overwrite a newer mesh/image revision.
-6. Continue toward one qualified GTX 1080 thin slice before broadening optional provider scope.
+If the user reports v1.0.19 still renders a blank viewport or leaks working files to C:, that regression becomes the immediate priority.
 
 ## Next milestone acceptance criteria
 
@@ -156,6 +148,6 @@ The next major milestone is achieved when, on the target Windows machine:
 
 ## User input currently required
 
-No fundamental product/design decision is currently blocking autonomous engineering.
+No product/design decision blocks autonomous work.
 
-User input is still valuable for **real-machine verification** of issues that CI cannot prove. Such issues must stay `FIXED - NEEDS USER VERIFICATION` until the user tests the released build.
+For acceptance evidence, the user should update through the launcher to **v1.0.19** and test the 3D viewport/grid/model/gizmo plus representative data-output paths on the real GTX 1080 machine. Any failure should include the v1.0.19 viewport diagnostics/render-probe text and the unexpected path(s).
