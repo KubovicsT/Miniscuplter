@@ -10,107 +10,78 @@ Last reconciled: 2026-09-10
 - **Stable release application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
 - **Current development branch:** `v1.0.20`
 - **v1.0.20 base:** exact released v1.0.19 commit above.
-- **Latest application/code commit:** `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b`.
-- **v1.0.19 release validation:** editor/launcher/updater C# builds, Python/core/job tests, real geometry regressions, Stage-B Core tests, release audit, Godot 4.7.2 Windows export, ZIP/hash verification and silent installer smoke-install passed. Release pipeline: `34469538260`.
+- **Latest application/release-candidate commit:** `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`.
+- **Latest pure editing implementation commit:** `e71d55ff90d8eec3b03a8f3073e9ffefdc0d1228`.
+- **Overall completion estimate:** **58% acceptance-weighted**.
 
-Mandatory release/version reconciliation is clean: v1.0.19 remains immutable and published; v1.0.20 is a distinct forward-only development branch.
+Version/release reconciliation remains clean: v1.0.19 is immutable and published; v1.0.20 is a distinct forward-only development branch.
 
 ## Current phase
 
-The project remains between **Stage B (replacement foundation/migration harness)** and **Stage C (one reliable end-to-end thin slice)**. The production Stage-C path now reaches accepted baseline → identity-bound generated candidate → explicit apply → durable save/reload → revision-bound cleanup → explicitly scoped validated STL export. Real target-machine qualification and some editing-state migration remain before the slice is accepted.
+The Coordinator-defined bounded v1.0.20 Stage-C code scope is now implemented: accepted 2D baseline → identity-bound 3D candidate → explicit apply → Core-authoritative transforms → one bounded immutable sculpt commit → save/reload → revision-bound cleanup → exact validated STL export. Real target-machine acceptance remains outstanding and is intentionally sequenced after publication of the testable build.
 
-## Overall completion estimate
+## Completion basis
 
-**57% toward the defined finished product.**
+The estimate rises from 57% to 58% because mapped Stage-C transform and one committed mesh-edit path are now represented in the same durable ProjectSession/revision model and covered by deterministic regression tests. This is concrete integration evidence, but Stage-C does not receive full acceptance credit until the released build is exercised on the GTX 1080 / 16 GB target machine.
 
-This increases by one point because cleanup/export is now materially integrated into the same durable object/revision model rather than existing only as disconnected legacy functionality. It does not receive full acceptance credit until the workflow is exercised on the target Windows/GTX1080 machine and normal Stage-C edits are fully represented in project state.
+## v1.0.20 Stage-C editing authority
 
-| Workstream | Weight | Estimated completion | Current basis |
-|---|---:|---:|---|
-| Application foundation / state / persistence | 15% | 55% | Stable IDs, immutable revisions, ProjectStore/history/migration, production Stage-C bridge, fail-closed saves, and cleanup lineage exist; legacy authority remains elsewhere. |
-| 2D workflow | 12% | 72% | Generation/import/edit/reference flow exists; accepted baseline is durably project-owned. |
-| 3D generation | 15% | 50% | Revision-bound generation identity is carried through AIClient/backend and verified before candidate registration; real hardware qualification remains missing. |
-| 3D editing / sculpt / kitbash | 15% | 45% | Significant legacy functionality exists; normal transform/sculpt mutations on Stage-C objects still need Core/history authority. |
-| Rig & Pose | 10% | 40% | Historical feature set exists; modern rest-state/Core integration remains substantial work. |
-| Cleanup / validation / export | 8% | 76% | Stage-C repair now creates immutable child revisions and STL export resolves exact object/revision scope with write-then-reopen validation; full target-machine acceptance remains. |
-| AI runtime / provider reliability | 10% | 65% | Repair, routing, progress, readiness preflight and persisted real-inference qualification exist; real default-provider evidence is missing. |
-| UI / UX | 8% | 58% | Four-stage UI and newer viewport/workflow tooling exist; real-machine viewport acceptance and legacy composition risks remain. |
-| Launcher / updater / release reliability | 4% | 92% | Mature verified updater/release flow. |
-| Testing / hardware qualification | 3% | 55% | Core tests cover cleanup lineage/stale scope/save recovery; real CUDA/GUI acceptance remains incomplete. |
+- `Core/StageCEditing.cs` owns the narrow editing contract for this release.
+- Move/rotate/scale/ground commands and native gizmo commits for mapped Stage-C objects update the exact durable `ProjectObject.Transform` through `ProjectSession` transactions.
+- Save/reload and export therefore reproduce the committed transform instead of trusting transient Godot widget state.
+- One bounded sculpt-stroke path converts the committed visible mesh to `MeshData`, creates an immutable child `MeshRevision`, transactionally advances the same `ObjectId`, and persists through the recovery-safe save boundary.
+- Stale sculpt output is rejected if the active input revision changed before commit.
+- Stage-C-aware Undo/Redo replays Core transactions and projects the resulting durable state back into the Godot scene.
+- Self-review fixed two integration hazards before release: the viewport observer now attaches only after the authoritative v1.0.18 viewport tool is installed, and the duplicated legacy sculpt undo entry is removed so the same Stage-C stroke cannot later be replayed outside Core history.
+- Applied-object restore now reapplies the durable `ProjectObject.Transform` after restart.
 
-Weighted completion rounds to approximately **57%**.
+Relevant implementation commits:
 
-## v1.0.20 Stage-C state
+- `e67a2d3a524a3cb429b29919f7805c7bb7b51483` — add Stage-C editing state contract.
+- `01db848b481ceee8bdc051aea6d528108d23eb39` — bind production editing to Core state.
+- `68725d0a1c3f7faf7f5affd165953b277d6525b3` — attach editing observer after viewport installation.
+- `b5566027a3df2c9851a8cca15345b1efc4137d77` — install Stage-C editing authority bridge.
+- `df8730bcd29875993e3d346c227bc1031ff4d4ae` — restore durable Stage-C transforms.
+- `eb2aefc259910152965ab189c79c6fb11985fa95` / `0ecdbc95559794505156ae72b0bb8dc598659026` — transform/sculpt authority regressions.
+- `e71d55ff90d8eec3b03a8f3073e9ffefdc0d1228` — remove duplicate legacy sculpt history and tighten object-specific Undo/Redo.
 
-### Durable baseline, candidate and persistence model
+## Release-candidate preparation and validation
 
-- Accepted 2D source is copied into project-owned immutable `ImageRevision` storage.
-- `StageCGeneration.BeginImageToMesh()` binds generation to `GenerationJobId`, `ProjectId`, input project revision, accepted `ImageRevisionId`, and reserved output `ObjectId`.
-- Verified generated STL is converted to a durable immutable `MeshRevision` and registered as a Ready or Conflict review candidate.
-- A stale baseline result remains Conflict and cannot silently overwrite newer work.
-- Apply/Discard are explicit; Apply is transactional and applied objects restore into the visible Godot scene after restart.
-- `ProjectSession.SaveRecoveringAsync()` rolls failed saves back to the last recoverable durable state rather than leaving memory falsely committed.
+All release-visible version surfaces are now aligned to `1.0.20`: editor assembly, launcher, updater, backend, Windows export metadata, installer, editor status label, and release audit expectation.
 
-### Stage-C cleanup and export — integrated this run
+A first release-prep validation at `a588afa5b173a5a4af590cd6e8df1ceba7bd052d` failed only at `tools/release_audit.py` because several release identity surfaces still expected 1.0.19. Python compilation, core logic, execution tests and geometry regressions had already passed. This failed attempt is retained as evidence and led to completion of the metadata reconciliation.
 
-`Core/StageCCleanup.cs` now defines the cleanup/export revision contract:
+During self-review of that metadata work, an `update_file` payload for `ai_backend/app.py` was discovered to have unintentionally truncated part of the backend. It was caught before release by comparing against `e71d55f...`; `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a` restores the exact prior backend content and changes only `APP_VERSION`. A Git compare from `e71d55f...` to `bc3106d...` confirms `app.py` is now exactly +1/-1 and all other release-prep file changes are version-only.
 
-- cleanup binds the exact `ProjectId`, `ObjectId`, and current active `MeshRevisionId` before work;
-- successful cleanup output must belong to the same object and directly descend from the exact bound input revision;
-- a stale cleanup result is rejected if the active object revision advanced while work was running;
-- applying cleanup is one project transaction that registers the new immutable revision and advances the same object's active revision;
-- export resolution is fail-closed: the requested object/revision must be the object's exact active revision.
+For release-candidate commit `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`:
 
-`Main.V1020StageCCleanupExport.cs` patches the composed release UI after legacy installers:
+- `core-foundation` run `34503132325`: **SUCCESS**.
+- broader build run `34503132420`:
+  - Python compilation/dependency resolution: **PASS**;
+  - core logic/execution/job regressions: **PASS**;
+  - real geometry regressions: **PASS**;
+  - v1.0.20 release audit: **PASS**;
+  - editor/launcher/updater/Core C# restore/build: **PASS**;
+  - portable package/layout/SHA: **PASS**;
+  - installer-definition compilation was still finishing at the final poll and must be reconciled before tag publication.
 
-- **Repair Selected / Repair selected model** uses the Stage-C path when the selected Godot object maps to a durable Stage-C object; unrelated legacy objects retain the existing safe repair fallback.
-- Stage-C repair reads the exact immutable `.msh` revision and materializes STL only as a backend interchange input.
-- The repair result is converted back into project-native `MeshData`, stored as a new immutable child revision with repair provenance, then persisted through the recovery-safe save boundary before the visible Godot mesh is changed.
-- **Export STL** for Stage-C objects resolves the durable active revision, applies the durable object transform for output, writes to a temporary destination-side STL, reopens and validates finite/non-empty triangle geometry, then atomically replaces the destination.
-- STL remains export/interchange, never project authority.
-
-During self-review, the first cleanup-lineage test exposed a real integration defect: `StageCGeneration` required an Applied candidate's generated revision to remain the object's current active revision. Legitimate cleanup therefore made candidate metadata unreadable after reload. That failed attempt is retained in CI history. Commit `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b` changed validation to require the generated revision to remain in the active revision's ancestry instead, preserving provenance through later edits while still rejecting unrelated lineage.
-
-Relevant commits:
-
-- `3f34cd078d435d532632612e9a52d79860c888d6` — transactional Stage-C cleanup revision contract.
-- `35078ab977839353afa3b59461d065889e83d50d` — bind repair/export to Stage-C project revisions.
-- `55db2a7641bcbffa912f4b93aa131f1c15629816` — install cleanup/export bridge after final UI composition.
-- `52feda4be0ef46f5c5e3dc4ab07261e3028f3f0f` — cleanup lineage, stale-result and export-scope regressions.
-- `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b` — preserve Applied candidate provenance through descendant cleanup revisions.
-
-## Validation
-
-- Earlier save-recovery application commit `fe9079e718ad055c0ef5b43c7205e505ce54e217` passed `core-foundation` run `34497651489` and broader Windows build `34497651608` completely.
-- Cleanup test run `34499552249` for `52feda4...` **FAILED intentionally-usefully** at the new lineage scenario: an Applied candidate became invalid after cleanup advanced its object to a child revision. This exposed the defect described above; it was not suppressed.
-- After the lineage fix, `core-foundation` run `34499826871` for `dfedbf533...` **PASSED** the Stage-B/Core suite including cleanup lineage, stale cleanup rejection, exact export scope and save/reload.
-- Broader Windows build run `34499826741` for `dfedbf533...`: **SUCCESS**. Python compilation/dependency resolution, core logic/execution tests, real geometry regressions, release audit, editor/launcher/updater/Core C# build, portable package/layout/SHA verification and installer-definition compilation all passed.
-
-A real Godot Windows release export was not run because v1.0.20 is not yet release-ready. No real CUDA inference or target-machine GUI acceptance occurred in CI. **No v1.0.20 release has been made.**
-
-## Released v1.0.19 items awaiting real-machine verification
-
-- **MS-009 viewport/grid/model/gizmo:** FIXED - NEEDS USER VERIFICATION.
-- **MS-013 storage containment:** FIXED - NEEDS USER VERIFICATION.
-
-If either regresses on the target machine, it becomes immediate priority.
+No real Godot Windows release export or installer smoke-install has run yet because those gates are tag-triggered. No v1.0.20 release has been published.
 
 ## Current highest-priority issues
 
-1. **MS-009** — released viewport fix still needs target-machine verification.
-2. **MS-018** — the Stage-C thin slice now reaches durable cleanup and scoped STL export in code/tests, but still needs target-machine qualification and authoritative normal-edit persistence.
-3. **MS-013** — released storage containment still needs representative target-machine verification.
-4. **MS-020** — request/result identity and save-failure consistency are hardened for the migrated Stage-C seam; durable queue/resource ownership/crash recovery remain incomplete.
-5. **MS-022** — readiness/self-test/inference-recording exists; GTX 1080 qualification/default-provider evidence is missing.
-6. **MS-019** — legacy `Main.V*.cs` remains authoritative outside migrated vertical slices, including normal transform/sculpt mutations.
+1. **MS-018:** bounded Stage-C code path is coherent; publish/test v1.0.20, then collect full target-machine acceptance.
+2. **MS-009:** viewport/grid/model/gizmo still needs target-machine verification on the released test build.
+3. **MS-013:** storage containment still needs representative target-machine verification.
+4. **MS-022:** qualify one intended lightweight/default 3D provider on GTX 1080 / 16 GB.
+5. **MS-019:** legacy architecture remains outside the migrated Stage-C slice; do not broaden before v1.0.20 release.
+6. **MS-020:** broader durable Job Broker work remains sequenced behind Stage-C release/acceptance unless a concrete lifecycle defect blocks it.
 
 ## Immediate engineering priority
 
-1. Continue the same Stage-C vertical slice by moving normal transform mutations for mapped Stage-C objects into `ProjectSession` transactions so export/save/reload cannot ignore visible moves/rotations/scales.
-2. Migrate the minimum sculpt/edit mutation needed for Stage-C acceptance to a new immutable mesh revision with full-state undo, or explicitly constrain the Stage-C acceptance path until that authority exists.
-3. Add deterministic export artifact validation at a lower layer if practical so exact revision → STL output can be tested without Godot UI interaction.
-4. Collect real GTX 1080 provider readiness/inference timing/RAM/VRAM evidence and verify v1.0.19 viewport/storage behavior when target hardware is available.
+Do not accumulate unrelated application work on v1.0.20. Reconcile the final packaging result for `bc3106d...`; once all branch gates are green, create/push immutable tag `v1.0.20` at the final release-candidate HEAD and let the tag-gated workflow perform the real Godot Windows export, artifact/hash verification, installer smoke-install and GitHub Release publication. After successful publication, verify latest-release state and create/use `v1.0.21` before further application changes.
+
+The currently connected GitHub toolset can edit branches and inspect/rerun Actions but does not expose tag creation or release publication. Do not bypass the established tag-gated release workflow to work around that tooling limitation.
 
 ## User input currently required
 
-No product/design decision blocks autonomous development. Real-machine acceptance evidence remains useful when available, but independent engineering can continue without it.
+No product/design decision blocks engineering. If release-capable GitHub access is not available to a future Dev Cycle run, the only operational user action needed is creation/push of tag `v1.0.20` at the documented final release-candidate commit so the existing release workflow can run.
