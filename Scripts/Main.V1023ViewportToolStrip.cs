@@ -8,7 +8,7 @@ public partial class Main
 {
     readonly Dictionary<V1018ViewportTool, Button> _v1023ToolButtons = new();
 
-    void InstallV1023ViewportToolStrip()
+    public void InstallV1023ViewportToolStrip()
     {
         if (_v1018ToolOverlay == null || !IsInstanceValid(_v1018ToolOverlay)) return;
         if (_v1018ToolOverlay.FindChild("ViewportToolStrip", true, false) != null) return;
