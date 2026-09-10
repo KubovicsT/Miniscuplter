@@ -53,14 +53,15 @@ Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed:
 
 The earlier implementation head `5faa1e528e6a81fb8db15942c68b3da71391743d` also passed the same branch-validation families in runs `34520603280` / `34520603310` before the explicit MS-027 regression guard was added.
 
-No release request has been submitted for v1.0.23. This secondary UI slice is not being published merely because branch validation is green; release remains readiness/scope based and the primary acceptance dependency is still the already-published v1.0.22 build.
+No release request has been submitted for v1.0.23. The later direct viewport-tool slice introduced **MS-028**, a C# compile regression at current HEAD, so v1.0.23 is presently **not release-ready**. Core/Python/geometry/release-audit/packaging legs pass, but broader build fails with `CS0122` at the tool-strip installer call. The previous candidate `74ec73a...` remains the last fully green bounded candidate.
 
 ## Current priorities
 
-1. **Reference-machine retest of released v1.0.22** for MS-023, MS-024, MS-025 and the complete MS-018 Stage-C path. Any reproduced correctness/persistence/viewport/data regression immediately preempts UI modernization.
-2. In the same acceptance session collect MS-013 storage and MS-022 provider/resource evidence, plus MS-004 cancellation/recovery where practical.
-3. If acceptance evidence is still unavailable and no higher-priority unblocked issue appears, continue exactly one next bounded MS-027 slice in Coordinator order: direct icon-based viewport tool strip using the existing tool owner; do not create duplicate tool/action state.
-4. Broader MS-019/MS-020 architecture remains behind Stage-C acceptance unless concrete evidence changes dependency order.
+1. **MS-028 — restore green v1.0.23 exact-head C# build** before any new feature slice.
+2. **Reference-machine retest of released v1.0.22** for MS-023, MS-024, MS-025 and the complete MS-018 Stage-C path. Any reproduced correctness/persistence/viewport/data regression immediately preempts UI modernization.
+3. In the same acceptance session collect MS-013 storage and MS-022 provider/resource evidence, plus MS-004 cancellation/recovery where practical.
+4. If acceptance evidence is still unavailable and no higher-priority unblocked issue appears, continue exactly one next bounded MS-027 slice in Coordinator order: direct icon-based viewport tool strip using the existing tool owner; do not create duplicate tool/action state.
+5. Broader MS-019/MS-020 architecture remains behind Stage-C acceptance unless concrete evidence changes dependency order.
 
 ## User input currently required
 
