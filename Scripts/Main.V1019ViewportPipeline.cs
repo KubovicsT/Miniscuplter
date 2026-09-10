@@ -22,6 +22,10 @@ public partial class Main
         if (_world == null) return;
 
         _v1019ViewportPipelineInstalled = true;
+        // v1.0.17's watchdog used to write SubViewport.Size every 500 ms. Once the native
+        // Stretch-owned pipeline is authoritative that timer must no longer participate in layout.
+        _v1017ViewportTimer?.Stop();
+
         host.Visible = true;
         host.Stretch = true;
         host.ClipContents = true;
@@ -62,6 +66,12 @@ public partial class Main
             V1019ArmRenderProbe();
         };
 
+        // Older tab-change recovery runs first because it was registered before this pipeline.
+        // Restore only presentation afterward; do not reparent/recreate the world on normal tabs.
+        var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
+        if (tabs != null)
+            tabs.TabChanged += _ => CallDeferred(nameof(V1019RestoreStudioPresentation));
+
         V1019RepairViewportPipeline();
         V1019ArmRenderProbe();
     }
@@ -71,6 +81,15 @@ public partial class Main
         if (!_v1019ViewportPipelineInstalled || _v1019ViewportProbeTimer == null) return;
         _v1019ViewportProbeTimer.Stop();
         _v1019ViewportProbeTimer.Start();
+    }
+
+    void V1019RestoreStudioPresentation()
+    {
+        if (!_v1019ViewportPipelineInstalled || _world == null) return;
+        V1019ConfigureStudioLighting();
+        if (FindChild("Viewport", true, false) is SubViewport sub)
+            V1019UpdateViewportDiagnostics(sub);
+        V1019ArmRenderProbe();
     }
 
     public void V1019RepairViewportPipeline()
