@@ -29,7 +29,7 @@ def test_readiness_aware_routing():
     finally:model_router.installed,model_router.hardware_info,model_router.route_eligible,model_router.inspect_provider=oi,oh,oroute,oinspect
 def test_provider_readiness_contract():
     old_load,old_save,old_component,old_probe,old_revision=provider_readiness.model_manager.load_state,provider_readiness.model_manager.save_state,provider_readiness.model_manager.component_path,provider_readiness._probe_python,provider_readiness._provider_revision
-    state={"installed":{"triposr":{"installed":True,"path":"dummy"}},"provider_qualification":{}}
+    state={"installed":{"triposr":{"installed":True,"path":"."}},"provider_qualification":{}}
     try:
         provider_readiness.model_manager.load_state=lambda:state
         provider_readiness.model_manager.save_state=lambda value:(state.clear(),state.update(value))
