@@ -80,6 +80,48 @@ public sealed class ProjectSession
         SavedRevisionNumber = Current.RevisionNumber;
     }
 
+    /// <summary>
+    /// Persists the current project state and keeps the in-memory session consistent with durable
+    /// storage if the save fails. A failed save must never leave compatibility/UI code believing
+    /// that an uncommitted revision is authoritative.
+    /// </summary>
+    public async Task SaveRecoveringAsync(
+        Func<ProjectState, Task> saveAsync,
+        Func<Task<ProjectState>> loadLastDurableAsync)
+    {
+        if (saveAsync == null) throw new ArgumentNullException(nameof(saveAsync));
+        if (loadLastDurableAsync == null) throw new ArgumentNullException(nameof(loadLastDurableAsync));
+
+        ProjectId expectedProjectId = Current.ProjectId;
+        try
+        {
+            await saveAsync(Current);
+            MarkSaved();
+        }
+        catch (Exception saveError)
+        {
+            try
+            {
+                ProjectState durable = await loadLastDurableAsync()
+                    ?? throw new InvalidDataException("Durable project recovery returned no state.");
+                if (durable.ProjectId != expectedProjectId)
+                    throw new InvalidDataException("Durable recovery returned a different project identity.");
+                ReplaceFromLoad(durable);
+            }
+            catch (Exception recoveryError)
+            {
+                throw new AggregateException(
+                    "Project save failed and the last durable project state could not be restored into memory.",
+                    saveError,
+                    recoveryError);
+            }
+
+            throw new IOException(
+                "Project save failed. The in-memory project was restored to the last durable revision.",
+                saveError);
+        }
+    }
+
     public void ReplaceFromLoad(ProjectState state)
     {
         if (state == null) throw new ArgumentNullException(nameof(state));
