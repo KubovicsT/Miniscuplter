@@ -6,73 +6,58 @@ Last reconciled: 2026-09-10
 
 ## Current release / development state
 
-- **Latest published stable release:** `v1.0.19`
-- **Stable release application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
-- **Current development branch:** `v1.0.20`
-- **Validated v1.0.20 application/release-candidate code:** `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`
-- **Latest live branch HEAD before this Coordinator documentation sequence:** `6ead6ae2f3c2823b7b3b93f2fae805e6808f6f57`
+- **Latest published stable release:** `v1.0.20`
+- **Stable release target commit:** `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
+- **Current development branch:** `v1.0.21`
+- **v1.0.21 branch base:** exact published v1.0.20 target `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
 - **Overall completion:** **58% acceptance-weighted**
 
-v1.0.19 remains immutable/published. v1.0.20 remains the forward development/release-candidate branch. Coordinator documentation commits after the application candidate advance branch HEAD without changing product capability; resolve exact live HEAD before any release request.
+v1.0.20 is published and immutable. All further application/documentation work belongs on v1.0.21 or later.
 
 ## Current phase
 
-The Coordinator-defined bounded v1.0.20 Stage-C application scope is implemented:
+The Coordinator-defined bounded Stage-C foundation slice shipped in v1.0.20:
 
 `accepted 2D baseline → revision-bound 3D candidate → explicit Apply → Core-authoritative transform → one immutable sculpt/edit commit → save/reload → revision-bound cleanup → exact validated STL export`
 
-The project is no longer blocked on additional v1.0.20 application architecture. It is currently blocked on the autonomous release-control workflow reaching the real Windows build/export/smoke gates.
+The remaining Stage-C acceptance work is real reference-machine qualification, not additional speculative architecture.
 
-## Validation already established
+## v1.0.20 release validation
 
-For application candidate `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`:
+Autonomous-release run `34508060099` completed successfully for exact candidate `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
 
-- Core/Stage-C validation: **PASS**
-- broader Windows build: **PASS**
-- Python compilation/dependency resolution: **PASS**
-- Core/execution/job regressions: **PASS**
-- real geometry regressions: **PASS**
-- v1.0.20 release audit: **PASS**
-- editor/launcher/updater/Core builds: **PASS**
-- portable package/layout/SHA verification: **PASS**
-- installer-definition compilation: **PASS**
+Passed gates:
 
-Real Godot Windows export, final output/hash verification and silent installer smoke-install remain pending because the autonomous release controller has failed before reaching those gates.
+- exact semantic-version request and branch/SHA binding;
+- C# restore/build and Core tests;
+- Python compilation and dependency resolution;
+- core/job regressions;
+- geometry regressions and release audit;
+- verified Godot 4.7.2 .NET/runtime/template download;
+- real Windows Godot export;
+- versioned release output and SHA verification;
+- installer creation;
+- silent installer smoke-install;
+- immutable target recheck immediately before publication;
+- tag creation and GitHub Release publication.
 
-## Autonomous release-control state
-
-The permanent `release-control` branch and `.github/workflows/autonomous_release.yml` remain the preferred autonomous release path. The historical explicit-tag workflow remains a safety fallback.
-
-Bootstrap history:
-
-1. Initial request-discovery failure: the workflow inspected only the triggering commit and could miss the release request across a merge-style push. This was corrected to inspect the full push range.
-2. Latest retry `34506900865`: the request parser successfully validated v1.0.20 at exact candidate `6ead6ae2f3c2823b7b3b93f2fae805e6808f6f57`, but the validation step still concluded failure before any application build/export work.
-
-Current root cause: the expected failing `gh release view` probe used to prove that v1.0.20 does **not** already exist leaves native `$LASTEXITCODE = 1`; although the script continues and reports successful request validation, the PowerShell step terminates with exit code 1.
-
-This is a release-orchestration defect, not an application-candidate regression.
+Published assets include the Windows installer, portable ZIP and ZIP SHA-256 file.
 
 ## Current priorities
 
-1. **MS-018 / release publication:** repair the autonomous release-control success/exit handling and publish the already-bounded v1.0.20 candidate through the full gates.
-2. **MS-009:** after publication, verify viewport/grid/model/gizmo on the target PC; any reproduced blank viewport becomes immediate P0.
-3. **MS-013:** verify storage containment on the target PC.
-4. **MS-022:** qualify one intended lightweight/default 3D provider on GTX 1080 / 16 GB with practical timing/RAM/VRAM evidence.
-5. **MS-019:** broader legacy state migration waits behind release/acceptance; its bounded v1.0.20 transform/sculpt requirement is met.
-6. **MS-020:** broader durable Job Broker work waits behind Stage-C release/acceptance unless a concrete lifecycle defect blocks testing.
+1. **MS-018:** run the released v1.0.20 Stage-C thin slice on the reference PC and record pass/fail evidence.
+2. **MS-009:** verify viewport/grid/model/gizmo visibility and interaction; any reproduced blank viewport becomes immediate P0 on v1.0.21.
+3. **MS-013:** verify storage containment during representative workflows.
+4. **MS-022:** qualify one intended lightweight/default 3D provider on GTX 1080 / 16 GB with elapsed-time and practical RAM/VRAM evidence.
+5. **MS-004:** exercise cancellation/recovery where practical during the same target-machine session.
+6. **MS-019 / MS-020:** broader architecture work remains sequenced after target-machine evidence unless a concrete acceptance blocker requires immediate work.
 
 ## Immediate engineering priority
 
-Do not add unrelated v1.0.20 application work.
+Do not invent target-machine success from CI. v1.0.20 is the immutable test build and v1.0.21 is the forward fix branch.
 
-The next Dev Cycle should:
-
-1. repair only the `release-control` workflow's expected absent-release exit handling while preserving all immutability/exact-SHA/build/export/hash/smoke safeguards;
-2. submit the exact final v1.0.20 branch HEAD through the existing request and freeze the source branch;
-3. follow the workflow to success or a genuine release gate failure;
-4. after successful publication, verify latest release v1.0.20 and move all further application changes to forward-only v1.0.21;
-5. then obtain reference-machine acceptance evidence.
+The next Dev Cycle should first inspect any new user/reference-machine evidence. If a reproducible v1.0.20 defect exists, document/reuse its MS issue and fix forward on v1.0.21. If no target evidence is yet available, avoid broadening the Coordinator roadmap and keep the repository ready for that acceptance pass.
 
 ## User input currently required
 
-No product/design decision or manual release action is currently required. Once v1.0.20 is published, real GTX 1080 / 16 GB target-machine testing becomes the important user input.
+Reference-machine testing of released v1.0.20 is now the important dependency. No product/design decision is required unless testing exposes a difficult-to-reverse tradeoff.
