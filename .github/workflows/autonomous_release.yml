@@ -54,7 +54,7 @@ jobs:
             throw "Request filename must match version exactly: release-requests/$version.json"
           }
 
-          git fetch origin "refs/heads/$sourceBranch:refs/remotes/origin/$sourceBranch" --force
+          git fetch origin "refs/heads/${sourceBranch}:refs/remotes/origin/${sourceBranch}" --force
           if ($LASTEXITCODE -ne 0) { throw "Could not fetch source branch $sourceBranch." }
           $branchHead = (git rev-parse "refs/remotes/origin/$sourceBranch").Trim().ToLowerInvariant()
           if ($branchHead -ne $candidate) {
