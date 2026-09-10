@@ -408,3 +408,15 @@ Last reconciled: 2026-09-10
 4. Record relevant version/commit references whenever known.
 5. If an issue blocks the current task but independent work exists, document the blocker and continue the highest-value unblocked work.
 6. If a fix exposes a deeper architectural root cause, keep the symptom issue and link it to the architectural issue rather than hiding the history.
+
+
+## MS-028 — v1.0.23 direct viewport tool strip breaks C# build
+
+- **Severity:** High release-blocking development regression
+- **Status:** OPEN
+- **First observed:** exact-head v1.0.23 CI on 2026-09-10 after the second bounded MS-027 slice.
+- **Expected:** the direct viewport tool strip composes after UI preferences and the full editor C# target builds.
+- **Actual:** broader build fails with `CS0122` because `ExtrasInstaller` calls `Main.InstallV1023ViewportToolStrip()` while that method is inaccessible due to its protection level.
+- **Evidence:** build runs `34524072795` and `34527580075`; Core-foundation, Python/runtime/geometry/release-audit and packaging legs pass.
+- **Impact:** current v1.0.23 HEAD is not release-ready; no further MS-027 feature slice should begin while exact-head C# validation is red.
+- **Next action:** Dev Cycle makes the narrow accessibility/composition fix, obtains green exact-head validation, updates HANDOFF/STATUS to the repaired SHA, and closes this issue when the relevant C# build is green.
