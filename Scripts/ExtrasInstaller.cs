@@ -88,5 +88,6 @@ public partial class ExtrasInstaller : Node
         // project/revision model. Generated meshes remain candidates until explicit transactional
         // apply, and stale baseline results are preserved as conflicts instead of overwriting work.
         main.InstallV1020StageCBridge();
+        main.InstallV1020AppliedObjectRestore();
     }
 }
