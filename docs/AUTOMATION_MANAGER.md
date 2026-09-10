@@ -298,13 +298,3 @@ None.
 4. Review the next two executive Daily Reports for brevity and snapshot stability.
 5. If AMP-003 or AMP-004 is approved, apply only the approved schedule delta after re-reading the live target task and confirming it is idle.
 6. Continue to prioritize v1.0.22 reference-machine acceptance evidence over UI fallback work.
-
-
-
-1. Check whether the next Coordinator run reconciles the stale main body/header of TECHNICAL_ROADMAP with v1.0.22/v1.0.23 and the current acceptance/MS-027 state.
-2. Review released-v1.0.22 target-machine evidence as soon as it exists; verify Coordinator reprioritizes from that evidence and Dev immediately preempts UI fallback for any reproduced high-severity blocker.
-3. Verify the next Dev Cycle takes only the next bounded MS-027 slice if acceptance remains externally blocked, and does not let UI work become a monolithic rewrite.
-4. Continue AMP-001 durability monitoring across v1.0.23 release/no-release decisions.
-5. Re-attempt cross-chat user-facing-response review when exact Dev/Coordinator/Daily Report outputs are surfaced; do not infer wording from repository state.
-6. If AMP-002 is approved, apply only the scheduled Manager prompt delta in an idle window and verify its effect on subsequent reviews.
-7. Watch the Coordinator :30 / hourly Dev schedule for repeated real race/defer behavior before proposing a schedule change; one handled overlap is not yet enough evidence for another automation mutation.
