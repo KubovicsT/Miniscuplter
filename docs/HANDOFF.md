@@ -1,18 +1,19 @@
 # Miniscuplter Handoff
 
-> Operational baton for the next development run. Keep this concise and update it at the end of every meaningful work session. A new agent must still inspect the actual branch/commits/tests rather than trusting this file blindly.
+> Operational baton for the next development run. A new agent must inspect actual Git/release/CI state first; repository state wins over this document if they differ.
 
 Last updated: 2026-09-10
 
 ## Current state
 
 - **Repository:** `KubovicsT/Miniscuplter`
-- **Latest published stable:** `v1.0.18`
-- **Stable application commit:** `ce2d876fc145e615d63bd8d9fc809610f6038301`
-- **Current development branch:** `v1.0.19`
-- **Last code-bearing HEAD before project-management bootstrap:** `87601d0f343e9117c172097ad9a64cef574b1f0f`
-- **Current HEAD:** resolve from Git at run start; documentation updates advance the branch.
-- **Overall completion estimate:** 56% acceptance-weighted; see `PROJECT_STATUS.md`.
+- **Latest published stable:** `v1.0.19`
+- **Stable application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
+- **Current development branch:** `v1.0.20`
+- **v1.0.20 base:** exact released v1.0.19 commit above
+- **Overall completion estimate:** 56% acceptance-weighted; unchanged pending real-machine Stage-C acceptance.
+
+The documentation commits on v1.0.20 advance HEAD beyond the stable base. Resolve exact branch HEAD from Git at the beginning of the next run.
 
 ## Read first
 
@@ -22,108 +23,97 @@ Last updated: 2026-09-10
 4. `docs/DECISIONS.md`
 5. this file
 6. `docs/REFACTOR_PLAN.md`
-7. relevant recent commits/code/tests on `v1.0.19`
+7. relevant recent commits/code/tests on `v1.0.20`
 
-The repository/code/release state wins if any document is stale. Update the documents when a mismatch is found.
+## What this run accomplished
 
-## What was already present on v1.0.19 before this handoff
+### v1.0.19 publication
 
-`v1.0.19` was already an active development branch, 12 commits ahead of v1.0.18 branch state. The compare includes substantive changes in:
+The existing v1.0.19 batch was reviewed as coherent enough for target-machine acceptance testing and published rather than adding more unverified viewport layers first.
 
-- `Scripts/Main.V1019ViewportPipeline.cs` — native SubViewport repair/rebind pipeline, grid/model/material/camera/selection/gizmo enforcement and render diagnostics;
-- Stage-B `Core` project models/history/store and legacy importer;
-- updater/application-update hardening;
-- backend storage containment/canonicalization;
-- geometry/runtime/provider contracts and tests;
-- release-audit coverage.
+The first temporary publication-helper run (`34469184758`) failed during revalidation because the helper referenced a nonexistent `Core.Tests/Core.Tests.csproj`. This was a helper-workflow mistake, not an application failure. The canonical Stage-B project is `Core.Tests/Miniscuplter.Core.Tests.csproj`.
 
-The latest observed v1.0.19 build/core-foundation workflows at code HEAD `87601d0f...` passed.
+The helper was corrected and the second publication run (`34469538260`) passed:
 
-Do not reset v1.0.19 to v1.0.18 or recreate the work that is already there.
+- editor C# build;
+- launcher C# build;
+- updater C# build;
+- Python compilation and core tests;
+- job-progress tests;
+- real geometry regression tests;
+- Stage-B Core restore/build/tests;
+- release audit;
+- verified Godot 4.7.2 .NET/templates download;
+- real Windows Godot export;
+- release ZIP/hash verification;
+- silent installer smoke-install;
+- immutable v1.0.19 GitHub Release publication.
 
-## Project-management bootstrap completed in this session
+GitHub `/releases/latest` resolves to v1.0.19. Published assets include:
 
-The repository now has canonical project memory designed for autonomous continuation:
+- `Miniscuplter-win-x64.zip` — 173,859,707 bytes — SHA-256 `358181ec86c152a083cc6072de9a984d03f701b6589af22bbba6f217ee602ca2`
+- `Miniscuplter-Setup-1.0.19.exe` — 120,038,819 bytes — SHA-256 `62e53a0f08061ace6d6b0a5ed4abbf5f9ef9a663a0b266ba88e9a8f2541a264c`
 
-- `PROJECT_CHARTER.md` — mission, boundaries, finished-product definition, architecture, requirements, Astra direction and release rules;
-- `PROJECT_STATUS.md` — weighted completion, current branch/release state, working/partial/missing areas and immediate priorities;
-- `ISSUES.md` — stable MS-xxx issue ledger with symptoms, attempts, outcomes and verification status;
-- `DECISIONS.md` — durable product/architecture decisions and escalation rules;
-- `HANDOFF.md` — this baton.
+The temporary publication branch was reset to the exact released application commit so helper workflow code is not retained as product code.
 
-No application code was changed by this bootstrap.
+### v1.0.20 started
 
-## Highest-priority unresolved work
+Created `v1.0.20` from the exact v1.0.19 released commit. Updated project status and issue ledger for the release transition.
 
-### 1. MS-009 — 3D viewport/grid/model/gizmo reliability
+MS-009 (viewport/grid/model/gizmo) and MS-013 (storage containment) are now **FIXED - NEEDS USER VERIFICATION**, not RESOLVED. Their fixes are distributed but CI cannot prove the historical real-machine symptoms are gone.
 
-v1.0.19 contains the strongest viewport repair attempt so far, including a native `SubViewportContainer`, explicit world/camera ownership, starter mesh, visible material, grid rebuild, selection/gizmo update and render probe diagnostics.
+## User verification requested, but not blocking autonomous work
 
-**Next action:** inspect the v1.0.19 viewport pipeline and related legacy viewport code for conflicting ownership or duplicate repair paths. Strengthen deterministic tests/diagnostics where possible. When the v1.0.19 batch is complete and release gates pass, publish it and request real-machine verification. If still blank, use the render diagnostics to isolate whether pixels, world, camera, materials or UI surface are failing.
+On v1.0.19, the user should test:
 
-### 2. MS-018 — Stage-C end-to-end thin slice not qualified
+1. launch into the 3D workspace and confirm grid/starter/generated mesh are visible;
+2. select/move/rotate/scale and confirm the gizmo is visible and usable;
+3. generate/import a 3D mesh and confirm it is selected/framed/rendered;
+4. if blank, copy the v1.0.19 viewport diagnostics/render-probe text;
+5. run representative 2D edit, reference download, 3D generation, geometry operation, capture/save/cancel and check that working paths stay under the configured Miniscuplter data root rather than C:\ AppData/TEMP.
 
-Primary product acceptance gap remains:
+A failure in either MS-009 or MS-013 becomes the immediate priority when reported.
 
-`2D → accept durable baseline → one qualified 3D provider → visible/editable mesh → save/reload → cleanup → validated STL`
+## Highest-priority autonomous work on v1.0.20
 
-on GTX 1080 8 GB + 16 GB RAM, including cancellation recovery and contained storage.
+### Primary: MS-022 — provider qualification/self-test contract
 
-### 3. MS-013 — storage containment
+Build the provider-readiness layer needed for Stage C. Do not equate downloaded weights with a usable provider.
 
-v1.0.18 introduced `AppDataRoot`; v1.0.19 adds more backend/Windows containment work. Real-machine verification must confirm representative operations no longer write significant working artifacts into arbitrary C: AppData/TEMP paths.
+Required direction:
 
-### 4. MS-020 / MS-019 — Job Broker and legacy architecture migration
+- define readiness states at least for downloaded / installed / importable / device-tested / inference-tested;
+- add a provider self-test result structure with timestamp, runtime/provider version, device/hardware context, failure detail and optional benchmark data;
+- start with the lightweight/default 3D provider path intended for the GTX 1080 target;
+- preflight missing Python/native dependencies before committing to a long generation job;
+- expose/use readiness in routing so Auto does not select a provider known to be broken;
+- preserve explicit user selection semantics: explicit selection should explain failure, not silently substitute another provider;
+- add tests for readiness transitions and failure reporting.
 
-Continue moving one vertical slice at a time onto stable IDs/revisions/project history. Avoid adding new permanent state to legacy widgets when the new core can own it.
+### Then: MS-018 + MS-020 — bind the Stage-C AI handoff to stable revisions
 
-### 5. MS-022 — provider qualification
+Move one vertical slice onto the Stage-B core:
 
-Add provider self-tests/readiness states and target-hardware benchmarks. Prefer one trustworthy default 3D route before adding more optional provider breadth.
+`accepted 2D baseline revision → qualified 3D job → candidate mesh revision → explicit accept/apply`
 
-## Autonomous engineering policy
+The job must carry immutable project/object/input revision identity. If the baseline/current object changes while the job runs, the result must become a candidate/conflict and must not silently overwrite newer state. Accept/apply should be a transactional history command.
 
-Continue independently unless a decision materially changes product scope, UX direction with hard-to-reverse tradeoffs, user-data safety, backward compatibility, payment/credentials/external services, minimum hardware, or local-first/privacy assumptions.
+Keep legacy UI compatibility while migrating this slice; do not create another permanent widget-owned source of truth.
 
-When ordinary engineering choices arise:
+## Architectural cautions discovered/reconfirmed
 
-- make a reasoned decision;
-- implement/test it;
-- document it;
-- continue.
+The v1.0.19 viewport path still coexists with legacy viewport repair/sizing handlers in older `Main.V*.cs` layers. Do not add more overlapping viewport ownership unless the released v1.0.19 test proves it is still necessary. If MS-009 persists, consolidate conflicting ownership rather than layering another recovery surface.
 
-When blocked on one task, log the blocker and work on the highest-value independent task instead of stopping the whole project.
+Similarly, Stage-B Core is materially implemented but still not authoritative throughout the editor. Prefer migrating vertical slices rather than a risky all-at-once rewrite.
 
 ## Release policy
 
-Do not mutate published releases.
-
-For v1.0.19:
-
-1. finish the coherent intended batch;
-2. review as a senior engineer;
-3. update `PROJECT_STATUS.md`, `ISSUES.md`, `DECISIONS.md` if needed and rewrite this handoff;
-4. run C#/Python/core/geometry/release-audit/packaging validation;
-5. perform real Godot Windows export;
-6. verify hashes/artifacts;
-7. smoke-install the installer;
-8. publish immutable v1.0.19;
-9. verify `/releases/latest`;
-10. start future application changes on `v1.0.20`.
-
-User-observed runtime/UI fixes should remain `FIXED - NEEDS USER VERIFICATION` until tested on the actual machine.
-
-## Required end-of-run handoff
-
-Before every autonomous run ends:
-
-- update issue statuses and append new attempts/results;
-- update workstream completion only with evidence;
-- record current stable/development versions;
-- record what changed and tests run;
-- record any user decision or real-machine verification required;
-- replace this file's `Next action` with the exact next engineering task.
+- Never mutate v1.0.19.
+- Application changes now belong on v1.0.20.
+- Do not publish v1.0.20 merely because a scheduled run ends; publish when its intended batch is coherent and all gates pass.
+- Before publication: C#/Python/Core/geometry/job tests + release audit + real Godot Windows export + artifact/hash verification + installer smoke test.
+- After publication, verify `/releases/latest`, update canonical docs, and branch v1.0.21 before further application changes.
 
 ## Exact next action
 
-Reconcile the existing v1.0.19 code as a whole, with special focus on **MS-009 viewport pipeline conflicts and Stage-C reliability**, then continue the highest-value unblocked implementation work. Do not release merely because a scheduled run is ending; release when the v1.0.19 batch is coherent and all required gates pass.
+On `v1.0.20`, inspect the existing provider registry/model-manager/routing and Stage-B project/revision APIs, then implement **MS-022 provider readiness/self-tests for the intended lightweight 3D route**, with tests and routing integration. After that, begin the accepted-baseline → 3D candidate stable-revision handoff (MS-018/MS-020) unless a v1.0.19 target-machine regression is reported first.
