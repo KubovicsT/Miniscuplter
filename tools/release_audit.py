@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.21"
+EXPECTED = "1.0.22"
 errors: list[str] = []
 
 
@@ -43,6 +43,7 @@ references1016 = text("Scripts/Main.V1016References.cs")
 usability1017 = text("Scripts/Main.V1017Usability.cs")
 viewport1018 = text("Scripts/Main.V1018Foundation.cs")
 viewport1019 = text("Scripts/Main.V1019ViewportPipeline.cs")
+acceptance1022 = text("Scripts/Main.V1022Acceptance.cs")
 safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
@@ -220,6 +221,16 @@ require("if (_v1019ViewportPipelineInstalled) return;" in responsive, "legacy re
 for token in ("V1019ConfigureStudioLighting", "Viewport Studio", "background luma", "new Color(.145f, .145f, .145f)"):
     require(token in viewport1019, f"v1.0.21 neutral studio viewport/readability guard missing: {token}")
 
+# v1.0.22: production Stage-C generation and client/viewport presentation have one final owner.
+require("InstallV1022Acceptance();" in extras, "v1.0.22 acceptance installer missing")
+require(extras.index("InstallV1020StageCEditingAuthority();") < extras.index("InstallV1022Acceptance();"), "v1.0.22 acceptance guard must install after Stage-C editing")
+for token in ("Pressed -= V109Generate3DAsync", "Pressed -= V1017Generate3DAsync", "Pressed -= V1020Generate3DAsync", "Pressed += V1020Generate3DAsync"):
+    require(token in acceptance1022, f"v1.0.22 single generation-owner guard missing: {token}")
+require("SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect)" in acceptance1022, "v1.0.22 root client-fill guard missing")
+require("ground.Visible = false" in acceptance1022, "v1.0.22 non-occluding grid guard missing")
+require("SubViewport.Size =" not in acceptance1022, "v1.0.22 reintroduces manual SubViewport size ownership")
+require("V1022InstallDeferredRecoveryGuards" in acceptance1022 and "Repair 3D Viewport" in acceptance1022, "v1.0.22 recovery guard missing")
+
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
 require("SDXL model loading failed before inference" in sdxl, "SDXL model-load diagnostics missing")
@@ -282,7 +293,7 @@ require("batches = @(3, 4)" in build_release and "Join-Path $dist 'installer'" i
 for token in ("data_root", "validate_input_path", "validate_output_path", "MAX_INPUT_BYTES", "Refusing to follow a symlink"):
     require(token in storage, f"backend storage boundary missing: {token}")
 
-# Intermediate version-branch commits are validation-only. A final explicit v1.x tag is the sole release trigger.
+# Intermediate version-branch commits are validation-only. A final explicit v1.x tag is the sole historical release trigger.
 require("tags: [ 'v*' ]" in workflow, "version-tag workflow trigger missing")
 require("refs/tags/v1." in workflow and "full-windows-release" in workflow, "full Windows release is not v1.x tag-gated")
 require("refs/tags/v1." in workflow and "publish-release" in workflow and "gh release create" in workflow, "GitHub Release publication is not tag-gated")
