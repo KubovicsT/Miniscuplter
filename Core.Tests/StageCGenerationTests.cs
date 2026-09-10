@@ -92,5 +92,50 @@ internal static class StageCGenerationTests
         Assert(loadedCandidates.Count == 2, "generated candidate provenance did not survive save/reload");
         Assert(loadedCandidates.Single(x => x.Id == staleCandidate.Id).Status == CandidateStatus.Conflict, "stale conflict state did not survive save/reload");
         Assert(loadedCandidates.Single(x => x.Id == ready.Id).Status == CandidateStatus.Applied, "applied candidate state did not survive save/reload");
+
+        // A save failure must not leave the in-memory session ahead of durable state. The helper
+        // is delegate-driven so this regression is deterministic and does not depend on filesystem
+        // permissions, disk exhaustion, or platform-specific file locking behavior.
+        var recoveringSession = new ProjectSession(loaded);
+        recoveringSession.Execute("Unsaved edit before simulated failure", current =>
+            current.WithMetadata("save_failure_probe", "must-not-survive"));
+        Assert(recoveringSession.IsDirty && recoveringSession.CanUndo, "save-failure fixture did not create unsaved state");
+        bool saveFailureSurfaced = false;
+        try
+        {
+            await recoveringSession.SaveRecoveringAsync(
+                _ => Task.FromException(new IOException("simulated durable save failure")),
+                () => Task.FromResult(loaded));
+        }
+        catch (IOException ex)
+        {
+            saveFailureSurfaced = ex.Message.Contains("restored", StringComparison.OrdinalIgnoreCase);
+        }
+        Assert(saveFailureSurfaced, "save failure was not surfaced after rollback");
+        Assert(recoveringSession.Current.RevisionNumber == loaded.RevisionNumber, "failed save left in-memory revision ahead of durable state");
+        Assert(!recoveringSession.Current.Metadata.ContainsKey("save_failure_probe"), "failed save left unsaved metadata authoritative in memory");
+        Assert(!recoveringSession.IsDirty, "recovered session should be aligned with its durable revision");
+        Assert(!recoveringSession.CanUndo && !recoveringSession.CanRedo, "rollback to durable state retained invalid pre-failure history");
+
+        // Recovery must also be fail-closed across project identity. Never replace a failed save
+        // with a state from another project even if a recovery provider is buggy or mis-scoped.
+        var mismatchSession = new ProjectSession(loaded);
+        mismatchSession.Execute("Unsaved edit before identity mismatch", current =>
+            current.WithMetadata("identity_mismatch_probe", "pending"));
+        ProjectState foreign = ProjectState.Create("Foreign recovery project");
+        bool foreignRecoveryRejected = false;
+        try
+        {
+            await mismatchSession.SaveRecoveringAsync(
+                _ => Task.FromException(new IOException("simulated save failure")),
+                () => Task.FromResult(foreign));
+        }
+        catch (AggregateException)
+        {
+            foreignRecoveryRejected = true;
+        }
+        Assert(foreignRecoveryRejected, "save recovery accepted a different project identity");
+        Assert(mismatchSession.Current.ProjectId == loaded.ProjectId, "failed recovery replaced the session with a foreign project");
+        Assert(mismatchSession.IsDirty, "failed recovery falsely marked unresolved in-memory state as durable");
     }
 }
