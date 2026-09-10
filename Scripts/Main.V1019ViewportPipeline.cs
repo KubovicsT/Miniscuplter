@@ -24,7 +24,11 @@ public partial class Main
 
         _v1019ViewportPipelineInstalled = true;
         host.Visible = true;
-        host.Stretch = true;
+        // The legacy v1.0.9/v1.0.17 layers still contain explicit SubViewport sizing callbacks.
+        // Stretch=true plus those callbacks creates two owners for the render-target size and can
+        // make the native surface timing-dependent during layout. Until those layers are retired,
+        // v1.0.19 deliberately uses one contract: Stretch=false and explicit host->viewport sizing.
+        host.Stretch = false;
         host.ClipContents = true;
         host.MouseFilter = Control.MouseFilterEnum.Stop;
         host.Modulate = Colors.White;
@@ -93,14 +97,21 @@ public partial class Main
             return;
 
         host.Visible = true;
-        host.Stretch = true;
+        host.Stretch = false;
         host.ClipContents = true;
         host.Modulate = Colors.White;
         host.SelfModulate = Colors.White;
 
-        // Stretch=true is the native SubViewportContainer contract: it owns the child viewport
-        // dimensions after layout. Older installers attempted to fight that contract by assigning
-        // Size repeatedly before/after layout, which made the render path timing-dependent.
+        // v1.0.19 intentionally keeps explicit sizing authoritative while the legacy v1.0.9 and
+        // v1.0.17 resize handlers still exist. This prevents Stretch=true and manual Size writes
+        // from fighting each other on Windows during startup, tab changes and splitter resizes.
+        Vector2 hostSize = host.Size;
+        Vector2I targetSize = new(
+            Math.Max(1, (int)Math.Round(hostSize.X)),
+            Math.Max(1, (int)Math.Round(hostSize.Y)));
+        if (sub.Size != targetSize)
+            sub.Size = targetSize;
+
         if (!_v1019WorldConfigured)
         {
             sub.World3D = new World3D();
@@ -241,8 +252,8 @@ public partial class Main
             : "missing";
         string selected = _selected == null ? "none" : _selected.Name.ToString();
         _v1019ViewportDiagnostics.Text =
-            "Viewport pipeline: native SubViewportContainer" + Environment.NewLine +
-            $"Render target: {sub.Size.X}×{sub.Size.Y} · 3D {(sub.Disable3D ? "disabled" : "active")} · update Always" + Environment.NewLine +
+            "Viewport pipeline: native SubViewportContainer (explicit sizing)" + Environment.NewLine +
+            $"Render target: {sub.Size.X}×{sub.Size.Y} · host: {(int)host.Size.X}×{(int)host.Size.Y} · 3D {(sub.Disable3D ? "disabled" : "active")} · update Always" + Environment.NewLine +
             $"World parent: {worldParent} · own World3D: {sub.OwnWorld3D}" + Environment.NewLine +
             $"Grid: {grid} · scene objects: {_objects.Count} · selected: {selected}";
     }
