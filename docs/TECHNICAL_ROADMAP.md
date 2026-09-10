@@ -1,308 +1,243 @@
 # Miniscuplter Technical Roadmap
 
-> Authoritative technical planning document owned by the Project Coordinator. The Project Charter and accepted Decisions define product truth; this roadmap defines technical sequencing, priority, architecture direction, and version scope. `HANDOFF.md` remains the immediate Dev Cycle baton.
+> Authoritative technical planning document owned by the Project Coordinator. The Project Charter and accepted Decisions define product truth; this roadmap defines technical sequencing, priority, architecture direction, and version scope. `HANDOFF.md` owns the immediate Dev Cycle baton.
 
 Last coordinator review: 2026-09-10
 Current stable release: `v1.0.22`
 Stable release target: `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
 Current development branch: `v1.0.23`
-Latest live branch HEAD reviewed before this roadmap update: `5072e03688e4a1a101c458215e9df8a9fa288110`
+Repository HEAD reviewed before this roadmap update: `549d1018866e242a3b0d5344f6840903a36fa6f6`
 Acceptance-weighted completion: **57%**
 
 ## 1. Current technical objective
 
-Fix the reproduced v1.0.20 viewport-rendering/readability regression forward on v1.0.21, publish a narrow verified testable fix when release gates are satisfied, then resume the reference-machine Stage-C acceptance pass.
+Complete **Stage-C reference-machine acceptance** on released v1.0.22 while keeping v1.0.23 as a narrow forward-fix / acceptance-support branch.
 
-The shipped Stage-C foundation remains:
+The accepted thin slice remains:
 
-`2D source → accepted immutable image baseline → revision-bound local 3D generation → explicit candidate Apply → visible/editable Core-owned object → transform/sculpt → save/reload → immutable cleanup revision → exact validated STL export`
+`2D source → accepted durable image baseline → local 3D generation → identity-bound candidate → explicit Apply → durable editable object → Move/Rotate/Scale + bounded sculpt/edit → save/reload → cleanup → exact validated STL export`
 
-The current blocker is no longer architecture completion or release orchestration. It is **real target-machine viewport behavior (MS-009)**.
+Released v1.0.22 contains bounded fixes for the concrete v1.0.21 findings:
 
-## 2. Technical-direction assessment
+- **MS-023** — one authoritative Stage-C Generate-3D owner so successful output cannot bypass candidate/Apply persistence;
+- **MS-009** — final viewport presentation guard and non-occluding grid behavior;
+- **MS-024** — whole-window client-fill correction;
+- **MS-025** — automatic starter sphere removal.
 
-**Direction: PRESERVE, with immediate P0 viewport correction.**
+All remain **FIXED - NEEDS USER VERIFICATION** until retested on the reference Windows / GTX 1080 / 8 GB VRAM / 16 GB RAM machine.
 
-The selective-refactor strategy remains correct. v1.0.20 proved the bounded Stage-C state/release architecture and the autonomous release path. New reference-machine evidence does not justify an architectural reset.
+When acceptance is externally blocked and no higher-priority correctness work exists, exactly one bounded MS-027 modernization slice may advance.
 
-However, the viewport is not accepted. The user has now shown that v1.0.20 renders the grid and starter model, which is a major improvement over the historical completely blank viewport, but the resting render is still materially wrong:
+## 2. Direction assessment
 
-- the grid/floor appears very dark blue/gray in the normal resting layout;
-- while the right-side panel divider is actively dragged, the grid temporarily renders correctly;
-- after normal layout settles, the incorrect appearance returns;
-- the model is too dark to inspect surface form/details;
-- the user explicitly wants a Blender-like neutral gray viewport/model readability scheme.
+**Direction: PRESERVE, with a narrow execution correction.**
 
-This is concrete target-machine evidence. **MS-009 is reopened and becomes the immediate P0 ahead of the rest of Stage-C qualification.**
+The selective-refactor architecture remains correct:
 
-## 3. Root-cause direction for MS-009
+- Core owns durable project/object/revision/history state.
+- Godot owns viewport/input/presentation.
+- Python owns inference/geometry execution.
+- Stable IDs, immutable revisions and transactional history remain the state model.
+- STL remains export/interchange, not project authority.
+- Local Job Broker remains the intended long-running execution architecture.
+- Storage remains inside Miniscuplter-controlled roots.
+- Published releases are immutable and development moves forward by semantic version.
 
-The exact root cause must be verified by the Dev Cycle, but repository inspection exposes a high-confidence architectural seam that matches the resize-dependent symptom:
+Recent Dev work generally followed the Coordinator fallback: first workspace-preference/UI-scale/tooltips, then one direct viewport-tool strip slice.
 
-1. `Main.V1019ViewportPipeline.cs` declares the native `SubViewportContainer` with `Stretch=true` authoritative and comments that the container should own child viewport dimensions.
-2. Legacy paths still write `SubViewport.Size`:
-   - `V1017SyncViewport()` writes it and is called by a recurring timer and from the v1.0.19 repair path;
-   - `Main.V109Responsive.cs` also writes it after host resize.
-3. `Main.V1019ViewportPipeline.cs` additionally schedules a **delayed full repair** 0.25 s after `host.Resized`. During continuous splitter movement that timer is repeatedly restarted, which strongly correlates with the user's observation that the viewport looks correct only while the divider is moving and changes after resizing settles.
-4. World ownership is also overlapping: v1.0.17 performs a one-time reparent after enabling `OwnWorld3D`, while v1.0.19 later assigns a new `World3D` and may not force the already-parented world/lights through the same re-registration path. The very dark lit model makes this seam a priority to verify.
-5. The current palette itself is too dark/blue for the requested UX: the v1.0.19 floor is near-black blue-gray and the background is very dark. Even after render ownership is fixed, visual hierarchy should be moved toward a Blender-style neutral solid viewport.
+However, the latest tool-strip composition introduced a **compile regression** at exact branch HEAD: broader build CI fails with `CS0122` because `ExtrasInstaller` calls `Main.InstallV1023ViewportToolStrip()` while that method is inaccessible. Core/Python/geometry/release-audit/packaging legs pass. This is a completed worker state and a real release-blocking regression.
 
-Treat these as **evidence-backed hypotheses**, not already-proven causes. Fix the ownership conflict, then verify on a real rendered frame.
+The correct response is a narrow implementation fix and exact-head revalidation, not a roadmap redesign.
 
-## 4. Current milestone — reference-machine Stage-C acceptance
+## 3. Current milestone — Stage-C reference-machine acceptance
 
-Stage-C acceptance remains the milestone, but it is temporarily gated by the P0 viewport defect.
+Acceptance requires:
 
-Acceptance still requires:
+1. **Generation/persistence — MS-023 / MS-018**
+   - accepted 2D baseline;
+   - intended local 3D route completes;
+   - Ready/Conflict candidate appears;
+   - explicit Apply creates/advances the durable object/revision;
+   - save → close → reopen restores the same object and active mesh revision.
 
-1. **Viewport / MS-009**
-   - grid, axes, model, selection and gizmo are visible immediately after launch without resizing;
-   - the resting frame is visually stable before, during and after splitter resizing;
-   - model shading makes curvature/details readable;
-   - viewport colors use a Blender-like neutral-gray visual hierarchy rather than the current near-black blue floor;
-   - repeated resize/tab-switch/manual-repair operations do not change world/material/grid state.
+2. **Viewport/editability — MS-009 / MS-024 / MS-025**
+   - initial viewport readable;
+   - right-panel resize does not alter viewport appearance;
+   - whole-window resize leaves no black seams;
+   - grid does not occlude generated geometry;
+   - no starter sphere after launch/New/repair;
+   - first real object can be selected/framed;
+   - Move/Rotate/Scale and one supported sculpt/edit path work.
 
-2. **Complete Stage-C flow / MS-018**
-   - 2D input/import;
-   - baseline acceptance;
-   - one intended lightweight/default 3D route;
-   - Apply into a visible/editable project-owned object;
-   - transform + bounded sculpt/edit;
-   - save/reload;
-   - cleanup;
-   - exact validated STL export.
+3. **Cleanup/export**
+   - cleanup follows durable revision authority;
+   - export scope is explicit;
+   - validated STL matches durable project state.
 
-3. **Storage / MS-013**
-   - representative runtime/model/temp/cache paths remain within intended Miniscuplter-controlled locations.
+4. **Storage — MS-013**
+   - project/model/cache/temp/job artifacts remain inside controlled roots.
 
-4. **Provider / MS-022**
-   - one intended lightweight/default 3D provider completes on GTX 1080 / 8 GB VRAM / 16 GB RAM with elapsed-time and practical resource evidence.
+5. **Provider qualification — MS-022**
+   - one practical local 3D route works on the reference hardware;
+   - preserve elapsed time and resource evidence.
 
-5. **Cancellation / MS-004**
-   - cancellation/recovery does not corrupt project state or apply stale output.
+6. **Cancellation/recovery — MS-004**
+   - cancel/restart does not poison the next job or corrupt project state.
 
-## 5. Ordered critical path
+## 4. Ordered critical path
 
-### P0 — Fix deterministic viewport ownership and readability on v1.0.21
+### P0 — Restore green v1.0.23 exact-head build
 
-Dev Cycle should keep the fix narrow and evidence-driven:
+Before any additional UI feature work:
 
-1. make the v1.0.19 native viewport path the **single owner** of normal SubViewport sizing;
-2. when the v1.0.19 pipeline is active, stop legacy v1.0.17/v1.0.9 code from independently assigning `SubViewport.Size`;
-3. normal splitter resize should update layout/render target only; it should **not trigger a full world/camera/material repair after every resize** unless a proven Godot requirement demands it;
-4. establish one coherent `World3D` ownership/rebind sequence so camera, lights, environment, grid and objects all live in the effective rendered world;
-5. make repair logic idempotent and reserved for recovery, not the ordinary layout path;
-6. adopt a Blender-like solid-workspace palette:
-   - neutral dark gray background;
-   - clearly visible neutral gray grid with stronger major lines;
-   - colored axes;
-   - light/mid neutral gray model material with readable studio-style lighting;
-   - selection/gizmo remains obvious without turning the model into an unreadably dark or strongly tinted surface;
-   - avoid a giant near-black/blue ground slab dominating the viewport;
-7. preserve 2D canvas overlay behavior and existing Stage-C object authority.
+1. fix the `InstallV1023ViewportToolStrip()` accessibility/composition compile regression;
+2. run exact-head C# build plus existing Core/Python/geometry/release-audit/packaging gates;
+3. update HANDOFF/STATUS to the actual validated SHA;
+4. do not start scene hierarchy, view cube, AI console, telemetry or unrelated work while the branch is red.
 
-### P1 — Add regression evidence that targets this failure mode
+This is implementation work owned by Dev Cycle.
 
-Automated/headless checks cannot substitute for the GTX 1080 render, but they should prevent obvious recurrence:
+### P1 — Consume v1.0.22 reference-machine evidence
 
-- test/extract the authoritative viewport configuration so there is only one active resize-size owner;
-- verify resize does not run destructive world recreation/reset logic;
-- verify world/camera/light/environment/grid ownership is stable and idempotent;
-- keep render diagnostics useful: report active world/camera/light/grid state and sampled frame contrast/luminance where practical;
-- run C#, Core, Python/geometry, release-audit and packaging validation after the UI fix.
+At every Dev Cycle start, check for new released-v1.0.22 user evidence.
 
-### P2 — Publish and retest the narrow v1.0.21 viewport fix
+Any reproduced persistence, data-loss, viewport, storage, cancellation or Stage-C blocker immediately preempts MS-027.
 
-When the fix is coherent and release gates are genuinely green, v1.0.21 should be a meaningful testable forward-fix release. Do **not** wait for the entire remaining Stage-C acceptance matrix if the user needs the immutable build to verify this target-only rendering defect.
+### P2 — Complete Stage-C acceptance
 
-The retest must explicitly compare:
+Once reference-machine testing is available, finish MS-018 through persistence, transforms/sculpt, cleanup/export, storage, provider evidence and cancellation/recovery.
 
-- launch without touching the divider;
-- active divider drag;
-- after divider release/settle;
-- tab changes;
-- manual viewport repair;
-- starter sphere and an imported/generated mesh.
+### P3 — Opportunistic MS-027 only while P1/P2 are externally blocked and P0 is green
 
-MS-009 remains open until that real-machine retest is green.
+Completed/started bounded slices:
 
-### P3 — Resume remaining Stage-C acceptance
+1. workspace splitter persistence + UI/font scale + tooltip infrastructure — code present, target/UI verification pending;
+2. direct Select/Move/Rotate/Scale/Sculpt tool strip — implemented but currently **not validated because exact-head C# build is red**.
 
-After viewport acceptance, continue MS-018 / MS-013 / MS-022 / MS-004 in the same reference-machine session where practical.
+After slice 2 is green, the next allowed fallback slice is:
 
-### P4 — Post-acceptance structural work
+3. **synchronized collapsible scene hierarchy**.
 
-Unless new evidence changes priority:
+Requirements:
+- reflect existing durable project/object identity;
+- synchronize tree and viewport selection through one selection owner;
+- do not create a parallel scene-state model;
+- stop after this slice.
 
-1. `MS-020` durable job ownership/queue/resource/crash recovery;
-2. `MS-019` outward migration from the proven Stage-C seam;
-3. provider-tier policy from measured `MS-022` results;
-4. broader Stage-D practical editing.
+Subsequent order:
+4. view cube + selected-object orbit pivot;
+5. unified AI command console/history through one authoritative dispatcher;
+6. MS-026 resource telemetry;
+7. density/spacing cleanup and retirement of superseded explanatory UI.
+
+## 5. MS-027 architecture guard
+
+The modernization must reduce, not extend, version-derived UI composition.
+
+The current `Main.V1023...` files are accepted only as bounded migration bridges. Do **not** make `Main.V1024...`, `Main.V1025...`, etc. the permanent UI architecture.
+
+For future slices, prefer stable version-neutral presentation components/services where practical. Reuse one authoritative underlying owner:
+
+- viewport tool state/input: existing V1018 path until deliberately migrated;
+- scene/object identity: Core/project authority;
+- selection: one synchronized owner;
+- AI actions: one dispatcher;
+- UI preferences: presentation-only state outside ProjectStore.
+
+Migration rule: move authority, prove behavior, then retire superseded legacy presentation paths. Do not stack another compatibility owner.
 
 ## 6. Issue priority
 
-1. **MS-009 — P0 / Critical / REOPENED:** rendered but unstable/unreadable viewport on v1.0.20; resize-dependent visual state and very dark model.
-2. **MS-018 — Critical milestone:** resume full Stage-C target qualification immediately after the viewport blocker.
-3. **MS-013 — High:** storage containment verification.
-4. **MS-022 — High:** qualify one intended lightweight/default 3D route.
-5. **MS-004 — High acceptance companion:** cancellation/recovery.
-6. **MS-019 / MS-020 — High architecture work:** still sequenced after acceptance unless a concrete blocker requires earlier work.
+1. **MS-028 — High / OPEN:** v1.0.23 exact-head C# compile regression; immediate release blocker and feature-work gate.
+2. **MS-023 — Critical / FIXED - NEEDS USER VERIFICATION.**
+3. **MS-018 — Critical / IN PROGRESS.**
+4. **MS-009 — Critical / FIXED - NEEDS USER VERIFICATION.**
+5. **MS-024 — High / FIXED - NEEDS USER VERIFICATION.**
+6. **MS-013 — High / FIXED - NEEDS USER VERIFICATION.**
+7. **MS-022 — High / IN PROGRESS.**
+8. **MS-004 — High / FIXED - NEEDS USER VERIFICATION.**
+9. **MS-025 — Medium / FIXED - NEEDS USER VERIFICATION.**
+10. **MS-027 — Medium / OPPORTUNISTIC.**
+11. **MS-026 — Medium / PLANNED inside MS-027.**
 
-## 7. Architecture and ownership boundaries
+MS-028 is above all new feature work but does not supersede the product-level Stage-C milestone once fixed.
 
-- **Core C#:** durable project/object/revision/transform/history authority.
-- **Godot viewport:** presentation and interaction only; for the render surface itself there must be one effective owner for SubViewport sizing, World3D, camera/environment/lights and resize lifecycle.
-- **Python:** inference/geometry/provider execution, not project-state authority.
-- **Launcher/updater:** delivery/runtime/data preservation.
-- **release-control:** exact-SHA gated publication.
-- **STL:** export/interchange only.
+## 7. v1.0.23 intended scope
 
-The viewport fix should remove duplicate presentation-state ownership rather than add another compatibility overlay.
-
-## 8. v1.0.21 intended scope
-
-v1.0.21 is now specifically the **MS-009 target-machine viewport correction + acceptance-support release**.
+v1.0.23 remains a **forward acceptance-fix + bounded opportunistic UI branch**.
 
 In scope:
-- deterministic native viewport resize/world ownership;
-- Blender-like readable viewport palette/lighting;
-- targeted diagnostics/regression coverage for this failure;
-- any directly coupled viewport/gizmo fix exposed by the same root cause;
-- accurate MS-009 acceptance documentation.
+- narrow fixes for v1.0.22 reference-machine failures;
+- acceptance diagnostics/regressions;
+- MS-027 preference/layout slice;
+- MS-027 direct tool-strip slice after build repair;
+- at most one further bounded fallback slice at a time while acceptance is externally blocked;
+- accurate docs/release preparation.
 
-Not in scope unless new target evidence makes it blocking:
+Not in scope without new evidence or Coordinator change:
+- monolithic UI rewrite;
+- broad Main.V* removal;
+- full Job Broker reconstruction;
 - full sculpt migration;
-- broad `Main.V*.cs` removal;
-- full Job Broker rewrite;
 - Rig & Pose modernization;
 - kitbash expansion;
 - provider proliferation;
-- full UI rewrite;
-- unrelated cleanup feature breadth.
+- unrelated feature breadth.
+
+Do not release v1.0.23 while exact-head C# CI is red. Do not publish it merely because CI later becomes green; release only when scope is coherent and exact-SHA Windows/export/hash/installer gates pass.
+
+## 8. Target hardware / resource constraints
+
+Reference acceptance machine:
+- Windows;
+- GTX 1080;
+- 8 GB dedicated VRAM;
+- 16 GB RAM;
+- limited system-drive free space.
+
+Current Hunyuan-mini evidence:
+- about 402 s runtime;
+- snapshot around 97% GPU;
+- about 5.4/8 GB dedicated VRAM;
+- about 5 GB system RAM used;
+- about 73 °C GPU.
+
+These are observations, not proven peaks.
+
+MS-026 should remain local, low overhead, roughly 1 Hz, omit unavailable sensors gracefully, and associate resource samples with provider/job stage/elapsed time.
 
 ## 9. Technical risks
 
-1. Fixing only colors while leaving duplicate resize/world ownership would mask the root problem.
-2. Fixing only the resize timing while retaining broken lighting would leave the model unusable.
-3. Another additive viewport layer would increase duplicate authority and is explicitly discouraged.
-4. CI cannot prove the final GTX 1080 appearance.
-5. v1.0.20 is immutable; all fixes stay on v1.0.21+.
-6. Do not let this bounded UI regression trigger a general UI redesign.
+1. **False acceptance:** CI cannot close target-only Godot/CUDA/UI issues.
+2. **Red-branch drift:** new features must not accumulate while exact-head build is broken.
+3. **UI overlay accretion:** MS-027 must not become another endless `Main.V*.cs` stack.
+4. **Duplicate authority:** tool strip, hierarchy and AI console are high-risk seams.
+5. **Acceptance displacement:** UI fallback remains subordinate to Stage-C.
+6. **Storage regression:** preference/telemetry/job data must stay inside controlled roots.
+7. **Provider overclaim:** one successful run is useful evidence, not a support matrix.
+8. **Release/version drift:** published releases remain immutable; release-request branches freeze while active.
 
 ## 10. Next Coordinator-level objectives for Dev Cycle
 
-1. reproduce/trace the post-resize state transition from the user evidence;
-2. collapse normal viewport sizing to one authoritative owner;
-3. collapse World3D/camera/light/environment repair to one coherent idempotent path;
-4. implement the Blender-like neutral-gray viewport/material/lighting scheme requested by the user;
-5. validate launch/resize/settle/tab-switch/repair invariants and preserve Stage-C behavior;
-6. publish v1.0.21 when that narrow fix is release-ready;
-7. request/rely on a real-machine retest before resolving MS-009;
-8. resume the rest of Stage-C acceptance after viewport verification.
+1. Fix MS-028 first and restore green exact-head build.
+2. Reconcile HANDOFF/PROJECT_STATUS to the actual validated head after the fix.
+3. Before selecting any further fallback work, consume new v1.0.22 reference-machine evidence.
+4. If target evidence exposes a serious blocker, fix it forward narrowly on v1.0.23.
+5. If acceptance remains externally blocked and CI is green, take only the synchronized scene-hierarchy slice next.
+6. Keep one selection/project identity owner; no duplicate scene state.
+7. Prefer stable version-neutral UI components for new MS-027 presentation code.
+8. Stop after one bounded fallback slice per cycle.
+9. Keep completion at 57% until acceptance evidence changes it.
+10. Do not submit a v1.0.23 release request from a red or merely convenient scheduler state.
 
-## 11. User input
+## 11. User input / verification dependency
 
-No product-level decision is required. The color-direction request is clear enough to implement: use Blender-like neutral-gray readability rather than the current dark blue/near-black presentation.
+No new product-level decision is required.
 
-The user can continue reporting additional v1.0.20 findings; any data-loss, storage-safety, crash, or complete-workflow blocker may reprioritize the immediate fix list.
+The principal user dependency remains reference-machine testing of released v1.0.22, especially:
 
+`Generate 3D → candidate visible → Apply → save → close/reopen → same 3D object/revision`
 
-## 12. User-directed reference-machine addendum — 2026-09-10
+plus right-panel resize, whole-window resize, no starter sphere/opaque floor, transform/sculpt, cleanup/export and storage behavior.
 
-This addendum records new user acceptance evidence received after the previous Coordinator checkpoint. It is authoritative product/test input for the next Coordinator reconciliation and Dev Cycle; it does not erase the prior roadmap history.
-
-### Confirmed correctness blocker
-
-**MS-023** now precedes further long Stage-C qualification work. A successful Hunyuan-mini generation appeared in the live viewport while the Stage-C panel said `3D candidate: none`; after closing/reopening Miniscuplter the persisted 2D image returned but the 3D model was gone. Code inspection shows duplicate legacy and Stage-C Generate-button handlers can produce exactly this behavior. v1.0.22 must restore one authoritative Stage-C generation owner and prove generate → candidate → Apply → save/restart restore before asking for another expensive target-machine run.
-
-### Viewport / responsive acceptance additions
-
-- Whole-window resizing must not leave the black seams/gaps shown in the user's v1.0.20 screenshot (**MS-024**).
-- The grid/ground must provide spatial reference without behaving as an opaque slab that hides part of the generated mesh. Blender-like non-occluding grid semantics are part of **MS-009** acceptance.
-- Remove the automatic oversized Starter sphere (**MS-025**). New projects should be empty and the first real object should be selected/framed automatically. Provider units/scale should be handled deliberately rather than by a starter primitive.
-
-### Planned resource telemetry
-
-The user explicitly requested in-app resource graphs because long AI runs are currently monitored through Task Manager. Track as **MS-026**.
-
-Planned panel:
-- rolling GPU utilization;
-- dedicated VRAM use;
-- system RAM use;
-- GPU temperature;
-- secondary CPU use where useful/available;
-- provider, current job stage and elapsed time;
-- compact post-job observed peak summary.
-
-Implementation constraints:
-- local-only;
-- low overhead (approximately 1 Hz is sufficient);
-- degrade gracefully when a sensor/API is unavailable;
-- do not invent unsupported metrics;
-- telemetry must not materially slow inference.
-
-This feature is especially valuable as instrumentation for **MS-022** provider qualification and future evidence-based Fast/Balanced/Quality routing. It is planned now but should not delay MS-023/MS-009 correctness work.
-
-### First Hunyuan reference-machine evidence
-
-A successful Hunyuan-mini run completed in roughly **402 s** on the GTX 1080 reference PC. The supplied Task Manager snapshot showed approximately **97% GPU utilization**, **5.4/8.0 GB dedicated VRAM**, **5.0/15.9 GB system RAM used**, and **73 °C GPU temperature**. These are observed snapshot values, not measured peaks. They are sufficient to preserve as useful MS-022 evidence while the application-side telemetry feature is built later.
-
-
-### v1.0.21 viewport retest outcome
-
-Reference-machine verification now provides a split result:
-
-- **PASS:** the initial 3D viewport presentation is finally good/readable on the target PC.
-- **FAIL:** resizing the right-side AI panel still changes viewport color.
-- **FAIL:** whole-window resize still exposes black seams/gaps (MS-024).
-
-Strategic consequence: do not reopen the whole viewport architecture. Preserve the v1.0.21 single-size-owner improvements and remove the remaining **presentation/layout duplicate authority**. In particular, legacy `V1017RepairViewport()` still mutates environment colors/ambient settings despite the native v1.0.19+ pipeline; it must not remain an independent presentation owner. Separately fix the root/outer layout so the client area is always fully covered after window resizing.
-
-Priority remains: MS-023 persistence correctness first, then these narrowly reproduced MS-009/MS-024 residuals, then resume full Stage-C acceptance.
-
-
-## 13. Opportunistic UI modernization workstream — MS-027
-
-The user has approved a substantial workspace/UI modernization direction. It is **planned and actionable**, but it is not allowed to consume time while a higher-priority correctness/acceptance item is available.
-
-### When Dev Cycle may work on MS-027
-
-Dev Cycle may choose a bounded MS-027 slice when:
-- the current critical-path item is waiting on user/reference-machine verification;
-- a required user decision/input is unavailable;
-- or there is genuinely no higher-priority unblocked engineering item.
-
-A reproduced persistence, data-loss, viewport, release, provider, cancellation or Stage-C workflow blocker immediately preempts MS-027 work.
-
-### UX target
-
-The viewport should dominate the application. Replace today's text-heavy/fixed-form composition with a compact resizable modeling workspace:
-
-- icon-based direct viewport tools instead of a dropdown;
-- camera-linked clickable view cube with face/edge/corner snapping and selection-centered orbit;
-- smaller default typography plus persisted user-adjustable UI/font scale;
-- hover tooltips instead of persistent explanatory paragraphs;
-- collapsible scene tree synchronized with viewport selection;
-- performance/resources panel implementing MS-026;
-- unified AI command console with history, keyboard/button navigation and clearly named contextual AI actions;
-- all major panel sizes/layout/collapse state persisted across restart.
-
-### Architecture constraints
-
-- Do not create a second AI command ownership path; all UI actions converge on one authoritative dispatcher.
-- Scene hierarchy reflects durable project identity rather than inventing parallel state.
-- Workspace persistence is UI preference state, separate from project/model state.
-- Avoid another additive version-overlay architecture. Prefer consolidating current UI ownership as each bounded slice is migrated.
-- Each slice must preserve Stage-C generation/persistence/edit/export behavior and remain individually releasable/testable.
-
-### Suggested opportunistic slice order
-
-1. workspace-layout persistence + UI/font scale + shared tooltip behavior;
-2. direct icon tool strip;
-3. scene hierarchy tree;
-4. view cube + selected-object orbit pivot;
-5. unified AI command console/history/dispatcher;
-6. MS-026 telemetry graphs;
-7. density/spacing cleanup and retirement of superseded explanatory UI.
-
-The full acceptance definition lives in MS-027.
+Autonomous engineering can continue after the current compile regression is repaired.
