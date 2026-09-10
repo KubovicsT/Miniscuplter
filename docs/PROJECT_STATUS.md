@@ -83,8 +83,8 @@ Relevant commits:
 
 - Earlier save-recovery application commit `fe9079e718ad055c0ef5b43c7205e505ce54e217` passed `core-foundation` run `34497651489` and broader Windows build `34497651608` completely.
 - Cleanup test run `34499552249` for `52feda4...` **FAILED intentionally-usefully** at the new lineage scenario: an Applied candidate became invalid after cleanup advanced its object to a child revision. This exposed the defect described above; it was not suppressed.
-- After the lineage fix, `core-foundation` run `34499826871` for `dfedbf533...` passed the Stage-B/Core suite including cleanup lineage, stale cleanup rejection, exact export scope and save/reload.
-- Broader Windows build run `34499826741` for `dfedbf533...`: Python compilation/dependency resolution, core logic/execution tests, real geometry regressions and release audit passed; editor/launcher/updater/Core C# build also passed. Portable package/layout/SHA passed. Installer-definition compilation was still finishing at the latest reconciliation and must be checked by the next run before any release decision.
+- After the lineage fix, `core-foundation` run `34499826871` for `dfedbf533...` **PASSED** the Stage-B/Core suite including cleanup lineage, stale cleanup rejection, exact export scope and save/reload.
+- Broader Windows build run `34499826741` for `dfedbf533...`: **SUCCESS**. Python compilation/dependency resolution, core logic/execution tests, real geometry regressions, release audit, editor/launcher/updater/Core C# build, portable package/layout/SHA verification and installer-definition compilation all passed.
 
 A real Godot Windows release export was not run because v1.0.20 is not yet release-ready. No real CUDA inference or target-machine GUI acceptance occurred in CI. **No v1.0.20 release has been made.**
 
@@ -106,11 +106,10 @@ If either regresses on the target machine, it becomes immediate priority.
 
 ## Immediate engineering priority
 
-1. Reconcile final result of build `34499826741`; fix any packaging regression if present.
-2. Continue the same Stage-C vertical slice by moving normal transform mutations for mapped Stage-C objects into `ProjectSession` transactions so export/save/reload cannot ignore visible moves/rotations/scales.
-3. Migrate the minimum sculpt/edit mutation needed for Stage-C acceptance to a new immutable mesh revision with full-state undo, or explicitly constrain the Stage-C acceptance path until that authority exists.
-4. Add deterministic export artifact validation at a lower layer if practical so exact revision → STL output can be tested without Godot UI interaction.
-5. Collect real GTX 1080 provider readiness/inference timing/RAM/VRAM evidence and verify v1.0.19 viewport/storage behavior when target hardware is available.
+1. Continue the same Stage-C vertical slice by moving normal transform mutations for mapped Stage-C objects into `ProjectSession` transactions so export/save/reload cannot ignore visible moves/rotations/scales.
+2. Migrate the minimum sculpt/edit mutation needed for Stage-C acceptance to a new immutable mesh revision with full-state undo, or explicitly constrain the Stage-C acceptance path until that authority exists.
+3. Add deterministic export artifact validation at a lower layer if practical so exact revision → STL output can be tested without Godot UI interaction.
+4. Collect real GTX 1080 provider readiness/inference timing/RAM/VRAM evidence and verify v1.0.19 viewport/storage behavior when target hardware is available.
 
 ## User input currently required
 
