@@ -66,13 +66,45 @@ public partial class Main
             V1019ArmRenderProbe();
         };
 
-        // Older tab-change recovery runs first because it was registered before this pipeline.
-        // Restore only presentation afterward; do not reparent/recreate the world on normal tabs.
+        // v1.0.17 used a full world repair on every workflow-tab change. Replace that handler once
+        // the native pipeline owns the viewport: normal tab changes may frame/refresh presentation,
+        // but they must not recreate/rebind world or layout state.
         var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
         if (tabs != null)
-            tabs.TabChanged += _ => CallDeferred(nameof(V1019RestoreStudioPresentation));
+        {
+            tabs.TabChanged -= V1017WorkflowTabChanged;
+            tabs.TabChanged += V1019WorkflowTabChanged;
+        }
 
         V1019RepairViewportPipeline();
+        V1019ArmRenderProbe();
+    }
+
+    void V1019WorkflowTabChanged(long tab)
+    {
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
+        var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
+        string title = tabs != null && tabs.GetTabCount() > 0
+            ? tabs.GetTabTitle(Math.Clamp((int)tab, 0, tabs.GetTabCount() - 1))
+            : "";
+        if (title.Equals("2D", StringComparison.OrdinalIgnoreCase)) return;
+
+        if (_v1015ImageCanvas != null) _v1015ImageCanvas.Visible = false;
+        if (_v1015CanvasHint != null) _v1015CanvasHint.Visible = false;
+        V1019ConfigureStudioLighting();
+        if (_selected != null && GodotObject.IsInstanceValid(_selected))
+            CallDeferred(nameof(V1019FrameSelectedStable));
+        else
+            V1019ArmRenderProbe();
+    }
+
+    void V1019FrameSelectedStable()
+    {
+        if (_selected != null && GodotObject.IsInstanceValid(_selected))
+            FrameSelected();
+        V1017UpdateGizmo();
+        if (FindChild("Viewport", true, false) is SubViewport sub)
+            V1019UpdateViewportDiagnostics(sub);
         V1019ArmRenderProbe();
     }
 
@@ -81,15 +113,6 @@ public partial class Main
         if (!_v1019ViewportPipelineInstalled || _v1019ViewportProbeTimer == null) return;
         _v1019ViewportProbeTimer.Stop();
         _v1019ViewportProbeTimer.Start();
-    }
-
-    void V1019RestoreStudioPresentation()
-    {
-        if (!_v1019ViewportPipelineInstalled || _world == null) return;
-        V1019ConfigureStudioLighting();
-        if (FindChild("Viewport", true, false) is SubViewport sub)
-            V1019UpdateViewportDiagnostics(sub);
-        V1019ArmRenderProbe();
     }
 
     public void V1019RepairViewportPipeline()
