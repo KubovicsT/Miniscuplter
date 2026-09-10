@@ -129,7 +129,8 @@ Last reconciled: 2026-09-10
 - **Regression coverage:** v1.0.21 release audit asserts native Stretch ownership, absence of delayed resize repair and competing explicit world creation, legacy timer/per-frame/responsive deferral, and neutral studio presentation tokens.
 - **Result:** code-side root-seam remediation is implemented and compiles. It is intentionally not marked RESOLVED because the original failure is target-machine/render-driver dependent.
 - **Verification:** Stage-B/Core foundation CI passed for the code candidate; C#, Python/runtime, core/execution, geometry and v1.0.21 release-audit branch checks passed before final documentation. Full autonomous Godot Windows export/installer smoke and reference-machine behavior remain required.
-- **Next action:** publish the narrow immutable v1.0.21 test build through release-control once all release gates pass, then verify launch, divider drag/settle, tab switching, manual recovery, grid/axes contrast, model readability and gizmo behavior on the GTX 1080 / 16 GB reference PC. Reopen immediately if any resize-dependent or dark/unreadable state remains.
+- **v1.0.20 additional user evidence:** the opaque floor/grid can visually cut through and hide the generated model, forcing the user to inspect it from above and below. Acceptance therefore requires a Blender-like non-occluding grid/ground presentation; spatial reference must not hide geometry.
+- **Next action:** retest released v1.0.21 for launch, divider drag/settle, tab switching, grid/axes contrast, non-occluding model visibility and gizmo behavior on the GTX 1080 / 16 GB reference PC. Reopen immediately if any resize-dependent, dark/unreadable, occluding or blank state remains.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -270,6 +271,54 @@ Last reconciled: 2026-09-10
 - **Result:** the readiness contract is materially implemented, but target GTX1080 evidence and supported/default-vs-experimental provider policy remain incomplete.
 - **Verification:** v1.0.20 branch validation passed Python/provider regression coverage; real provider inference remains target-machine work.
 - **Next action:** after viewport acceptance, collect target-machine inference qualification for one intended lightweight/default 3D route and use measured evidence for default/support tiers.
+
+## MS-023 — Generated 3D result bypasses Stage-C persistence and disappears after restart
+
+- **Severity:** Critical
+- **Status:** OPEN
+- **First observed:** released v1.0.20 reference-machine test on 2026-09-10
+- **User reproduction:** generate/accept a 2D reference → run Hunyuan-mini 3D generation → generated mesh appears in the 3D viewport → close Miniscuplter → reopen it.
+- **Actual:** the accepted/generated 2D image is restored, but the generated 3D model is gone. During the successful generation screenshot the scene contained `AI 3D — hunyuan-mini` while the Stage-C panel simultaneously reported `3D candidate: none` and Apply/Discard were disabled.
+- **Expected:** successful generation creates an identity-bound Ready candidate; explicit Apply transactionally creates/advances the durable project object/revision; save/reload restores the applied mesh and transform.
+- **Code evidence:** the legacy v1.0.17 installer attaches `V1017Generate3DAsync` to the same Generate button. The v1.0.20 Stage-C installer removes only the older v1.0.9 handler before attaching `V1020Generate3DAsync`; it does not disconnect `V1017Generate3DAsync`. The legacy handler can therefore acquire the shared busy state first, directly call `AddMeshObject`, and cause the Stage-C handler to return immediately on `_v1093DBusy`.
+- **Consequence:** a visually successful 3D inference can bypass candidate registration, immutable MeshRevision creation, ObjectId mapping and ProjectSession persistence. The live mesh can therefore disappear on restart and does not exercise the new durable transform/sculpt/export path.
+- **Related user symptom:** the viewport label said the Hunyuan mesh was selected, yet Move could not be made to reposition it above the grid. Retest Move/Rotate/Scale only after the generated object is genuinely Stage-C-applied and mapped; do not assume this was user selection error.
+- **Required fix on v1.0.22:** establish one authoritative production 3D-generation button handler when the Stage-C bridge is installed; explicitly disconnect legacy generation ownership. Generated output must enter Ready/Conflict candidate state rather than being silently committed as a transient legacy scene object. Apply must be the durable transition into the editable project object.
+- **Regression/acceptance:** automated wiring/audit coverage plus real flow: generate → candidate visible/reviewable → Apply → save → close app → reopen → same mesh/object/revision restored → Move/Rotate/Scale persists → cleanup/export resolve the same active revision.
+- **Links:** blocks MS-018 and exposes remaining duplicate-authority risk in MS-019.
+
+## MS-024 — Window resize leaves black seams/gaps around the application layout
+
+- **Severity:** High UI regression
+- **Status:** OPEN
+- **First observed:** released v1.0.20 reference-machine screenshot on 2026-09-10
+- **Actual:** resizing the application window leaves black seams/unpainted-looking strips along layout edges instead of the UI cleanly filling the resized client area.
+- **Expected:** the full application layout continuously fills the client area without black seams, stale regions or exposed backing surface at supported window sizes.
+- **Evidence:** user supplied a screenshot with the side seams marked by red arrows.
+- **Relationship:** may share viewport/layout lifecycle causes with MS-009 but is tracked separately because the visible defect extends to whole-window responsive composition rather than only 3D rendering.
+- **Next action:** retest released v1.0.21 first because it changed viewport resize ownership. If seams remain, reproduce/fix forward on v1.0.22 and add resize regression coverage where practical.
+
+## MS-025 — Starter sphere is an inappropriate default object and scale reference
+
+- **Severity:** Medium UX / workflow friction
+- **Status:** OPEN
+- **First observed:** released v1.0.20 reference-machine test on 2026-09-10
+- **Actual:** a starter sphere is automatically created with radius 15 / height 30 while the successful Hunyuan mesh reported bounds around 1–2 units, making the starter object enormously larger and making the generated result easy to miss.
+- **Expected:** a new/empty project opens as a clean modeling workspace; the first imported/generated object is framed automatically. Provider scale/unit normalization should be explicit rather than implicitly anchored to a giant starter primitive.
+- **User direction:** remove the automatic starter sphere.
+- **Next action:** on v1.0.22 remove automatic starter-sphere creation from launch/New Scene/recovery paths, preserve an empty usable viewport/grid, and ensure the first real object is selected/framed. Audit any code that assumes at least one scene object.
+
+## MS-026 — In-app resource telemetry/graphs for long AI jobs
+
+- **Severity:** Medium product/observability enhancement
+- **Status:** PLANNED
+- **First requested:** 2026-09-10 during reference-machine Hunyuan test
+- **User need:** the user currently watches Windows Task Manager during long AI runs to understand resource use and wants useful resource graphs inside Miniscuplter.
+- **First real-machine datapoint:** during a successful Hunyuan-mini run (~402 s), the supplied Task Manager snapshot showed ~97% GPU utilization, ~5.4/8.0 GB dedicated VRAM, ~5.6/16.0 GB total GPU memory including shared memory, ~5.0/15.9 GB system RAM in use, and ~73 °C GPU temperature. Treat these as snapshot values, not proven peaks.
+- **Planned UX:** lightweight rolling graphs/current values for GPU utilization, dedicated VRAM, system RAM and GPU temperature; CPU as secondary. Show job/provider/stage and elapsed time alongside telemetry, and retain a compact post-job summary including observed peak resource values where available.
+- **Constraints:** local-only, low overhead, approximately 1 Hz sampling is sufficient, gracefully omit unavailable sensors, and do not invent unsupported metrics. Telemetry must not materially reduce inference performance.
+- **Product value:** supports MS-022 provider qualification and future evidence-based Fast/Balanced/Quality routing instead of being decorative monitoring.
+- **Priority:** plan now; implement after the current correctness/persistence and viewport blockers unless minimal sampling directly helps MS-022 acceptance.
 
 ---
 
