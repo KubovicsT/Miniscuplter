@@ -143,6 +143,13 @@ Last reconciled: 2026-09-10
 - **Status:** ACCEPTED
 - **Decision:** Project completion percentages are weighted against end-to-end product workstreams and acceptance criteria. Code presence alone earns partial credit when integration/reliability is unproven.
 
+## MD-022 — Stage-C generation identity is end-to-end and fail-closed
+
+- **Status:** ACCEPTED
+- **Decision:** For revision-bound Stage-C generation, the Core `GenerationJobId` is the transport job identity and the request must carry `ProjectId`, input project revision number, accepted `ImageRevisionId`, and reserved output `ObjectId` through the existing AIClient/backend job path. A result missing or mismatching that identity must be rejected before it can become a Core candidate.
+- **Rationale:** File paths and response timing are not sufficient identity for multi-minute asynchronous local work. Explicit end-to-end identity prevents replayed, cross-project, or stale transport results from being registered against the wrong project state.
+- **Compatibility:** Legacy non-Stage-C requests may omit this context while migration is incomplete; do not create a parallel HTTP client that bypasses the established request gate, cancellation ownership, or backend-reset recovery.
+
 ---
 
 # Open decisions requiring user input
