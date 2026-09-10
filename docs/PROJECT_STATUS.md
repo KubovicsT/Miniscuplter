@@ -6,9 +6,9 @@ Last reconciled: 2026-09-10
 
 ## Current release / development state
 
-- **Latest published stable release:** `v1.0.21`
-- **Stable release target commit:** `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
-- **Current development branch:** `v1.0.22`
+- **Latest published stable release:** `v1.0.22`
+- **Stable release target commit:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
+- **Current development branch:** `v1.0.23`
 - **Current validated implementation candidate before documentation commits:** `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`
 - **Overall completion:** **57% acceptance-weighted**
 
@@ -41,3 +41,10 @@ Release-identity commit `36093b66f1a9e746e2a46f5c0d55afd35aa35b84` advances all 
 ## User input currently required
 
 No product/design decision is required. After v1.0.22 is released, reference-machine verification is the next important evidence dependency.
+
+
+## Planned opportunistic UI work
+
+**MS-027** is now an approved planned workstream for a compact resizable modeling workspace: direct icon tools, view cube/selection-centered orbit, smaller configurable UI scale, hover help, synchronized scene tree, MS-026 performance panel, unified AI command console/history, and persisted workspace layout.
+
+This is intentionally secondary to correctness and acceptance. Dev Cycle may work on bounded MS-027 slices while waiting for user/reference-machine verification or when no higher-priority unblocked task exists. New critical-path failures preempt it.
