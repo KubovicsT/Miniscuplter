@@ -145,7 +145,9 @@ internal static class Program
             catch (InvalidDataException) { rejected = true; }
             Assert(rejected, "legacy path traversal was not rejected");
 
-            Console.WriteLine("v1.0.19 canonical project-state tests passed; core foundation tests passed");
+            await StageCGenerationTests.RunAsync(root);
+
+            Console.WriteLine("v1.0.20 canonical project-state and Stage-C generation tests passed; core foundation tests passed");
         }
         finally
         {
