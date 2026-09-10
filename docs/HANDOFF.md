@@ -58,8 +58,16 @@ GitHub latest-release state was verified after publication: `v1.0.21` targets ex
 4. Preserve the Stage-C semantics: successful inference registers a durable Ready/Conflict candidate; do not silently import it as a committed transient object. Candidate preview may be visible, but Apply is the explicit transactional transition into the persistent editable object.
 5. Add regression/audit coverage proving only one authoritative handler and proving generate → candidate → Apply → save/reload restores the same ObjectId/active MeshRevision. Verify Move/Rotate/Scale only on the genuinely mapped applied object.
 6. Fix first-object UX coupled to this flow: remove automatic **Starter sphere** creation from launch/New Scene/recovery paths, allow a clean empty project, and automatically select/frame the first imported/applied generated object. Do not use the old sphere as an implicit scale reference.
-7. Continue **MS-009** reference-PC verification on released v1.0.21 in parallel. The grid/ground must be non-occluding; the user must never need to look above/below an opaque plane to see the generated model.
-8. Retest **MS-024** whole-window resizing for the black seams/gaps shown by the user. If v1.0.21 did not eliminate them, fix forward on v1.0.22 without reintroducing competing viewport-size owners.
+7. Treat the latest v1.0.21 viewport test as **partial pass, not resolution**:
+   - initial viewport palette/lighting now looks good;
+   - resizing the right-side AI panel still changes viewport color;
+   - black seams still appear on whole-window resize.
+8. After MS-023, fix MS-009/MS-024 forward on v1.0.22:
+   - when the native v1.0.19+ viewport pipeline is active, all legacy `V1017RepairViewport()` presentation/world mutations must delegate/no-op rather than overwrite the neutral environment/material state;
+   - trace the exact right-panel resize event chain and prove environment/material/grid state is invariant before/during/after drag and settle;
+   - keep the grid non-occluding;
+   - fix the outer/root UI sizing path so the entire client area remains filled on window resize, with no black seams;
+   - do not reintroduce manual competing `SubViewport.Size` ownership.
 9. Resume the complete MS-018 acceptance flow after MS-023/MS-009 are usable: accepted 2D baseline → qualified 3D candidate → Apply → visible/editable persisted mesh → save/restart restore → transform/sculpt → cleanup → exact validated STL export.
 10. During provider qualification preserve the real Hunyuan evidence already obtained (~402 s; Task Manager snapshot ~97% GPU, ~5.4/8 GB dedicated VRAM, ~5.0/15.9 GB RAM, ~73 °C). Treat snapshots as observations, not peaks.
 11. **MS-026 resource graphs** are now a user-requested planned feature. Design a low-overhead ~1 Hz local telemetry panel with GPU utilization, dedicated VRAM, RAM, GPU temperature and secondary CPU where available, plus current provider/stage/elapsed time and compact post-job peak summary. Implement after current correctness blockers unless minimal telemetry directly helps MS-022.
@@ -68,7 +76,7 @@ GitHub latest-release state was verified after publication: `v1.0.21` targets ex
 ## Current priority order
 
 1. **MS-023** — confirmed 3D generation/candidate/persistence blocker.
-2. **MS-009** — v1.0.21 reference-machine viewport verification; fix forward on v1.0.22 if it fails.
+2. **MS-009 / MS-024** — v1.0.21 partial viewport success but confirmed resize color drift + whole-window black seams; fix forward on v1.0.22.
 3. **MS-018** — complete Stage-C target qualification.
 4. **MS-024 / MS-025** — responsive resize seams and starter-sphere removal.
 5. **MS-013 / MS-022 / MS-004** — storage, provider/resource qualification, cancellation/recovery.
@@ -81,4 +89,4 @@ Do not start a full UI rewrite, another viewport overlay, broad legacy deletion,
 
 ## User input
 
-No product/design decision is required. The MS-023 persistence failure is already sufficiently reproduced. The next useful user input is the inexpensive v1.0.21 viewport/resize retest; do not require another long Hunyuan run until the Stage-C handler/persistence fix is available.
+No product/design decision is required. The v1.0.21 viewport/resize retest is now recorded: initial appearance is good, right-panel resize still changes color, and black window seams persist. No further reproduction is needed before v1.0.22 fixes. Do not require another long Hunyuan run until the MS-023 Stage-C handler/persistence fix is available.
