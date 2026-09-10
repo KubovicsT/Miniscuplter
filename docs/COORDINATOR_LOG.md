@@ -133,3 +133,65 @@ If target-machine acceptance is green, the next Coordinator review should sequen
 ### User dependency
 
 No product-level decision is required. The important dependency is now real testing of released v1.0.20 on the reference machine. Concrete pass/fail observations should drive v1.0.21 fixes. If testing exposes a difficult-to-reverse product tradeoff, escalate that decision to the user rather than embedding it in an implementation fix.
+
+
+---
+
+## 2026-09-10 — v1.0.20 viewport target evidence / MS-009 reopened
+
+### No-race and repository checkpoint
+
+- The most recent Dev Cycle had completed before this review.
+- Stable release remains `v1.0.20` at `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
+- Development branch is `v1.0.21`.
+- Live branch HEAD before this Coordinator update was `5072e03688e4a1a101c458215e9df8a9fa288110`.
+- The latest exact-head branch validation before this user evidence was green for Core, C#, Python/geometry/release-audit and packaging; ordinary branch pushes correctly skipped full release/publication jobs.
+- Acceptance-weighted completion remains **58%**.
+
+### New reference-machine evidence
+
+The user supplied a screenshot from released v1.0.20 and a precise resize observation:
+
+- the historical blank viewport is materially improved: the grid/floor and starter 3D model now render;
+- in the normal resting layout, the floor/grid presentation is dark blue/gray and the model is too dark to inspect;
+- while the left edge/divider of the AI side panel is actively dragged, the grid temporarily appears correct;
+- this makes MS-009 a reproduced target-machine defect rather than "fixed, needs verification";
+- the user explicitly requested a Blender-like viewport/model color scheme.
+
+### Architectural interpretation
+
+Repository inspection found overlapping presentation authority that matches the symptom:
+
+- v1.0.19 declares `SubViewportContainer.Stretch` the native sizing contract;
+- `V1017SyncViewport()` still assigns `SubViewport.Size` and runs periodically;
+- `Main.V109Responsive.cs` also assigns `SubViewport.Size` after resize;
+- v1.0.19 queues a delayed full `V1019RepairViewportPipeline()` 0.25 s after every resize; continuous divider movement repeatedly postpones that callback, which correlates strongly with the user's "looks right only while dragging" report;
+- v1.0.17 and v1.0.19 also overlap `OwnWorld3D` / explicit `World3D` creation/rebind behavior;
+- the very dark lit object makes loss/mismatch of effective lighting/world registration a serious hypothesis;
+- v1.0.19's near-black blue-gray floor/background is also not the requested visual hierarchy even if ownership is fixed.
+
+These are strong hypotheses, not yet a claimed root-cause proof.
+
+### Priority change
+
+**MS-009 is reopened and promoted to immediate P0.**
+
+The remaining Stage-C acceptance work (MS-018/MS-013/MS-022/MS-004) stays important, but there is little value qualifying generation/edit/export usability while the core inspection viewport is unstable/unreadable.
+
+### Coordinator direction
+
+v1.0.21 should remain narrow:
+
+1. make the native viewport path the only normal resize-size owner;
+2. stop full world/camera/material repair from running as a routine post-resize side effect;
+3. establish one coherent World3D/light/environment/camera ownership/rebind contract;
+4. apply a Blender-like neutral dark-gray background, visible neutral grid, colored axes and light neutral-gray model with readable studio lighting;
+5. validate invariance before/during/after splitter resize and across tab changes/manual repair;
+6. publish a narrow v1.0.21 test build when release gates are satisfied;
+7. keep MS-009 open until user/reference-machine retest passes.
+
+Do not answer this failure by adding another render overlay or by broad UI refactor.
+
+### User decision
+
+No additional decision is required. The requested Blender-like visual direction is sufficiently specific for implementation-level color/lighting choices.
