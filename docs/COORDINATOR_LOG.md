@@ -223,3 +223,36 @@ MS-024 is now confirmed independently of the SubViewport fix and should be treat
 MS-023 remains immediate P0 because successful generated 3D work can disappear after restart. MS-009/MS-024 are the next narrow correctness/usability fixes. No broad viewport rewrite is warranted.
 
 No user product decision is required.
+
+
+---
+
+## 2026-09-10 — User-directed modular UI modernization plan
+
+### Release/no-race checkpoint
+
+- v1.0.22 autonomous release completed successfully at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
+- A forward-only v1.0.23 planning/development branch was created from that exact published target.
+- The UI plan was intentionally not written while the 21:00 Dev Cycle or v1.0.22 release freeze was active.
+
+### User direction accepted
+
+The user provided an annotated workspace layout and specified:
+- direct icon buttons for tools rather than dropdown;
+- interactive camera-linked view cube with face/edge/corner snapping and selection-centered orbit;
+- substantially less always-visible explanatory text, with hover help instead;
+- smaller typography plus in-app font/UI scaling;
+- collapsible scene tree for all entities;
+- performance/resource graphs;
+- unified AI command line/history with previous-command navigation and action buttons for real AI operations;
+- resizable regions and persistence of the user's workspace arrangement across restarts.
+
+### Coordinator sequencing decision
+
+Track the full request as **MS-027** and integrate MS-026 as its performance-panel component.
+
+MS-027 is an **opportunistic secondary workstream**, not a new P0. Dev Cycle may take bounded UI slices when acceptance/correctness work is blocked on user input/testing or no higher-priority unblocked task exists. Any newly reproduced high-severity issue preempts UI modernization immediately.
+
+Implement incrementally and avoid another legacy overlay. The AI console must converge commands/actions on one authoritative dispatcher specifically to avoid repeating the duplicate-generation-handler failure found in MS-023.
+
+No further user product decision is required for this initial UI direction.
