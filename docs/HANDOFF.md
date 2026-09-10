@@ -30,7 +30,7 @@ Commits:
 
 ## Validation
 
-Exact-head `build` run `34524033674` and matching `core-foundation` run were queued when this handoff was written. **Do not claim this slice validated until those exact-head runs complete.** The previous v1.0.23 candidate `74ec73a...` remains fully green.
+Exact-head validation has now completed and is **RED**. Core-foundation passed, and Python/runtime/geometry/release-audit plus packaging passed, but broader build fails in C# with `CS0122`: `ExtrasInstaller` calls `Main.InstallV1023ViewportToolStrip()` while that method is inaccessible. The later documentation-only head repeats the same C# failure. The previous v1.0.23 candidate `74ec73a...` remains the last fully green bounded candidate. **Do not start another feature slice until MS-028 is fixed and exact-head validation is green.**
 
 No v1.0.23 release request exists. Do not release merely because this secondary UI slice becomes green.
 
@@ -39,9 +39,10 @@ No v1.0.23 release request exists. Do not release merely because this secondary 
 First inspect released-v1.0.22 target-machine evidence for MS-023/MS-024/MS-025/MS-018 and related MS-013/MS-022/MS-004 evidence. If any serious acceptance failure exists, fix it before UI work.
 
 If acceptance evidence is still unavailable:
-1. verify exact-head CI for `637282b...`; if it failed, diagnose/fix this tool-strip slice before anything else;
-2. if green and no blocker exists, take exactly one next Coordinator-approved MS-027 slice: **synchronized collapsible scene hierarchy**, reusing existing scene/object selection authority rather than creating duplicate project state;
-3. stop before view cube/AI console/telemetry in that cycle.
+1. **fix MS-028 first**: the C# `CS0122` accessibility/composition error for `InstallV1023ViewportToolStrip()`;
+2. obtain green exact-head C#/Core/Python/geometry/release-audit/packaging validation and update this handoff to the repaired SHA;
+3. if green and no acceptance blocker exists, take exactly one next Coordinator-approved MS-027 slice: **synchronized collapsible scene hierarchy**, reusing existing scene/object selection authority rather than creating duplicate project state;
+4. stop before view cube/AI console/telemetry in that cycle.
 
 ## User dependency
 
