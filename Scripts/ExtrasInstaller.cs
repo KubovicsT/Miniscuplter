@@ -99,5 +99,10 @@ public partial class ExtrasInstaller : Node
         // tools: committed transforms and one bounded sculpt-stroke path project through Core state,
         // persistence and transactional undo/redo for mapped Stage-C objects.
         main.InstallV1020StageCEditingAuthority();
+
+        // v1.0.22 acceptance guard runs last so the production Generate-3D action has one owner,
+        // starter-scene leftovers are removed, and native viewport/client layout ownership is
+        // reasserted without reintroducing manual SubViewport.Size writes.
+        main.InstallV1022Acceptance();
     }
 }
