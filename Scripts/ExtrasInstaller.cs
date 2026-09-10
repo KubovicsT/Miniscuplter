@@ -83,5 +83,10 @@ public partial class ExtrasInstaller : Node
         // v1.0.19 makes the native SubViewport render path authoritative after every historical
         // installer has composed its legacy viewport controls.
         main.InstallV1019ViewportPipeline();
+
+        // v1.0.20 moves the production accepted-baseline -> generated-mesh seam onto the Stage-B
+        // project/revision model. Generated meshes remain candidates until explicit transactional
+        // apply, and stale baseline results are preserved as conflicts instead of overwriting work.
+        main.InstallV1020StageCBridge();
     }
 }
