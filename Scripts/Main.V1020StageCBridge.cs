@@ -160,7 +160,15 @@ public partial class Main
         SetV1093DBusy(true);
         try
         {
-            SetV1093DPhase("Checking local AI service…", $"Bound to baseline revision {_v1020GenerationBinding!.InputImageRevisionId}.", 5);
+            var binding = _v1020GenerationBinding ?? throw new InvalidOperationException("Stage-C generation binding was lost before submission.");
+            var transportContext = new AiStageCGenerationContext(
+                binding.JobId.ToString(),
+                binding.ProjectId.ToString(),
+                binding.InputProjectRevisionNumber,
+                binding.InputImageRevisionId.ToString(),
+                binding.OutputObjectId.ToString());
+
+            SetV1093DPhase("Checking local AI service…", $"Bound to baseline revision {binding.InputImageRevisionId} · job {binding.JobId}.", 5);
             if (!await _ai.HealthAsync())
                 throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.");
             if (_v097ActivePreset != null)
@@ -171,19 +179,12 @@ public partial class Main
             SetV1093DPhase("Resolving qualified 3D provider…", "Using readiness-aware Settings → Models routing.", 15);
             if (_v1093DProvider.Equals("auto", StringComparison.OrdinalIgnoreCase))
                 _v1093DProvider = await ResolveV109Quality3DProviderAsync();
-            SetV1093DPhase($"{_v1093DProvider} loading / reconstructing…", "The result will remain a review candidate until explicitly applied.", 22);
+            SetV1093DPhase($"{_v1093DProvider} loading / reconstructing…", "The result is identity-bound and remains a review candidate until explicitly applied.", 22);
 
-            string path = await _ai.Generate3DRoutedAsync(image, prompt, output, "quality", _v1093DProvider);
-            string actualProvider = _v1093DProvider;
-            if (!string.IsNullOrWhiteSpace(_ai.LastJobId))
-            {
-                try
-                {
-                    var progress = await _ai.GetJobProgressAsync(_ai.LastJobId!);
-                    if (!string.IsNullOrWhiteSpace(progress.Provider)) actualProvider = progress.Provider;
-                }
-                catch { }
-            }
+            AiStageC3DResult aiResult = await _ai.Generate3DStageCAsync(
+                image, prompt, output, "quality", _v1093DProvider, transportContext);
+            string path = aiResult.Path;
+            string actualProvider = string.IsNullOrWhiteSpace(aiResult.Provider) ? _v1093DProvider : aiResult.Provider;
 
             SetV1093DPhase("Validating generated STL…", path, 90);
             if (!File.Exists(path) || new FileInfo(path).Length == 0)
@@ -192,19 +193,19 @@ public partial class Main
             if (mesh.GetSurfaceCount() == 0)
                 throw new InvalidOperationException("The generated STL contains no renderable mesh surface.");
 
-            SetV1093DPhase("Saving immutable candidate revision…", "The generated mesh is being copied into the transactional project store before review.", 96);
+            SetV1093DPhase("Saving immutable candidate revision…", "The identity-verified mesh is being copied into the transactional project store before review.", 96);
             await _v1020StageCGate.WaitAsync();
             try
             {
                 var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session was lost.");
-                var binding = _v1020GenerationBinding ?? throw new InvalidOperationException("Stage-C generation binding was lost.");
                 MeshData data = V1013MeshData(mesh);
                 var revision = await _v1020StageCStore.CreateMeshRevisionAsync(
                     _v1020StageCProjectPath, binding.OutputObjectId, data, $"image-to-3d:{actualProvider}");
-                _v1020PendingCandidate = StageCGeneration.RegisterResult(
-                    session, binding, revision, actualProvider, $"verified-backend-stl:{Path.GetFileName(path)}");
-                _v1020PendingCandidateMesh = mesh;
+                var registeredCandidate = StageCGeneration.RegisterResult(
+                    session, binding, revision, actualProvider, $"verified-backend-stl:{Path.GetFileName(path)};job:{binding.JobId}");
                 await V1020SaveSessionAsync();
+                _v1020PendingCandidate = registeredCandidate;
+                _v1020PendingCandidateMesh = mesh;
                 V1020RefreshCandidateControls();
             }
             finally { _v1020StageCGate.Release(); }
@@ -213,7 +214,7 @@ public partial class Main
             if (_v1020PendingCandidate?.Status == CandidateStatus.Conflict)
                 SetV1093DResult($"3D status: completed in {seconds:0}s, preserved as conflict.", _v1020PendingCandidate.ConflictReason ?? "The accepted baseline changed while inference was running.");
             else
-                SetV1093DResult($"3D status: candidate ready from {actualProvider} in {seconds:0}s.", "Review the candidate, then choose Apply 3D Candidate or Discard Candidate.");
+                SetV1093DResult($"3D status: identity-verified candidate ready from {actualProvider} in {seconds:0}s.", "Review the candidate, then choose Apply 3D Candidate or Discard Candidate.");
         }
         catch (Exception ex)
         {
@@ -255,8 +256,9 @@ public partial class Main
                 var result = StageCGeneration.ApplyCandidate(session, candidate.Id, $"AI 3D — {candidate.Provider}");
                 if (!result.Applied)
                 {
-                    _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current).FirstOrDefault(x => x.Id == candidate.Id);
+                    var refreshed = StageCGeneration.ReadCandidates(session.Current).FirstOrDefault(x => x.Id == candidate.Id);
                     await V1020SaveSessionAsync();
+                    _v1020PendingCandidate = refreshed;
                     V1020RefreshCandidateControls();
                     SetStatus(result.Message);
                     return;
