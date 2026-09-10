@@ -23,10 +23,9 @@ public partial class Main
 
     public void InstallV1020StageCBridge()
     {
-        var accept = FindChild("2D", true, false)?.GetChildren()
-            .SelectMany(V1020Descendants)
-            .OfType<Button>()
-            .FirstOrDefault(b => b.Text == "Accept Current Image as Baseline");
+        var accept = FindChild("2D", true, false) is Node twoD
+            ? V1020Descendants(twoD).OfType<Button>().FirstOrDefault(b => b.Text == "Accept Current Image as Baseline")
+            : null;
         if (accept != null)
         {
             accept.Pressed -= AcceptV1011Baseline;
@@ -161,7 +160,7 @@ public partial class Main
         SetV1093DBusy(true);
         try
         {
-            SetV1093DPhase("Checking local AI service…", $"Bound to baseline revision {_v1020GenerationBinding.Value.InputImageRevisionId}.", 5);
+            SetV1093DPhase("Checking local AI service…", $"Bound to baseline revision {_v1020GenerationBinding!.InputImageRevisionId}.", 5);
             if (!await _ai.HealthAsync())
                 throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.");
             if (_v097ActivePreset != null)
