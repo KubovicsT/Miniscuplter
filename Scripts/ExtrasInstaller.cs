@@ -100,9 +100,14 @@ public partial class ExtrasInstaller : Node
         // persistence and transactional undo/redo for mapped Stage-C objects.
         main.InstallV1020StageCEditingAuthority();
 
-        // v1.0.22 acceptance guard runs last so the production Generate-3D action has one owner,
-        // starter-scene leftovers are removed, and native viewport/client layout ownership is
-        // reasserted without reintroducing manual SubViewport.Size writes.
+        // v1.0.22 acceptance guard runs after the historical application layers so the production
+        // Generate-3D action has one owner, starter-scene leftovers are removed, and native
+        // viewport/client layout ownership is reasserted without manual SubViewport.Size writes.
         main.InstallV1022Acceptance();
+
+        // v1.0.23 begins the Coordinator-authorized MS-027 modernization with editor-only preference
+        // state: persisted splitter widths, adjustable interface font scale and reusable tooltips.
+        // It runs last because it observes the fully composed workspace and must not own project/AI state.
+        main.InstallV1023UiPreferences();
     }
 }
