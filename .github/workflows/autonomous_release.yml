@@ -34,11 +34,19 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $changed = @(git diff-tree --no-commit-id --name-only -r $env:GITHUB_SHA | Where-Object { $_ -match '^release-requests/v1\.\d+\.\d+\.json$' })
+          $before = [string]$env:PUSH_BEFORE
+          if ($before -match '^0+$') {
+            $changed = @(git diff-tree --root --no-commit-id --name-only -r $env:GITHUB_SHA | Where-Object { $_ -match '^release-requests/v1\.\d+\.\d+\.json$' })
+          }
+          else {
+            $changed = @(git diff --name-only $before $env:GITHUB_SHA -- 'release-requests/*.json' | Where-Object { $_ -match '^release-requests/v1\.\d+\.\d+\.json$' })
+          }
+          $changed = @($changed | Sort-Object -Unique)
           if ($changed.Count -ne 1) {
-            throw "Expected exactly one changed release-requests/v1.x.y.json file in this commit; found $($changed.Count)."
+            throw "Expected exactly one changed release-requests/v1.x.y.json file in this push; found $($changed.Count)."
           }
 
           $requestPath = $changed[0]
