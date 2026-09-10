@@ -60,5 +60,6 @@ public partial class ExtrasInstaller : Node
         // v1.0.23 MS-027 remains presentation-only and composes after accepted viewport ownership.
         main.InstallV1023UiPreferences();
         main.InstallV1023ViewportToolStrip();
+        main.InstallSceneHierarchy();
     }
 }
