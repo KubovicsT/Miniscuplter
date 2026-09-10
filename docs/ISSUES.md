@@ -250,12 +250,14 @@ Last reconciled: 2026-09-10
 ## MS-022 — Provider readiness is not qualified strongly enough
 
 - **Severity:** High
-- **Status:** OPEN
+- **Status:** IN PROGRESS
 - **First observed:** Astra takeover audit; reinforced by TripoSR/Hunyuan/Z-Image failures
 - **Expected:** provider registry distinguishes downloaded, installed, importable, device-tested and inference-tested, with hardware/platform/resource expectations.
-- **Actual:** provider presence/routing can still overstate practical readiness; some optional providers require fragile native tooling or exceed reference hardware.
-- **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments for some providers, dependency preflights, runtime repair and model manifests exist.
-- **Next action:** v1.0.20 should create the provider self-test contract, store qualification results, define supported/default vs experimental tiers, and collect target-hardware benchmarks.
+- **Actual:** provider presence/routing historically overstated practical readiness; some optional providers require fragile native tooling or exceed reference hardware.
+- **Attempts/fixes:** hardware routing, explicit selection failure, isolated environments for some providers, dependency preflights, runtime repair and model manifests existed before v1.0.20. v1.0.20 commit `5d6b5dde8d9159699c2524eb21753e4c8d1aa994` added a persisted readiness contract plus lightweight import/CUDA probes for the main single-mesh 3D routes and readiness-aware Auto/explicit routing. During self-review, the first routing integration was found to make ordinary health/status polling capable of launching provider subprocess probes; `b8b07f2399b9c5b48c977b826d3b3a00ece9e9d9` separated cheap cached status inspection from generation-time preflight. The first new core-logic CI attempt then exposed defects in the mocked readiness-persistence test fixture rather than production code; commits `ab60bd1e73ef0f074ce9d1806fe94247d6f0b7f1` and `8cd00173b78577fed040cce5d71e05738cf404be` corrected those fixture problems and triggered clean revalidation.
+- **Result:** downloaded/installed/importable/device-tested/inference-tested are now represented separately; known-broken preferred 3D routes can be skipped before expensive inference, while explicit selections fail early with readiness details. `inference_tested` is intentionally not promoted by CI/import probing. Target-machine inference qualification and benchmark/default-provider evidence are still missing.
+- **Verification:** fresh branch CI for `8cd00173b78577fed040cce5d71e05738cf404be` was still running when this ledger entry was written. Real GPU inference has not been claimed.
+- **Next action:** wire verified successful `/generate-3d` completion to `record_inference_success()` using the provider actually used and measured elapsed/hardware context, then collect GTX 1080 evidence for the preferred lightweight route. After that, continue MS-018/MS-020 accepted-baseline → stable job → candidate-revision handoff.
 
 ---
 
