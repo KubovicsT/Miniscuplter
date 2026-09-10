@@ -45,6 +45,10 @@ public partial class Main
         AddViewCubeFace("Top", "T", Vector3.Up, _yaw, -1.5f);
         AddViewCubeFace("Bottom", "D", Vector3.Down, _yaw, 1.5f);
 
+        // Observe the existing viewport input path only to retarget the orbit pivot before the first
+        // motion event. V1018 remains the owner of orbit state and mouse handling.
+        host.GuiInput += ViewCubeObserveViewportInput;
+
         _viewCubeSyncTimer = new Timer
         {
             Name = "ViewCubeSync",
@@ -74,6 +78,13 @@ public partial class Main
         button.Pressed += () => SnapViewCube(yaw, pitch, name);
         _viewCubeSurface.AddChild(button);
         _viewCubeFaces[name] = (button, normal);
+    }
+
+    void ViewCubeObserveViewportInput(InputEvent input)
+    {
+        if (input is InputEventMouseButton button &&
+            button.ButtonIndex == MouseButton.Right && button.Pressed)
+            PrepareOrbitFocusForSelection();
     }
 
     void RefreshViewCube()
