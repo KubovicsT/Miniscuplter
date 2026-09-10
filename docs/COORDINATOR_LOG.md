@@ -256,3 +256,56 @@ MS-027 is an **opportunistic secondary workstream**, not a new P0. Dev Cycle may
 Implement incrementally and avoid another legacy overlay. The AI console must converge commands/actions on one authoritative dispatcher specifically to avoid repeating the duplicate-generation-handler failure found in MS-023.
 
 No further user product decision is required for this initial UI direction.
+
+
+---
+
+## 2026-09-10 — v1.0.23 direct-tool-strip review and red-build correction
+
+### No-race / repository checkpoint
+
+- A newer repository/CI transition began during this Coordinator review, so the first attempted planning write was aborted.
+- The Coordinator waited for exact-head CI to finish before mutating planning state.
+- Latest stable remains `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
+- Development branch is `v1.0.23`.
+- Exact branch HEAD reviewed before this write: `549d1018866e242a3b0d5344f6840903a36fa6f6`.
+- Exact-head Core-foundation, Python/runtime/geometry/release-audit and packaging passed; C# build failed.
+- No active release freeze was present.
+- Acceptance-weighted completion remains **57%**.
+
+### Dev Cycle trajectory
+
+The worker stayed within the approved MS-027 fallback while released-v1.0.22 target-machine evidence remained unavailable. It implemented the second bounded slice: direct Select / Move / Rotate / Scale / Sculpt controls reusing the existing V1018 tool state rather than adding a second tool/input state machine.
+
+That functional direction remains aligned with the roadmap.
+
+### New execution regression
+
+Exact-head broader build is red. C# fails with `CS0122` because `ExtrasInstaller` calls `Main.InstallV1023ViewportToolStrip()` while the method is inaccessible at that call site.
+
+Evidence:
+- prior failing build run: `34524072795`;
+- current exact-head failing build run: `34527580075`;
+- current dotnet job repeats the same accessibility failure;
+- other validation families remain green.
+
+HANDOFF was originally written while CI was queued and correctly warned not to claim validation, but the completed result is now a known failed validation state.
+
+### Direction decision
+
+**PRESERVE** the selective-refactor architecture and Stage-C milestone.
+
+**NARROW** the immediate execution sequence:
+1. repair the compile regression;
+2. restore green exact-head validation;
+3. only then resume reference-machine acceptance or one bounded MS-027 fallback slice.
+
+No architectural redesign is justified by this failure.
+
+### UI architecture guard
+
+The direct controls correctly reuse V1018 tool authority, but the new presentation was again delivered as a `Main.V1023...` overlay. This is acceptable only as a migration bridge. Future MS-027 work should prefer stable version-neutral UI components/services and must not normalize another `Main.V10xx...` layer per slice.
+
+### User dependency
+
+No new product decision is required. The reference-machine v1.0.22 acceptance pass remains the main external dependency once the branch build is restored.
