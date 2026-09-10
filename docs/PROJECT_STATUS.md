@@ -53,10 +53,22 @@ This is tracked as **MS-023** and blocks end-to-end Stage-C acceptance. The acce
 
 Additional user findings are tracked as **MS-024** (black seams/gaps on window resize), **MS-025** (remove oversized starter sphere), and **MS-026** (planned in-app resource telemetry/graphs). The opaque floor/grid also remains part of MS-009 acceptance because it must not hide geometry.
 
+## v1.0.21 reference-machine viewport result
+
+The user has now retested the released v1.0.21 viewport:
+
+- **Initial 3D viewport appearance: materially improved / good.** The grid and starter sphere are clearly visible with useful neutral-gray lighting.
+- **Right-panel resize: still fails invariance.** After resizing the right-side AI panel, the viewport color changes.
+- **Whole-window resize: MS-024 persists.** Black seams/gaps still appear around the application layout.
+- Therefore MS-009 moves from "fixed - needs verification" back to **IN PROGRESS (partial target pass)**, while MS-024 is explicitly confirmed on v1.0.21.
+- Shipped code still exposes an older `V1017RepairViewport()` presentation mutation path alongside the native v1.0.19+ viewport owner. v1.0.22 should remove/delegate that duplicate presentation authority and separately correct root-window layout fill behavior.
+
+This does not change the current top priority: **MS-023 lost 3D persistence remains the immediate correctness P0**. MS-009/MS-024 follow immediately because they are inexpensive to reproduce and directly affect editing usability.
+
 ## Current priorities
 
 1. **MS-023 — active engineering P0:** fix duplicate legacy/Stage-C 3D-generation ownership so successful generation becomes a durable candidate/applied object and survives restart.
-2. **MS-009 — parallel P0 verification dependency:** retest released v1.0.21 for launch/resize/settle, non-occluding grid/model/gizmo readability and stability.
+2. **MS-009 / MS-024 — confirmed UI blockers:** initial v1.0.21 viewport is good, but right-panel resize still changes viewport color and whole-window resize still leaves black seams. Fix forward on v1.0.22 after MS-023.
 3. **MS-018:** resume/complete full Stage-C target qualification once MS-023 is fixed and MS-009 is usable.
 4. **MS-024 / MS-025:** fix residual whole-window resize seams and remove the oversized automatic starter sphere.
 5. **MS-013 / MS-022 / MS-004:** storage containment, provider/resource qualification and cancellation/recovery.
