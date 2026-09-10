@@ -84,10 +84,14 @@ No release request has been submitted for v1.0.23. v1.0.23 is **development-only
 No product/design decision is required. The important external dependency is reference-machine verification of released v1.0.22; until that arrives, bounded MS-027 work may continue under the Coordinator fallback rule.
 
 
-## Release ownership / readiness
+## Release ownership / continuous development
 
 Release ownership belongs exclusively to the Project Coordinator.
 
-Dev Cycle prepares and validates candidate SHAs but does not publish. Current v1.0.23 state is **development-only / NOT READY FOR COORDINATOR RELEASE REVIEW**. No v1.0.23 release request exists.
+Dev Cycle prepares and validates release-worthy checkpoints but does not publish. Current v1.0.23 state is **development-only / NO RELEASE FREEZE**. No v1.0.23 release request exists.
 
-When a candidate is ready, HANDOFF/STATUS must record the exact SHA, validation evidence, remaining risks and explicit **READY FOR COORDINATOR RELEASE REVIEW** status. Coordinator then independently decides whether to freeze and publish the exact candidate.
+A recorded checkpoint SHA is evidence for future Coordinator review, not a stop condition. Dev continues advancing the roadmap after recording a checkpoint.
+
+Coordinator decides when the accumulated current-version scope is coherent and substantial enough to release. When that decision is made, the exact current version HEAD becomes the release boundary, the next forward semantic-version development branch is created/used from that same SHA, and only then is release-control initiated for the frozen prior branch.
+
+This allows Dev to continue on the next version while the Coordinator publishes the larger frozen release chunk.
