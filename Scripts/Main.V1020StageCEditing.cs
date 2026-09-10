@@ -11,6 +11,7 @@ public partial class Main
 {
     bool _v1020TransformGestureActive;
     bool _v1020SculptGestureActive;
+    bool _v1020ViewportEditingObserverAttached;
     ObjectId _v1020SculptObjectId;
     RevisionId _v1020SculptInputRevisionId;
 
@@ -40,8 +41,26 @@ public partial class Main
             }
         }
 
-        if (FindChild("ViewportHost", true, false) is SubViewportContainer host)
-            host.GuiInput += V1020ObserveViewportEditingCommit;
+        // v1.0.18 installs the authoritative viewport input handler lazily from _Process. Attach
+        // only after that replacement is live so our observer always runs after the visible edit.
+        _ = V1020AttachViewportEditingObserverAsync();
+    }
+
+    async Task V1020AttachViewportEditingObserverAsync()
+    {
+        for (int frame = 0; frame < 120 && !_v1020ViewportEditingObserverAttached; frame++)
+        {
+            if (_v1018ViewportInstalled && FindChild("ViewportHost", true, false) is SubViewportContainer host)
+            {
+                host.GuiInput += V1020ObserveViewportEditingCommit;
+                _v1020ViewportEditingObserverAttached = true;
+                return;
+            }
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!GodotObject.IsInstanceValid(this)) return;
+        }
+        if (!_v1020ViewportEditingObserverAttached)
+            SetStatus("Stage-C editing bridge could not attach to the authoritative viewport tool; transform buttons remain durable, viewport drag commits are unavailable.");
     }
 
     void HookV1020TransformButton(string text, string operation)
