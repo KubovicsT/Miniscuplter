@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
-EXPECTED = "1.0.20"
+EXPECTED = "1.0.21"
 errors: list[str] = []
 
 
@@ -41,6 +41,8 @@ workflow1011 = text("Scripts/Main.V1011Workflow.cs")
 thin_slice1015 = text("Scripts/Main.V1015ThinSlice.cs")
 references1016 = text("Scripts/Main.V1016References.cs")
 usability1017 = text("Scripts/Main.V1017Usability.cs")
+viewport1018 = text("Scripts/Main.V1018Foundation.cs")
+viewport1019 = text("Scripts/Main.V1019ViewportPipeline.cs")
 safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
 commands = text("Scripts/Main.V096Commands.cs")
@@ -177,7 +179,6 @@ require("ran out of memory even in Miniscuplter low-VRAM mode" in modern, "moder
 require("Z-Image 8GB must use sequential offload" in core_logic_tests and "Z-Image OOM retry canvas guard" in core_logic_tests, "Z-Image low-VRAM routing is not regression-tested")
 require("sequential CPU offload" in caps and "16GB system RAM is tight" in caps, "Z-Image hardware limitation is not surfaced in capabilities")
 
-
 # v1.0.15: the Stage-C thin slice must be usable rather than merely present as legacy controls.
 require("InstallV1015ThinSlice();" in extras and extras.index("InstallV1013CancellationRecovery();") < extras.index("InstallV1015ThinSlice();"), "v1.0.15 thin-slice UX must install last")
 for token in ("V1015ImageCanvas", "AI Edit Selected 2D Region", "AI Edit Whole 2D Image", "SelectionPixels", "CurrentV1015ImageSource", "SetStartingImage(cached)"):
@@ -191,7 +192,6 @@ for dep in ("opencv-python-headless", "pymeshlab", "pygltflib", "xatlas", "ninja
 require("_require_hunyuan_mini_runtime" in special and "Repair AI Runtime" in special, "Hunyuan 2mini runtime preflight/repair guidance missing")
 require('(req.provider or "auto").lower() != "auto"' in backend and "automatic fallback to" in backend and "fallback_from" in backend, "Auto 3D provider fallback is missing or can hide explicit provider failures")
 
-
 # v1.0.16: reference discovery must search more than Wikimedia while preserving the local 2D workflow.
 require("InstallV1016ReferenceSearch();" in extras and extras.index("InstallV1015ThinSlice();") < extras.index("InstallV1016ReferenceSearch();"), "v1.0.16 multi-source reference browser must replace the v1.0.15 surface last")
 for token in ("api.openverse.org/v1/images/", "All Sources (Openverse + Wikimedia)", "SearchV1016OpenverseAsync", "SearchV1016WikimediaAsync", "RunV1016ProviderAsync", "Task.WhenAll", "Partial failure"):
@@ -201,7 +201,6 @@ for token in ("mature=false", "watermarked", "Source:", "License:", "Open Source
 require("SetStartingImage(cached)" in references1016 and "SyncV1015CanvasSource(current)" in references1016, "v1.0.16 references do not feed the established 2D source workflow")
 require("ContentLength" in references1016 and "maxBytes" in references1016 and "Image.LoadFromFile(path)" in references1016, "v1.0.16 remote-image size/decoding guards missing")
 
-
 # v1.0.17: long-running AI work, viewport recovery, contained storage and quality controls must be visible and usable.
 require("InstallV1017Usability();" in extras, "v1.0.17 usability installer missing")
 for token in ("Enhance Selected Region", "V1017PollBackendProgressAsync", "MINISCULPTER_DATA", "Workspace", "3D Viewport Texture", "V1017RepairViewport", "Selected preset:"):
@@ -210,6 +209,16 @@ for token in ("queued", "running", "progress", "provider", "completed", "failed"
     require(token in job_progress, f"v1.0.17 backend progress state missing: {token}")
 for token in ('@app.get("/job-progress/current")', '"resolving_provider"', '"preparing_runtime"', '"loading_model"', '"validating_output"'):
     require(token in backend, f"v1.0.17 backend stage reporting missing: {token}")
+
+# v1.0.21: the native SubViewport path must have one normal resize owner and one stable scene world.
+require("resize owner: Stretch" in viewport1019, "v1.0.21 native viewport does not declare Stretch resize ownership")
+require("V1019QueueViewportRepair" not in viewport1019, "v1.0.21 still queues full repair after ordinary resize")
+require("sub.World3D = new World3D()" not in viewport1019, "v1.0.21 creates competing explicit/owned World3D state")
+require("_v1017ViewportTimer?.Stop()" in viewport1019, "v1.0.17 periodic viewport-size writer remains active under native pipeline")
+require("if (!_v1019ViewportPipelineInstalled)" in viewport1018 and "V1017SyncViewport();" in viewport1018, "v1.0.18 still writes legacy viewport size every frame under native pipeline")
+require("if (_v1019ViewportPipelineInstalled) return;" in responsive, "legacy responsive SubViewport size writer does not defer to native pipeline")
+for token in ("V1019ConfigureStudioLighting", "Viewport Studio", "background luma", "new Color(.145f, .145f, .145f)"):
+    require(token in viewport1019, f"v1.0.21 neutral studio viewport/readability guard missing: {token}")
 
 # SDXL/runtime repair must identify the phase, self-heal package corruption and never silently run on CPU when NVIDIA hardware exists.
 require("_require_consistent_cuda" in sdxl and "torch.cuda.is_available()" in sdxl, "SDXL CUDA consistency guard missing")
