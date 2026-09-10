@@ -306,3 +306,21 @@ None.
 4. Review the next two executive Daily Reports for brevity and snapshot stability.
 5. If AMP-003 or AMP-004 is approved, apply only the approved schedule delta after re-reading the live target task and confirming it is idle.
 6. Continue to prioritize v1.0.22 reference-machine acceptance evidence over UI fallback work.
+
+---
+
+## User-directed process override — continuous development between releases (2026-09-10)
+
+This section supersedes older Manager wording that expected Dev to stop after marking READY FOR COORDINATOR RELEASE REVIEW.
+
+Current process contract:
+- Coordinator remains exclusive release owner and controls release chunk size.
+- Dev records useful release-worthy checkpoint SHAs/evidence but continues roadmap work afterward.
+- A checkpoint is not a freeze and does not block Dev.
+- Only an actual Coordinator release request freezes that semantic-version source branch.
+- Coordinator must create/use the next forward semantic-version branch from the frozen SHA before or as release-control starts, so Dev can continue while publication runs.
+- Manager should flag unnecessary Dev idle time, mutation of a frozen source branch, missing forward-branch creation, excessively tiny releases, or excessive delay that causes version scope to become incoherent.
+
+The active Dev, Coordinator, Automation Manager, and Daily Report prompts were updated to this model. No schedules changed as part of this policy update.
+
+AMP-003 remains applied at the every-three-hours Coordinator cadence. Its original anti-wait rationale is reduced by this new model, but the tighter cadence remains useful for roadmap supervision and release-chunk decisions; evaluate it on those outcomes rather than candidate-blocking time.
