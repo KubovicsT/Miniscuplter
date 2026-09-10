@@ -7,9 +7,9 @@ Last updated: 2026-09-10
 ## Current state
 
 - **Repository:** `KubovicsT/Miniscuplter`
-- **Latest published stable:** `v1.0.21`
-- **Stable release target:** `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
-- **Current development branch:** `v1.0.22`
+- **Latest published stable:** `v1.0.22`
+- **Stable release target:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
+- **Current development branch:** `v1.0.23`
 - **Last implementation/version candidate before documentation commits:** `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`
 - **Overall completion:** **57% acceptance-weighted**
 - **Coordinator objective:** remove the confirmed Stage-C persistence blocker and narrow viewport/layout acceptance regressions before resuming broader work.
@@ -67,3 +67,27 @@ For release-identity commit `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`, exact-he
 ## User input
 
 No product/design decision is required. After publication, reference-machine verification is the next important dependency; do not require another long Hunyuan run before the fixed build exists.
+
+
+## Blocked-work fallback — MS-027 UI modernization
+
+If the immediate acceptance path is genuinely waiting on user/reference-machine testing or unavailable product input, and no higher-severity unblocked issue exists, the Dev Cycle is explicitly authorized to advance **one bounded MS-027 UI slice** rather than idle or invent unrelated infrastructure.
+
+Preferred order:
+1. persisted panel/splitter layout + UI/font scale + tooltip infrastructure;
+2. direct icon tool strip;
+3. synchronized collapsible scene tree;
+4. view cube + selected-object orbit pivot;
+5. unified AI command console/history routed through one authoritative dispatcher;
+6. MS-026 performance graphs;
+7. density/polish cleanup.
+
+Rules:
+- do not attempt the whole overhaul in one cycle;
+- do not let MS-027 delay a reproduced persistence/viewport/data/release/Stage-C blocker;
+- preserve project-state ownership and current AI semantics;
+- no duplicate AI action handlers;
+- persist UI layout/preferences separately from project state;
+- keep each slice independently testable and releasable.
+
+See MS-027 and TECHNICAL_ROADMAP for full acceptance criteria.
