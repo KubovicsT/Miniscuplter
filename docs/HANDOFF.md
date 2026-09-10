@@ -112,17 +112,25 @@ Subsequent Coordinator order remains unified AI command/history/dispatcher → M
 No product/design decision is required. The external dependency remains reference-machine testing of released v1.0.22. Autonomous engineering can continue under the Coordinator fallback while that evidence is unavailable.
 
 
-## Release ownership / candidate handoff
+## Release ownership / continuous-development handoff
 
-Release ownership now belongs exclusively to the Project Coordinator.
+Release ownership belongs exclusively to the Project Coordinator.
 
 Dev Cycle must not create/update release-control requests, tags or GitHub Releases.
 
-Current v1.0.23 release state: **NOT READY FOR COORDINATOR RELEASE REVIEW**.
+Current v1.0.23 release state: **DEVELOPMENT CONTINUES / NO RELEASE FREEZE**.
 
-The branch is still active development under the Coordinator-approved fallback sequence. When Dev believes v1.0.23 forms a coherent meaningful testable increment, it must:
-- record the exact candidate SHA;
-- record exact validation evidence and remaining verification risks;
-- ensure canonical execution docs match the candidate;
-- mark **READY FOR COORDINATOR RELEASE REVIEW**;
-- stop further candidate-invalidating commits until Coordinator decides whether to release or return it for more work.
+Release-worthy checkpoints are informational only. Dev may record an exact checkpoint SHA plus validation evidence in HANDOFF/PROJECT_STATUS and then continue implementing the Coordinator roadmap. A checkpoint does **not** require Dev to stop and does **not** freeze v1.0.23.
+
+Only an actual Coordinator release decision/request creates a freeze.
+
+When Coordinator decides the accumulated current version is coherent and substantial enough to release:
+- release boundary is the exact current semantic-version branch HEAD;
+- Coordinator creates/uses the next forward semantic-version development branch from that same frozen SHA;
+- HANDOFF/STATUS/ROADMAP on the forward branch identify it as the writable development branch;
+- Coordinator submits release-control for the frozen prior version;
+- Dev continues on the forward branch while publication runs;
+- no one mutates the frozen release source branch until the release workflow succeeds or Coordinator explicitly diagnoses and manages a failed-release fix-forward path.
+
+Do not rewind a moving semantic-version branch to an older recorded checkpoint. Larger coherent Coordinator-curated release chunks are preferred over publishing every checkpoint.
+
