@@ -8,85 +8,62 @@ Last updated: 2026-09-10
 
 - **Repository:** `KubovicsT/Miniscuplter`
 - **Latest published stable:** `v1.0.21`
-- **Stable release target commit:** `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
+- **Stable release target:** `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8`
 - **Current development branch:** `v1.0.22`
-- **v1.0.22 base:** exact published v1.0.21 target
+- **Last implementation/version candidate before documentation commits:** `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`
 - **Overall completion:** **57% acceptance-weighted**
-- **Immediate P0:** `MS-023` duplicate generation ownership / lost 3D persistence; `MS-009` v1.0.21 verification proceeds in parallel
+- **Coordinator objective:** remove the confirmed Stage-C persistence blocker and narrow viewport/layout acceptance regressions before resuming broader work.
 
-v1.0.21 is published and immutable. Never commit fixes to v1.0.21; all subsequent changes belong on v1.0.22+.
+Always resolve the exact live v1.0.22 HEAD after this documentation commit. v1.0.21 is published and immutable.
 
-## What shipped in v1.0.21
+## Work completed this Dev Cycle
 
-The narrow Coordinator-directed MS-009 viewport remediation shipped without broadening application scope:
+### MS-023 — one authoritative Stage-C generation owner
 
-- `SubViewportContainer.Stretch=true` is the normal render-target size owner;
-- v1.0.9 responsive and v1.0.18 per-frame legacy size writers defer under the native pipeline;
-- the v1.0.17 periodic viewport-size timer is stopped under native ownership;
-- ordinary splitter resize no longer triggers delayed full world repair;
-- legacy workflow-tab full repair is replaced by lightweight native frame/presentation refresh;
-- the native pipeline uses one owned World3D and only rebinds the existing scene world during initial configuration or genuine recovery;
-- viewport presentation uses neutral dark-gray background, neutral minor/major grid, colored axes, neutral-gray model shading, and studio key/fill/ambient lighting;
-- diagnostics expose resize ownership, render-target dimensions, world configuration, light counts and frame luminance/contrast;
-- release audit guards these ownership/presentation invariants.
+Code inspection proved the production race without another long GPU reproduction: v1.0.17 attaches `V1017Generate3DAsync`, while v1.0.20 previously removed only the v1.0.9 handler before attaching `V1020Generate3DAsync`. Both could therefore receive one button press and race on `_v1093DBusy`; the legacy path directly imported a transient mesh and could cause the durable Stage-C path to exit.
 
-MS-009 remains **FIXED - NEEDS USER VERIFICATION**, not RESOLVED, because the reported failure depends on the real Windows render-driver/reference-machine behavior.
+`Scripts/Main.V1022Acceptance.cs` is now installed last and deterministically removes v1.0.9, v1.0.17 and any duplicate Stage-C subscription, then attaches exactly one `V1020Generate3DAsync`. Existing Stage-C semantics are preserved: inference result → identity-bound Ready/Conflict candidate → explicit Apply → durable mapped object. No parallel generation architecture was introduced.
 
-## Release validation
+### MS-024 / MS-009 — resize/presentation ownership
 
-Autonomous release run `34513308015` validated exact candidate `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8` and completed successfully:
+The acceptance guard reasserts outer `FullRect`/`ExpandFill` layout on window viewport size changes without assigning `SubViewport.Size`, so v1.0.21's native Stretch ownership remains intact. Native studio lighting/presentation is reasserted on viewport-host resize/recovery, and the historical opaque filled grid ground is hidden while bars/axes remain.
 
-- exact request/SHA validation: PASS;
-- C# and Core builds/tests: PASS;
-- Python/runtime dependency checks: PASS;
-- core/job regressions: PASS;
-- geometry regressions + v1.0.21 release audit: PASS;
-- verified Godot 4.7.2 .NET/export templates: PASS;
-- real Windows export/package build: PASS;
-- output/version/hash verification: PASS;
-- installer creation + silent installer smoke-install: PASS;
-- source-branch immutability recheck: PASS;
-- immutable tag/GitHub Release publication: PASS.
+### MS-025 — clean empty project
 
-GitHub latest-release state was verified after publication: `v1.0.21` targets exactly `0c8877b7ac5a04f9f3362851a9a9725f8348cdf8` and includes installer, ZIP and SHA sidecar assets.
+Historical starter spheres are removed after final composition, after New Scene, and after the deferred legacy viewport-repair action. This avoids using an oversized primitive as an implicit scale reference while leaving the established first-real-object selection/framing behavior intact.
+
+### Regression/release protection
+
+`tools/core_logic_tests.py` now asserts final installer order, removal of legacy Generate-3D owners, exactly-one Stage-C rebound, candidate/apply/restore seams, starter cleanup, root client-fill, non-occluding grid and absence of new manual `SubViewport.Size` assignment. `tools/release_audit.py` now expects 1.0.22 and independently guards the v1.0.22 ownership/layout invariants.
+
+One failed intermediate validation is intentionally preserved: build `34518253820` at `42dd143...` failed only because the new static test matched `SubViewport.Size` in a comment. Commit `0e41b78...` narrowed the check to assignment syntax; subsequent implementation CI passed the regression.
+
+Version identity is synchronized to 1.0.22 across Godot/editor, backend, launcher, updater, Windows export and installer surfaces in `36093b66...`.
+
+## Validation state
+
+For implementation commit `0e41b78d6a109bc09515a3d8877f385f91714527`:
+- Stage-B/Core: PASS
+- C# builds: PASS
+- Python compilation/dependency resolution: PASS
+- core/execution regressions: PASS
+- geometry regressions: PASS
+- release audit: PASS
+- portable package/layout/hash: PASS
+
+For release-identity commit `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`, exact-head Core, Python/execution/geometry/release-audit and C# validation are green; reconcile the latest packaging status before declaring release readiness. Documentation commits after that candidate advance the branch HEAD and must be included in the final exact-SHA release candidate.
 
 ## Exact next task
 
-1. Reconcile latest release/CI and exact v1.0.22 HEAD before editing.
-2. Treat **MS-023** as the immediate engineering P0. Reproduce from code/tests rather than asking the user to spend another ~7 minutes on Hunyuan merely to prove it again.
-3. Audit all Generate-3D event wiring. When the v1.0.20+ Stage-C bridge is installed, explicitly remove/disable the v1.0.17 legacy handler as well as older handlers so exactly one production owner remains.
-4. Preserve the Stage-C semantics: successful inference registers a durable Ready/Conflict candidate; do not silently import it as a committed transient object. Candidate preview may be visible, but Apply is the explicit transactional transition into the persistent editable object.
-5. Add regression/audit coverage proving only one authoritative handler and proving generate → candidate → Apply → save/reload restores the same ObjectId/active MeshRevision. Verify Move/Rotate/Scale only on the genuinely mapped applied object.
-6. Fix first-object UX coupled to this flow: remove automatic **Starter sphere** creation from launch/New Scene/recovery paths, allow a clean empty project, and automatically select/frame the first imported/applied generated object. Do not use the old sphere as an implicit scale reference.
-7. Treat the latest v1.0.21 viewport test as **partial pass, not resolution**:
-   - initial viewport palette/lighting now looks good;
-   - resizing the right-side AI panel still changes viewport color;
-   - black seams still appear on whole-window resize.
-8. After MS-023, fix MS-009/MS-024 forward on v1.0.22:
-   - when the native v1.0.19+ viewport pipeline is active, all legacy `V1017RepairViewport()` presentation/world mutations must delegate/no-op rather than overwrite the neutral environment/material state;
-   - trace the exact right-panel resize event chain and prove environment/material/grid state is invariant before/during/after drag and settle;
-   - keep the grid non-occluding;
-   - fix the outer/root UI sizing path so the entire client area remains filled on window resize, with no black seams;
-   - do not reintroduce manual competing `SubViewport.Size` ownership.
-9. Resume the complete MS-018 acceptance flow after MS-023/MS-009 are usable: accepted 2D baseline → qualified 3D candidate → Apply → visible/editable persisted mesh → save/restart restore → transform/sculpt → cleanup → exact validated STL export.
-10. During provider qualification preserve the real Hunyuan evidence already obtained (~402 s; Task Manager snapshot ~97% GPU, ~5.4/8 GB dedicated VRAM, ~5.0/15.9 GB RAM, ~73 °C). Treat snapshots as observations, not peaks.
-11. **MS-026 resource graphs** are now a user-requested planned feature. Design a low-overhead ~1 Hz local telemetry panel with GPU utilization, dedicated VRAM, RAM, GPU temperature and secondary CPU where available, plus current provider/stage/elapsed time and compact post-job peak summary. Implement after current correctness blockers unless minimal telemetry directly helps MS-022.
-12. Do not broaden into full UI rewrite, provider proliferation, full Job Broker reconstruction or unrelated legacy cleanup.
-
-## Current priority order
-
-1. **MS-023** — confirmed 3D generation/candidate/persistence blocker.
-2. **MS-009 / MS-024** — v1.0.21 partial viewport success but confirmed resize color drift + whole-window black seams; fix forward on v1.0.22.
-3. **MS-018** — complete Stage-C target qualification.
-4. **MS-024 / MS-025** — responsive resize seams and starter-sphere removal.
-5. **MS-013 / MS-022 / MS-004** — storage, provider/resource qualification, cancellation/recovery.
-6. **MS-026** — planned in-app resource telemetry supporting provider qualification.
-7. **MS-019 / MS-020** — broader architecture after acceptance unless concrete evidence makes it blocking.
-
-## Explicit non-priorities
-
-Do not start a full UI rewrite, another viewport overlay, broad legacy deletion, full sculpt migration, Job Broker reconstruction, Rig & Pose work, kitbash expansion or provider proliferation while MS-009/MS-018 acceptance is unresolved.
+1. Reconcile latest GitHub release, exact live v1.0.22 HEAD and all CI runs.
+2. Update/reconcile `docs/ISSUES.md` so MS-023, MS-024 and MS-025 are `FIXED - NEEDS USER VERIFICATION`, preserving the failed static-test attempt and explaining the implementation evidence.
+3. Ensure final v1.0.22 exact-head automated validation is green. Do not release if C#, Core, Python, geometry, release-audit or packaging gates are red.
+4. If the bounded v1.0.22 scope remains coherent, submit exactly one `release-requests/v1.0.22.json` on `release-control` with `candidate_sha` equal to the final live v1.0.22 HEAD. Treat that as a release freeze.
+5. Follow autonomous release through exact-SHA revalidation, real Godot 4.7.2 Windows export, output/hash verification, installer build and silent smoke-install. Diagnose any genuine failing gate; do not weaken it.
+6. On successful publication, verify GitHub latest release/tag targets the exact candidate, then create forward-only `v1.0.23` before any further application change and reconcile PROJECT_STATUS/HANDOFF there.
+7. Next user/reference-machine test should exercise: accepted 2D → Hunyuan/qualified 3D → candidate visible → Apply → save/close/reopen → same 3D object/revision → Move/Rotate/Scale → cleanup → exact STL export. Also check right-panel resize, whole-window resize, grid occlusion and absence of starter sphere.
+8. Any reproduced persistence/viewport regression outranks planned MS-026 telemetry and broader MS-019/MS-020 work.
 
 ## User input
 
-No product/design decision is required. The v1.0.21 viewport/resize retest is now recorded: initial appearance is good, right-panel resize still changes color, and black window seams persist. No further reproduction is needed before v1.0.22 fixes. Do not require another long Hunyuan run until the MS-023 Stage-C handler/persistence fix is available.
+No product/design decision is required. After publication, reference-machine verification is the next important dependency; do not require another long Hunyuan run before the fixed build exists.
