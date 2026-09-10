@@ -73,7 +73,10 @@ jobs:
           if ($existingTag) { throw "Tag $version already exists; published/version tags are immutable." }
 
           gh release view $version --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw "GitHub Release $version already exists; releases are immutable." }
+          $releaseProbeExit = $LASTEXITCODE
+          if ($releaseProbeExit -eq 0) { throw "GitHub Release $version already exists; releases are immutable." }
+          if ($releaseProbeExit -ne 1) { throw "Could not reliably verify whether GitHub Release $version exists (gh exit code $releaseProbeExit)." }
+          $global:LASTEXITCODE = 0
 
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "source_branch=$sourceBranch" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
