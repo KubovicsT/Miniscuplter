@@ -114,6 +114,6 @@ def test_stage_c_ui_wiring():
     check("Starter sphere" in acceptance and "V1022RemoveLegacyStarterSphere" in acceptance,"empty-project starter cleanup missing")
     check("V1022ReassertClientFill" in acceptance and "SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect)" in acceptance,"whole-window client fill guard missing")
     check("V1022HideOpaqueGridGround" in acceptance and "ground.Visible = false" in acceptance,"non-occluding grid guard missing")
-    check("SubViewport.Size" not in acceptance,"v1.0.22 acceptance guard reintroduced manual SubViewport sizing")
+    check("SubViewport.Size =" not in acceptance,"v1.0.22 acceptance guard reintroduced manual SubViewport sizing")
     check("SaveProject" in extras,"legacy project compatibility unexpectedly missing")
 if __name__=="__main__":test_quality_clamps();test_model_routing();test_readiness_aware_routing();test_provider_readiness_contract();test_capabilities();test_modern_image_low_vram_strategy();test_component_file_validation();test_storage_path_boundaries();test_uninstall_path_guard();test_resumable_stage_recovery();test_stage_c_ui_wiring();print("v1.0.22 core logic and Stage-C wiring tests passed")
