@@ -17,11 +17,14 @@ THREED_IDS={"triposr":"triposr","sf3d":"sf3d","spar3d":"spar3d","hunyuan-mini":"
 def _first(candidates:list[str])->str|None:
     return next((x for x in candidates if installed(x)),None)
 
-def _first_ready(candidates:list[str])->str|None:
+def _first_ready(candidates:list[str],preflight:bool=True)->str|None:
     for cid in candidates:
         if not installed(cid):
             continue
-        ready,_=route_eligible(cid)
+        if preflight:
+            ready,_=route_eligible(cid)
+        else:
+            ready=bool(inspect_provider(cid,probe=False).get("route_eligible"))
         if ready:
             return cid
     return None
@@ -53,21 +56,27 @@ def choose_image_provider(role="generate",mode="auto"):
     if not cid:raise RuntimeError("No local image model is installed")
     fb=_first([x for x in order if x!=cid]);return RouteDecision(role,_provider(cid),f"hardware-aware auto route ({v//1024}GB VRAM class)",_provider(fb) if fb else None)
 
-def choose_3d_provider(role="quality",mode="auto"):
+def choose_3d_provider(role="quality",mode="auto",preflight:bool=True):
     role=(role or "quality").lower();mode=(mode or "auto").lower();v=int(hardware_info().get("vram_mb",0) or 0)
     if mode!="auto":
         cid=THREED_IDS.get(mode)
         if not cid:raise RuntimeError(f"Unknown 3D provider '{mode}'")
         if not installed(cid):raise RuntimeError(f"Requested 3D provider '{mode}' is not installed")
-        ready,result=route_eligible(cid)
-        if not ready:raise _readiness_failure(mode,result)
-        return RouteDecision(role,mode,"explicit user/provider selection; readiness preflight passed")
+        if preflight:
+            ready,result=route_eligible(cid)
+            if not ready:raise _readiness_failure(mode,result)
+            reason="explicit user/provider selection; readiness preflight passed"
+        else:
+            result=inspect_provider(cid,probe=False)
+            if not result.get("route_eligible"):raise _readiness_failure(mode,result)
+            reason="explicit user/provider selection; cached readiness status accepted"
+        return RouteDecision(role,mode,reason)
     if role in {"parts","structured"}:order=["partpacker","partcrafter"] if v>=16000 else ["partcrafter","partpacker"]
     elif role in {"fast","draft","rough"}:order=["spar3d","sf3d","triposr"] if v>=12000 else ["sf3d","triposr","spar3d"]
     elif v>=24000:order=["trellis2","hunyuan21-shape","spar3d","hunyuan2mini","sf3d","triposr"]
     elif v>=10000:order=["hunyuan21-shape","spar3d","hunyuan2mini","sf3d","triposr","trellis2"]
     else:order=["hunyuan2mini","sf3d","triposr","spar3d","hunyuan21-shape"]
-    cid=_first_ready(order)
+    cid=_first_ready(order,preflight)
     if not cid:
         installed_ids=[x for x in order if installed(x)]
         if installed_ids:
@@ -77,7 +86,9 @@ def choose_3d_provider(role="quality",mode="auto"):
                 failures.append(f"{_provider(candidate)}: {r.get('failure') or 'readiness preflight failed'}")
             raise RuntimeError("No installed 3D provider passed readiness preflight. " + "; ".join(failures))
         raise RuntimeError("No local 3D model is installed")
-    fb=_first_ready([x for x in order if x!=cid]);return RouteDecision(role,_provider(cid),f"hardware-aware auto route ({v//1024}GB VRAM class); readiness preflight passed",_provider(fb) if fb else None)
+    fb=_first_ready([x for x in order if x!=cid],preflight);reason=f"hardware-aware auto route ({v//1024}GB VRAM class)"
+    reason += "; readiness preflight passed" if preflight else "; cached readiness status"
+    return RouteDecision(role,_provider(cid),reason,_provider(fb) if fb else None)
 
 def routing_status()->dict[str,Any]:
     hw=hardware_info();r={"image":{},"three_d":{},"capabilities":{},"provider_readiness":readiness_status(probe=False)}
@@ -85,7 +96,7 @@ def routing_status()->dict[str,Any]:
         try:r["image"][role]=asdict(choose_image_provider(role))
         except Exception as e:r["image"][role]={"error":str(e)}
     for role in ("fast","quality","detail","structured"):
-        try:r["three_d"][role]=asdict(choose_3d_provider(role))
+        try:r["three_d"][role]=asdict(choose_3d_provider(role,preflight=False))
         except Exception as e:r["three_d"][role]={"error":str(e)}
     rolemap={"generate":"concept","edit":"edit","detail-image":"detail","fast":"fast3d","quality":"quality3d","structured":"parts","select":"select"}
     for label,role in rolemap.items():r["capabilities"][label]=role_options(role,int(hw.get("vram_mb",0) or 0))
