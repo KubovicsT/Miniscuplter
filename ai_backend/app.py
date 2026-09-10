@@ -88,6 +88,11 @@ class Generate3DRequest(BaseModel):
     quality: str = Field(default="standard", max_length=64)
     provider: str = Field(default="auto", max_length=64)
     role: str = Field(default="quality", max_length=64)
+    generation_job_id: Optional[str] = Field(default=None, min_length=32, max_length=96)
+    project_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
+    project_revision: Optional[int] = Field(default=None, ge=0)
+    input_image_revision_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
+    output_object_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
 
 
 class GeneratePartsRequest(BaseModel):
@@ -134,6 +139,31 @@ class DetailApplyRequest(BaseModel):
     patch_mesh: str = Field(min_length=1, max_length=4096)
     output_path: str = Field(min_length=1, max_length=4096)
     voxel_size: Optional[float] = Field(default=None, ge=0.04, le=5.0)
+
+
+def _stage_c_context(req: Generate3DRequest, header_job_id: Optional[str]) -> dict:
+    values = [
+        req.generation_job_id,
+        req.project_id,
+        req.project_revision,
+        req.input_image_revision_id,
+        req.output_object_id,
+    ]
+    present = [value is not None and (not isinstance(value, str) or bool(value.strip())) for value in values]
+    if any(present) and not all(present):
+        raise HTTPException(400, "Stage-C 3D identity must be supplied as one complete context.")
+    if not any(present):
+        return {}
+    context = {
+        "generation_job_id": str(req.generation_job_id).strip(),
+        "project_id": str(req.project_id).strip(),
+        "project_revision": int(req.project_revision),
+        "input_image_revision_id": str(req.input_image_revision_id).strip(),
+        "output_object_id": str(req.output_object_id).strip(),
+    }
+    if header_job_id and header_job_id.strip() != context["generation_job_id"]:
+        raise HTTPException(400, "Stage-C generation job id does not match the transport job id.")
+    return context
 
 
 @app.get("/health")
@@ -317,7 +347,9 @@ def _generate_shape(provider, req, image, output):
 def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
     req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
     req.output_path = _safe_output_path(req.output_path, (".stl",))
-    begin_job("3d-generate", x_miniscupter_job_id)
+    stage_c_context = _stage_c_context(req, x_miniscupter_job_id)
+    transport_job_id = stage_c_context.get("generation_job_id") or x_miniscupter_job_id
+    begin_job("3d-generate", transport_job_id, stage_c_context)
     image = req.image_path
     output = req.output_path
     provider = None
@@ -350,7 +382,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
         report_job("cleanup", "Releasing 3D model resources before returning control to the editor.", 99, provider)
         release_all_models()
         complete_job("Generated mesh saved and verified.", provider)
-        result = {"path": path, "provider": provider, "routing_reason": reason, "role": req.role, "quality": req.quality}
+        result = {"path": path, "provider": provider, "routing_reason": reason, "role": req.role, "quality": req.quality, "context": stage_c_context}
         if fallback_from:
             result["fallback_from"] = fallback_from
         return result
