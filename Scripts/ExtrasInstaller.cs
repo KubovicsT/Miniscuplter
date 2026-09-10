@@ -89,5 +89,10 @@ public partial class ExtrasInstaller : Node
         // apply, and stale baseline results are preserved as conflicts instead of overwriting work.
         main.InstallV1020StageCBridge();
         main.InstallV1020AppliedObjectRestore();
+
+        // Continue that same object/revision authority through the minimum cleanup/export slice.
+        // Stage-C objects repair into a new immutable child revision and export from an explicit
+        // ProjectObject + active MeshRevision scope; unrelated legacy objects keep the safe fallback.
+        main.InstallV1020StageCCleanupExport();
     }
 }
