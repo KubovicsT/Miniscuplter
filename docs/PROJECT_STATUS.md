@@ -1,6 +1,6 @@
 # Miniscuplter Project Status
 
-> Fast-moving project dashboard. Update at the end of every meaningful development session. Do not use this file as a substitute for inspecting the actual branch, release and CI state.
+> Fast-moving project dashboard. Inspect actual Git/release/CI state before trusting this file.
 
 Last reconciled: 2026-09-10
 
@@ -9,119 +9,95 @@ Last reconciled: 2026-09-10
 - **Latest published stable release:** `v1.0.19`
 - **Stable release application commit:** `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
 - **Current development branch:** `v1.0.20`
-- **v1.0.20 starting point:** exact v1.0.19 released commit above.
-- **Latest application/code commit in this run:** `8d394f289e02682bf27a133ed3456c7dc2852df9`.
-- **v1.0.19 release validation:** passed editor/launcher/updater C# builds, Python compilation/core tests, job-progress tests, real geometry regressions, Stage-B Core tests, release audit, verified Godot 4.7.2 Windows export, release hash verification and silent installer smoke-install.
-- **Release pipeline run:** `34469538260`.
+- **v1.0.20 base:** exact released v1.0.19 commit above.
+- **Latest application/code commit from this run:** `cfd0352223cada181ea75843f16b25b9b5ceb541`.
+- **v1.0.19 release validation:** editor/launcher/updater C# builds, Python/core/job tests, real geometry regressions, Stage-B Core tests, release audit, Godot 4.7.2 Windows export, ZIP/hash verification and silent installer smoke-install passed. Release pipeline: `34469538260`.
 
-Documentation commits may advance v1.0.20 HEAD past the application commit. Resolve exact HEAD and CI from Git at the start of each run.
+The mandatory release/version reconciliation was clean: v1.0.19 remains immutable and published, while v1.0.20 is a distinct forward development branch. No history rewrite or replacement release branch was required.
 
-## Current development phase
+## Current phase
 
-The project remains in the transition between **Stage B (replacement foundation/migration harness)** and **Stage C (prove one reliable end-to-end thin slice)**. Stage A safety work is substantially implemented. Stage B exists materially in code but remains mixed with the legacy editor. Stage C now has a tested Core-level accepted-baseline → revision-bound generation → candidate/apply seam, but the normal editor/backend workflow has not yet been migrated onto it and target-machine acceptance is still missing.
+The project is transitioning from **Stage B (replacement foundation/migration harness)** into **Stage C (one reliable end-to-end thin slice)**. This run moved the real editor's accepted-2D-baseline → 3D-generation seam onto the Stage-B project/revision model while preserving the existing UI and AI cancellation/resource path.
 
 ## Overall completion estimate
 
-**56% toward the defined finished product**.
+**56% toward the defined finished product.**
 
-This remains unchanged because the current work creates and verifies important reliability foundations but does not yet prove the actual end-to-end workflow or the user-observed viewport/storage defects on the GTX 1080 target machine. Completion is acceptance-based, not commit-count-based.
+Do not increase this merely because code exists. The production bridge is meaningful progress, but real GTX 1080 provider/viewport/storage acceptance and the remainder of the thin slice are still unproven.
 
-| Workstream | Weight | Estimated completion | Basis |
+| Workstream | Weight | Estimated completion | Current basis |
 |---|---:|---:|---|
-| Application foundation / state / persistence | 15% | 50% | Stable IDs, project models/history/store/migration and now a tested Stage-C generation bridge exist; legacy `Main.V*.cs` still remains authoritative in large areas. |
-| 2D workflow | 12% | 72% | Generation/import, center canvas, regional edit, Enhance, preview and multi-source references exist; the production UI still needs to bind accepted baseline to the new Core seam. |
-| 3D generation | 15% | 48% | Multiple providers/routing plus readiness-aware preflight and successful-inference qualification recording now exist; target-machine inference qualification and production thin-slice integration remain incomplete. |
-| 3D editing / sculpt / kitbash | 15% | 45% | Significant legacy functionality exists, but state/history/performance integration with the replacement core is incomplete. |
-| Rig & Pose | 10% | 40% | Rigging/IK/pose features exist historically; independent rest-state and new-core integration need substantial work. |
-| Cleanup / validation / export | 8% | 65% | Repair/remesh/thickness/validated export exist with real geometry regressions; new project-history integration and broader workflow qualification remain. |
-| AI runtime / provider reliability | 10% | 65% | Repair, CUDA checks, resumable installs, routing/progress, readiness preflight and persisted success qualification exist; real inference-qualified default-provider evidence is still missing. |
-| UI / UX | 8% | 58% | Four-stage workflow, responsive layout, center 2D canvas, settings and newer viewport tooling exist; legacy composition and runtime visual defects remain a risk. |
-| Launcher / updater / release reliability | 4% | 92% | Verified resumable self-update, transaction/rollback safeguards and installer smoke testing are mature; destructive fault-injection coverage can still improve. |
-| Testing / hardware qualification | 3% | 50% | C#, Python, Core, geometry, audit, package and installer checks are strong; real CUDA/provider/GUI acceptance matrix is incomplete. |
+| Application foundation / state / persistence | 15% | 50% | Stable IDs, immutable revisions, ProjectStore/history/migration and a production Stage-C compatibility bridge now exist; legacy state is still authoritative elsewhere. |
+| 2D workflow | 12% | 72% | Generation/import/edit/reference flow exists; accepted Stage-C baseline is now copied into durable project-owned image revision storage. |
+| 3D generation | 15% | 48% | Readiness-aware providers plus production revision-bound candidate generation exist; target-hardware qualification remains missing. |
+| 3D editing / sculpt / kitbash | 15% | 45% | Significant legacy functionality exists; broad Core/history migration remains incomplete. |
+| Rig & Pose | 10% | 40% | Historical feature set exists; modern rest-state/Core integration remains substantial work. |
+| Cleanup / validation / export | 8% | 65% | Repair/remesh/thickness/export and geometry regressions exist; full Stage-C integration remains. |
+| AI runtime / provider reliability | 10% | 65% | Repair, routing, progress, readiness preflight and persisted real-inference qualification exist; real default-provider evidence is still missing. |
+| UI / UX | 8% | 58% | Four-stage UI and newer viewport/workflow tooling exist; real-machine viewport acceptance and legacy composition risks remain. |
+| Launcher / updater / release reliability | 4% | 92% | Mature verified updater/release flow. |
+| Testing / hardware qualification | 3% | 50% | Strong CI/regression coverage; real CUDA/GUI acceptance matrix remains incomplete. |
 
-Weighted result remains approximately **56%**.
+## v1.0.20 work completed so far
 
-## Current v1.0.20 work
+### MS-022 — provider readiness / qualification
 
-### MS-022 — provider qualification
+`ai_backend/provider_readiness.py` distinguishes downloaded, installed, importable, device-tested and inference-tested states. Main single-mesh 3D routes receive lightweight import/CUDA preflight before expensive inference. Auto routing skips known-unready providers; explicit selection reports the failure instead of silently substituting another provider. Normal health polling does not launch slow provider probes.
 
-`ai_backend/provider_readiness.py` provides separate downloaded, installed, importable, device-tested and inference-tested states with persisted timestamp, runtime/provider revision, device/failure details and optional benchmark data.
+A verified completed real 3D job records inference qualification for the provider that actually succeeded, including an Auto fallback, with elapsed time and hardware context. Failed/cancelled jobs do not qualify or globally blacklist a provider. CI never fabricates inference-tested status.
 
-Generation-time preflight covers the main single-mesh Stage-C candidates: TripoSR, Hunyuan3D 2mini, Hunyuan3D 2.1 Shape, Stable Fast 3D and SPAR3D. The probes test provider imports and CUDA visibility without loading model weights. Auto 3D routing skips providers that fail readiness preflight; explicit provider selection fails early and preserves no-silent-substitution semantics. Health/routing status remains non-blocking and never launches those subprocess probes.
+### MS-018 / MS-020 — Core Stage-C generation semantics
 
-This run completed the successful-inference seam: when a real `3d-generate` job reaches the existing verified-completion point, `job_progress.complete()` records inference qualification for the **final provider actually used**, including Auto fallback, elapsed time and current hardware context. Failed/cancelled/input-specific jobs do not mark a provider inference-tested or globally broken. Qualification persistence is best-effort and occurs outside the job-progress lock so a state-write problem cannot convert a verified inference into a failed job.
+`Core/StageCGeneration.cs` provides stable generation identity bound to project ID, project revision, exact accepted input `ImageRevision`, and reserved output `ObjectId`. Generated meshes register as Ready review candidates. If the accepted baseline changes while inference runs, the result becomes Conflict and cannot silently replace newer work. Apply/discard are explicit, with Apply changing generated-object state and candidate state in one undoable transaction.
 
-Regression coverage verifies that only completed 3D jobs reach the qualification recorder, the final fallback provider is retained, and qualification-persistence failure cannot fail an already completed generation job.
+### MS-018 / MS-019 / MS-020 — production compatibility bridge
 
-### MS-018 / MS-020 — accepted baseline → generated candidate Core seam
+This run added and wired the real editor bridge:
 
-`Core/StageCGeneration.cs` now introduces a strongly typed Stage-C bridge with stable generation job identity and immutable binding to:
+- `Core/StageCAssetStore.cs` copies an accepted source image into project-owned `images/` storage using temp-write + flush + atomic rename, calculates SHA-256, and returns an immutable `ImageRevision`. The source path is no longer the durable baseline authority.
+- `Scripts/Main.V1020StageCBridge.cs` replaces the legacy baseline acceptance callback and the old immediate-authority 3D-generation callback after historical UI composition has completed.
+- Accepting the baseline now stores an `ImageRevision`, calls `StageCGeneration.AcceptBaseline()` on a real `ProjectSession`, saves through `ProjectStore`, and only then enables generation.
+- 3D submission captures a `GenerationJobBinding` before inference. A verified returned STL is converted to `MeshData`, written as a durable Core `MeshRevision` using the binding's reserved output object ID, and passed to `StageCGeneration.RegisterResult()`.
+- A Ready result is **not** inserted into the visible/authoritative project automatically. The UI now exposes **Apply 3D Candidate** and **Discard Candidate**. Conflict candidates remain preserved and cannot be applied.
+- Explicit Apply uses the transactional Core command first, saves, then materializes the mesh into the legacy Godot scene with the stable Core object ID mapped onto the scene object.
+- Pending Ready/Conflict candidate state and accepted baseline are restored from the `.msculpt2` compatibility project.
+- `Scripts/Main.V1020StageCRestore.cs` additionally re-materializes already-applied Stage-C generated objects into the visible Godot scene after editor restart, closing a save/reload visibility gap found during self-review.
+- `Core.Tests/StageCGenerationTests.cs` now uses the real durable image store and verifies that deleting the external source after acceptance does not destroy the project baseline; stale-result conflict, explicit apply, undo/redo, and project save/reload tests remain covered.
 
-- project identity;
-- project revision number at submission;
-- accepted input `ImageRevision` identity;
-- reserved output `ObjectId`.
+The compatibility project is currently `projects/stagec_working.msculpt2` under the authoritative `AppDataRoot`. This deliberately avoids replacing legacy `.msculpt` project files while the vertical slice is still being proven.
 
-Accepted 2D baseline selection is a normal `ProjectSession` transaction. A completed generated mesh is registered as an immutable `MeshRevision` plus a review candidate rather than silently becoming active project state. If the accepted baseline changed while inference ran, the result is preserved as `Conflict`; it never overwrites newer work. A current result remains `Ready` until explicit apply. Apply creates the generated project object and candidate status in one transaction, so undo/redo restores both together. Save/reload preserves the accepted baseline, ready/applied/conflict state and generated mesh provenance.
+## Validation
 
-To avoid a breaking project-schema bump while this vertical slice is still being proven, the bridge stores only its small baseline/candidate descriptors behind a strongly typed Core API in the existing schema-7 metadata dictionary; actual image/mesh data remain ordinary durable Core revisions. This is a migration bridge, not widget-owned state, and can later become first-class manifest collections without changing the Stage-C calling contract.
+For code commit `04fd660296e6d9657328de6b41b03c58fde334aa`, GitHub Actions build run `34490666005` passed editor/launcher/updater/Core C# build + Stage-B tests, Python compile/dependency resolution/core tests/job-progress tests, real geometry regressions, release audit, portable package/hash verification and installer-definition compilation.
 
-## Validation state
+The later applied-object reload fix through `cfd0352223cada181ea75843f16b25b9b5ceb541` triggered fresh branch validation; reconcile its final result from Git before further code or release decisions. No real CUDA inference or Godot target-machine GUI acceptance occurred in CI.
 
-- Readiness work through `8cd00173b78577fed040cce5d71e05738cf404be` previously passed build, Python/core logic, geometry/release-audit, packaging and Stage-B Core CI.
-- The new Stage-C Core bridge at `8d394f289e02682bf27a133ed3456c7dc2852df9` passed the dedicated `core-foundation` restore/build/regression run, including stale-baseline conflict, explicit apply, undo/redo and save/reload tests.
-- On the broader Windows build for `8d394f289e02682bf27a133ed3456c7dc2852df9`, Python compilation, dependency resolution, core logic tests, job-progress tests, real geometry regressions and release audit passed; editor/launcher/updater/Core C# build also passed. Portable packaging/installer compilation was still finishing when this status was written.
-- No real CUDA inference was performed by CI, so no provider is being falsely marked inference-tested from CI alone.
-- No v1.0.20 release has been made.
+**No v1.0.20 release has been made.** The batch is not release-ready while stable identity is still not propagated through the actual HTTP/backend job context and target-machine Stage-C acceptance is missing.
 
-## Released in v1.0.19, awaiting real-machine acceptance
+## Released v1.0.19 items awaiting real-machine verification
 
-### MS-009 — 3D viewport/grid/model/gizmo
+- **MS-009 viewport/grid/model/gizmo:** FIXED - NEEDS USER VERIFICATION.
+- **MS-013 storage containment:** FIXED - NEEDS USER VERIFICATION.
 
-v1.0.19 contains the native viewport pipeline with explicit viewport/world/camera ownership, starter mesh, grid, selection/gizmo refresh and render-frame diagnostics. Status remains **FIXED - NEEDS USER VERIFICATION** until tested on the actual machine.
-
-### MS-013 — storage containment
-
-v1.0.18 introduced authoritative app data-root handling and v1.0.19 adds backend storage/canonical containment hardening/tests. Status remains **FIXED - NEEDS USER VERIFICATION** until representative real jobs prove important working artifacts stay off C:\ AppData/TEMP when a configured data root exists.
+If either regresses on the user's machine, it becomes immediate priority.
 
 ## Current highest-priority issues
 
-1. **MS-009 — 3D viewport/grid/gizmo reliability.** v1.0.19 released; target-machine verification required.
-2. **MS-018 — Stage-C end-to-end thin slice.** Primary product-level acceptance gap; Core handoff semantics now exist but production UI/backend integration remains.
-3. **MS-013 — storage containment.** v1.0.19 released; representative target-machine verification required.
-4. **MS-020 — authoritative Job Broker/stale-result handling.** Core revision-bound candidate semantics now exist; transport/resource ownership/recovery remain incomplete.
-5. **MS-022 — provider qualification/self-tests.** Readiness + successful-inference recording are implemented; GTX 1080 qualification/default-provider evidence remains incomplete.
-6. **MS-019 — legacy application-state architecture.** Stage-B replacement exists but is not authoritative across the editor.
+1. **MS-009** — released viewport fix still needs target-machine verification.
+2. **MS-018** — full Stage-C end-to-end thin slice remains the primary acceptance gap; the production baseline→candidate seam is now integrated but not target-qualified.
+3. **MS-013** — released storage containment still needs representative target-machine verification.
+4. **MS-020** — stale-result candidate semantics are integrated, but the stable generation binding is not yet carried through the actual AI HTTP/backend job context and the final durable Job Broker remains incomplete.
+5. **MS-022** — readiness/self-test/inference-recording exists; GTX 1080 qualification/default-provider evidence is missing.
+6. **MS-019** — legacy `Main.V*.cs` remains authoritative outside migrated vertical slices.
 
 ## Immediate engineering priority
 
-1. Finish/reconcile the latest `8d394f...` broader build/packaging CI; fix any regression if it appears.
-2. Integrate the existing editor's **Accept 2D Baseline** path with `StageCGeneration.AcceptBaseline()` and a real `ProjectSession`.
-3. When submitting 3D generation, create a `GenerationJobBinding` and carry project/object/input-revision identity through the request/job context rather than relying only on file paths.
-4. Import the verified generated STL into a durable Core `MeshRevision`, call `StageCGeneration.RegisterResult()`, and make the UI review/apply the candidate explicitly. Never insert a stale result directly into the viewport/project as authoritative state.
-5. Persist/save after candidate registration/apply through `ProjectStore`; then extend the thin-slice test around the actual legacy UI compatibility bridge.
-6. Collect real GTX 1080 inference qualification evidence for one lightweight/default 3D route.
-
-If the user reports v1.0.19 still renders a blank viewport or leaks working files to C:, that regression becomes immediate priority.
-
-## Next milestone acceptance criteria
-
-On the target Windows machine:
-
-- a 2D image can be generated/imported and edited;
-- an accepted baseline persists as a project revision;
-- one supported lightweight 3D provider passes its readiness/self-test and generates a mesh;
-- the resulting mesh is visibly present with grid, camera, selection and gizmo;
-- stale generation results cannot overwrite a newer accepted baseline/object state;
-- cancellation followed by a new job works reliably;
-- save/reload preserves the result and candidate lineage;
-- basic cleanup works;
-- export produces a validated STL;
-- required working files remain inside the configured Miniscuplter data root;
-- peak RAM/VRAM and elapsed time are recorded for the reference machine.
+1. Reconcile CI for `cfd0352223cada181ea75843f16b25b9b5ceb541`; fix any regression.
+2. Extend the existing AIClient/backend 3D request without bypassing its job gate/cancellation ownership so `GenerationJobId`, `ProjectId`, input project revision, accepted `ImageRevisionId`, and reserved output `ObjectId` are carried through backend job context and validated/echoed before candidate registration.
+3. Harden compatibility-session persistence on save failure so in-memory candidate/baseline state cannot remain ahead of durable state.
+4. Continue the Stage-C flow through basic cleanup and exact export-scope/validated STL while retaining transactional Core identity.
+5. Collect real GTX 1080 provider readiness/inference timing/RAM/VRAM evidence and verify v1.0.19 viewport/storage behavior.
 
 ## User input currently required
 
-No product/design decision blocks autonomous work.
-
-For acceptance evidence, test released **v1.0.19** on the GTX 1080 machine: viewport/grid/model/gizmo plus representative data-output paths. If blank, retain viewport diagnostics/render-probe text; if storage escapes, retain the unexpected path(s).
+No product/design decision blocks autonomous development. Real-machine acceptance evidence remains useful when available, but it does not block independent engineering work.
