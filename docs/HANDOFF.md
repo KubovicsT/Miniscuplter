@@ -10,62 +10,84 @@ Last updated: 2026-09-10
 - **Latest published stable:** `v1.0.20`
 - **Stable release target commit:** `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
 - **Current development branch:** `v1.0.21`
-- **v1.0.21 base:** exact published v1.0.20 target `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
+- **v1.0.21 base:** exact published v1.0.20 target
 - **Overall completion:** **58% acceptance-weighted**
-- **Coordinator roadmap:** `docs/TECHNICAL_ROADMAP.md`
-- **Coordinator history:** `docs/COORDINATOR_LOG.md`
+- **Immediate P0:** `MS-009` viewport target-machine regression
 
-The Coordinator roadmap was written before v1.0.20 publication and still describes publication as the immediate P0. Actual Git/release truth now supersedes that completed step; preserve its post-publication ordering rather than reopening release work.
+## New user/reference-machine evidence
 
-## Completed this Dev Cycle
+Released v1.0.20 is no longer completely blank: the grid/floor and starter 3D model render.
 
-- Reconciled actual latest release, branches and autonomous-release state.
-- Confirmed the previous release-controller defect: an expected nonzero `gh release view` probe left PowerShell `$LASTEXITCODE` nonzero after otherwise-successful validation.
-- Patched `release-control` without weakening request validation, exact-SHA binding, branch-freeze, build/export/hash/smoke or immutability safeguards.
-- Resubmitted v1.0.20 against the exact final branch head.
-- Autonomous-release run `34508060099` passed all gates: C#/Core, Python/runtime, job regressions, geometry regressions, release audit, verified Godot 4.7.2 download, real Windows export, output/hash checks, installer build, silent installer smoke-install, immutable-target recheck, tag creation and GitHub Release publication.
-- Verified GitHub latest release is `v1.0.20` targeting `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
-- Created forward-only branch `v1.0.21` from that exact published target.
-- Reconciled `PROJECT_STATUS.md` and this HANDOFF on v1.0.21. Published v1.0.20 remains untouched.
+But the viewport is still not accepted:
+- normal/resting grid/floor is very dark blue/gray;
+- while actively dragging the divider at the left edge of the AI/right-side panel, the grid temporarily appears correct;
+- the model is too dark to inspect detail;
+- user requests the same general color/readability scheme as Blender: neutral gray viewport, visible grid, readable gray model/studio lighting.
 
-## Shipped Stage-C foundation in v1.0.20
+This reopens MS-009 and outranks the remaining Stage-C acceptance checklist.
 
-- accepted immutable 2D baseline;
-- revision-bound 3D generation/candidate identity;
-- explicit Apply and durable restore;
-- Core-authoritative mapped transforms with save/reload and transaction Undo/Redo;
-- one bounded sculpt/edit commit path creating immutable child `MeshRevision` state;
-- stale edit/cleanup protection and lineage preservation;
-- revision-bound cleanup;
-- exact durable-state validated STL export.
+## Code seam already identified by Coordinator
 
-This is a release-complete foundation slice, not yet a target-machine-accepted Stage-C milestone.
+Investigate and prove, do not blindly patch symptoms:
+
+1. `Main.V1019ViewportPipeline.cs` says native `SubViewportContainer.Stretch=true` owns child viewport dimensions.
+2. `V1017SyncViewport()` still writes `SubViewport.Size` and runs periodically.
+3. `Main.V109Responsive.cs` also writes `SubViewport.Size` after resize.
+4. v1.0.19 queues a delayed full `V1019RepairViewportPipeline()` 0.25 s after host resize. Continuous dragging postpones this repair, which strongly matches "correct while dragging, wrong after settle".
+5. v1.0.17 and v1.0.19 overlap `OwnWorld3D` / explicit `World3D` creation/reparent behavior. Verify that the effective rendered World3D actually contains the existing camera, lights, environment, grid and objects.
 
 ## Exact next task
 
-1. Inspect any new user/reference-machine evidence from released v1.0.20 before coding.
-2. Run/obtain the complete Stage-C acceptance path on the GTX 1080 / 8 GB VRAM / 16 GB RAM reference machine: `2D → accept baseline → 3D → visible/editable mesh → transform/sculpt → save/reload → cleanup → exact validated STL export`.
-3. During the same session, verify:
-   - **MS-009:** viewport/grid/model/gizmo visibility and interaction;
-   - **MS-013:** storage containment and emitted paths/process environment;
-   - **MS-022:** one intended lightweight/default 3D provider, elapsed time and practical RAM/VRAM behavior;
-   - **MS-004:** cancellation/recovery where practical.
-4. If any reproducible defect appears, reuse/create the appropriate MS issue, record exact evidence, and fix forward on v1.0.21. A reproduced blank viewport or data-loss/storage-severity regression outranks planned architecture work.
-5. If target-machine acceptance is green, record the evidence and allow the next Coordinator review to sequence broader MS-019/MS-020 work. Do not independently broaden the critical path before that evidence.
+1. Reconcile exact HEAD/CI before editing.
+2. Fix MS-009 forward on v1.0.21 by establishing **one normal viewport ownership path**:
+   - one resize-size owner;
+   - one World3D/camera/light/environment ownership/rebind sequence;
+   - no routine full repair after every ordinary splitter resize unless proven necessary.
+3. Make legacy v1.0.17/v1.0.9 size sync paths no-op/defer when the v1.0.19 native pipeline is authoritative instead of fighting `Stretch=true`.
+4. Make the viewport repair operation idempotent and recovery-only; normal resizing should not recreate/rebind/reset rendering state.
+5. Apply Blender-like readability:
+   - neutral dark gray viewport background;
+   - visible neutral minor/major grid;
+   - clear axis colors;
+   - light/mid neutral-gray model material;
+   - neutral studio-like key/fill/ambient lighting so curvature/details are obvious;
+   - avoid the current near-black blue floor slab dominating the view.
+6. Preserve Stage-C Core state ownership and the 2D canvas overlay.
+7. Add targeted regression/diagnostic coverage for:
+   - launch state;
+   - resize during drag vs after settle;
+   - stable World3D/camera/light/grid ownership;
+   - tab switching;
+   - manual viewport repair;
+   - render-frame contrast where practical.
+8. Run strongest relevant C#/Core/Python/geometry/release-audit/package validation.
+9. When this narrow fix is coherent and release gates are green, publish v1.0.21 through the autonomous release-control path as a meaningful test build.
+10. Keep MS-009 open until the user retests the immutable v1.0.21 build on the reference PC.
 
 ## Current priority order
 
-1. **MS-018** — complete target-machine Stage-C qualification.
-2. **MS-009** — viewport/grid/model/gizmo verification; reproduced blank viewport becomes immediate P0.
-3. **MS-013** — target-PC storage containment verification.
-4. **MS-022** — qualify one intended lightweight/default 3D route on GTX 1080 / 16 GB.
-5. **MS-004** — cancellation/recovery verification during real jobs.
-6. **MS-019 / MS-020** — broader architecture work after acceptance unless a concrete blocking regression requires earlier action.
+1. **MS-009** — immediate P0 target-machine viewport fix.
+2. **MS-018** — full Stage-C qualification after viewport retest.
+3. **MS-013** — storage containment verification.
+4. **MS-022** — reference-hardware 3D provider qualification.
+5. **MS-004** — cancellation/recovery.
+6. **MS-019 / MS-020** — broader architecture after acceptance unless evidence makes one a blocker.
+
+## Explicit non-priorities
+
+Do not turn this into:
+- a full UI rewrite;
+- another viewport overlay;
+- full sculpt migration;
+- broad legacy deletion;
+- full Job Broker reconstruction;
+- Rig & Pose work;
+- kitbash/provider expansion.
 
 ## Release policy
 
-v1.0.20 is published and immutable. Never modify its tag/release. All fixes belong on v1.0.21+. The autonomous `release-control` path is now proven through a successful full Windows release and remains the preferred publication mechanism for future ready versions.
+v1.0.20 is immutable. Fix forward only on v1.0.21+. Dev Cycle owns release readiness. A narrow v1.0.21 viewport-fix release is appropriate once its intended scope is coherent and all required release gates pass because the real rendering defect needs an immutable target-machine test build.
 
 ## User input
 
-No product/design decision is currently required. The important dependency is real reference-machine testing of released v1.0.20. If the user reports a concrete runtime/UI/provider/storage failure, treat that evidence as the immediate implementation baton.
+No product/design decision is currently required. The user may continue supplying additional v1.0.20 findings; severe new evidence can supersede this baton according to normal priority rules.
