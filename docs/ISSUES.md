@@ -114,17 +114,20 @@ Last reconciled: 2026-09-10
 - **Attempts/fixes:** hardware-aware routing and quality presets exist; stage feedback exists.
 - **Next action:** collect per-provider target-machine benchmarks; expose estimated time/RAM/VRAM and choose default Fast/Balanced/Quality routes based on qualified data.
 
-## MS-009 — 3D viewport, grid, model and gizmo can be completely blank
+## MS-009 — 3D viewport/grid/model/gizmo rendering is unstable or unreadable
 
 - **Severity:** Critical
-- **Status:** FIXED - NEEDS USER VERIFICATION
-- **First observed:** repeatedly through v1.0.11–v1.0.18 testing
-- **Reproduction:** launch editor or complete 3D generation; output STL may exist and status may claim success, but center 3D surface shows no model, grid, axes or gizmo.
-- **Expected:** a visible 3D workspace exists at launch; generated/imported mesh is inserted, selected, framed and rendered with grid/axes/gizmo.
-- **Actual:** user repeatedly observed a flat/empty gray viewport.
-- **Attempts/fixes:** multiple grid implementations; explicit SubViewport sizing/world/camera work; v1.0.15 triangle-bar grid; v1.0.17 recovery/rebind/material/gizmo logic; v1.0.18 native viewport tool foundation; v1.0.19 adds `Main.V1019ViewportPipeline.cs` with native `SubViewportContainer`, explicit world/camera ownership, starter mesh, visible materials, grid rebuild, selection/gizmo refresh and render-frame diagnostics.
-- **Result:** v1.0.19 is now published after full Windows export/hash/installer validation. The runtime/UI symptom remains unverified on the user's actual machine.
-- **Next action:** test released v1.0.20 once published; if still blank, capture viewport diagnostics/render-probe output and fix root scene/render ownership rather than adding overlays.
+- **Status:** IN PROGRESS — REOPENED BY v1.0.20 REFERENCE-MACHINE TEST
+- **First observed:** repeatedly through v1.0.11–v1.0.18; new evidence on released v1.0.20
+- **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect.
+- **Historical actual:** output STL could exist while the center 3D surface was completely blank.
+- **v1.0.20 user evidence:** the grid/floor and starter model finally render, so the blank-viewport failure is substantially improved. However the normal resting floor/grid is very dark blue/gray, the model is too dark to make out details, and while the AI/right-side panel divider is actively dragged the grid temporarily appears correct. This makes the rendered state resize-dependent and not yet acceptable.
+- **User UX direction:** use a Blender-like solid-workspace visual hierarchy: neutral dark gray background, clearly visible neutral grid/major lines, colored axes, and a light/mid neutral-gray model with readable studio-style lighting rather than the current near-black blue presentation.
+- **Attempts/fixes:** multiple grid implementations; explicit SubViewport sizing/world/camera work; v1.0.15 triangle-bar grid; v1.0.17 recovery/rebind/material/gizmo logic; v1.0.18 native viewport tool foundation; v1.0.19 `Main.V1019ViewportPipeline.cs` with native `SubViewportContainer`, explicit world/camera ownership, starter mesh, grid rebuild and render diagnostics.
+- **Coordinator code review after v1.0.20 evidence:** v1.0.19 states that `Stretch=true` makes the container authoritative for viewport dimensions, but `V1017SyncViewport()` and `Main.V109Responsive.cs` still assign `SubViewport.Size`; v1.0.19 also schedules a delayed full repair after every host resize. The symptom appearing correctly during continuous divider movement but changing after layout settles strongly implicates this overlapping resize/repair authority. World ownership is also duplicated: v1.0.17 performs a one-time OwnWorld3D rebind, while v1.0.19 later assigns a fresh World3D without necessarily forcing the existing world/lights through the same re-registration path. These are evidence-backed hypotheses pending implementation proof.
+- **Result:** NOT RESOLVED. v1.0.20 proves that 3D pixels now reach the viewport, but MS-009 remains an acceptance blocker because the stable frame is visually wrong and model detail is unreadable.
+- **Next action:** fix forward on v1.0.21. Make one normal viewport-size owner, make world/light/environment/camera ownership idempotent, stop routine resize from performing destructive/full repair, adopt the Blender-like neutral-gray palette/lighting, add targeted regression/diagnostic coverage, publish a narrow test build when release-ready, then repeat launch/resize/settle/tab-switch/manual-repair checks on the reference machine.
+
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
