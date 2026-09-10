@@ -74,14 +74,14 @@ Relevant commits:
 
 ## Validation
 
-Prior application commit `a9f7e0989d5486bdee27f054edb58713aa00cc41` is fully green: build run `34493356971` completed successfully, including editor/launcher/updater/Core C# build, Python compilation/dependency resolution, core/job tests, real geometry regressions, release audit, portable package/layout/SHA and installer-definition compilation.
+Previous application commit `a9f7e0989d5486bdee27f054edb58713aa00cc41` was already fully green.
 
-For current application commit `fe9079e718ad055c0ef5b43c7205e505ce54e217`:
+Current application commit `fe9079e718ad055c0ef5b43c7205e505ce54e217` is now fully green:
 
-- `core-foundation` run `34497651489`: **SUCCESS**, including the new deterministic save-failure recovery tests.
-- broader Windows build run `34497651608`: running at the time this status was written; reconcile its final conclusion before further release decisions.
+- `core-foundation` run `34497651489`: **SUCCESS**, including deterministic save-failure rollback and foreign-project rejection tests.
+- broader Windows build run `34497651608`: **SUCCESS**, covering editor/launcher/updater/Core C# restore/build, Python compilation and dependency resolution, core logic tests, job-progress tests, real geometry regressions, release audit, portable package layout/SHA verification, and installer-definition compilation.
 
-No real CUDA inference or target-machine GUI acceptance occurred in CI. **No v1.0.20 release has been made.**
+A real Godot Windows release export was not run because v1.0.20 is not yet release-ready. No real CUDA inference or target-machine GUI acceptance occurred in CI. **No v1.0.20 release has been made.**
 
 ## Released v1.0.19 items awaiting real-machine verification
 
@@ -101,11 +101,10 @@ If either regresses on the target machine, it becomes immediate priority.
 
 ## Immediate engineering priority
 
-1. Reconcile final CI for `fe9079e718ad055c0ef5b43c7205e505ce54e217`; fix any regression.
-2. Continue the same persisted Stage-C object through the minimum cleanup path. Cleanup must create a **new immutable `MeshRevision`** and transactionally advance the object's active revision; never overwrite the generated revision.
-3. Bind Cleanup & Export to an explicit project object/revision scope and validated STL output. STL remains interchange/output, never project authority.
-4. Add a deterministic transport-response mismatch regression at the lowest practical layer if it can be done without introducing another client path or GPU dependency.
-5. Collect real GTX 1080 provider readiness/inference timing/RAM/VRAM evidence and verify v1.0.19 viewport/storage behavior when target hardware is available.
+1. Continue the same persisted Stage-C object through the minimum cleanup path. Cleanup must create a **new immutable `MeshRevision`** and transactionally advance the object's active revision; never overwrite the generated revision.
+2. Bind Cleanup & Export to an explicit project object/revision scope and validated STL output. STL remains interchange/output, never project authority.
+3. Add a deterministic transport-response mismatch regression at the lowest practical layer if it can be done without introducing another client path or GPU dependency.
+4. Collect real GTX 1080 provider readiness/inference timing/RAM/VRAM evidence and verify v1.0.19 viewport/storage behavior when target hardware is available.
 
 ## User input currently required
 
