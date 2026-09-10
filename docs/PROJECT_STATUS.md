@@ -9,55 +9,55 @@ Last reconciled: 2026-09-10
 - **Latest published stable release:** `v1.0.20`
 - **Stable release target commit:** `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
 - **Current development branch:** `v1.0.21`
-- **v1.0.21 branch base:** exact published v1.0.20 target `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`
+- **v1.0.21 branch base:** exact published v1.0.20 target
 - **Overall completion:** **58% acceptance-weighted**
 
-v1.0.20 is published and immutable. All further application/documentation work belongs on v1.0.21 or later.
+v1.0.20 is published and immutable. All fixes belong on v1.0.21+.
 
 ## Current phase
 
-The Coordinator-defined bounded Stage-C foundation slice shipped in v1.0.20:
+The bounded Stage-C foundation shipped in v1.0.20:
 
 `accepted 2D baseline → revision-bound 3D candidate → explicit Apply → Core-authoritative transform → one immutable sculpt/edit commit → save/reload → revision-bound cleanup → exact validated STL export`
 
-The remaining Stage-C acceptance work is real reference-machine qualification, not additional speculative architecture.
+Real reference-machine acceptance is underway.
 
-## v1.0.20 release validation
+## New v1.0.20 target-machine finding
 
-Autonomous-release run `34508060099` completed successfully for exact candidate `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
+**MS-009 has been reopened and is the immediate P0.**
 
-Passed gates:
+The user's v1.0.20 screenshot confirms important progress: the grid/floor and starter 3D model now render instead of the historical fully blank viewport. But the viewport is not yet usable enough for acceptance:
 
-- exact semantic-version request and branch/SHA binding;
-- C# restore/build and Core tests;
-- Python compilation and dependency resolution;
-- core/job regressions;
-- geometry regressions and release audit;
-- verified Godot 4.7.2 .NET/runtime/template download;
-- real Windows Godot export;
-- versioned release output and SHA verification;
-- installer creation;
-- silent installer smoke-install;
-- immutable target recheck immediately before publication;
-- tag creation and GitHub Release publication.
+- normal/resting grid/floor appears very dark blue/gray;
+- the grid temporarily appears correct while the right-side panel divider is actively moved;
+- the model is too dark to inspect details;
+- the requested visual target is a Blender-like neutral-gray viewport with readable model shading.
 
-Published assets include the Windows installer, portable ZIP and ZIP SHA-256 file.
+Repository inspection points to overlapping resize/world ownership as the likely seam: the native v1.0.19 viewport says Stretch owns sizing, while legacy paths still assign SubViewport.Size, and a delayed full repair runs after resize. World3D ownership/rebind logic is also duplicated. Root cause must be proven by the implementation fix rather than assumed.
 
 ## Current priorities
 
-1. **MS-018:** run the released v1.0.20 Stage-C thin slice on the reference PC and record pass/fail evidence.
-2. **MS-009:** verify viewport/grid/model/gizmo visibility and interaction; any reproduced blank viewport becomes immediate P0 on v1.0.21.
-3. **MS-013:** verify storage containment during representative workflows.
-4. **MS-022:** qualify one intended lightweight/default 3D provider on GTX 1080 / 16 GB with elapsed-time and practical RAM/VRAM evidence.
-5. **MS-004:** exercise cancellation/recovery where practical during the same target-machine session.
-6. **MS-019 / MS-020:** broader architecture work remains sequenced after target-machine evidence unless a concrete acceptance blocker requires immediate work.
+1. **MS-009 — P0:** deterministic/readable viewport on v1.0.21; single resize/world owner + Blender-like palette/lighting.
+2. **MS-018:** resume full Stage-C target qualification after the viewport blocker.
+3. **MS-013:** storage containment verification.
+4. **MS-022:** qualify one intended lightweight/default 3D provider on GTX 1080 / 16 GB.
+5. **MS-004:** cancellation/recovery during a real job.
+6. **MS-019 / MS-020:** broader architecture remains sequenced after acceptance unless concrete evidence changes the dependency order.
 
 ## Immediate engineering priority
 
-Do not invent target-machine success from CI. v1.0.20 is the immutable test build and v1.0.21 is the forward fix branch.
+Fix MS-009 forward on v1.0.21 without adding another viewport overlay or broad UI rewrite.
 
-The next Dev Cycle should first inspect any new user/reference-machine evidence. If a reproducible v1.0.20 defect exists, document/reuse its MS issue and fix forward on v1.0.21. If no target evidence is yet available, avoid broadening the Coordinator roadmap and keep the repository ready for that acceptance pass.
+Required result:
+- correct appearance immediately after launch;
+- no visual state change caused by splitter resize/settle;
+- readable neutral-gray model shading;
+- clearly visible grid/axes;
+- stable tab-switch/manual-repair behavior;
+- existing 2D canvas and Stage-C object authority preserved.
+
+When the narrow fix is coherent and all release gates pass, v1.0.21 may be published as the immutable test build needed for real-machine verification.
 
 ## User input currently required
 
-Reference-machine testing of released v1.0.20 is now the important dependency. No product/design decision is required unless testing exposes a difficult-to-reverse tradeoff.
+No additional product decision is required. The user should continue reporting v1.0.20 findings; after v1.0.21 is published, the viewport fix specifically needs real-machine verification before MS-009 can be resolved.
