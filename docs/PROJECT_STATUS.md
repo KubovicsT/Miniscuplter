@@ -9,42 +9,57 @@ Last reconciled: 2026-09-10
 - **Latest published stable release:** `v1.0.22`
 - **Stable release target commit:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`
 - **Current development branch:** `v1.0.23`
-- **Current validated implementation candidate before documentation commits:** `36093b66f1a9e746e2a46f5c0d55afd35aa35b84`
+- **Current bounded implementation candidate before documentation commits:** `74ec73a14645071bb2742fb68f778bedd656aabd`
 - **Overall completion:** **57% acceptance-weighted**
 
-v1.0.21 is published and immutable. v1.0.22 remains the only forward application branch for the current acceptance fixes.
+v1.0.22 is published and immutable. v1.0.23 is the forward application branch. No application changes belong on v1.0.22.
 
 ## Current phase
 
-The Coordinator-defined critical path remains Stage-C target acceptance. The v1.0.21 reference-machine test proved the native viewport is readable initially, but also exposed three concrete blockers now addressed in v1.0.22 code:
+The Coordinator-defined critical path remains **Stage-C target-machine acceptance**. Released v1.0.22 contains the bounded acceptance fixes for the concrete v1.0.21 reference-machine findings:
 
-1. **MS-023 — Stage-C generation ownership/persistence.** v1.0.17 and v1.0.20 could both own the same Generate-3D button. v1.0.22 installs a final acceptance guard that removes the v1.0.9, v1.0.17 and duplicate v1.0.20 subscriptions and then attaches exactly one `V1020Generate3DAsync` owner. Successful generation therefore enters the existing revision-bound candidate path instead of racing a transient legacy import.
-2. **MS-024 — whole-window resize seams.** v1.0.22 reasserts FullRect/ExpandFill ownership for the outer UI on native viewport size changes without writing `SubViewport.Size`, preserving the v1.0.21 native render-target ownership model.
-3. **MS-025 / MS-009 presentation residuals.** v1.0.22 removes the legacy starter sphere from launch/New/recovery-composed scenes, keeps the empty viewport usable, hides the opaque historical grid floor while preserving grid bars/axes, and reasserts the native studio presentation after host resize/recovery.
+1. **MS-023 — Stage-C generation ownership/persistence:** final composition removes historical Generate-3D owners and binds exactly one revision-aware `V1020Generate3DAsync` owner.
+2. **MS-024 — resize/client-fill seams:** final composition reasserts FullRect/ExpandFill layout ownership without restoring manual `SubViewport.Size` writes.
+3. **MS-025 — starter-scene/presentation residuals:** the historical starter sphere is removed from launch/New/recovery paths and the opaque legacy grid floor is hidden while useful grid/axes remain.
 
-The durable Core save/reload path was re-audited during implementation: applied objects already restore from their `ActiveMeshRevisionId`; no speculative Core rewrite was needed.
+Those fixes remain **FIXED - NEEDS USER VERIFICATION** until the released v1.0.22 build is exercised on the reference machine. The next critical evidence is generate → Ready/Conflict candidate → Apply → save/close/reopen → same durable object/revision, plus viewport resizing/presentation, starter removal, cleanup/export, storage containment and one qualified lightweight 3D route.
+
+## Opportunistic work while acceptance is externally blocked
+
+The Coordinator explicitly permits one bounded **MS-027** slice when no higher-priority unblocked correctness task exists. v1.0.23 now contains the first such slice without changing project or AI ownership:
+
+- `Main.V1023UiPreferences.cs` stores editor-only preferences under the authoritative Miniscuplter data root at `Settings/ui_preferences.json`;
+- body and viewport/right-panel splitter positions persist across restarts with minimum-width clamps;
+- Settings gains an **Interface** page with bounded 75–135% UI/font scaling and a workspace-layout reset;
+- default font scale is reduced to 90% to begin the requested denser modeling UI;
+- reusable hover-tooltip infrastructure covers core toolbar actions;
+- the layer installs after `InstallV1022Acceptance()` and does not reference `ProjectStore` or own Stage-C generation actions;
+- targeted static wiring guards were added to `tools/core_logic_tests.py`.
+
+Implementation commits: `f169f6e3428a64804e8778c05353b9d07a87dfe3`, `5faa1e528e6a81fb8db15942c68b3da71391743d`, `74ec73a14645071bb2742fb68f778bedd656aabd`.
 
 ## Validation
 
-Implementation commit `0e41b78d6a109bc09515a3d8877f385f91714527` passed Stage-B/Core, C#, Python compilation/dependency, execution, geometry and release-audit validation after correcting one test-only false positive. The failed intermediate build at `42dd143661a81185c110e7e761d12d41ead15cf7` is retained in issue history: its new static test incorrectly matched the words `SubViewport.Size` inside a comment; the assertion was narrowed to actual assignment syntax.
+For implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d`:
 
-Release-identity commit `36093b66f1a9e746e2a46f5c0d55afd35aa35b84` advances all editor/backend/launcher/updater/export/installer version surfaces to `1.0.22` and strengthens release audit coverage for the new acceptance guard. Exact-head CI has already passed Core plus the Python/execution/geometry/release-audit and C# legs; packaging is the remaining branch-validation leg at this reconciliation point.
+- Stage-B/Core build and regression suite: **PASS** (`core-foundation` run `34520603280`);
+- C# editor/launcher/updater/Core builds: **PASS** (`build` run `34520603310`);
+- Python compile/dependency resolution: **PASS**;
+- core/execution/job regressions: **PASS**;
+- geometry regressions and release audit: **PASS**;
+- portable package layout/hash and installer-definition compile: **PASS**.
+
+Commit `74ec73a14645071bb2742fb68f778bedd656aabd` adds explicit MS-027 static ownership/persistence guards. Its exact-head Core/build workflows were running at this reconciliation point; do not describe the test commit as fully validated until those workflows finish.
+
+No release request has been submitted for v1.0.23. This secondary UI slice is not being published merely because branch validation is green; release remains readiness/scope based.
 
 ## Current priorities
 
-1. Complete exact-head v1.0.22 validation and publish only if all autonomous Windows export/hash/installer-smoke gates pass.
-2. Reference-machine retest of released v1.0.22: generate → visible Ready/Conflict candidate → Apply → save/close/reopen → same durable object/active mesh revision; verify Move/Rotate/Scale, cleanup and STL export.
-3. In the same session verify initial/right-panel/whole-window viewport presentation and absence of black seams/opaque floor/starter sphere.
-4. Then continue MS-018, MS-013, MS-022 and MS-004 acceptance evidence.
-5. MS-026 telemetry and broader MS-019/MS-020 architecture remain behind the current acceptance blockers unless the Coordinator changes priority.
+1. **Reference-machine retest of released v1.0.22** for MS-023, MS-024, MS-025 and the complete MS-018 Stage-C path. Any reproduced correctness/persistence/viewport/data regression immediately preempts UI modernization.
+2. In the same acceptance session collect MS-013 storage and MS-022 provider/resource evidence, plus MS-004 cancellation/recovery where practical.
+3. If acceptance evidence is still unavailable and no higher-priority unblocked issue appears, continue exactly one next bounded MS-027 slice in Coordinator order: direct icon-based viewport tool strip using the existing tool owner; do not create duplicate tool/action state.
+4. Broader MS-019/MS-020 architecture remains behind Stage-C acceptance unless concrete evidence changes dependency order.
 
 ## User input currently required
 
-No product/design decision is required. After v1.0.22 is released, reference-machine verification is the next important evidence dependency.
-
-
-## Planned opportunistic UI work
-
-**MS-027** is now an approved planned workstream for a compact resizable modeling workspace: direct icon tools, view cube/selection-centered orbit, smaller configurable UI scale, hover help, synchronized scene tree, MS-026 performance panel, unified AI command console/history, and persisted workspace layout.
-
-This is intentionally secondary to correctness and acceptance. Dev Cycle may work on bounded MS-027 slices while waiting for user/reference-machine verification or when no higher-priority unblocked task exists. New critical-path failures preempt it.
+No product/design decision is required. The important external dependency is reference-machine verification of released v1.0.22; until that arrives, bounded MS-027 work may continue under the Coordinator fallback rule.
