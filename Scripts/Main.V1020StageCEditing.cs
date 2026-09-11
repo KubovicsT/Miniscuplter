@@ -270,8 +270,10 @@ public partial class Main
 
         if (button.Pressed)
         {
+            ObjectId transformObjectId = default;
+            ProjectObject projectObject = null!;
             _v1020TransformGestureActive = _v1018Dragging &&
-                V1020SelectedIsMappedStageC(out ObjectId transformObjectId, out ProjectObject projectObject);
+                V1020SelectedIsMappedStageC(out transformObjectId, out projectObject);
             if (_v1020TransformGestureActive && _selected != null)
             {
                 _v1020TransformGestureObjectId = transformObjectId;
