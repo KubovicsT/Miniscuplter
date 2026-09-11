@@ -10,6 +10,11 @@ namespace Miniscuplter;
 public partial class Main
 {
     bool _v1020TransformGestureActive;
+    ObjectId _v1020TransformGestureObjectId;
+    RevisionId _v1020TransformGestureMeshRevisionId;
+    TransformState _v1020TransformGestureDurableStart;
+    TransformState _v1020TransformGestureSceneStart;
+    V1018ViewportTool _v1020TransformGestureTool;
     bool _v1020SculptGestureActive;
     bool _v1020ViewportEditingObserverAttached;
     ObjectId _v1020SculptObjectId;
@@ -265,13 +270,23 @@ public partial class Main
 
         if (button.Pressed)
         {
-            _v1020TransformGestureActive = _v1018Dragging && V1020SelectedIsMappedStageC(out _, out _);
+            _v1020TransformGestureActive = _v1018Dragging &&
+                V1020SelectedIsMappedStageC(out ObjectId transformObjectId, out ProjectObject projectObject);
+            if (_v1020TransformGestureActive && _selected != null)
+            {
+                _v1020TransformGestureObjectId = transformObjectId;
+                _v1020TransformGestureMeshRevisionId = projectObject.ActiveMeshRevisionId;
+                _v1020TransformGestureDurableStart = projectObject.Transform;
+                _v1020TransformGestureSceneStart = V1020TransformState(_selected);
+                _v1020TransformGestureTool = _v1018Tool;
+            }
+
             if (_v1018Tool == V1018ViewportTool.Sculpt && _sculpting &&
-                V1020SelectedIsMappedStageC(out ObjectId objectId, out ProjectObject projectObject))
+                V1020SelectedIsMappedStageC(out ObjectId objectId, out ProjectObject sculptProjectObject))
             {
                 _v1020SculptGestureActive = true;
                 _v1020SculptObjectId = objectId;
-                _v1020SculptInputRevisionId = projectObject.ActiveMeshRevisionId;
+                _v1020SculptInputRevisionId = sculptProjectObject.ActiveMeshRevisionId;
                 _v1020LegacySculptUndoMarker = _undo.Count > 0 ? _undo.Peek() : null;
             }
             else
@@ -285,7 +300,18 @@ public partial class Main
         if (_v1020TransformGestureActive)
         {
             _v1020TransformGestureActive = false;
-            _ = V1020CommitSelectedTransformAsync(_v1018Tool.ToString().ToLowerInvariant());
+            MeshInstance3D? target = V1020FindSceneObject(_v1020TransformGestureObjectId);
+            if (target != null)
+            {
+                TransformState sceneEnd = V1020TransformState(target);
+                _ = V1020CommitViewportTransformGestureAsync(
+                    _v1020TransformGestureObjectId,
+                    _v1020TransformGestureMeshRevisionId,
+                    _v1020TransformGestureDurableStart,
+                    _v1020TransformGestureSceneStart,
+                    sceneEnd,
+                    _v1020TransformGestureTool);
+            }
         }
 
         if (_v1020SculptGestureActive)
@@ -294,6 +320,88 @@ public partial class Main
             _ = V1020CommitSculptStrokeAsync(_v1020SculptObjectId, _v1020SculptInputRevisionId, _v1020LegacySculptUndoMarker);
             _v1020LegacySculptUndoMarker = null;
         }
+    }
+
+    async Task V1020CommitViewportTransformGestureAsync(
+        ObjectId objectId,
+        RevisionId inputRevisionId,
+        TransformState durableStart,
+        TransformState sceneStart,
+        TransformState sceneEnd,
+        V1018ViewportTool tool)
+    {
+        MeshInstance3D? target = V1020FindSceneObject(objectId);
+        if (target == null) return;
+
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
+                if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? current))
+                    throw new InvalidOperationException("The dragged Stage-C object no longer exists.");
+                if (current.ActiveMeshRevisionId != inputRevisionId || current.Transform != durableStart)
+                    throw new InvalidOperationException("The dragged object advanced before the viewport gesture could be committed.");
+
+                TransformState requested = V1020ViewportTransformRequest(durableStart, sceneStart, sceneEnd, tool);
+                string operation = "viewport-" + tool.ToString().ToLowerInvariant();
+                bool changed = StageCEditing.SetTransform(session, objectId, requested, operation);
+                if (changed)
+                    await V1020SaveSessionAsync();
+                V1020ProjectObjectStateToScene(target, session.Current.Objects[objectId], reloadMesh: false);
+            }
+            finally { _v1020StageCGate.Release(); }
+            SetStatus($"Stage-C viewport {tool.ToString().ToLowerInvariant()} committed to project state.");
+        }
+        catch (Exception ex)
+        {
+            V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
+            SetStatus("Stage-C viewport transform failed safely; restored durable transform: " + ex.Message);
+        }
+    }
+
+    static TransformState V1020ViewportTransformRequest(
+        TransformState durableStart,
+        TransformState sceneStart,
+        TransformState sceneEnd,
+        V1018ViewportTool tool)
+    {
+        return tool switch
+        {
+            V1018ViewportTool.Move => new TransformState(
+                new Vec3(
+                    durableStart.Position.X + (sceneEnd.Position.X - sceneStart.Position.X),
+                    durableStart.Position.Y + (sceneEnd.Position.Y - sceneStart.Position.Y),
+                    durableStart.Position.Z + (sceneEnd.Position.Z - sceneStart.Position.Z)),
+                durableStart.RotationEuler,
+                durableStart.Scale),
+            V1018ViewportTool.Rotate => new TransformState(
+                durableStart.Position,
+                new Vec3(
+                    durableStart.RotationEuler.X + (sceneEnd.RotationEuler.X - sceneStart.RotationEuler.X),
+                    durableStart.RotationEuler.Y + (sceneEnd.RotationEuler.Y - sceneStart.RotationEuler.Y),
+                    durableStart.RotationEuler.Z + (sceneEnd.RotationEuler.Z - sceneStart.RotationEuler.Z)),
+                durableStart.Scale),
+            V1018ViewportTool.Scale => new TransformState(
+                durableStart.Position,
+                durableStart.RotationEuler,
+                V1020ScaleByViewportRatio(durableStart.Scale, sceneStart.Scale, sceneEnd.Scale)),
+            _ => throw new InvalidOperationException("Only viewport move/rotate/scale gestures can commit durable transforms.")
+        };
+    }
+
+    static Vec3 V1020ScaleByViewportRatio(Vec3 durableScale, Vec3 sceneStart, Vec3 sceneEnd)
+    {
+        double startSquared = (double)sceneStart.X * sceneStart.X + (double)sceneStart.Y * sceneStart.Y + (double)sceneStart.Z * sceneStart.Z;
+        double endSquared = (double)sceneEnd.X * sceneEnd.X + (double)sceneEnd.Y * sceneEnd.Y + (double)sceneEnd.Z * sceneEnd.Z;
+        if (!double.IsFinite(startSquared) || !double.IsFinite(endSquared) || startSquared <= 1e-12 || endSquared <= 0)
+            throw new InvalidOperationException("Viewport scale gesture produced an invalid scale ratio.");
+
+        float factor = (float)Math.Sqrt(endSquared / startSquared);
+        if (!float.IsFinite(factor) || factor <= 0)
+            throw new InvalidOperationException("Viewport scale gesture produced an invalid scale factor.");
+        return new Vec3(durableScale.X * factor, durableScale.Y * factor, durableScale.Z * factor);
     }
 
     async Task V1020CommitSculptStrokeAsync(ObjectId objectId, RevisionId inputRevisionId, ArrayMesh? legacyUndoMarker)
