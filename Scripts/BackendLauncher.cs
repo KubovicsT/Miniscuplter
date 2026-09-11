@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -12,12 +13,16 @@ public partial class BackendLauncher : Node
 {
     const uint JobObjectExtendedLimitInformation = 9;
     const uint JobObjectLimitKillOnJobClose = 0x00002000;
+    const int RecentStderrLimit = 20;
 
     readonly object _processLock = new();
     readonly HttpClient _readinessHttp = new() { Timeout = TimeSpan.FromSeconds(2) };
     readonly object _logLock = new();
+    readonly Queue<string> _recentStderr = new();
     Process? _backend;
     IntPtr _job = IntPtr.Zero;
+    string? _backendPath;
+    string? _pythonPath;
 
     public override void _Ready()
     {
@@ -85,14 +90,20 @@ public partial class BackendLauncher : Node
             return;
         }
 
-        string[] pythonCandidates =
+        // Repair AI Runtime creates and validates the virtual environment beside app.py.
+        // Launch that exact environment. Do not prefer a separate embedded/system Python or
+        // silently fall back to PATH, because that can make Repair report success while the
+        // editor starts the backend with a different, unvalidated interpreter.
+        string python = Path.Combine(Path.GetDirectoryName(app)!, ".venv", "Scripts", "python.exe");
+        _backendPath = Path.GetFullPath(app);
+        _pythonPath = Path.GetFullPath(python);
+        lock (_logLock) _recentStderr.Clear();
+
+        if (!File.Exists(python))
         {
-            Path.Combine(root, "Runtime", "Python", "python.exe"),
-            Path.Combine(root, ".venv", "Scripts", "python.exe"),
-            Path.Combine(root, "App", ".venv", "Scripts", "python.exe"),
-            Path.Combine(Path.GetDirectoryName(app)!, ".venv", "Scripts", "python.exe")
-        };
-        string python = Array.Find(pythonCandidates, File.Exists) ?? "python";
+            GD.PrintErr($"AI backend runtime is not repaired. Backend: {_backendPath}; expected interpreter: {_pythonPath}. Use Repair AI Runtime in Miniscuplter Launcher.");
+            return;
+        }
 
         try
         {
@@ -112,7 +123,7 @@ public partial class BackendLauncher : Node
             _backend = Process.Start(psi);
             if (_backend == null)
             {
-                GD.Print("Could not auto-launch AI backend; editor will remain usable without AI.");
+                GD.PrintErr(BuildBackendFailure("Could not start the AI backend process."));
                 return;
             }
 
@@ -129,11 +140,11 @@ public partial class BackendLauncher : Node
             }
 
             AttachOutputLogging(_backend);
-            GD.Print($"AI backend launched (PID {_backend.Id}) from {app}.");
+            GD.Print($"AI backend launched (PID {_backend.Id}). Backend: {_backendPath}; interpreter: {_pythonPath}.");
         }
         catch (Exception ex)
         {
-            GD.PrintErr("AI backend auto-launch failed: " + ex.Message);
+            GD.PrintErr(BuildBackendFailure("AI backend auto-launch failed: " + ex.Message));
             ShutdownBackendLocked();
         }
     }
@@ -143,7 +154,7 @@ public partial class BackendLauncher : Node
         try
         {
             await WaitForBackendReadyAsync(TimeSpan.FromSeconds(30));
-            GD.Print("AI backend readiness confirmed.");
+            GD.Print($"AI backend readiness confirmed. Backend: {_backendPath}; interpreter: {_pythonPath}.");
         }
         catch (Exception ex)
         {
@@ -157,7 +168,7 @@ public partial class BackendLauncher : Node
         while (DateTime.UtcNow < deadline)
         {
             if (!IsRunning)
-                throw new InvalidOperationException("The AI backend process is not running.");
+                throw new InvalidOperationException(BuildBackendFailure("The AI backend process exited before becoming healthy."));
 
             try
             {
@@ -169,7 +180,22 @@ public partial class BackendLauncher : Node
 
             await Task.Delay(250);
         }
-        throw new TimeoutException("The AI backend did not become healthy within the startup timeout.");
+        throw new TimeoutException(BuildBackendFailure("The AI backend did not become healthy within the startup timeout."));
+    }
+
+    string BuildBackendFailure(string reason)
+    {
+        string exit = "running/unknown";
+        try
+        {
+            if (_backend != null && _backend.HasExited) exit = _backend.ExitCode.ToString();
+        }
+        catch { }
+
+        string stderr;
+        lock (_logLock)
+            stderr = _recentStderr.Count == 0 ? "<none captured>" : string.Join(" | ", _recentStderr);
+        return $"{reason} Backend: {_backendPath ?? "<unresolved>"}; interpreter: {_pythonPath ?? "<unresolved>"}; exit: {exit}; recent stderr: {stderr}";
     }
 
     void AttachOutputLogging(Process process)
@@ -187,7 +213,14 @@ public partial class BackendLauncher : Node
         {
             string log = AppDataRoot.Resolve("Logs/backend.log");
             lock (_logLock)
+            {
+                if (stream.Equals("stderr", StringComparison.OrdinalIgnoreCase))
+                {
+                    _recentStderr.Enqueue(line);
+                    while (_recentStderr.Count > RecentStderrLimit) _recentStderr.Dequeue();
+                }
                 File.AppendAllText(log, $"{DateTime.UtcNow:O} [{stream}] {line}{Environment.NewLine}");
+            }
         }
         catch (Exception ex)
         {
