@@ -15,17 +15,28 @@ internal static class ViewCubeWiringTests
         string cube = File.ReadAllText(cubePath);
 
         Assert(installer.Contains("InstallViewCube();", StringComparison.Ordinal), "view cube is not composed");
-        Assert(installer.IndexOf("InstallSceneHierarchy();", StringComparison.Ordinal) < installer.IndexOf("InstallViewCube();", StringComparison.Ordinal), "view cube must compose after the earlier MS-027 presentation slices");
-        Assert(cube.Contains("AddViewCubeFace(\"Front\"", StringComparison.Ordinal) && cube.Contains("AddViewCubeFace(\"Back\"", StringComparison.Ordinal), "front/back face snaps missing");
-        Assert(cube.Contains("AddViewCubeFace(\"Left\"", StringComparison.Ordinal) && cube.Contains("AddViewCubeFace(\"Right\"", StringComparison.Ordinal), "left/right face snaps missing");
-        Assert(cube.Contains("AddViewCubeFace(\"Top\"", StringComparison.Ordinal) && cube.Contains("AddViewCubeFace(\"Bottom\"", StringComparison.Ordinal), "top/bottom face snaps missing");
-        Assert(cube.Contains("host.GuiInput += ViewCubeObserveViewportInput", StringComparison.Ordinal), "selected-object orbit pivot observer missing");
-        Assert(cube.Contains("FocusCameraOnSelectionPreservingPosition", StringComparison.Ordinal), "selected-object focus helper missing");
-        Assert(cube.Contains("_yaw = Mathf.Atan2", StringComparison.Ordinal) && cube.Contains("_pitch = Math.Clamp", StringComparison.Ordinal), "orbit retarget does not reuse existing camera state");
-        Assert(!cube.Contains("new Camera3D", StringComparison.Ordinal), "view cube must not create a second camera owner");
-        Assert(!cube.Contains("_orbiting =", StringComparison.Ordinal), "view cube must not own orbit interaction state");
-        Assert(!cube.Contains("ProjectStore", StringComparison.Ordinal), "view cube must remain presentation-only");
-        Assert(!cube.Contains("SubViewport.Size =", StringComparison.Ordinal), "view cube must not reintroduce viewport sizing ownership");
+        Assert(cube.Contains("new SubViewport", StringComparison.Ordinal) &&
+               cube.Contains("new BoxMesh", StringComparison.Ordinal) &&
+               cube.Contains("OrientationCubePresentationCamera", StringComparison.Ordinal),
+            "orientation control is not a real rendered 3D cube");
+        Assert(cube.Contains("basis = _camera.GlobalTransform.Basis.Orthonormalized()", StringComparison.Ordinal),
+            "orientation cube does not mirror the authoritative viewport camera");
+        Assert(cube.Contains("ViewCubeGuiInput", StringComparison.Ordinal) &&
+               cube.Contains("TryHitOrientationCube", StringComparison.Ordinal) &&
+               cube.Contains("axes >= 3 ? \"Corner\" : axes == 2 ? \"Edge\"", StringComparison.Ordinal),
+            "orientation cube does not support face/edge/corner interaction");
+        Assert(cube.Contains("host.GuiInput += ViewCubeObserveViewportInput", StringComparison.Ordinal),
+            "selected-object orbit pivot observer missing");
+        Assert(cube.Contains("FocusCameraOnSelectionPreservingPosition", StringComparison.Ordinal),
+            "selected-object focus helper missing");
+        Assert(cube.Contains("_yaw = Mathf.Atan2", StringComparison.Ordinal) &&
+               cube.Contains("_pitch = Math.Clamp", StringComparison.Ordinal) &&
+               cube.Contains("UpdateCamera();", StringComparison.Ordinal),
+            "view snapping does not reuse authoritative camera state");
+        Assert(!cube.Contains("ProjectStore", StringComparison.Ordinal),
+            "view cube must remain presentation-only");
+        Assert(!cube.Contains("_orbiting =", StringComparison.Ordinal),
+            "view cube must not own orbit interaction state");
     }
 
     static void Assert(bool condition, string message)
