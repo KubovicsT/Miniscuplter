@@ -117,6 +117,7 @@ jobs:
             'dist/package/Miniscuplter.Launcher.exe',
             'dist/package/Miniscuplter.Updater.exe',
             'dist/package/App/ai_backend/launcher_bridge.py',
+            'dist/package/App/ai_backend/serve.py',
             'dist/package/setup_ai_backend.bat',
             'dist/package/release.json',
             'dist/Miniscuplter-win-x64.zip',
