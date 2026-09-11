@@ -450,3 +450,10 @@ Verification focus:
 - Release-control finding: v1.0.24 and v1.0.25 published successfully. Historical v1.0.20 failures included release-control defects; v1.0.23 failures included candidate version-identity defects. Failures should be classified from workflow job/step/log evidence before retry.
 - Current project state: stable v1.0.25; writable v1.0.26; no v1.0.26 release request; integrated candidate hardening remains current. TECHNICAL_ROADMAP is stale relative to HANDOFF/PROJECT_STATUS.
 - Release-workflow action-major maintenance is now **APPLIED** on `release-control`: checkout v7, setup-python v7, setup-dotnet v6. The combined one-shot workflow replacement was safety-blocked, while comment-only and each individual dependency bump succeeded. This indicates a context/risk-sensitive write classifier rather than missing GitHub permissions or a forbidden workflow path.
+
+
+### Cross-agent automation telemetry — 2026-09-12
+- User requested a durable repo bridge for automation incidents and relevant user process directions because exact specialist-chat history is not reliably available cross-agent.
+- Added `docs/AUTOMATION_EVENTS.md` and synchronized Coordinator, Dev, Daily and Manager prompts to use it.
+- Manager must read/reconcile the event log every completed audit and promote durable lessons into Manager/reliability policy records.
+- Other agents log only material automation/process incidents or user process directions; no full chat dumps, secrets, unrelated personal information or product-authority transfer.
