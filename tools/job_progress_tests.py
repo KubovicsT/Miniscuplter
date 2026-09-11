@@ -294,4 +294,10 @@ if __name__ == "__main__":
     test_component_update_remove_and_repair_use_shared_owner()
     test_only_verified_3d_completion_records_qualification()
     test_qualification_recording_failure_cannot_fail_completed_job()
+
+    import job_journal_tests
+    job_journal_tests.test_clean_completion_is_persisted_without_large_history()
+    job_journal_tests.test_running_job_becomes_interrupted_after_backend_restart()
+    job_journal_tests.test_cancelling_job_becomes_cancelled_after_backend_restart()
+    job_journal_tests.test_corrupt_journal_fails_closed_without_claiming_resource()
     print("job_progress_tests: PASS")
