@@ -1,7 +1,7 @@
 {
-  "state": "active",
-  "owner_role": "coordinator",
-  "run_token": "coord-retry-20260911T222503Z-71f8c1b5274d4bb8932dfdd5d77c9c42",
-  "acquired_at": "2026-09-11T22:25:03Z",
-  "lease_until": "2026-09-11T23:55:03Z"
+  "state": "free",
+  "owner_role": null,
+  "run_token": null,
+  "acquired_at": null,
+  "lease_until": null
 }
