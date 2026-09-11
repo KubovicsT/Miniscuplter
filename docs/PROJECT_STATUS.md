@@ -9,7 +9,7 @@ Last reconciled: 2026-09-11
 - **Latest published stable release:** `v1.0.24`.
 - **Stable release target:** `784f408efba8a876b889fd704e051f22229de368`.
 - **Current writable development branch:** `v1.0.25`.
-- **Latest fully validated v1.0.25 implementation/test checkpoint:** `e0666bbd7e56d340f112238f78c836b958a64675`.
+- **Latest fully validated v1.0.25 implementation/test checkpoint:** `94554d21519cb06c286a686631d2ad44ca6648b7`.
 - **Overall completion:** **57% acceptance-weighted**.
 
 v1.0.24 is published and immutable. All further implementation changes belong on v1.0.25 or a later Coordinator-designated forward branch.
@@ -20,24 +20,27 @@ v1.0.24 is now the latest published immutable release at `784f408efba8a876b889fd
 
 ## Current v1.0.25 progress — bounded MS-019 transform authority
 
-Two deliberately narrow transform seams have now been implemented and validated on the forward branch:
+Three deliberately narrow transform seams have now been implemented and validated on the forward branch:
 
 - mapped Stage-C 1 mm Move commands derive the durable transform from Core project state rather than an already-mutated Godot scene node;
-- mapped Stage-C Rotate Y ±5° commands likewise derive rotation from `ProjectObject.Transform.RotationEuler`, apply only the requested Y-axis delta, save through Stage-C, then project durable state back to Godot;
+- mapped Stage-C Rotate Y ±5° commands derive rotation from `ProjectObject.Transform.RotationEuler`, apply only the requested Y-axis delta, save through Stage-C, then project durable state back to Godot;
+- mapped Stage-C Scale ±5% commands now derive scale from `ProjectObject.Transform.Scale`, apply only the requested uniform factor, save transactionally, then project the durable transform back to Godot;
 - compatibility behavior remains for unmapped/pre-migration objects;
-- focused source-wiring regressions prevent mapped Move/Rotate commands from returning to generic scene-observed persistence.
+- focused source-wiring regressions prevent mapped Move/Rotate/Scale commands from returning to generic scene-observed persistence.
 
 Move implementation: `ec54845c19ed632640f813d1ee76ce2708638389`.
 Rotate implementation/test checkpoint: `e0666bbd7e56d340f112238f78c836b958a64675`.
+Scale test gate: `3ad632925e6a6fd512e5dcee44bdf6f1aca2c102`.
+Scale implementation/checkpoint: `94554d21519cb06c286a686631d2ad44ca6648b7`.
 
-Scale, ground placement and viewport-drag authority were deliberately not broadened in the Rotate seam.
+Ground placement, viewport-drag authority, selection retirement and broader persistence cleanup were deliberately not included in the Scale seam.
 
 ## Validation state
 
-Exact-head CI for Rotate checkpoint `e0666bbd7e56d340f112238f78c836b958a64675` is green:
+Exact-head CI for Scale checkpoint `94554d21519cb06c286a686631d2ad44ca6648b7` is green:
 
-- `core-foundation` run `34602202639`: PASS;
-- `build` run `34602202701`: PASS;
+- `core-foundation` run `34607736187`: PASS;
+- `build` run `34607736306`: PASS;
 - semantic-version branch identity: PASS;
 - C# editor/launcher/updater/Core restore/build: PASS;
 - backend Python compile/dependency resolution: PASS;
@@ -48,7 +51,7 @@ Exact-head CI for Rotate checkpoint `e0666bbd7e56d340f112238f78c836b958a64675` i
 - installer-definition compilation: PASS;
 - release/publication jobs remained outside Dev ownership and no publication action was taken.
 
-`e0666bbd...` is therefore a useful fully validated checkpoint. It is informational only and does not freeze v1.0.25.
+`94554d21...` is therefore a useful fully validated checkpoint. It is informational only and does not freeze v1.0.25.
 
 ## Critical path
 
@@ -60,7 +63,7 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-Consume v1.0.24 target-machine evidence first. The bounded Rotate authority seam is complete and validated; do not roll directly into Scale, ground, viewport-drag, selection or persistence authority without current Coordinator sequencing. Do not broaden MS-020 or resume opportunistic MS-027 UI work without evidence or Coordinator direction.
+Consume v1.0.24 target-machine evidence first. The Coordinator-approved bounded Scale authority seam is complete and validated. Do not continue directly into ground placement, viewport-drag, selection or persistence authority without current Coordinator sequencing. Do not broaden MS-020 or resume opportunistic MS-027 UI work without evidence or Coordinator direction.
 
 The validated checkpoint is informational only; it does not stop continuous development.
 
