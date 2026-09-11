@@ -10,7 +10,7 @@ namespace Miniscuplter;
 
 public partial class Main
 {
-    sealed class ResourceSparkline : Control
+    sealed partial class ResourceSparkline : Control
     {
         readonly Queue<float> _samples = new();
         public ResourceSparkline()
