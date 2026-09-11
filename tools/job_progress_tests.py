@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ai_backend"))
 
 import job_progress
+import resource_ownership
 
 
 def test_job_identity_and_event_history() -> None:
@@ -42,7 +43,10 @@ def test_stage_c_context_is_retained_and_snapshot_isolated() -> None:
     assert second is not None
     assert second["context"]["project_revision"] == 7
     assert second["job_id"] == second["context"]["generation_job_id"]
+    assert second["resource_owner"]["active"] is True
+    assert second["resource_owner"]["owner_id"] == job_id
     job_progress.fail("test cleanup")
+    assert resource_ownership.snapshot()["active"] is False
 
 
 def test_cancel_state() -> None:
@@ -53,6 +57,23 @@ def test_cancel_state() -> None:
     assert cancelled["state"] == "cancelling"
     assert job_progress.is_cancel_requested(job_id)
     job_progress.fail("cancelled")
+
+
+def test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease() -> None:
+    first = resource_ownership.acquire("owner-a", "3d-generate", blocking=False)
+    assert first["owner_id"] == "owner-a"
+    try:
+        try:
+            resource_ownership.acquire("owner-b", "component-install", blocking=False)
+            raise AssertionError("parallel heavyweight ownership should be rejected")
+        except resource_ownership.ResourceBusyError:
+            pass
+        current = resource_ownership.snapshot()
+        assert current["active"] is True
+        assert current["owner_id"] == "owner-a"
+    finally:
+        assert resource_ownership.release("owner-a") is True
+    assert resource_ownership.snapshot()["active"] is False
 
 
 def test_only_verified_3d_completion_records_qualification() -> None:
@@ -69,6 +90,7 @@ def test_only_verified_3d_completion_records_qualification() -> None:
         job_progress.report("running_inference", "provider running", 50, "hunyuan-mini")
         job_progress.fail("input-specific generation failure")
         assert job_progress.get(failed_3d)["state"] == "failed"
+        assert resource_ownership.snapshot()["active"] is False
 
         successful_3d = job_progress.begin("3d-generate", "qualification-success-3d")
         # Simulate Auto falling back: the provider attached to the completed job must be the
@@ -76,6 +98,7 @@ def test_only_verified_3d_completion_records_qualification() -> None:
         job_progress.report("loading_model", "fallback selected", 20, "triposr")
         job_progress.complete("mesh saved and verified", "sf3d")
         assert job_progress.get(successful_3d)["provider"] == "sf3d"
+        assert resource_ownership.snapshot()["active"] is False
 
         assert len(recorded) == 2, "complete() should invoke the hook for completed jobs only"
         assert recorded[0][0] == "2d-generate"
@@ -98,6 +121,7 @@ def test_qualification_recording_failure_cannot_fail_completed_job() -> None:
         assert snapshot is not None
         assert snapshot["state"] == "completed"
         assert snapshot["progress"] == 100.0
+        assert resource_ownership.snapshot()["active"] is False
     finally:
         job_progress._record_completed_inference = original
 
@@ -106,6 +130,7 @@ if __name__ == "__main__":
     test_job_identity_and_event_history()
     test_stage_c_context_is_retained_and_snapshot_isolated()
     test_cancel_state()
+    test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease()
     test_only_verified_3d_completion_records_qualification()
     test_qualification_recording_failure_cannot_fail_completed_job()
     print("job_progress_tests: PASS")
