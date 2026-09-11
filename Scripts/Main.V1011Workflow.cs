@@ -350,12 +350,22 @@ public partial class Main
         host.Stretch = true;
         sub.TransparentBg = false;
         sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
-        host.Resized += () => CallDeferred(nameof(FinishV1011ViewportRepair));
+        host.Resized -= QueueV1011ViewportRepair;
+        host.Resized += QueueV1011ViewportRepair;
+        QueueV1011ViewportRepair();
+    }
+
+    void QueueV1011ViewportRepair()
+    {
+        // Compatibility-only repair for pre-v1.0.19 composition. Once the native Stretch
+        // pipeline is installed, resize must not rebuild the world/grid/environment.
+        if (_v1019ViewportPipelineInstalled) return;
         CallDeferred(nameof(FinishV1011ViewportRepair));
     }
 
     void FinishV1011ViewportRepair()
     {
+        if (_v1019ViewportPipelineInstalled) return;
         if (FindChild("ViewportHost", true, false) is not SubViewportContainer host || FindChild("Viewport", true, false) is not SubViewport sub) return;
         Vector2 size = host.Size;
         sub.Size = new Vector2I(Math.Max(1, (int)Math.Round(size.X)), Math.Max(1, (int)Math.Round(size.Y)));
