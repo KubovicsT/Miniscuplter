@@ -9,8 +9,8 @@ Last reconciled: 2026-09-11
 - **Latest published stable release:** `v1.0.23`.
 - **Stable release target:** `bda683264448fc8b51c7c538db61f8c0487a699a`.
 - **Current writable development branch:** `v1.0.24`.
-- **Latest fully validated v1.0.24 implementation/test checkpoint:** `e3dfba9aa26d7045b4bf9602920a484c443789c7`.
-- **Latest bounded MS-019 implementation/test commit:** `0e8aed592b75f714dd64482f65ddf701ce209a0f` — exact-head Actions validation pending because connector-originated commits did not start the push workflow during this run.
+- **Latest fully validated v1.0.24 implementation/test checkpoint:** `d7a72ce112ff9827f3ee314e281e7e894d2dff4c`.
+- **Bounded MS-019 implementation/test seam:** `0e8aed592b75f714dd64482f65ddf701ce209a0f`; migration-aware release-audit repair/validation checkpoint: `d7a72ce112ff9827f3ee314e281e7e894d2dff4c`.
 - **Overall completion:** **57% acceptance-weighted**.
 
 v1.0.23 is published and immutable. All further changes belong on v1.0.24 or later.
@@ -46,20 +46,32 @@ With Stage-C acceptance externally blocked, v1.0.24 has:
 - fail-closed corrupt/unsupported lifecycle state;
 - bounded recovery reads before decode/parse, including oversized/growing-file regression coverage.
 
-Validated checkpoint: `e3dfba9aa26d7045b4bf9602920a484c443789c7`. This seam is intentionally bounded, not a generalized persistent queue or isolated-provider-worker architecture.
+The original MS-020 checkpoint was `e3dfba9aa26d7045b4bf9602920a484c443789c7`. This seam is intentionally bounded, not a generalized persistent queue or isolated-provider-worker architecture.
 
 ## Current v1.0.24 progress — bounded MS-019 authority retirement
 
-The Coordinator-ordered next fallback seam is implemented at the already-migrated Stage-C generation boundary:
+The Coordinator-ordered fallback seam is implemented at the already-migrated Stage-C generation boundary:
 
 - historical `V109Generate3DAsync` no longer owns provider execution, STL validation, or direct scene insertion;
 - that compatibility entry point now immediately delegates to canonical `V1020Generate3DAsync`;
 - canonical Stage-C generation continues to own durable baseline binding, end-to-end generation identity, immutable candidate registration, explicit Apply/Discard, and persistence;
 - focused `StageCAuthorityRetirementTests` source wiring guards prevent `Generate3DRoutedAsync` from returning to the historical v1.0.9 layer and require the Stage-C binding/transport/candidate/apply owner to remain present.
 
-Implementation/test commit: `0e8aed592b75f714dd64482f65ddf701ce209a0f` (code change began at `23d652abe50f1bb8faa28410582d2acac8e29512`). Diff inspection confirms this slice changes only the legacy generation body plus the focused regression. Full exact-head CI was not claimable in this run because GitHub Actions did not create a push workflow for the connector-originated commit; keep the previous `e3dfba9...` checkpoint as the latest fully validated checkpoint until an exact-head build runs.
+Implementation/test commit: `0e8aed592b75f714dd64482f65ddf701ce209a0f` (code change began at `23d652abe50f1bb8faa28410582d2acac8e29512`).
 
-This is exactly one bounded MS-019 seam; do not expand into broad legacy removal without Coordinator sequencing or new evidence.
+Exact-head CI subsequently exposed one defect attributable to this migration: the strict release audit still required provider execution/validation/direct-import tokens to remain in the retired v1.0.9 owner. `d7a72ce112ff9827f3ee314e281e7e894d2dff4c` repairs the audit without weakening it: compatibility UI/cancellation remain checked in v1.0.9, while generation transport, STL validation, immutable candidate persistence, explicit review/Apply and scene insertion through Apply are now required from the canonical Stage-C owner. It also explicitly fails if `Generate3DRoutedAsync` returns to the legacy layer.
+
+Exact-head validation for `d7a72ce...` is green:
+
+- `core-foundation` run `34582114598`: PASS;
+- `build` run `34582114592`: PASS;
+- semantic-version identity, Python compile/dependency resolution, core logic, execution/job and real geometry regressions: PASS;
+- strict release audit: PASS;
+- C# editor/launcher/updater/Core restore/build: PASS;
+- portable package/layout, ZIP SHA-256 and installer-definition compilation: PASS;
+- release/publication jobs correctly skipped because this is a development-branch push.
+
+This is exactly one bounded MS-019 seam plus its attributable validation repair; do not expand into broad legacy removal without Coordinator sequencing or new evidence.
 
 ## Critical path
 
@@ -71,14 +83,14 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-Do not broaden MS-020 or MS-019 speculatively. The specifically ordered authority-retirement seam is complete at implementation level and awaits normal exact-head CI plus the next Coordinator sequencing decision.
+Do not broaden MS-020 or MS-019 speculatively. The specifically ordered authority-retirement seam and its exact-head validation repair are complete and fully validated. Await the next Coordinator sequencing decision while continuing to consume any new v1.0.23 target-machine evidence first.
 
-On the next Dev run, first consume any new v1.0.23 target-machine evidence and actual Coordinator/HANDOFF changes. If no new direction exists, do not invent a second MS-019 seam merely because acceptance remains externally blocked.
+If a serious reproduced Stage-C/runtime/storage/viewport regression arrives, it preempts fallback work immediately.
 
 ## Release chunk decision
 
-**v1.0.24 should keep accumulating.** The current work is useful but a checkpoint is not a freeze and Dev does not own publication.
+**v1.0.24 should keep accumulating.** The current work is a useful validated checkpoint, not a freeze, and Dev does not own publication.
 
 ## User dependency
 
-No product/design decision is required. Reference-machine verification of released v1.0.23 remains the external dependency. Autonomous development can continue under Coordinator sequencing.
+No product/design decision is required. Reference-machine verification of released v1.0.23 remains the external dependency. Autonomous development continues under Coordinator sequencing.
