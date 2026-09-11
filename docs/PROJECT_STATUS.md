@@ -46,9 +46,11 @@ Exact-head validation is green: Core foundation, C# editor/launcher/updater/Core
 
 ## Critical path
 
-**MS-029 updater/launcher reliability is now P0.** User/reference-machine testing after an application update reproduced the updated launcher opening briefly and then closing. Repository inspection identifies the direct cause: the updater's successful health-probe path kills the launched updated launcher in `VerifyLauncherStartup` and does not perform a normal post-commit restart. This preempts the planned MS-019 ground-placement fallback until fixed and validated.
+**MS-030 packaged backend health/runtime ownership is now P0.** Released v1.0.25 fails the local AI backend health check before provider resolution, and Repair AI Runtime completes successfully without fixing it. Repository inspection shows Repair validates the backend-local `.venv`, while the editor backend launcher can prefer `Runtime/Python/python.exe` first; that mismatch is a concrete root-cause hypothesis requiring process/log confirmation. This blocks the entire Stage-C 3D path.
 
-After MS-029, MS-009 is the next development blocker: released v1.0.25 still darkens the 3D viewport/grid after splitter resize. The user-directed MS-027 UI tranche follows once that renderer/resize regression is fixed, while Stage-C reference-machine testing continues:
+**MS-029 updater/launcher reliability remains Critical after MS-030.** User/reference-machine testing after an application update reproduced the updated launcher opening briefly and then closing. Repository inspection identifies the direct cause: the updater's successful health-probe path kills the launched updated launcher in `VerifyLauncherStartup` and does not perform a normal post-commit restart. This preempts the planned MS-019 ground-placement fallback until fixed and validated.
+
+After MS-030 and MS-029, MS-009 is the next development blocker: released v1.0.25 still darkens the 3D viewport/grid after splitter resize. The user-directed MS-027 UI tranche follows once that renderer/resize regression is fixed, while Stage-C reference-machine testing continues:
 
 `MS-027: multiline scrollable AI console → real interactive view cube → compact viewport tools → right-panel hover-help cleanup`
 
@@ -60,8 +62,8 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-029 with a bounded launcher/updater hotfix, regression coverage, and Windows update-path validation before returning to the mapped-object ground-placement seam. After the MS-029 checkpoint, Dev must fix MS-009's resize-induced viewport darkening before the bounded MS-027 user-acceptance tranche. Ground-placement work remains deferred. Coordinator will reassess release readiness after the critical updater/viewport regressions and the defined UI tranche have exact-head validation.
+The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-030 first with deterministic repaired-runtime/backend interpreter ownership, startup-health validation and useful process diagnostics. Then fix MS-029, followed by MS-009 before the bounded MS-027 user-acceptance tranche. Ground-placement work remains deferred. Coordinator will reassess release readiness after the critical updater/viewport regressions and the defined UI tranche have exact-head validation.
 
 ## User dependency
 
-No product/design decision is required. The post-update close is sufficiently reproduced. Manually reopen the installed launcher once; if that manual launch also exits, report it because that would be a separate startup problem. Otherwise autonomous MS-029 hotfix work can continue. Continue testing the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.
+No product/design decision is required. The backend-health failure is sufficiently reproduced; do not keep retrying Repair or 3D generation on v1.0.25. The post-update close is also sufficiently reproduced. Manually reopen the installed launcher once; if that manual launch also exits, report it because that would be a separate startup problem. Otherwise autonomous MS-029 hotfix work can continue. Continue testing the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.
