@@ -457,3 +457,11 @@ Verification focus:
 - Added `docs/AUTOMATION_EVENTS.md` and synchronized Coordinator, Dev, Daily and Manager prompts to use it.
 - Manager must read/reconcile the event log every completed audit and promote durable lessons into Manager/reliability policy records.
 - Other agents log only material automation/process incidents or user process directions; no full chat dumps, secrets, unrelated personal information or product-authority transfer.
+
+
+### Cross-agent context broadening — 2026-09-12 01:22 Europe/Budapest
+- User clarified the shared bridge must preserve all material project input, not only automation incidents.
+- Created `docs/CROSS_AGENT_CONTEXT.md` for user runtime/reference-machine evidence, requested changes, decisions/clarifications, bug reports, automation/release incidents and other cross-agent handoff facts.
+- Updated active Coordinator, Dev, Daily and Manager prompts to read/write this context while still promoting durable truth into the owning canonical docs.
+- Manager now audits whether user evidence/requests propagate correctly across specialist chats without transferring product/roadmap/release authority.
+- `docs/AUTOMATION_EVENTS.md` remains historical process telemetry and is superseded for new shared entries.
