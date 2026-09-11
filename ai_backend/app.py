@@ -20,7 +20,7 @@ from detail_pipeline import detail_2d, detail_3d, apply_detail
 from storage import DEFAULT_IMAGE_SUFFIXES, DEFAULT_MESH_SUFFIXES, validate_input_path, validate_output_directory, validate_output_path
 from job_progress import begin as begin_job, bind as bind_job, report as report_job, complete as complete_job, fail as fail_job, current as current_job, get as get_job, get_events as get_job_events, request_cancel as request_job_cancel
 
-APP_VERSION = "1.0.22"
+APP_VERSION = "1.0.24"
 app = FastAPI(title="Miniscuplter AI Backend", version=APP_VERSION)
 app.include_router(geometry_router)
 app.include_router(rig_router)
@@ -83,33 +83,30 @@ class EditRequest(BaseModel):
 
 class Generate3DRequest(BaseModel):
     image_path: str = Field(min_length=1, max_length=4096)
-    prompt: str = Field(default="", max_length=8000)
     output_path: str = Field(min_length=1, max_length=4096)
+    prompt: str = Field(default="", max_length=8000)
     quality: str = Field(default="standard", max_length=64)
     provider: str = Field(default="auto", max_length=64)
     role: str = Field(default="quality", max_length=64)
-    generation_job_id: Optional[str] = Field(default=None, min_length=32, max_length=96)
-    project_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
+    generation_job_id: Optional[str] = Field(default=None, max_length=128)
+    project_id: Optional[str] = Field(default=None, max_length=128)
     project_revision: Optional[int] = Field(default=None, ge=0)
-    input_image_revision_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
-    output_object_id: Optional[str] = Field(default=None, min_length=32, max_length=64)
+    input_image_revision_id: Optional[str] = Field(default=None, max_length=128)
+    output_object_id: Optional[str] = Field(default=None, max_length=128)
 
 
 class GeneratePartsRequest(BaseModel):
     image_path: str = Field(min_length=1, max_length=4096)
     output_dir: str = Field(min_length=1, max_length=4096)
-    num_parts: int = Field(default=4, ge=1, le=16)
-    tag: str = Field(default="miniscuplter", min_length=1, max_length=64)
+    num_parts: int = Field(default=4, ge=1, le=64)
+    tag: str = Field(default="part", min_length=1, max_length=128)
     provider: str = Field(default="auto", max_length=64)
 
 
-class ComponentRequest(BaseModel):
-    id: str
-
-
-class SemanticSelectRequest(BaseModel):
-    input_path: str = Field(min_length=1, max_length=4096)
-    query: str = Field(min_length=1, max_length=1000)
+class SmartSelectRequest(BaseModel):
+    image_path: str = Field(min_length=1, max_length=4096)
+    prompt: str = Field(min_length=1, max_length=8000)
+    output_path: str = Field(min_length=1, max_length=4096)
 
 
 class Detail2DRequest(BaseModel):
@@ -117,76 +114,53 @@ class Detail2DRequest(BaseModel):
     mask_path: str = Field(min_length=1, max_length=4096)
     prompt: str = Field(min_length=1, max_length=8000)
     output_path: str = Field(min_length=1, max_length=4096)
-    image_provider: str = Field(default="auto", max_length=64)
+    quality: str = Field(default="standard", max_length=64)
+    provider: str = Field(default="auto", max_length=64)
 
 
 class Detail3DRequest(BaseModel):
-    source_mesh: str = Field(min_length=1, max_length=4096)
     image_path: str = Field(min_length=1, max_length=4096)
     mask_path: str = Field(min_length=1, max_length=4096)
     prompt: str = Field(min_length=1, max_length=8000)
-    bounds_min: list[float] = Field(min_length=3, max_length=3)
-    bounds_max: list[float] = Field(min_length=3, max_length=3)
-    output_patch: str = Field(min_length=1, max_length=4096)
-    output_image: str = Field(min_length=1, max_length=4096)
-    output_crop: str = Field(min_length=1, max_length=4096)
-    image_provider: str = Field(default="auto", max_length=64)
-    three_d_provider: str = Field(default="auto", max_length=64)
-
-
-class DetailApplyRequest(BaseModel):
-    source_mesh: str = Field(min_length=1, max_length=4096)
-    patch_mesh: str = Field(min_length=1, max_length=4096)
     output_path: str = Field(min_length=1, max_length=4096)
-    voxel_size: Optional[float] = Field(default=None, ge=0.04, le=5.0)
+    quality: str = Field(default="standard", max_length=64)
+    provider: str = Field(default="auto", max_length=64)
 
 
-def _stage_c_context(req: Generate3DRequest, header_job_id: Optional[str]) -> dict:
-    values = [
-        req.generation_job_id,
-        req.project_id,
-        req.project_revision,
-        req.input_image_revision_id,
-        req.output_object_id,
-    ]
-    present = [value is not None and (not isinstance(value, str) or bool(value.strip())) for value in values]
-    if any(present) and not all(present):
-        raise HTTPException(400, "Stage-C 3D identity must be supplied as one complete context.")
-    if not any(present):
-        return {}
-    context = {
-        "generation_job_id": str(req.generation_job_id).strip(),
-        "project_id": str(req.project_id).strip(),
-        "project_revision": int(req.project_revision),
-        "input_image_revision_id": str(req.input_image_revision_id).strip(),
-        "output_object_id": str(req.output_object_id).strip(),
+class ApplyDetailRequest(BaseModel):
+    source_path: str = Field(min_length=1, max_length=4096)
+    detail_path: str = Field(min_length=1, max_length=4096)
+    output_path: str = Field(min_length=1, max_length=4096)
+    pitch: float = Field(default=0.25, ge=0.04, le=5.0)
+
+
+class ComponentRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=128)
+
+
+def _stage_c_context(req: Generate3DRequest, transport_job_id: str | None) -> dict:
+    return {
+        "generation_job_id": (req.generation_job_id or transport_job_id or "").strip() or None,
+        "project_id": (req.project_id or "").strip() or None,
+        "project_revision": req.project_revision,
+        "input_image_revision_id": (req.input_image_revision_id or "").strip() or None,
+        "output_object_id": (req.output_object_id or "").strip() or None,
     }
-    if header_job_id and header_job_id.strip() != context["generation_job_id"]:
-        raise HTTPException(400, "Stage-C generation job id does not match the transport job id.")
-    return context
 
 
 @app.get("/health")
 def health():
-    return {
-        "ok": True,
-        "version": APP_VERSION,
-        "routing": routing_status(),
-        "geometry_provider": "trimesh-voxel + model-analysis + transactional-detail-union",
-        "rig_provider": "adaptive-quick + optional-universal-command",
-        "smart_select_provider": "local-clipseg-or-geometry",
-        "components": component_status(),
-    }
+    return {"ok": True, "version": APP_VERSION}
+
+
+@app.get("/models")
+def models(check_updates: bool = False):
+    return component_status(check_updates=check_updates)
 
 
 @app.get("/routing")
 def routing():
     return routing_status()
-
-
-@app.get("/components")
-def components():
-    return component_status()
 
 
 @app.get("/job-progress/current")
@@ -195,27 +169,20 @@ def job_progress_current():
 
 
 @app.get("/job-progress/{job_id}")
-def job_progress_by_id(job_id: str):
-    result = get_job(job_id)
-    if result is None:
-        raise HTTPException(404, "Unknown AI job id.")
-    return result
-
-
-@app.get("/job-progress/{job_id}/events")
-def job_progress_events(job_id: str, after: int = 0):
-    result = get_job_events(job_id, max(0, after))
-    if result is None:
-        raise HTTPException(404, "Unknown AI job id.")
-    return {"job_id": job_id, "events": result}
+def job_progress(job_id: str, after: int = 0):
+    snapshot = get_job(job_id)
+    if snapshot is None:
+        raise HTTPException(404, "Unknown AI job")
+    snapshot["events_after"] = get_job_events(job_id, max(0, after)) or []
+    return snapshot
 
 
 @app.post("/job-progress/{job_id}/cancel")
-def job_progress_cancel(job_id: str):
-    result = request_job_cancel(job_id)
-    if result is None:
-        raise HTTPException(404, "Unknown AI job id.")
-    return result
+def cancel_job(job_id: str):
+    snapshot = request_job_cancel(job_id)
+    if snapshot is None:
+        raise HTTPException(404, "Unknown AI job")
+    return snapshot
 
 
 @app.post("/components/install")
@@ -418,76 +385,48 @@ def generate_parts(req: GeneratePartsRequest):
         r["routing_reason"] = d.reason
         return r
     except Exception as e:
-        raise HTTPException(502, f"Structured 3D generation failed: {e}") from e
-    finally:
-        release_all_models()
+        raise HTTPException(502, f"Structured 3D provider failed: {e}") from e
 
 
-@app.post("/detail-2d")
-def detail_2d_route(req: Detail2DRequest, x_miniscupter_job_id: Optional[str] = Header(default=None)):
+@app.post("/smart-select")
+def smart_select(req: SmartSelectRequest):
     req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
-    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
     req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
-    begin_job("2d-detail", x_miniscupter_job_id)
     try:
-        report_job("resolving_provider", "Choosing the local detail/edit provider for the selected region.", 5)
-        report_job("preparing_inputs", "Preparing the selected mask and surrounding image context.", 12)
-        result = detail_2d(req.image_path, req.mask_path, req.prompt, req.output_path, req.image_provider)
-        provider = str(result.get("provider") or "")
-        report_job("validating_output", "Regional enhancement returned; verifying the saved image.", 97, provider)
-        path = _provider_output(str(result.get("path") or ""), req.output_path, DEFAULT_IMAGE_SUFFIXES)
-        result["path"] = path
-        complete_job("Context-aware regional result saved and verified.", provider)
-        return result
-    except Exception as e:
-        fail_job(f"2D detail refinement failed: {e}")
-        raise HTTPException(502, f"2D detail refinement failed: {e}") from e
-    finally:
-        bind_job(None)
-
-
-@app.post("/detail-3d")
-def detail_3d_route(req: Detail3DRequest):
-    req.source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
-    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
-    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
-    req.output_patch = _safe_output_path(req.output_patch, (".stl",))
-    req.output_image = _safe_output_path(req.output_image, DEFAULT_IMAGE_SUFFIXES)
-    req.output_crop = _safe_output_path(req.output_crop, DEFAULT_IMAGE_SUFFIXES)
-    try:
-        result = detail_3d(req.source_mesh, req.image_path, req.mask_path, req.prompt, req.bounds_min, req.bounds_max, req.output_patch, req.output_image, req.output_crop, req.image_provider, req.three_d_provider)
-        result["patch_path"] = _provider_output(str(result.get("patch_path") or ""), req.output_patch, (".stl",))
-        result["enhanced_image"] = _provider_output(str(result.get("enhanced_image") or ""), req.output_image, DEFAULT_IMAGE_SUFFIXES)
-        result["crop_image"] = _provider_output(str(result.get("crop_image") or ""), req.output_crop, DEFAULT_IMAGE_SUFFIXES)
-        return result
-    except Exception as e:
-        raise HTTPException(502, f"3D detail refinement failed: {e}") from e
-    finally:
-        release_all_models()
-
-
-@app.post("/detail-apply")
-def detail_apply_route(req: DetailApplyRequest):
-    req.source_mesh = _safe_input_path(req.source_mesh, DEFAULT_MESH_SUFFIXES)
-    req.patch_mesh = _safe_input_path(req.patch_mesh, DEFAULT_MESH_SUFFIXES)
-    req.output_path = _safe_output_path(req.output_path, (".stl",))
-    try:
-        result = apply_detail(req.source_mesh, req.patch_mesh, req.output_path, req.voxel_size)
-        result["path"] = _provider_output(str(result.get("path") or ""), req.output_path, (".stl",))
-        return result
-    except Exception as e:
-        raise HTTPException(502, f"Detail apply failed: {e}") from e
-
-
-@app.post("/semantic-select")
-def semantic_select_route(req: SemanticSelectRequest):
-    req.input_path = _safe_input_path(req.input_path, DEFAULT_MESH_SUFFIXES)
-    try:
-        return semantic_select(req.input_path, req.query)
+        path = semantic_select(req.image_path, req.prompt, req.output_path)
+        return {"path": _provider_output(path, req.output_path, DEFAULT_IMAGE_SUFFIXES), "provider": "clipseg-smart-select"}
     except Exception as e:
         raise HTTPException(502, f"Smart Select failed: {e}") from e
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=7868, log_level="info")
+@app.post("/detail-2d")
+def detail_2d_endpoint(req: Detail2DRequest):
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, DEFAULT_IMAGE_SUFFIXES)
+    try:
+        return detail_2d(req.image_path, req.mask_path, req.prompt, req.output_path, req.quality, req.provider)
+    except Exception as e:
+        raise HTTPException(502, f"2D detail generation failed: {e}") from e
+
+
+@app.post("/detail-3d")
+def detail_3d_endpoint(req: Detail3DRequest):
+    req.image_path = _safe_input_path(req.image_path, DEFAULT_IMAGE_SUFFIXES)
+    req.mask_path = _safe_input_path(req.mask_path, DEFAULT_IMAGE_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, (".stl",))
+    try:
+        return detail_3d(req.image_path, req.mask_path, req.prompt, req.output_path, req.quality, req.provider)
+    except Exception as e:
+        raise HTTPException(502, f"3D detail generation failed: {e}") from e
+
+
+@app.post("/apply-detail")
+def apply_detail_endpoint(req: ApplyDetailRequest):
+    req.source_path = _safe_input_path(req.source_path, DEFAULT_MESH_SUFFIXES)
+    req.detail_path = _safe_input_path(req.detail_path, DEFAULT_MESH_SUFFIXES)
+    req.output_path = _safe_output_path(req.output_path, (".stl",))
+    try:
+        return apply_detail(req.source_path, req.detail_path, req.output_path, req.pitch)
+    except Exception as e:
+        raise HTTPException(502, f"Detail application failed: {e}") from e
