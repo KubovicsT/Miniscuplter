@@ -29,7 +29,7 @@ v1.0.26 has now completed the Coordinator-authorized viewport-drag transform aut
 
 **KEEP v1.0.26 ACCUMULATING; DO NOT FREEZE BEFORE MS-030, MS-029 AND MS-009 ARE FIXED, AND THE USER-DIRECTED MS-027 UI TRANCHE IS REVIEWED.**
 
-The user has reproduced a Critical updater/launcher regression on the reference machine. The exact code path is identified: updater health validation kills the successfully started updated launcher and never performs a normal post-commit restart. v1.0.26 remains writable; MS-029 now preempts the planned MS-019 fallback. After a validated MS-029 checkpoint, Coordinator should immediately reassess release readiness. The existing viewport-drag authority seam plus a release-reliability hotfix is likely a sufficiently meaningful chunk, but no release decision is made before the fix and Windows update-path validation exist.
+Reference-machine evidence now includes three unresolved release blockers: MS-030 prevents Stage-C 3D generation from reaching provider resolution even after Repair succeeds; MS-029 terminates the post-update launcher health-probe session; and MS-009 still changes viewport presentation after resize. v1.0.26 therefore remains writable and must continue accumulating fixes plus the defined MS-027 UI acceptance tranche. Release readiness will be reassessed only after these blockers have validated checkpoints and the combined current HEAD forms a coherent testable increment.
 
 ## 4. Ordered critical path
 
