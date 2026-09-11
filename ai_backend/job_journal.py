@@ -108,13 +108,16 @@ def load() -> dict | None:
     if path.is_symlink() or not path.is_file():
         raise JournalCorruptError("Job lifecycle journal path is not a regular managed file.")
     try:
-        # Bound resource use before allocating/decoding the journal. Keep the
-        # post-read check too because the file could change between stat/read.
+        # Reject obviously oversized state before opening, then cap the actual
+        # read as well so file growth between stat/open cannot cause an
+        # unbounded allocation during backend recovery.
         if path.stat().st_size > _MAX_JOURNAL_BYTES:
             raise JournalCorruptError("Job lifecycle journal is unexpectedly large.")
-        raw = path.read_text(encoding="utf-8")
-        if len(raw.encode("utf-8")) > _MAX_JOURNAL_BYTES:
+        with path.open("rb") as stream:
+            raw_bytes = stream.read(_MAX_JOURNAL_BYTES + 1)
+        if len(raw_bytes) > _MAX_JOURNAL_BYTES:
             raise JournalCorruptError("Job lifecycle journal is unexpectedly large.")
+        raw = raw_bytes.decode("utf-8")
         parsed = json.loads(raw)
     except JournalCorruptError:
         raise
