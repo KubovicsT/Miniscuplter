@@ -3,153 +3,102 @@
 > Coordinator-owned sequencing, priority, architecture and release-chunk authority. Project Charter/accepted Decisions and actual repository/release truth outrank this document; HANDOFF owns the immediate Dev baton.
 
 Last coordinator review: 2026-09-11
-Latest published stable: `v1.0.22` pending v1.0.23 publication
-Frozen release source: `v1.0.23` at `a6532003bc6ecfcf79fc15afa3ee772cb117b982`
+Latest published stable: `v1.0.22`
+Frozen release source: `v1.0.23`, release-fix candidate `01c81fededa38ce73f8eaec997558cafb6ebd2cc`
 Current writable development branch: `v1.0.24`
 Acceptance-weighted completion: **57%**
 
 ## Current objective
 
-Complete **Stage-C reference-machine acceptance** while continuing forward development without racing the frozen v1.0.23 release source.
+Complete **Stage-C reference-machine acceptance** while continuing forward development on v1.0.24 and repairing the diagnosed v1.0.23 release-source version defect without weakening release gates.
 
 Accepted thin slice:
 
 `2D source → accepted durable baseline → local 3D generation → identity-bound candidate → Apply → durable editable object → transform/sculpt → save/reload → cleanup → exact STL export`
 
-Released-v1.0.22 fixes for MS-023/MS-009/MS-024/MS-025 and related acceptance issues remain **FIXED - NEEDS USER VERIFICATION** where applicable until real-machine retest passes.
+Released-v1.0.22 fixes remain **FIXED - NEEDS USER VERIFICATION** where applicable until real-machine retest passes.
 
 ## Direction assessment
 
-**PRESERVE.** The selective-refactor architecture continues to converge:
+**PRESERVE.** Core owns durable state; Godot owns viewport/input/presentation; Python owns inference/geometry; stable IDs, immutable revisions, transactional history, controlled storage and immutable published releases remain mandatory.
 
-- Core owns durable project/object/revision/history state.
-- Godot owns viewport/input/presentation.
-- Python owns inference/geometry execution.
-- stable IDs, immutable revisions and transactional history remain mandatory;
-- STL is interchange/export, never project authority;
-- storage stays inside controlled roots;
-- published releases are immutable and fixes move forward.
+The completed MS-027 sequence respected these boundaries and is now closed to speculative expansion. v1.0.24 structural fallback is bounded MS-020 reliability work only while Stage-C acceptance is externally blocked.
 
-The completed MS-027 sequence respected these boundaries: newer presentation slices increasingly moved to version-neutral components and delegated to existing selection/camera/AI/job owners instead of duplicating authority.
+## v1.0.23 release status
 
-## Release decision / chunking
+The first autonomous v1.0.23 publication attempt failed **after** exact request validation, C#/Core/Python/job/geometry/release-audit validation and a successful real Godot Windows build. Output verification correctly rejected the package because the frozen source still declared release version `1.0.22` in both `Launcher/Miniscuplter.Launcher.csproj` and `installer/Miniscuplter.iss`; consequently the build produced `Miniscuplter-Setup-1.0.22.exe` while release-control required `1.0.23`.
 
-**v1.0.23 reached the release boundary.**
+This is a narrow release-source metadata defect, not an application architecture failure.
 
-The accumulated scope is now a coherent, substantial user-testable increment rather than a collection of isolated checkpoints. It includes:
+Coordinator applied the minimum frozen-source correction:
+- launcher package version → `1.0.23`;
+- installer version/output name → `1.0.23`;
+- corrected frozen source HEAD → `01c81fededa38ce73f8eaec997558cafb6ebd2cc`;
+- release-control request updated to that exact SHA for a full-gate retry.
 
-1. workspace splitter persistence, UI/font scaling and tooltip infrastructure;
-2. direct viewport tool controls;
-3. synchronized collapsible scene hierarchy;
-4. view cube and selected-object orbit pivot;
-5. unified AI command/history surface through authoritative action owners;
-6. MS-026 local resource telemetry;
-7. density/spacing cleanup and retirement of superseded instructional UI;
-8. MS-028 compile-regression repair.
+The same defect was proactively prevented forward by setting the writable v1.0.24 launcher/installer metadata to `1.0.24`. Do not revert those version declarations.
 
-The exact frozen boundary is `a6532003bc6ecfcf79fc15afa3ee772cb117b982`. v1.0.24 was created from that SHA before release initiation so Dev throughput can continue. v1.0.23 must not move while release-control is active.
-
-Publication does not constitute target-machine acceptance and does not close verification-needed issues.
+v1.0.23 remains frozen. No other source changes belong there unless the current retry exposes another concrete release-source defect.
 
 ## Ordered critical path
 
-### P0 — Consume target-machine evidence
+### P0 — v1.0.23 publication integrity
 
-At every Dev cycle start, check for new user/reference-machine evidence. Any reproduced persistence, data-loss, viewport, storage, cancellation, provider or Stage-C blocker immediately preempts structural fallback work.
+Monitor the corrected exact-SHA retry through output verification, installer smoke test and publication. Do not weaken any gate. If it fails, diagnose the exact failure before another source change.
 
-### P1 — Complete Stage-C acceptance
+### P1 — consume target-machine evidence
 
-Required evidence:
-- intended local 3D route completes;
-- Ready/Conflict candidate appears;
-- Apply advances durable object/revision;
-- save/close/reopen restores the same object/revision;
-- Move/Rotate/Scale and one supported sculpt/edit path work;
-- cleanup/export follows durable revision authority;
-- storage containment holds;
-- one practical provider is qualified on GTX 1080 / 8 GB VRAM / 16 GB RAM;
-- cancellation/recovery does not poison the next job.
+Any reproduced persistence, data-loss, viewport, storage, cancellation, provider or Stage-C blocker immediately preempts structural fallback work.
 
-### P2 — v1.0.24 structural fallback while acceptance is externally blocked
+### P2 — complete Stage-C acceptance
 
-MS-027's planned UI sequence is complete. Do **not** invent another UI slice merely to create activity.
+Required evidence includes generation → candidate → Apply → save/reopen identity, transform/sculpt, cleanup/export, storage containment, one qualified practical provider, and cancellation/recovery on the reference machine.
 
-Begin **MS-020 durable Job Broker ownership/resource locking/cancellation/crash recovery** in bounded slices that directly improve the accepted Stage-C workflow. First objective: map current job/process ownership and establish one authoritative lifecycle seam for a long-running local job without broad provider or UI expansion.
+### P3 — bounded v1.0.24 MS-020 fallback
 
-Guardrails:
-- one heavyweight GPU job by default;
-- immutable input revision per job;
-- structured progress/output identity;
-- cancellation acknowledged only after worker stop;
-- runtime install/remove/repair shares resource ownership locking;
-- preserve current working Stage-C behavior during migration;
-- no broad rewrite before each migrated seam has acceptance/regression coverage.
+Dev trajectory is aligned. Three bounded MS-020 slices now establish migrated heavyweight lifecycle/resource ownership and truthful cancellation semantics. The latest validated implementation checkpoint before Coordinator release-version propagation is `f5ea1378c4ff1ba177262a275469ef8d310d7cc2`.
 
-### P3 — outward migration after proven Job Broker seams
+Next bounded slice: persist only the minimum job lifecycle/tombstone state needed to reconcile backend restart/crash truthfully.
 
-Continue MS-019 retirement of duplicate legacy authority only after replacement paths are proven. Migration-before-removal remains mandatory.
+Requirements:
+- contained Miniscuplter-controlled state root;
+- compact identity/kind/state/cancellation/timestamps/Stage-C context only;
+- atomic replacement;
+- active/cancelling record from a dead prior process becomes explicit interrupted/cancelled terminal state on recovery;
+- never auto-apply interrupted outputs;
+- fail closed on corrupt journal;
+- preserve one-heavyweight-owner behavior;
+- focused regressions for completion, restart reconciliation, corrupt journal and storage containment;
+- stop before generalized persistent queue or isolated provider-worker redesign.
 
-### P4 — provider policy and Stage-D breadth
+### P4 — outward migration after proven Job Broker seams
 
-Use measured MS-022 evidence before choosing Fast/Balanced/Quality defaults. Broader sculpt/editing, kitbash and Rig/Pose remain behind Stage-C/Job-Broker reliability unless new evidence changes dependency order.
-
-## Issue priority
-
-1. MS-023 — Critical / FIXED - NEEDS USER VERIFICATION.
-2. MS-018 — Critical / IN PROGRESS.
-3. MS-009 — Critical / FIXED - NEEDS USER VERIFICATION.
-4. MS-024 — High / FIXED - NEEDS USER VERIFICATION.
-5. MS-013 — High / FIXED - NEEDS USER VERIFICATION.
-6. MS-022 — High / IN PROGRESS.
-7. MS-004 — High / FIXED - NEEDS USER VERIFICATION.
-8. MS-020 — High / next unblocked structural objective while acceptance waits.
-9. MS-025 — Medium / FIXED - NEEDS USER VERIFICATION.
-10. MS-027 — Medium / planned bounded sequence COMPLETE IN CODE; visual/user verification pending.
-11. MS-026 — Medium / implemented within MS-027; target telemetry plausibility/overhead verification pending.
-12. MS-028 — RESOLVED.
-
-## v1.0.24 intended scope
-
-Allowed:
-- fixes driven by target-machine acceptance evidence;
-- Stage-C diagnostics/regressions;
-- bounded MS-020 Job Broker durability/resource/cancellation work while user evidence is unavailable;
-- propagation of any concrete release-source fix required by v1.0.23 publication failure.
-
-Not currently in scope:
-- additional speculative UI modernization;
-- monolithic Main.V* rewrite/removal;
-- full provider expansion;
-- broad sculpt migration;
-- Rig & Pose modernization;
-- kitbash expansion;
-- unrelated feature breadth.
+Continue MS-019 duplicate-authority retirement only after replacement paths are proven. Broader Stage-D/Rig/kitbash/provider breadth remains later.
 
 ## Release model
 
-Dev records useful validated checkpoints and keeps developing. Checkpoints are advisory, not freezes. Coordinator chooses release chunk size from the **current** branch HEAD. At release boundary, Coordinator creates the next forward semantic-version branch from the exact frozen SHA, reconciles writable-branch docs there, then creates release-control for the frozen prior branch. Only the active release request freezes that source branch. Never rewind a moving version branch to publish an older checkpoint and never rewrite a published tag/release.
+Dev records useful checkpoints and continues. Coordinator chooses release chunk size from current branch HEAD. Only release-request creation freezes a source branch. At freeze, a forward semantic-version branch must already exist so Dev can continue. Failed releases preserve the frozen source until diagnosis; only minimum concrete release-source fixes are allowed there. Published tags/releases are never rewritten.
 
 ## Risks
 
-1. CI/release success being mistaken for real-machine acceptance.
-2. Dev writing to frozen v1.0.23 instead of v1.0.24.
-3. MS-020 becoming generalized infrastructure rather than Stage-C reliability work.
-4. duplicate job/process authority during migration.
-5. cancellation being reported before the worker actually stops.
-6. UI modernization restarting after its planned sequence is complete.
-7. telemetry/provider observations being overclaimed as a support matrix.
-8. storage leakage from job/runtime/cache paths.
+1. CI/release success being mistaken for target-machine acceptance.
+2. accidental writes to frozen v1.0.23 beyond diagnosed release repair.
+3. release-version metadata drifting behind semantic-version branches again.
+4. MS-020 expanding into generalized infrastructure rather than Stage-C reliability.
+5. duplicate job/process authority during migration.
+6. cancellation being reported before physical worker stop.
+7. storage leakage from job/runtime/cache paths.
 
 ## Next Coordinator-level objectives for Dev
 
-1. Work only on v1.0.24; treat v1.0.23 as frozen while release-control is active.
-2. Consume new target-machine evidence first every cycle.
-3. If none exists, start one bounded MS-020 lifecycle/ownership slice directly serving long-running local job reliability.
-4. Preserve current Stage-C behavior and add focused regression coverage around any migrated job seam.
-5. Do not start another MS-027 slice.
+1. Work only on v1.0.24; v1.0.23 remains Coordinator-owned/frozen.
+2. Preserve v1.0.24 launcher/installer version metadata at `1.0.24`.
+3. Consume new target-machine evidence first every cycle.
+4. If none exists, implement only the bounded restart-reconciliation MS-020 slice described above.
+5. Preserve current Stage-C behavior and add focused regressions.
 6. Keep completion at 57% until acceptance evidence changes it.
 7. Do not create release requests/tags/releases.
 
 ## User dependency
 
-No product-level decision is required. Reference-machine testing remains the external dependency. Prefer the newest successfully published build when available and test the complete Stage-C path plus viewport resize/presentation, storage, cancellation/recovery, and resource telemetry during a long AI job.
+No product-level decision is required. Reference-machine testing remains the external dependency. Until v1.0.23 successfully publishes, v1.0.22 remains stable. After publication, prefer v1.0.23 for the complete Stage-C and UI/telemetry acceptance pass.
