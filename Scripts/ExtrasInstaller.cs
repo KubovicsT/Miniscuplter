@@ -63,5 +63,6 @@ public partial class ExtrasInstaller : Node
         main.InstallSceneHierarchy();
         main.InstallViewCube();
         main.InstallAiCommandConsole();
+        main.InstallResourceTelemetry();
     }
 }
