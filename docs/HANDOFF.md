@@ -8,60 +8,63 @@ Last updated: 2026-09-11
 
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7` (immutable).
 - **Current development branch:** `v1.0.23`.
-- **Latest fully validated bounded code/test checkpoint before documentation commits:** `4538ab0e3251bb84449318a1bd43d9986d94e6d9`.
+- **Latest fully validated bounded code/test checkpoint before documentation commits:** `e110a746a1dd9a470c7d05de80de684edfcf1f27`.
 - **Overall completion:** **57% acceptance-weighted**.
 - **Release state:** DEVELOPMENT CONTINUES / NO v1.0.23 RELEASE FREEZE. Dev must not create release requests/tags/releases.
 - **Critical path:** released-v1.0.22 Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts UI fallback work.
 
 ## What this Dev Cycle completed
 
-With no new reference-machine evidence available and no release freeze, this run implemented exactly one Coordinator-approved MS-027 fallback slice: **unified AI command/history/dispatcher**.
+With no new reference-machine evidence and no release freeze, this run implemented exactly one Coordinator-approved fallback slice: **MS-026 local resource telemetry/performance panel**.
 
-New stable version-neutral `Scripts/Main.AiCommandConsole.cs`:
+New version-neutral `Scripts/Main.ResourceTelemetry.cs`:
 
-- adds one always-visible AI command line directly below the main toolbar;
-- provides Up/Down keyboard history plus explicit previous/next controls and a compact history indicator;
-- accepts existing slash commands by delegating to `ExecuteV096CommandAsync`;
-- accepts simple typed prefixes (`concept`, `edit`, `select`, `3d`, `detail3d`) and plain prompts;
-- exposes clearly named buttons for Generate 2D Concept, Edit Selected Region, Smart Select, Generate 3D, and Detail 3D Preview;
-- routes all console AI buttons through one `DispatchAiConsoleActionAsync` dispatcher;
-- delegates to existing authoritative action owners rather than creating another implementation path:
-  - `GenerateConcept()`;
-  - `V096EditCommand(...)`;
-  - `SmartSelectV096Async(...)`;
-  - `V1020Generate3DAsync()` for identity-bound Stage-C candidate generation;
-  - `V098Detail3DAsync(...)` for the existing non-destructive detail preview;
-- writes prompt text back to the existing `_prompt` backing field so old provider/action code receives the same user intent;
-- creates no second project store, candidate state, provider runner, camera/input state, or generation event owner.
+- samples at approximately 1 Hz;
+- displays rolling GPU utilization, dedicated VRAM, system RAM and Miniscuplter-process CPU graphs;
+- displays NVIDIA GPU temperature where `nvidia-smi` supplies it;
+- obtains GPU/VRAM/temperature from `nvidia-smi` with a bounded async timeout rather than inventing unavailable metrics;
+- obtains Windows physical-memory utilization from `GlobalMemoryStatusEx`;
+- derives app CPU from `Process.TotalProcessorTime`, normalized by logical processor count;
+- shows the existing active provider/current AI stage/elapsed time by observing `_v1093D*`, `_v108Ai*` and `_v1017Image*` state only;
+- resets and records compact observed peak GPU/VRAM/RAM/temperature values on each detected AI-job start;
+- gracefully degrades GPU/VRAM to unavailable after repeated query failures;
+- catches telemetry failures so monitoring cannot break inference or modeling;
+- creates no second job queue, provider state, project state, cancellation owner, runtime state or persistent data path.
 
-`ExtrasInstaller` composes `InstallAiCommandConsole()` after the earlier v1.0.23 preference/tool-strip/hierarchy/view-cube presentation slices.
+`ExtrasInstaller` composes `InstallResourceTelemetry()` after the unified AI command console.
 
 Commits:
-- `fc9d7aa411bdb386770e7cd075af3586d6ce88dd` — unified command/history/dispatch layer;
-- `4538ab0e3251bb84449318a1bd43d9986d94e6d9` — final composition.
+- `6bc6d379a8db20f9f9a934ffc504f9cc64501904` — local resource telemetry panel;
+- `0fd8b03db0f9cde3ea23021523c8e3cc3da5a455` — compose telemetry into the final workspace;
+- `e110a746a1dd9a470c7d05de80de684edfcf1f27` — Godot C# nested-Control declaration correction.
 
 ## Validation
 
-Exact code checkpoint `4538ab0e3251bb84449318a1bd43d9986d94e6d9` passed:
+Exact code checkpoint `e110a746a1dd9a470c7d05de80de684edfcf1f27` passed:
 
-- `core-foundation` run `34540497710`: **PASS**;
-- `build` run `34540497715` dotnet job: **PASS** — editor, launcher, updater and Core tests build/run;
+- `core-foundation` run `34545123188`: **PASS**;
+- broader `build` run `34545123110`: **PASS**;
+- editor, launcher, updater and Core C# builds/tests: **PASS**;
 - Python compile/dependency resolution: **PASS**;
 - core/execution/job regressions: **PASS**;
 - geometry regressions: **PASS**;
 - release audit: **PASS**;
-- portable package layout + ZIP SHA-256: **PASS**;
+- portable package build/layout + ZIP SHA-256: **PASS**;
 - installer-definition compilation: **PASS**.
 
-Full Windows/Godot release and publication jobs were correctly skipped because this is an ordinary development-branch push. `4538ab0...` is a useful validated checkpoint only; it is **not** a release decision and does not freeze v1.0.23.
+Failed attempt preserved: exact head `0fd8b03...` passed Python/core/execution/geometry/release-audit work but failed editor C# compilation with Godot diagnostic `GD0001` because nested `ResourceSparkline : Control` lacked the required `partial` modifier. `e110a746...` corrected only that declaration and restored green validation.
+
+This is a useful validated checkpoint only. It does **not** freeze v1.0.23 and no publication action was initiated.
 
 ## Senior-engineer self-review
 
-- Stage-C generation remains owned by `V1020Generate3DAsync`; the console calls that method directly and does not attach another handler to the Generate-3D button.
-- Slash commands continue to use the existing V096 executor instead of a parallel command implementation.
-- Smart Select, regional edit and detail preview retain their existing selection/revision/provider semantics.
-- The console stores only transient UI history in memory; no durable Core/project state is duplicated.
-- No storage path, runtime/provider install state, cancellation state or release-control behavior changed.
+- Telemetry is presentation/observability only and reads existing job/provider fields; it does not own job or provider state.
+- GPU queries are asynchronous, timeout-bounded and approximately 1 Hz; failure is isolated from inference.
+- Unsupported GPU sensors are omitted instead of fabricated.
+- RAM and app-CPU sampling do not write outside Miniscuplter storage because they write nothing at all.
+- No Core project state, Stage-C candidate state, mesh/revision state, camera/tool state, cancellation state or storage location changed.
+- Observed peaks are explicitly sampling-derived, not claimed as guaranteed hardware maxima.
+- Real GTX 1080 overhead/value accuracy still requires target-machine observation; CI cannot prove that.
 
 ## Primary next task — always check this first
 
@@ -84,18 +87,18 @@ Relevant issues: **MS-023, MS-018, MS-009, MS-024, MS-025, MS-013, MS-022, MS-00
 
 ## If reference-machine evidence is still unavailable
 
-If branch state is green, no release freeze exists and no higher-priority issue is unblocked, continue exactly one next Coordinator-approved MS-027 slice:
+If branch state remains green, no Coordinator release freeze exists and no higher-priority issue is unblocked, continue exactly one next Coordinator-approved MS-027 slice:
 
-**Next fallback slice: MS-026 performance/resource telemetry panel.**
+**Next fallback slice: density/spacing cleanup and retirement of superseded explanatory UI.**
 
 Guardrails:
-- local-only, low-overhead sampling around 1 Hz;
-- GPU utilization, dedicated VRAM, system RAM, GPU temperature and useful CPU values only where actually available;
-- show active provider/current AI stage/elapsed time and compact observed peaks when available;
-- gracefully omit unsupported sensors rather than inventing values;
-- do not materially slow inference;
-- do not create a second AI job/provider state owner; observe existing state only;
-- stop after this bounded slice before density/spacing cleanup.
+- keep the viewport dominant;
+- remove or collapse only nonessential always-visible explanatory copy already covered by tooltips/status/error surfaces;
+- preserve important state, progress, errors and destructive-action warnings visibly;
+- do not rewrite the UI or create another composition owner;
+- preserve existing Stage-C, viewport tool, hierarchy, view-cube, AI dispatcher and telemetry ownership;
+- keep accessibility and minimum usable panel sizes;
+- stop after this bounded polish slice.
 
 ## Documentation / release rules
 
@@ -106,4 +109,4 @@ Guardrails:
 
 ## User dependency
 
-No product/design decision is required. The external dependency remains target-machine verification of released v1.0.22. Autonomous engineering may continue under the Coordinator fallback while that evidence is unavailable.
+No product/design decision is required. The external dependency remains target-machine verification of released v1.0.22. During a long AI job, also observe the new resource panel for plausible GPU/VRAM/RAM/temperature values and whether ~1 Hz monitoring has any noticeable performance impact. Autonomous engineering may continue under the Coordinator fallback while that evidence is unavailable.
