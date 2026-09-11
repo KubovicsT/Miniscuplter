@@ -29,3 +29,10 @@ Entries should be appended chronologically and preserve failed attempts.
 - **Action taken:** Created this shared event log and prepared prompt updates so active agents record material automation/process incidents here.
 - **Result:** Applied; agent prompt synchronization pending in the same Manager run.
 - **Manager follow-up:** Read this file every Manager audit, reconcile unresolved entries, transfer durable conclusions to AUTOMATION_MANAGER / reliability records, and mark outcomes in later entries.
+
+### 2026-09-12 01:18 Europe/Budapest — Automation Manager — PROCESS CHANGE APPLIED
+- **Trigger / user direction:** User requested that specialist agents persist automation incidents and relevant user process requests because cross-agent chat history is not reliably available.
+- **Observed evidence:** Coordinator, Dev, Daily and Manager prompts previously relied mainly on their own chat plus repository state; exact specialist-chat dialogue could be unavailable to Manager.
+- **Action taken:** Added AUTOMATION_EVENTS logging rules to Coordinator, Dev, Daily and Manager prompts. Manager must read/reconcile the log every completed audit; other agents append concise entries only for material automation/process incidents or user process directions.
+- **Result:** Applied. Schedules and role ownership unchanged; Dev remains intentionally paused.
+- **Manager follow-up:** Evaluate whether the log improves incident reconstruction without becoming noisy or duplicating ordinary HANDOFF/ROADMAP content.
