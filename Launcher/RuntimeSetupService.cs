@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 
 namespace Miniscuplter.Launcher;
 
@@ -94,18 +97,21 @@ internal sealed class RuntimeSetupService
     {
         string[] backendCandidates =
         {
-            Path.Combine(_settings.InstallRoot, "ai_backend", "app.py"),
-            Path.Combine(_settings.InstallRoot, "App", "ai_backend", "app.py")
+            Path.Combine(_settings.InstallRoot, "ai_backend"),
+            Path.Combine(_settings.InstallRoot, "App", "ai_backend")
         };
-        string? app = Array.Find(backendCandidates, File.Exists);
-        if (app == null)
-            throw new InvalidOperationException("Repair completed, but the packaged AI backend app.py could not be found for startup verification.");
+        string? backendDir = Array.Find(backendCandidates, dir => File.Exists(Path.Combine(dir, "app.py")) && File.Exists(Path.Combine(dir, "serve.py")));
+        if (backendDir == null)
+            throw new InvalidOperationException("Repair completed, but the packaged AI backend server entry point could not be found for startup verification.");
 
-        string backendDir = Path.GetDirectoryName(app)!;
+        string app = Path.Combine(backendDir, "app.py");
+        string server = Path.Combine(backendDir, "serve.py");
         string python = Path.Combine(backendDir, ".venv", "Scripts", "python.exe");
         if (!File.Exists(python))
             throw new InvalidOperationException($"Repair completed, but its validated interpreter is missing: {python}");
 
+        int smokePort = ReserveLoopbackPort();
+        string instanceToken = Guid.NewGuid().ToString("N");
         var psi = new ProcessStartInfo(python)
         {
             UseShellExecute = false,
@@ -114,7 +120,13 @@ internal sealed class RuntimeSetupService
             RedirectStandardError = true,
             WorkingDirectory = backendDir
         };
-        psi.ArgumentList.Add(app);
+        psi.ArgumentList.Add(server);
+        psi.ArgumentList.Add("--host");
+        psi.ArgumentList.Add("127.0.0.1");
+        psi.ArgumentList.Add("--port");
+        psi.ArgumentList.Add(smokePort.ToString());
+        psi.ArgumentList.Add("--instance-token");
+        psi.ArgumentList.Add(instanceToken);
         psi.Environment["MINISCULPTER_ROOT"] = _settings.InstallRoot;
         psi.Environment["MINISCULPTER_DATA"] = _settings.DataRoot;
         psi.Environment["MINISCULPTER_PARENT_PID"] = Environment.ProcessId.ToString();
@@ -138,11 +150,19 @@ internal sealed class RuntimeSetupService
 
                 try
                 {
-                    using var response = await http.GetAsync("http://127.0.0.1:7868/health", cancellationToken);
+                    using var response = await http.GetAsync($"http://127.0.0.1:{smokePort}/health", cancellationToken);
                     if (response.IsSuccessStatusCode)
                     {
-                        progress?.Report(new RuntimeSetupEvent(DateTimeOffset.Now, "verify", $"Backend health verified with interpreter {python}."));
-                        return;
+                        string payload = await response.Content.ReadAsStringAsync(cancellationToken);
+                        using var doc = JsonDocument.Parse(payload);
+                        JsonElement root = doc.RootElement;
+                        string version = root.TryGetProperty("version", out var versionNode) ? versionNode.GetString() ?? "" : "";
+                        string token = root.TryGetProperty("instance_token", out var tokenNode) ? tokenNode.GetString() ?? "" : "";
+                        if (version == "1.0.26" && token == instanceToken)
+                        {
+                            progress?.Report(new RuntimeSetupEvent(DateTimeOffset.Now, "verify", $"Backend {version} health verified on isolated loopback port with interpreter {python}."));
+                            return;
+                        }
                     }
                 }
                 catch (HttpRequestException) { }
@@ -158,6 +178,20 @@ internal sealed class RuntimeSetupService
             try { if (!backend.HasExited) backend.Kill(entireProcessTree: true); } catch { }
             try { await backend.WaitForExitAsync(); } catch { }
             try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
+        }
+    }
+
+    static int ReserveLoopbackPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        try
+        {
+            return ((IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
         }
     }
 
