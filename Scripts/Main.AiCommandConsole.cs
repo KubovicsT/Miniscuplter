@@ -31,7 +31,7 @@ public partial class Main
         var panel = new VBoxContainer
         {
             Name = "AI Command Console",
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
         panel.AddThemeConstantOverride("separation", 3);
 
@@ -100,7 +100,7 @@ public partial class Main
         {
             Text = text,
             TooltipText = tooltip,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin
         };
         button.Pressed += async () => await DispatchAiConsoleActionAsync(action, _aiCommandInput?.Text ?? "");
         parent.AddChild(button);
