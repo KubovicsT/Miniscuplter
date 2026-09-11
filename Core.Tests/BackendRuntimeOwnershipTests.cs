@@ -14,8 +14,12 @@ internal static class BackendRuntimeOwnershipTests
         string backend = File.ReadAllText(backendLauncherPath);
         string repair = File.ReadAllText(repairPath);
 
-        Assert(backend.Contains("Path.Combine(Path.GetDirectoryName(app)!, \".venv\", \"Scripts\", \"python.exe\")", StringComparison.Ordinal),
+        Assert(backend.Contains("Path.Combine(backendDir, \".venv\", \"Scripts\", \"python.exe\")", StringComparison.Ordinal),
             "editor backend launcher does not use the repaired backend-local virtual environment");
+        Assert(backend.Contains("serve.py", StringComparison.Ordinal) &&
+               backend.Contains("--instance-token", StringComparison.Ordinal) &&
+               backend.Contains("instance_token", StringComparison.Ordinal),
+            "editor backend launcher does not use the canonical instance-bound server contract");
         Assert(!backend.Contains("Path.Combine(root, \"Runtime\", \"Python\", \"python.exe\")", StringComparison.Ordinal),
             "editor backend launcher still prefers the unrelated embedded Runtime/Python interpreter");
         Assert(!backend.Contains("?? \"python\"", StringComparison.Ordinal),
@@ -27,8 +31,11 @@ internal static class BackendRuntimeOwnershipTests
             "Repair AI Runtime does not validate backend startup health");
         Assert(repair.Contains("Path.Combine(backendDir, \".venv\", \"Scripts\", \"python.exe\")", StringComparison.Ordinal),
             "Repair health validation does not use the same backend-local virtual environment");
-        Assert(repair.Contains("http://127.0.0.1:7868/health", StringComparison.Ordinal),
-            "Repair success does not require a real backend health response");
+        Assert(repair.Contains("ReserveLoopbackPort", StringComparison.Ordinal) &&
+               repair.Contains("serve.py", StringComparison.Ordinal) &&
+               repair.Contains("--instance-token", StringComparison.Ordinal) &&
+               repair.Contains("instance_token", StringComparison.Ordinal),
+            "Repair success does not require its own isolated instance-bound backend health response");
         Assert(repair.Contains("backend.Kill(entireProcessTree: true)", StringComparison.Ordinal),
             "Repair health probe does not clean up its temporary backend process tree");
     }
