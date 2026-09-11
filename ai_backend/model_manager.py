@@ -9,6 +9,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+import resource_ownership
+
 ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.getenv("MINISCULPTER_DATA", Path(os.getenv("MINISCULPTER_ROOT", ROOT.parent)) / "AIData")).resolve()
 MODELS_ROOT = DATA_ROOT / "models"
@@ -120,7 +122,7 @@ def status(check_updates=False):
                 rh,rt=_remote_revisions(cid,spec); e["remote_revision"]=_combined_revision(rh,rt); e["update_available"]=(rh is not None and s.get("hf_revision")!=rh) or (rt is not None and s.get("tool_revision")!=rt)
             except Exception as ex:e["update_error"]=str(ex)
         result.append(e)
-    return {"hardware":hw,"components":result,"data_root":str(DATA_ROOT),"disk":_disk_info()}
+    return {"hardware":hw,"components":result,"data_root":str(DATA_ROOT),"disk":_disk_info(),"resource_owner":resource_ownership.snapshot()}
 def _clone_fresh(url,target):
     g=shutil.which("git");
     if not g:raise RuntimeError("Git is required")
@@ -213,5 +215,48 @@ def uninstall_component(cid):
         if r.exists():shutil.rmtree(r)
     state.setdefault("installed",{}).pop(cid,None);save_state(state);return {"id":cid,"installed":False}
 
+_legacy_uninstall_component = uninstall_component
+
 # v1.0.5 extends, rather than forks, the hardened transactional model manager above.
-from model_manager_v105 import install_component as install_component, update_component as update_component  # noqa:E402,F401
+from model_manager_v105 import install_component as _v105_install_component, update_component as _v105_update_component  # noqa:E402
+
+
+def _run_component_operation(cid: str, action: str, operation: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    cid = str(cid or "").strip()
+    if not cid:
+        raise ValueError("A component id is required.")
+    kind = f"component-{action}"
+    owner_id = f"{kind}:{cid}:{uuid.uuid4().hex}"
+    resource_ownership.acquire(owner_id, kind, blocking=False)
+    try:
+        # Import lazily to avoid model_manager <-> model_router import recursion. Once the
+        # shared lease is held, releasing cached model objects is safe and cannot disrupt an
+        # inference owner. release_all_models independently rejects mismatched owners.
+        from model_router import release_all_models
+        release_all_models(allow_owner_id=owner_id)
+        result = operation()
+        if not isinstance(result, dict):
+            result = {"result": result}
+        result = dict(result)
+        result["operation_id"] = owner_id
+        result["operation_kind"] = kind
+        return result
+    finally:
+        resource_ownership.release(owner_id)
+
+
+def install_component(cid, update=False):
+    action = "update" if update else "install"
+    return _run_component_operation(cid, action, lambda: _v105_install_component(cid, update))
+
+
+def update_component(cid):
+    return _run_component_operation(cid, "update", lambda: _v105_update_component(cid))
+
+
+def repair_component(cid):
+    return _run_component_operation(cid, "repair", lambda: _v105_install_component(cid, False))
+
+
+def uninstall_component(cid):
+    return _run_component_operation(cid, "remove", lambda: _legacy_uninstall_component(cid))
