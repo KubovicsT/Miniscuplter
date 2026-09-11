@@ -8,42 +8,37 @@ Last updated: 2026-09-11
 
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7` (immutable).
 - **Current development branch:** `v1.0.23`.
-- **Latest fully validated bounded code/test checkpoint before documentation commits:** `e110a746a1dd9a470c7d05de80de684edfcf1f27`.
+- **Latest fully validated bounded code/test checkpoint before documentation commits:** `1665a9c9fabd8a3d0f1f4f8ed79411f749e158f6`.
 - **Overall completion:** **57% acceptance-weighted**.
 - **Release state:** DEVELOPMENT CONTINUES / NO v1.0.23 RELEASE FREEZE. Dev must not create release requests/tags/releases.
-- **Critical path:** released-v1.0.22 Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts UI fallback work.
+- **Critical path:** released-v1.0.22 Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts fallback work.
 
 ## What this Dev Cycle completed
 
-With no new reference-machine evidence and no release freeze, this run implemented exactly one Coordinator-approved fallback slice: **MS-026 local resource telemetry/performance panel**.
+With no new reference-machine evidence and no release freeze, this run implemented exactly one Coordinator-approved fallback slice: **MS-027 density/spacing cleanup and retirement of superseded explanatory UI**.
 
-New version-neutral `Scripts/Main.ResourceTelemetry.cs`:
+New version-neutral `Scripts/Main.WorkspaceDensity.cs`:
 
-- samples at approximately 1 Hz;
-- displays rolling GPU utilization, dedicated VRAM, system RAM and Miniscuplter-process CPU graphs;
-- displays NVIDIA GPU temperature where `nvidia-smi` supplies it;
-- obtains GPU/VRAM/temperature from `nvidia-smi` with a bounded async timeout rather than inventing unavailable metrics;
-- obtains Windows physical-memory utilization from `GlobalMemoryStatusEx`;
-- derives app CPU from `Process.TotalProcessorTime`, normalized by logical processor count;
-- shows the existing active provider/current AI stage/elapsed time by observing `_v1093D*`, `_v108Ai*` and `_v1017Image*` state only;
-- resets and records compact observed peak GPU/VRAM/RAM/temperature values on each detected AI-job start;
-- gracefully degrades GPU/VRAM to unavailable after repeated query failures;
-- catches telemetry failures so monitoring cannot break inference or modeling;
-- creates no second job queue, provider state, project state, cancellation owner, runtime state or persistent data path.
+- shortens the empty 2D-workspace hint to a compact actionable message;
+- removes two long always-visible instructional paragraphs from the 2D editing/context-aware editing sections;
+- preserves the removed guidance through section/button hover tooltips;
+- reduces spacing only inside those affected presentation sections;
+- deliberately keeps workflow state, AI job state, errors/progress and destructive-action warnings visible;
+- creates no project state, AI dispatcher, viewport-tool, camera, scene-selection, persistence or provider authority.
 
-`ExtrasInstaller` composes `InstallResourceTelemetry()` after the unified AI command console.
+`ExtrasInstaller` composes `InstallWorkspaceDensity()` after resource telemetry so it observes the final current MS-027 workspace composition.
 
 Commits:
-- `6bc6d379a8db20f9f9a934ffc504f9cc64501904` — local resource telemetry panel;
-- `0fd8b03db0f9cde3ea23021523c8e3cc3da5a455` — compose telemetry into the final workspace;
-- `e110a746a1dd9a470c7d05de80de684edfcf1f27` — Godot C# nested-Control declaration correction.
+- `d5ec6aca9a06c7fbc7934aeaffafd0884bccaf89` — compact instructional workspace copy;
+- `28df9b6882b02f9acb7b37647523d8c722833c3e` — compose density layer;
+- `1665a9c9fabd8a3d0f1f4f8ed79411f749e158f6` — focused static regression guard source.
 
 ## Validation
 
-Exact code checkpoint `e110a746a1dd9a470c7d05de80de684edfcf1f27` passed:
+Exact code/test checkpoint `1665a9c9fabd8a3d0f1f4f8ed79411f749e158f6` passed:
 
-- `core-foundation` run `34545123188`: **PASS**;
-- broader `build` run `34545123110`: **PASS**;
+- `core-foundation` run `34549024074`: **PASS**;
+- broader `build` run `34549024087`: **PASS**;
 - editor, launcher, updater and Core C# builds/tests: **PASS**;
 - Python compile/dependency resolution: **PASS**;
 - core/execution/job regressions: **PASS**;
@@ -52,23 +47,22 @@ Exact code checkpoint `e110a746a1dd9a470c7d05de80de684edfcf1f27` passed:
 - portable package build/layout + ZIP SHA-256: **PASS**;
 - installer-definition compilation: **PASS**.
 
-Failed attempt preserved: exact head `0fd8b03...` passed Python/core/execution/geometry/release-audit work but failed editor C# compilation with Godot diagnostic `GD0001` because nested `ResourceSparkline : Control` lacked the required `partial` modifier. `e110a746...` corrected only that declaration and restored green validation.
+`tools/ui_density_tests.py` records focused ownership/presentation invariants and is syntax-checked by the normal Python compile pass. The established branch CI remains the authoritative executed validation for build/runtime regression families.
 
 This is a useful validated checkpoint only. It does **not** freeze v1.0.23 and no publication action was initiated.
 
 ## Senior-engineer self-review
 
-- Telemetry is presentation/observability only and reads existing job/provider fields; it does not own job or provider state.
-- GPU queries are asynchronous, timeout-bounded and approximately 1 Hz; failure is isolated from inference.
-- Unsupported GPU sensors are omitted instead of fabricated.
-- RAM and app-CPU sampling do not write outside Miniscuplter storage because they write nothing at all.
-- No Core project state, Stage-C candidate state, mesh/revision state, camera/tool state, cancellation state or storage location changed.
-- Observed peaks are explicitly sampling-derived, not claimed as guaranteed hardware maxima.
-- Real GTX 1080 overhead/value accuracy still requires target-machine observation; CI cannot prove that.
+- The density layer is presentation-only and does not own any durable project/revision/history state.
+- Existing Stage-C generation, AI dispatch, viewport tools, hierarchy selection, view cube/camera and telemetry owners remain unchanged.
+- Important dynamic status/progress/error surfaces are explicitly not hidden by this slice.
+- The change is reversible and bounded to known instructional copy already covered by hover guidance.
+- No storage path, provider route, cancellation path or model/runtime behavior changed.
+- Real Windows layout/readability still needs user observation; CI cannot prove visual density quality.
 
 ## Primary next task — always check this first
 
-Consume any new user/reference-machine results from released **v1.0.22**. Any serious Stage-C/persistence/viewport/storage/cancellation regression immediately supersedes MS-027.
+Consume any new user/reference-machine results from released **v1.0.22**. Any serious Stage-C/persistence/viewport/storage/cancellation regression immediately supersedes all fallback work.
 
 Target acceptance sequence:
 
@@ -87,18 +81,13 @@ Relevant issues: **MS-023, MS-018, MS-009, MS-024, MS-025, MS-013, MS-022, MS-00
 
 ## If reference-machine evidence is still unavailable
 
-If branch state remains green, no Coordinator release freeze exists and no higher-priority issue is unblocked, continue exactly one next Coordinator-approved MS-027 slice:
+The currently ordered bounded MS-027 fallback sequence is now implemented through density/polish. Do **not** invent another UI slice merely to continue activity.
 
-**Next fallback slice: density/spacing cleanup and retirement of superseded explanatory UI.**
+Next run should:
 
-Guardrails:
-- keep the viewport dominant;
-- remove or collapse only nonessential always-visible explanatory copy already covered by tooltips/status/error surfaces;
-- preserve important state, progress, errors and destructive-action warnings visibly;
-- do not rewrite the UI or create another composition owner;
-- preserve existing Stage-C, viewport tool, hierarchy, view-cube, AI dispatcher and telemetry ownership;
-- keep accessibility and minimum usable panel sizes;
-- stop after this bounded polish slice.
+1. re-check Coordinator ROADMAP/HANDOFF for a newly assigned objective;
+2. re-check for any newly available user/reference-machine evidence;
+3. if both remain unchanged, select only an already-approved, clearly unblocked higher-value engineering task from the Coordinator roadmap that does not displace Stage-C acceptance; otherwise leave the branch stable for Coordinator direction rather than broadening scope autonomously.
 
 ## Documentation / release rules
 
@@ -109,4 +98,4 @@ Guardrails:
 
 ## User dependency
 
-No product/design decision is required. The external dependency remains target-machine verification of released v1.0.22. During a long AI job, also observe the new resource panel for plausible GPU/VRAM/RAM/temperature values and whether ~1 Hz monitoring has any noticeable performance impact. Autonomous engineering may continue under the Coordinator fallback while that evidence is unavailable.
+No product/design decision is required. The external dependency remains target-machine verification of released v1.0.22. During a long AI job, also observe the new resource panel for plausible GPU/VRAM/RAM/temperature values and whether ~1 Hz monitoring has any noticeable performance impact. Autonomous engineering may continue when the Coordinator assigns further unblocked work.
