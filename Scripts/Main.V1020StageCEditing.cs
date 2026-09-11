@@ -20,15 +20,15 @@ public partial class Main
     {
         // MS-019: Stage-C owns durable nudge commands for mapped objects. Historical button
         // handlers may still update Godot presentation first during migration, but scene values
-        // are no longer consulted for the bounded move/rotate command pairs retired below.
+        // are no longer consulted for the bounded move/rotate/scale command pairs retired below.
         HookV1020MoveButton("Move +X 1 mm", new Vec3(1, 0, 0));
         HookV1020MoveButton("Move -X 1 mm", new Vec3(-1, 0, 0));
         HookV1020MoveButton("Move +Y 1 mm", new Vec3(0, 1, 0));
         HookV1020MoveButton("Move -Y 1 mm", new Vec3(0, -1, 0));
         HookV1020RotateButton("Rotate Y +5°", Mathf.DegToRad(5f));
         HookV1020RotateButton("Rotate Y -5°", Mathf.DegToRad(-5f));
-        HookV1020TransformButton("Scale +5%", "scale");
-        HookV1020TransformButton("Scale -5%", "scale");
+        HookV1020ScaleButton("Scale +5%", 1.05f);
+        HookV1020ScaleButton("Scale -5%", 0.95f);
         HookV1020TransformButton("Place selected on Y=0", "ground");
 
         foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>())
@@ -161,6 +161,55 @@ public partial class Main
         {
             V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
             SetStatus("Stage-C rotate failed safely; restored durable transform: " + ex.Message);
+            return true;
+        }
+    }
+
+    void HookV1020ScaleButton(string text, float factor)
+    {
+        foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>().Where(b => b.Text == text))
+            button.Pressed += () => CallDeferred(nameof(V1020CommitScaleCommandDeferred), factor);
+    }
+
+    async void V1020CommitScaleCommandDeferred(float factor)
+    {
+        await V1020CommitScaleCommandAsync(factor);
+    }
+
+    async Task<bool> V1020CommitScaleCommandAsync(float factor)
+    {
+        MeshInstance3D? target = _selected;
+        if (target == null || !GodotObject.IsInstanceValid(target) ||
+            !_v1013ObjectIds.TryGetValue(target.GetInstanceId(), out ObjectId objectId) ||
+            _v1020StageCSession == null)
+            return false;
+
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
+                if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? current)) return false;
+
+                Vec3 scale = current.Transform.Scale;
+                TransformState requested = new(
+                    current.Transform.Position,
+                    current.Transform.RotationEuler,
+                    new Vec3(scale.X * factor, scale.Y * factor, scale.Z * factor));
+                bool changed = StageCEditing.SetTransform(session, objectId, requested, "scale");
+                if (changed)
+                    await V1020SaveSessionAsync();
+                V1020ProjectObjectStateToScene(target, session.Current.Objects[objectId], reloadMesh: false);
+            }
+            finally { _v1020StageCGate.Release(); }
+            SetStatus("Stage-C scale committed to project state.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
+            SetStatus("Stage-C scale failed safely; restored durable transform: " + ex.Message);
             return true;
         }
     }
