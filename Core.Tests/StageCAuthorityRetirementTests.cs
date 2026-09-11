@@ -70,6 +70,27 @@ internal static class StageCAuthorityRetirementTests
             !editing.Contains("HookV1020TransformButton(\"Scale +5%\"", StringComparison.Ordinal) &&
             !editing.Contains("HookV1020TransformButton(\"Scale -5%\"", StringComparison.Ordinal),
             "mapped scale commands must not regress to scene-observed transform persistence");
+
+        Assert(
+            editing.Contains("_v1020TransformGestureDurableStart = projectObject.Transform;", StringComparison.Ordinal) &&
+            editing.Contains("_v1020TransformGestureSceneStart = V1020TransformState(_selected);", StringComparison.Ordinal),
+            "viewport transform gestures must capture durable Core state and presentation start state at gesture start");
+        Assert(
+            editing.Contains("V1020CommitViewportTransformGestureAsync", StringComparison.Ordinal) &&
+            editing.Contains("current.ActiveMeshRevisionId != inputRevisionId || current.Transform != durableStart", StringComparison.Ordinal),
+            "viewport transform commits must reject stale object state before persistence");
+        Assert(
+            editing.Contains("V1020ViewportTransformRequest(durableStart, sceneStart, sceneEnd, tool)", StringComparison.Ordinal) &&
+            editing.Contains("durableStart.Position.X + (sceneEnd.Position.X - sceneStart.Position.X)", StringComparison.Ordinal) &&
+            editing.Contains("durableStart.RotationEuler.Y + (sceneEnd.RotationEuler.Y - sceneStart.RotationEuler.Y)", StringComparison.Ordinal) &&
+            editing.Contains("V1020ScaleByViewportRatio(durableStart.Scale, sceneStart.Scale, sceneEnd.Scale)", StringComparison.Ordinal),
+            "viewport drag persistence must apply presentation deltas to the captured durable transform");
+        Assert(
+            !editing.Contains("_ = V1020CommitSelectedTransformAsync(_v1018Tool.ToString().ToLowerInvariant());", StringComparison.Ordinal),
+            "viewport drag release must not persist the already-mutated scene transform as authority");
+        Assert(
+            editing.Contains("V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);", StringComparison.Ordinal),
+            "viewport transform failures must restore Godot presentation from durable Core state");
     }
 
     static void Assert(bool condition, string message)
