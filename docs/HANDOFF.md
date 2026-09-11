@@ -11,7 +11,7 @@ Last updated: 2026-09-11
 - **Latest validated implementation checkpoint:** `d4aef5d55170ef45298e9db942cb250d78e911d2`.
 - **Latest Coordinator planning commits:** roadmap `61c1ad61e9cf6e9d265d50db53daa35e3bae69d3`, coordinator log `042dcc2a7ddda6f410d28522861e350fb7c88594`.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Critical path:** MS-029 self-update launcher termination hotfix → MS-009 resize-induced viewport darkening root-cause fix → user-directed MS-027 UI tranche → continuing Stage-C acceptance. Serious correctness/persistence/viewport/data-safety/storage/cancellation regressions preempt fallback work.
+- **Critical path:** MS-030 packaged backend health/runtime ownership → MS-029 updater restart → MS-009 resize-induced viewport darkening → user-directed MS-027 UI tranche → remaining Stage-C acceptance. Serious correctness/persistence/viewport/data-safety/storage/cancellation regressions preempt fallback work.
 
 ## Release state
 
@@ -23,22 +23,20 @@ The previously authorized viewport-drag MS-019 seam is complete and validated. M
 
 ## Exact next task
 
-1. **Preempt the mapped-object ground-placement seam. Fix MS-029 first.**
-2. Reproduce from code/tests the successful update path in `Updater/Program.cs`: the updated launcher writes the health token, then `VerifyLauncherStartup` kills it in `finally`, and the committed success path never launches the launcher normally.
-3. Implement the smallest safe post-update restart/health protocol. Preserve rollback when health validation fails. On successful commit, the updated launcher must remain/rerun normally without user intervention.
-4. Account for transition compatibility: the updater that installs the next release is the updater already present in v1.0.25. Do not assume the newly packaged updater controls that first transition; document any unavoidable one-time manual-reopen behavior or implement a safe compatible bridge if feasible.
-5. Add focused regression coverage for successful health-token validation + normal post-commit launcher availability and failed health validation + rollback.
-6. Run strongest launcher/updater/C# packaging/release-audit validation available. Record MS-029 state and the exact checkpoint in PROJECT_STATUS/ISSUES/HANDOFF.
-7. After the bounded MS-029 hotfix/checkpoint, **fix MS-009 before MS-027 or MS-019**. The v1.0.25 reference machine still shows the viewport/grid turning materially darker after right-panel/splitter resize. Instrument initial vs post-resize SubViewport/world/environment/camera/grid state; identify the root state change; keep Stretch as normal resize owner and do not reintroduce competing `SubViewport.Size` writes or blind delayed repair loops.
-8. Validate the MS-009 fix with the strongest available Windows/Godot render test, but leave the issue IN PROGRESS/FIXED-NEEDS-USER-VERIFICATION until reference-machine resize retest.
-9. Then execute the user-directed MS-027 UI acceptance tranche: multi-line scrollable AI command console; actual interactive 3D view cube; compact viewport tool controls without instructional paragraphs; right-panel explanatory prose replaced by small circular `i` hover help. Keep this tranche presentation-only and reuse existing action/state owners.
-10. Ground-placement/MS-019 remains deferred. Dev does not create release-control, tags or GitHub Releases.
+1. **Fix MS-030 first.** Reproduce the packaged v1.0.25 path where 3D generation fails at backend health even though Repair AI Runtime succeeds.
+2. Capture the exact backend path, selected Python interpreter, process lifetime/exit code and startup stderr; confirm or reject the interpreter-divergence hypothesis.
+3. Make backend runtime ownership deterministic: use the exact environment Repair validated, or validate any alternate interpreter against the same fingerprint/import contract before launch. Do not silently fall back to arbitrary Python.
+4. Strengthen Repair so success proves the backend can actually start and answer health, not only that packages/imports/CUDA checks pass.
+5. Improve the failure diagnostic to expose selected interpreter/backend path/process exit and bounded recent stderr instead of only “Use Repair AI Runtime.”
+6. Add focused tests and strongest packaged Windows/runtime validation. Keep MS-030 FIXED - NEEDS USER VERIFICATION until the reference machine reaches provider resolution/inference.
+7. After MS-030, resume the already recorded order: MS-029 → MS-009 → bounded MS-027 UI tranche. Ground-placement/MS-019 remains deferred. Dev does not publish releases.
+
 
 ## User verification dependency
 
 The reference-machine report that the launcher opens briefly and closes immediately after update is accepted as MS-029 reproduction evidence. Manually reopen `Miniscuplter.Launcher.exe` once; only report back immediately if that manual launch also closes, because that would be a second startup failure rather than the identified post-update health-probe termination.
 
-Continue testing released v1.0.25 on the reference Windows / GTX 1080 machine:
+The v1.0.25 Stage-C test is now blocked at local backend health even after a successful Repair; no more 3D-generation retries are needed until a new build is available. Other independent checks may continue:
 
 `accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
