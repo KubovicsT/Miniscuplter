@@ -1,5 +1,5 @@
 #define MyAppName "Miniscuplter"
-#define MyAppVersion "1.0.24"
+#define MyAppVersion "1.0.25"
 #define MyAppPublisher "Miniscuplter"
 #define MyAppExeName "Miniscuplter.Launcher.exe"
 
