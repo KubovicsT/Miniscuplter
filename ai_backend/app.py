@@ -150,7 +150,11 @@ def _stage_c_context(req: Generate3DRequest, transport_job_id: str | None) -> di
 
 @app.get("/health")
 def health():
-    return {"ok": True, "version": APP_VERSION}
+    return {
+        "ok": True,
+        "version": APP_VERSION,
+        "instance_token": os.getenv("MINISCULPTER_BACKEND_INSTANCE", ""),
+    }
 
 
 @app.get("/models")
