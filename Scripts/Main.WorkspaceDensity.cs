@@ -36,6 +36,47 @@ public partial class Main
         V1023SetCompactTooltip("AI Edit Selected Region", "Apply Prompt to the selected 2D region only.");
         V1023SetCompactTooltip("AI Edit Whole Image", "Apply Prompt to the complete active 2D image.");
         V1023SetCompactTooltip("Enhance Selected Region", "Reconstruct the selected area from surrounding image context; no prompt is required.");
+
+        V1023ReplaceWorkflowExplanationsWithInfo();
+    }
+
+    void V1023ReplaceWorkflowExplanationsWithInfo()
+    {
+        string[] prefixes =
+        {
+            "Generate a concept or load your own image",
+            "Generate the first mesh from the accepted 2D baseline",
+            "Create or refine a rig",
+            "Inspect, repair, remesh/finalize when needed",
+            "Brush tools act directly on the selected 3D mesh",
+            "Generation runs through the bundled/local AI service"
+        };
+
+        foreach (Label label in FindChildren("*", "Label", true, false).OfType<Label>())
+        {
+            string text = label.Text?.Trim() ?? "";
+            if (!prefixes.Any(prefix => text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (label.GetParent() is not Container parent)
+                continue;
+
+            int index = label.GetIndex();
+            label.Visible = false;
+            label.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+            var info = new Button
+            {
+                Name = "WorkflowInfo",
+                Text = "ⓘ",
+                TooltipText = text,
+                Flat = true,
+                FocusMode = Control.FocusModeEnum.None,
+                CustomMinimumSize = new Vector2(24, 24),
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin
+            };
+            parent.AddChild(info);
+            parent.MoveChild(info, Math.Clamp(index, 0, parent.GetChildCount() - 1));
+        }
     }
 
     void V1023CompactInstructionSection(string sectionName, string instructionPrefix, string replacementTooltip)
