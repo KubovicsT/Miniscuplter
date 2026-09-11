@@ -1,106 +1,124 @@
 # Miniscuplter Technical Roadmap
 
-> Authoritative technical sequencing owned by the Project Coordinator. PROJECT_CHARTER/DECISIONS own product truth; HANDOFF owns the immediate Dev baton.
+> Authoritative end-to-end technical sequencing owned by the Project Coordinator. PROJECT_CHARTER/DECISIONS own product truth; HANDOFF owns the immediate/downstream Dev baton.
 
 Last coordinator review: 2026-09-11
 Latest published stable: `v1.0.25` at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`
 Current writable development branch: `v1.0.26`
-Reviewed branch HEAD: `f4bc5a5daf8633b4078db02969d044caaf730f01`
-Validated implementation checkpoint: `d4aef5d55170ef45298e9db942cb250d78e911d2`
+Reviewed branch HEAD: `845e76a9eb56b186eddcd5f476fb55b9cf92a694`
+Latest CI-green implementation checkpoint: `1e6ed3541de6de4bec19838e71595e4b76dbedfa`
 Acceptance-weighted completion: **57%**
 
-## 1. Current objective
+## 1. Whole-system direction assessment
 
-Fix the newly reproduced MS-030 packaged-backend health failure first because it completely blocks Stage-C 3D generation. Then address MS-029 and MS-009 before continuing the user-directed MS-027 UI tranche. Optional architecture/fallback work remains behind these acceptance needs.
+**PRESERVE THE SELECTIVE-REFACTOR DIRECTION.**
 
-Accepted thin slice remains:
+The application is converging around the intended ownership model: Core owns durable project/object/revision/history state; Godot owns presentation, viewport/input and live interaction; Python owns inference and geometry execution; Launcher/updater owns runtime installation/repair and delivery safety.
 
-`2D source → accepted durable image baseline → local 3D generation → identity-bound candidate → explicit Apply → durable editable object → Move/Rotate/Scale + bounded sculpt/edit → save/reload → cleanup → exact validated STL export`
+The strongest current risk is duplicate or incomplete authority at subsystem seams left by historical layering. Recent field failures show this in runtime repair vs backend launch, viewport resize/presentation, and overlapping UI composition. Prioritize authority convergence plus acceptance evidence, not generalized infrastructure or feature breadth.
 
-Reference-machine GUI/GPU/runtime evidence outranks CI.
+## 2. Critical MS-030 finding
 
-## 2. Direction assessment
+Dev correctly removed interpreter divergence and made Repair/editor use the same backend-local virtual environment. Those commits are CI-green.
 
-**PRESERVE.** Core owns durable project/object/revision/history state; Godot owns viewport/input/presentation; Python owns inference/geometry execution. Stable IDs, immutable revisions, transactional history, storage containment, migration-before-removal and immutable published releases remain hard architectural guards.
+However, end-to-end inspection found a deeper launch-contract defect:
 
-v1.0.26 has now completed the Coordinator-authorized viewport-drag transform authority seam. Gesture start captures durable Core transform plus presentation start state; Move/Rotate/Scale persist only the gesture delta/ratio through Core and reproject durable truth. Stale revision/transform conflicts fail closed and presentation restores from Core. This is convergence toward one durable owner rather than another bridge.
+- `ai_backend/app.py` defines the FastAPI application but has no executable server entry point;
+- both `Scripts/BackendLauncher.cs` and `Launcher/RuntimeSetupService.cs` currently start it as `python app.py`;
+- that process can exit without starting Uvicorn or listening on port 7868.
+
+Therefore MS-030 is **not fixed** despite green CI.
+
+Repair also probes fixed production port 7868. If another backend is already listening, Repair could validate the wrong process. The smoke must prove the process/runtime it launched, preferably via an isolated smoke port plus expected health identity/version.
 
 ## 3. Release decision
 
-**KEEP v1.0.26 ACCUMULATING; DO NOT FREEZE BEFORE MS-030, MS-029 AND MS-009 ARE FIXED, AND THE USER-DIRECTED MS-027 UI TRANCHE IS REVIEWED.**
+**KEEP v1.0.26 ACCUMULATING. DO NOT FREEZE.**
 
-Reference-machine evidence now includes three unresolved release blockers: MS-030 prevents Stage-C 3D generation from reaching provider resolution even after Repair succeeds; MS-029 terminates the post-update launcher health-probe session; and MS-009 still changes viewport presentation after resize. v1.0.26 therefore remains writable and must continue accumulating fixes plus the defined MS-027 UI acceptance tranche. Release readiness will be reassessed only after these blockers have validated checkpoints and the combined current HEAD forms a coherent testable increment.
+Current scope is valuable and coherent, but release is blocked by incomplete MS-030, reproduced MS-009, and the explicit user-directed MS-027 acceptance tranche.
 
-## 4. Ordered critical path
+MS-029 is no longer a reason to hold the version once its code is reconciled: the current fix protects future updater transitions, while immutable v1.0.25 may still require one manual launcher reopen when installing v1.0.26. Do not add risky retrofit machinery solely to hide that one-transition limitation.
 
-### P0 — Fix MS-030 packaged backend health after successful Repair
-Released v1.0.25 cannot pass the local backend health check even after Repair AI Runtime succeeds. Treat this as a runtime-ownership/launch-contract failure, not a user setup mistake. First prove which Python executable/backend path the editor launches and why the process fails or never becomes healthy. Current repository evidence suggests Repair validates the backend-local `.venv` while `BackendLauncher` can prefer `Runtime/Python/python.exe`. Fix deterministic interpreter ownership, improve process/startup diagnostics, and make Repair prove the backend can actually start and answer health.
+## 4. Rolling execution plan
 
-### P1 — Fix MS-029 self-update launcher termination
-Reference-machine evidence proves the successful update health probe opens the new launcher and then terminates it. Dev must implement the smallest safe fix that preserves rollback on failed health checks while ensuring a normal updated launcher remains/runs after a committed update. Add focused automated coverage and validate the exact Windows update path. Account for the fact that the updater applying the next release is the already-installed v1.0.25 updater.
+### Objective A — canonical backend startup / repaired-runtime contract (CURRENT, P0)
 
-### P2 — MS-009 viewport presentation must remain invariant across resize
-Released v1.0.25 still darkens the 3D viewport/grid after right-panel/splitter resize. This is direct reference-machine failure of the previous acceptance guard. Dev must instrument initial vs post-resize SubViewport/world/environment/camera/grid state and fix the root state transition. Do not paper over it with another timer, repeated full repair, or competing manual render-target sizing unless concrete evidence requires that change. Keep Stretch as the sole normal size owner and require real-machine retest.
+**Outcome:** a repaired packaged runtime and the editor launch the same actual FastAPI server process through one deterministic startup contract.
 
-### P3 — MS-027 user-directed UI acceptance tranche
-The 2026-09-11 v1.0.25 screenshot confirms the current workspace still violates the intended compact modeling-app UX. After MS-029 is fixed, implement only this tranche:
-- replace the single-line AI prompt/top action bands with a compact multi-line vertically scrollable command console/history while retaining one authoritative dispatch owner;
-- restore/build a real interactive 3D orientation cube in the viewport corner rather than the current flat letter-button box;
-- compact the top-left viewport tool controls and remove persistent instruction text;
-- remove explanatory prose from right-side workflow tabs and expose detailed help through small circular `i` hover affordances/tooltips;
-- keep dynamic state/errors/progress/warnings directly visible.
-Do not broaden this slice into scene hierarchy, resource graphs, new modeling behavior, or duplicate UI/state ownership.
+**Constraints:** backend-local repaired venv remains authoritative; no PATH/system Python fallback; one canonical server-start contract for Repair/editor; loopback only; Repair must not falsely pass against an unrelated server; preserve process-tree containment, cancellation recovery, controlled data-root environment and diagnostics.
 
-### P4 — Consume remaining reference-machine evidence
-Any reproduced persistence, data-loss, viewport, storage, cancellation, provider or Stage-C blocker immediately preempts UI/fallback work. Continue testing the latest published immutable build, v1.0.25.
+**Acceptance:** actual Uvicorn/FastAPI server reaches health; Repair validates the server instance/runtime it launched and expected health identity/version; editor uses the same launch contract; focused startup tests plus full exact-head build/Core/release-audit/package validation pass; MS-030 becomes FIXED - NEEDS USER VERIFICATION.
 
-### P5 — Complete Stage-C acceptance
-Required evidence: accepted 2D baseline; intended local 3D route; visible Ready/Conflict candidate; explicit Apply; save/reopen same object/revision; transforms plus one supported sculpt/edit path; cleanup/exact STL export; viewport/starter-scene checks; storage containment; provider/resource evidence; cancellation/recovery.
+**Preemption:** new data-loss/runtime-corruption/release-safety evidence.
 
-### P6 — bounded MS-019 fallback
-If reference-machine evidence remains unavailable, take exactly one next authority-retirement seam: **mapped-object ground placement transform authority**.
+**Auto-proceed:** yes → Objective B.
 
-Requirements:
-- preserve the existing viewport/input presentation owner;
-- derive the requested ground-placement transform from durable Core object/revision state, not scene-observed durable truth;
-- commit through the existing Core transactional transform path;
-- reject stale object/revision/transform state before persistence;
-- project committed Core state back into Godot and restore from Core on failure;
-- add focused regression coverage preventing reintroduction of scene-observed persistence;
-- stop and validate after this seam.
+### Objective B — MS-009 viewport resize/render authority convergence (P1)
 
-Do not combine this with selection retirement, broad persistence cleanup, sculpt architecture, MS-020 expansion or MS-027 UI modernization.
+**Outcome:** splitter/window resize no longer alters viewport/grid/model/background presentation.
 
-### P7 — after next checkpoint
-Coordinator should review combined v1.0.26 trajectory and release chunk size again. Do not infer another MS-019 seam without newer roadmap direction.
+**Constraints:** instrument before changing architecture; Godot remains presentation/input owner; keep Stretch as normal size owner unless evidence disproves it; no watchdog/timer, blind delayed full repair, or second manual SubViewport size owner; identify and retire the conflicting historical presentation/resize path.
 
-### P8 — after Stage-C acceptance
-Finish MS-020 only for lifecycle gaps exposed by evidence; continue outward MS-019 migration; make provider-tier decisions from measured MS-022 results; then broaden Stage-D practical editing/sculpt/parts work.
+**Acceptance:** root state transition identified and regression-covered; strongest Windows/Godot render validation plus exact-head CI/package gates pass; MS-009 becomes FIXED - NEEDS USER VERIFICATION.
 
-## 5. Current issue priorities
+**Preemption:** runtime/persistence/data-loss/blank-viewport regression.
 
-1. MS-030 — Critical / IN PROGRESS: packaged backend remains unhealthy after successful Repair and blocks all Stage-C 3D generation.
-2. MS-018 — Critical / IN PROGRESS: Stage-C acceptance, currently blocked at backend health.
-3. MS-029 — Critical / IN PROGRESS: successful self-update kills the updated launcher health-probe session and does not perform a normal post-commit restart.
-3. MS-027 — High / IN PROGRESS: explicit v1.0.25 UI acceptance corrections; next after MS-029 unless a new serious blocker appears.
-4. MS-023 — Critical / FIXED - NEEDS USER VERIFICATION: durable generation/apply/reload ownership.
-5. MS-009 — Critical / FIXED - NEEDS USER VERIFICATION: viewport stability/readability.
-7. MS-024 — High / FIXED - NEEDS USER VERIFICATION: client-fill/resize seams.
-8. MS-013 — High / FIXED - NEEDS USER VERIFICATION: storage containment.
-9. MS-022 — High / IN PROGRESS: practical provider qualification.
-10. MS-004 — High / FIXED - NEEDS USER VERIFICATION: cancellation/recovery.
-11. MS-020 — High / IN PROGRESS: expand only from evidence.
-12. MS-019 — High architectural risk / IN PROGRESS: bounded proven authority retirement only.
-13. MS-025 — Medium / FIXED - NEEDS USER VERIFICATION: starter scene removal.
+**Auto-proceed:** yes → Objective C.
 
-## 6. Release discipline
+### Objective C — user-directed MS-027 compact workspace tranche (P2)
 
-Dev records validated checkpoints and continues. Checkpoints are evidence, not freezes. Coordinator freezes only exact current branch HEAD, creates the next forward semantic-version branch from that exact SHA, then initiates release-control. Never rewind a moving branch to an older checkpoint and never rewrite a published release/tag.
+**Outcome:** deliver the four visible UI corrections requested by the user as one coherent workspace result.
 
-## 7. User dependency
+Required scope:
+- multi-line vertically scrollable AI command console/history with Run;
+- real interactive orientation cube;
+- compact viewport tool controls without permanent instruction text;
+- remove workflow-panel explanatory prose and replace detailed help with small circular `i` hover help/tooltips.
 
-No product/design decision is required. For the just-completed update, manually reopen the installed launcher once; if that manual launch also exits, report it because that would indicate a second startup defect. Otherwise the MS-029 symptom is sufficiently reproduced and autonomous hotfix work can proceed. Continue testing released v1.0.25 on the reference Windows / GTX 1080 machine:
+**Constraints:** reuse authoritative action/command, viewport-tool, camera and selection owners; converge toward one current workspace composition owner rather than another parallel UI state machine; replacement controls must work before obsolete surfaces are retired; viewport remains dominant; no scene-tree/resource-graph/new-modeling/Rig-Pose expansion.
 
-`accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
+**Acceptance:** UI/layout regressions cover routing/ownership and persistence; supported resize/font scales remain usable; no Stage-C/save/load/transform/cancellation/export regression; exact-head validation/package gates green.
 
-Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery, and resource behavior during a long AI job.
+**Preemption:** new Critical correctness/runtime/persistence/viewport/release blocker.
+
+**Auto-proceed:** yes → Objective D.
+
+### Objective D — integrated v1.0.26 release-candidate hardening (P3)
+
+**Outcome:** produce one coherent exact-HEAD candidate containing runtime, updater, viewport and user-directed UI acceptance work.
+
+**Constraints:** no unrelated feature expansion; reconcile issue states honestly; document the immutable-v1.0.25 updater limitation; run strongest C#/Core/Python/runtime/geometry/execution/release-audit/Windows export/package/hash/installer checks; verify storage/data/runtime-cache/venv preservation and version identity; Dev does not publish.
+
+**Acceptance:** exact current HEAD coherent; all available automated/package gates green; release-worthy checkpoint recorded; docs list target-machine checks accurately; HANDOFF marks `COORDINATOR REVIEW REQUESTED`.
+
+**Preemption:** any failing gate/new serious defect.
+
+**Auto-proceed:** no — release boundary/freeze is Coordinator-owned.
+
+## 5. Dependencies and non-priorities
+
+Dependency order:
+
+`canonical backend start → stable viewport resize → compact workspace → integrated release hardening → Coordinator release decision → reference-machine Stage-C acceptance`
+
+Do not resume mapped-object ground placement/MS-019, broad MS-020 expansion, full sculpt migration, provider expansion, Rig/Pose expansion, kitbash breadth, scene-tree redesign or resource-graph work before this release candidate is reviewed.
+
+## 6. Issue priority
+
+1. **MS-030 — Critical / IN PROGRESS:** backend server-start contract remains incomplete.
+2. **MS-018 — Critical / IN PROGRESS:** end-to-end Stage-C acceptance; target retest waits for a fixed build.
+3. **MS-009 — Critical / IN PROGRESS:** real renderer still changes/darkens after resize.
+4. **MS-029 — Critical historical release-path regression / FIXED - NEEDS USER VERIFICATION:** current updater fix is CI-green; old v1.0.25 updater can still cause one unavoidable manual reopen.
+5. **MS-027 — High / IN PROGRESS:** user-directed compact workspace tranche.
+6. **MS-023 — Critical / FIXED - NEEDS USER VERIFICATION:** durable generation/apply/reload ownership.
+7. **MS-013 / MS-024 / MS-004 / MS-025 — verification-dependent.**
+8. **MS-022 — High / IN PROGRESS:** provider qualification after the thin slice runs.
+9. **MS-019 / MS-020 — migration work:** resume after current acceptance/release tranche.
+
+## 7. User / target-machine dependency
+
+No product decision is needed.
+
+Do not retry v1.0.25 Repair/3D generation, MS-009 resize reproduction or MS-027 UI reproduction again.
+
+When the next fixed release is available, retest update/reopen, Repair health, Generate 3D reaching provider resolution/inference, resize invariance, the compact UI tranche, then continue Stage-C through candidate Apply, save/reopen, edit/sculpt, cleanup and exact STL export.
