@@ -10,24 +10,18 @@ Last reconciled: 2026-09-11
 - **Stable release target:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Frozen v1.0.23 release boundary:** `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
 - **Current writable development branch:** `v1.0.24`, created from that exact release boundary.
-- **Latest validated v1.0.24 MS-020 implementation/test checkpoint:** `f5ea1378c4ff1ba177262a275469ef8d310d7cc2`.
+- **Latest validated v1.0.24 implementation/test checkpoint:** `c8451493b31306d12db7ed360a836e3e3b941fb2`.
 - **Overall completion:** **57% acceptance-weighted**.
 
 ## v1.0.23 release state
 
-Coordinator froze v1.0.23 and initiated publication at the exact boundary above. The autonomous release workflow reached the real Windows/Godot build successfully, but failed output-version verification because the frozen candidate still produced **v1.0.22** package metadata/names while the release request expected v1.0.23.
+Coordinator froze v1.0.23 and initiated publication at the exact boundary above. The autonomous release workflow reached the real Windows/Godot build successfully, but failed output-version verification because the frozen candidate still produced v1.0.22 package metadata/names while the release request expected v1.0.23.
 
-The source branch remains frozen. Dev has not modified v1.0.23 or release-control; release diagnosis/source-fix direction remains Coordinator-owned. Forward development continues only on v1.0.24.
-
-## v1.0.23 accumulated scope
-
-The frozen version contains the complete planned bounded MS-027 acceptance-support/UI-modernization sequence: workspace preferences/scaling/tooltips; direct viewport tools; synchronized scene hierarchy; view cube and selected-object orbit; unified AI command/history surface; MS-026 local resource telemetry; density cleanup; and MS-028 compile-regression repair.
-
-Publication does not close any user-observed issue that still requires reference-machine verification.
+The source branch remains frozen. Dev has not modified v1.0.23 or release-control; release diagnosis/source-fix direction remains Coordinator-owned. Forward development continues only on v1.0.24. Latest published stable remains v1.0.22.
 
 ## Current v1.0.24 progress — MS-020
 
-With Stage-C acceptance still externally blocked, v1.0.24 is advancing the Coordinator-approved Job Broker durability/resource-ownership work in bounded slices.
+With Stage-C acceptance still externally blocked, v1.0.24 has advanced the Coordinator-approved Job Broker/resource-ownership work in bounded slices.
 
 ### Slice 1 — heavyweight inference owner
 
@@ -39,36 +33,48 @@ With Stage-C acceptance still externally blocked, v1.0.24 is advancing the Coord
 
 ### Slice 2 — component/runtime mutation shares ownership
 
-Validated checkpoint `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` extended the same lease across install/update/repair/remove, while preserving the audited/resumable model installer and storage containment. Foreign model-release and component mutation now fail closed while inference owns the runtime.
+Validated checkpoint `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` extended the same lease across install/update/repair/remove, while preserving audited/resumable model installation and storage containment. Foreign model-release and component mutation fail closed while inference owns the runtime.
 
-### Slice 3 — truthful cancellation lifecycle at the migrated backend seam
+### Slice 3 — truthful cancellation lifecycle
 
-Validated checkpoint `f5ea1378c4ff1ba177262a275469ef8d310d7cc2` establishes:
+Validated checkpoint `f5ea1378c4ff1ba177262a275469ef8d310d7cc2` established request-only cancellation, terminal acknowledgement only after owned execution stops, late-success rejection, no cancelled-job qualification, and heavyweight ownership retention until the truthful terminal boundary.
 
-- `request_cancel()` is request-only: an active job remains `cancelling` and retains heavyweight ownership;
-- explicit terminal `acknowledge_cancel()` exists for the point where owned execution is known to have stopped;
-- provider failure after a cancel request terminates as `cancelled`, not generic `failed`;
-- a late provider success after cancellation is discarded rather than becoming a successful job;
-- cancelled late completion cannot record provider qualification;
-- heavyweight ownership is released only when terminal cancellation is acknowledged/completed after execution stops;
-- terminal cancellation acknowledgement is idempotent, so the FastAPI error wrapper cannot create a second false terminal transition;
-- focused regressions cover cancel-request → still owned, terminal acknowledgement → released, cancelled failure, and late completion rejection.
+### Slice 4 — minimum durable restart reconciliation
 
-The current editor hard-cancel boundary still restarts the owned backend process because synchronous provider adapters are not individually killable. Process termination therefore remains the external hard-stop boundary for those requests. Persistent job state, isolated provider worker processes and crash recovery are **not** claimed complete.
+Validated checkpoint `c8451493b31306d12db7ed360a836e3e3b941fb2` adds the bounded durability seam requested by the Coordinator:
+
+- only heavyweight `3d-generate` lifecycle state is journaled; no generalized persistent queue was introduced;
+- journal storage is contained under the existing backend data root through `storage.resolve()`;
+- writes use same-directory atomic replacement with flush/fsync before replace;
+- the record is compact and bounded: identity/kind/state/stage/progress/provider/cancel flag/timestamps plus whitelisted Stage-C identity context; no event history, model weights, output blobs or arbitrary context;
+- a prior-process `running` record becomes inactive terminal `interrupted` on startup, explicitly indicating no output was accepted;
+- a prior-process cancelling record becomes inactive terminal `cancelled`;
+- restart recovery never reacquires the process-local GPU/runtime lease and never restores/auto-applies an interrupted candidate;
+- corrupt or unsupported persisted state fails closed as inactive `recovery-error` without claiming heavyweight ownership;
+- regressions cover clean completion, active crash/restart, cancelling restart, corrupt journal, storage containment and temp-file cleanup.
+
+This closes the currently explicit bounded restart-reconciliation baton but does **not** claim isolated provider workers, a generalized persistent queue, multi-job durable history or complete broker architecture.
+
+## v1.0.24 version-identity correction
+
+The first CI pass of the restart slice exposed a real release-audit inconsistency: v1.0.24 launcher/installer metadata already identified 1.0.24 while updater/editor/backend/export/display/audit metadata still identified 1.0.22. Dev corrected this forward on writable v1.0.24 only; frozen v1.0.23 was untouched.
+
+Current v1.0.24 identity is aligned across launcher, updater, editor assembly, backend health/version, Windows export file/product metadata, installer, displayed editor version and release audit.
 
 ## Validation
 
-Exact implementation/test checkpoint `f5ea1378c4ff1ba177262a275469ef8d310d7cc2` is green:
+Exact implementation/test checkpoint `c8451493b31306d12db7ed360a836e3e3b941fb2` is green:
 
-- `core-foundation` run `34560559516`: **PASS**;
-- broader `build` run `34560559542`: **PASS**;
+- `core-foundation` run `34564634258`: **PASS**;
+- broader `build` run `34564634248`: **PASS**;
 - C# editor/launcher/updater/Core builds: **PASS**;
-- Python compile and runtime dependency resolution: **PASS**;
-- core logic, execution and job regressions, including the new cancellation lifecycle cases: **PASS**;
-- real geometry regressions and release audit: **PASS**;
+- Python compilation and runtime dependency resolution: **PASS**;
+- core logic and execution/job regressions, including restart-journal cases: **PASS**;
+- real geometry regressions: **PASS**;
+- v1.0.24 release audit: **PASS**;
 - portable package layout/hash and installer-definition compilation: **PASS**.
 
-This is a useful implementation checkpoint, not a release freeze.
+This is a useful implementation/release-worthy checkpoint, not a release freeze. Dev did not initiate publication.
 
 ## Critical path
 
@@ -76,12 +82,12 @@ Stage-C reference-machine acceptance remains P0. Required end-to-end evidence:
 
 `accepted 2D baseline → local 3D generation → Ready/Conflict candidate → Apply → save → close/reopen → same durable object/revision → transform/sculpt → cleanup → exact STL export`
 
-Also verify viewport resize/presentation, starter-scene removal, storage containment, provider/resource behavior and cancellation/recovery. New serious target-machine evidence preempts MS-020 immediately.
+Also verify viewport resize/presentation, starter-scene removal, storage containment, provider/resource behavior and cancellation/recovery. New serious target-machine evidence preempts further MS-020 work immediately.
 
 ## Release ownership
 
-Release publication is Coordinator-owned. v1.0.23 remains frozen while its release outcome is reconciled. Dev continues only on v1.0.24 and records implementation checkpoints without initiating publication.
+Release publication is Coordinator-owned. v1.0.23 remains frozen while its release outcome/source correction is reconciled. Dev continues only on v1.0.24 and records implementation checkpoints without initiating publication.
 
 ## User dependency
 
-No product/design decision is required. Reference-machine verification remains the external dependency. Until the Coordinator successfully publishes a newer build, v1.0.22 remains the latest stable build for Stage-C testing.
+No product/design decision is required. Reference-machine verification remains the external dependency. v1.0.22 is still the latest stable build for Stage-C testing. The new v1.0.24 restart journal cannot be target-machine qualified until that development reaches a published build.
