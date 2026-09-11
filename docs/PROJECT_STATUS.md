@@ -10,12 +10,12 @@ Last reconciled: 2026-09-11
 - **Stable release target:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Frozen v1.0.23 release boundary:** `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
 - **Current writable development branch:** `v1.0.24`, created from that exact release boundary.
-- **Latest validated v1.0.24 MS-020 implementation/test checkpoint:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`.
+- **Latest validated v1.0.24 MS-020 implementation/test checkpoint:** `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5`.
 - **Overall completion:** **57% acceptance-weighted**.
 
 ## v1.0.23 release state
 
-Coordinator froze v1.0.23 and initiated publication at the exact boundary above. The autonomous release workflow reached the real Windows/Godot build successfully, but failed its output-version verification because the frozen candidate's release metadata/build script still produced **v1.0.22** package names (`Miniscuplter-Setup-1.0.22.exe`) while the release request expected `v1.0.23`.
+Coordinator froze v1.0.23 and initiated publication at the exact boundary above. The autonomous release workflow reached the real Windows/Godot build successfully, but failed its output-version verification because the frozen candidate's release metadata/build script still produced **v1.0.22** package names (`Miniscuplter-Setup-1.0.22.exe`) while the release request expected `Miniscuplter-Setup-1.0.23.exe`.
 
 The source branch remains frozen. Dev has not modified v1.0.23 or release-control; release diagnosis/source-fix direction remains Coordinator-owned. Forward development continues only on v1.0.24.
 
@@ -36,9 +36,9 @@ Publication does not close any user-observed issue that still requires reference
 
 ## Current v1.0.24 progress — MS-020
 
-With Stage-C acceptance still externally blocked, v1.0.24 has begun the Coordinator-approved Job Broker durability/resource-ownership work conservatively.
+With Stage-C acceptance still externally blocked, v1.0.24 is advancing the Coordinator-approved Job Broker durability/resource-ownership work in bounded slices.
 
-First bounded slice:
+### Slice 1 — heavyweight inference owner
 
 - `ai_backend/resource_ownership.py` defines one explicit process-local heavyweight-runtime lease;
 - `3d-generate` jobs acquire that lease using their existing transport/job ID before heavyweight work begins;
@@ -46,16 +46,29 @@ First bounded slice:
 - completion and failure release ownership deterministically;
 - focused regressions verify lifecycle release and prevent a second owner from stealing an active lease.
 
-Validation for `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` is green:
+### Slice 2 — component/runtime mutation shares that owner
 
-- Stage-B/Core (`core-foundation` run `34553049740`): **PASS**;
-- C# editor/launcher/updater/Core builds: **PASS**;
-- Python compile/dependency resolution: **PASS**;
-- core/execution/job regressions: **PASS**;
-- geometry regressions and release audit: **PASS**;
+Validated checkpoint `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` extends the same lease across install/update/repair/remove:
+
+- component mutation now acquires the authoritative heavyweight lease with an explicit operation id and kind such as `component-install` or `component-remove`;
+- component operations fail closed rather than racing an active inference owner or stealing/clearing its lease;
+- cached-model release refuses to tear down models while a foreign heavyweight owner is active;
+- once a component operation owns the lease, cached models may be released safely before transactional/resumable mutation begins;
+- the v1.0.5 audited/resumable installer remains the underlying implementation, so deterministic staging and storage containment are preserved;
+- component status exposes the current resource owner, and successful operations return their operation id/kind;
+- failure paths release component ownership deterministically;
+- focused regressions cover inference-versus-install exclusion, foreign-owner model-release refusal, release-on-error, and install/update/repair/remove owner kinds.
+
+Validation for `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` is green:
+
+- Stage-B/Core (`core-foundation` run `34557452791`): **PASS**;
+- C# editor/launcher/updater/Core builds (`build` run `34557452815`): **PASS**;
+- Python compile and runtime dependency resolution: **PASS**;
+- core logic, execution and job regressions: **PASS**;
+- real geometry regressions and release audit: **PASS**;
 - portable package layout/hash and installer-definition compilation: **PASS**.
 
-This intentionally does **not** claim the final durable Job Broker. Component install/update/remove/repair still need to share the same resource owner; persistent queueing, worker/process isolation, real cancellation acknowledgement and crash recovery remain future bounded MS-020 slices.
+This intentionally does **not** claim the final durable Job Broker. Persistent queue state, isolated worker/process ownership, truthful cancellation acknowledgement after worker stop, and crash recovery remain future bounded MS-020 slices.
 
 ## Critical path
 
