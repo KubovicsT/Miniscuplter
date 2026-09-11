@@ -440,3 +440,6 @@ Verification focus:
 3. Successful waiters should proceed after lease release.
 4. 30-minute timeout should be rare and clearly reported as LEASE WAIT TIMEOUT.
 5. Observe whether the task execution environment can sustain the requested low-frequency re-checking without premature run termination; the scheduler does not expose a native blocking mutex/sleep primitive.
+
+
+Diagnostic append: operational reliability checkpoint.
