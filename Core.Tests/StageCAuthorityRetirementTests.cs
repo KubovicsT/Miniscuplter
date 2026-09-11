@@ -46,6 +46,18 @@ internal static class StageCAuthorityRetirementTests
             !editing.Contains("HookV1020TransformButton(\"Move +Y 1 mm\"", StringComparison.Ordinal) &&
             !editing.Contains("HookV1020TransformButton(\"Move -Y 1 mm\"", StringComparison.Ordinal),
             "mapped nudge commands must not regress to scene-observed transform persistence");
+
+        Assert(
+            editing.Contains("V1020CommitRotateCommandAsync", StringComparison.Ordinal) &&
+            editing.Contains("Vec3 rotation = current.Transform.RotationEuler;", StringComparison.Ordinal),
+            "mapped rotate nudges must derive from Core durable transform state");
+        Assert(
+            editing.Contains("new Vec3(rotation.X, rotation.Y + deltaYRadians, rotation.Z)", StringComparison.Ordinal),
+            "mapped rotate nudges must apply their command delta to durable Core state");
+        Assert(
+            !editing.Contains("HookV1020TransformButton(\"Rotate Y +5°\"", StringComparison.Ordinal) &&
+            !editing.Contains("HookV1020TransformButton(\"Rotate Y -5°\"", StringComparison.Ordinal),
+            "mapped rotate commands must not regress to scene-observed transform persistence");
     }
 
     static void Assert(bool condition, string message)
