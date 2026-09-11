@@ -465,3 +465,12 @@ Verification focus:
 - Updated active Coordinator, Dev, Daily and Manager prompts to read/write this context while still promoting durable truth into the owning canonical docs.
 - Manager now audits whether user evidence/requests propagate correctly across specialist chats without transferring product/roadmap/release authority.
 - `docs/AUTOMATION_EVENTS.md` remains historical process telemetry and is superseded for new shared entries.
+
+
+### AMP-006 retired — 2026-09-12
+- User explicitly retired the global GitHub lease protocol because connector safety failures on acquire/heartbeat/release caused more disruption than the overlap risk it prevented.
+- AMP-006 v1/v2 classification: **HARMFUL / RETIRED**.
+- Active Coordinator, Dev, Manager and Daily prompts no longer use `.automation-locks/global.json` as a prerequisite or coordination authority.
+- Manual overlap prevention is user-managed by pausing conflicting tasks. Scheduled tasks use only a lightweight visible-activity/repository/workflow no-race check and defer only when a real conflicting mutation is evident.
+- Historical lock files remain non-authoritative process artifacts and must not silently reactivate the protocol.
+- Verification focus: confirm no-lease operation reduces connector/process failures without causing actual overlapping repository mutations.
