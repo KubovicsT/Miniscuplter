@@ -9,7 +9,8 @@ Last reconciled: 2026-09-11
 - **Latest published stable release:** `v1.0.23`.
 - **Stable release target:** `bda683264448fc8b51c7c538db61f8c0487a699a`.
 - **Current writable development branch:** `v1.0.24`.
-- **Latest validated v1.0.24 implementation/test checkpoint:** `e3dfba9aa26d7045b4bf9602920a484c443789c7`.
+- **Latest fully validated v1.0.24 implementation/test checkpoint:** `e3dfba9aa26d7045b4bf9602920a484c443789c7`.
+- **Latest bounded MS-019 implementation/test commit:** `0e8aed592b75f714dd64482f65ddf701ce209a0f` — exact-head Actions validation pending because connector-originated commits did not start the push workflow during this run.
 - **Overall completion:** **57% acceptance-weighted**.
 
 v1.0.23 is published and immutable. All further changes belong on v1.0.24 or later.
@@ -34,7 +35,7 @@ The earlier failed retries remain useful release-safety evidence: semantic versi
 
 ## Current v1.0.24 progress — bounded MS-020 reliability seam complete
 
-With Stage-C acceptance externally blocked, v1.0.24 now has:
+With Stage-C acceptance externally blocked, v1.0.24 has:
 
 - one explicit heavyweight runtime owner for 3D generation;
 - shared ownership across component install/update/repair/remove;
@@ -47,6 +48,19 @@ With Stage-C acceptance externally blocked, v1.0.24 now has:
 
 Validated checkpoint: `e3dfba9aa26d7045b4bf9602920a484c443789c7`. This seam is intentionally bounded, not a generalized persistent queue or isolated-provider-worker architecture.
 
+## Current v1.0.24 progress — bounded MS-019 authority retirement
+
+The Coordinator-ordered next fallback seam is implemented at the already-migrated Stage-C generation boundary:
+
+- historical `V109Generate3DAsync` no longer owns provider execution, STL validation, or direct scene insertion;
+- that compatibility entry point now immediately delegates to canonical `V1020Generate3DAsync`;
+- canonical Stage-C generation continues to own durable baseline binding, end-to-end generation identity, immutable candidate registration, explicit Apply/Discard, and persistence;
+- focused `StageCAuthorityRetirementTests` source wiring guards prevent `Generate3DRoutedAsync` from returning to the historical v1.0.9 layer and require the Stage-C binding/transport/candidate/apply owner to remain present.
+
+Implementation/test commit: `0e8aed592b75f714dd64482f65ddf701ce209a0f` (code change began at `23d652abe50f1bb8faa28410582d2acac8e29512`). Diff inspection confirms this slice changes only the legacy generation body plus the focused regression. Full exact-head CI was not claimable in this run because GitHub Actions did not create a push workflow for the connector-originated commit; keep the previous `e3dfba9...` checkpoint as the latest fully validated checkpoint until an exact-head build runs.
+
+This is exactly one bounded MS-019 seam; do not expand into broad legacy removal without Coordinator sequencing or new evidence.
+
 ## Critical path
 
 Stage-C reference-machine acceptance remains P0 on **released v1.0.23**:
@@ -57,16 +71,14 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-Do not broaden MS-020 speculatively.
+Do not broaden MS-020 or MS-019 speculatively. The specifically ordered authority-retirement seam is complete at implementation level and awaits normal exact-head CI plus the next Coordinator sequencing decision.
 
-If no new target-machine evidence arrives, the next bounded fallback is **one MS-019 duplicate-authority retirement seam** at an already-migrated Stage-C boundary. Prefer removing/delegating a historical Stage-C generation/persistence owner already superseded by the final acceptance owner, but only where regression coverage proves replacement authority. If that seam is already inert, choose the smallest equivalent duplicate authority in transform/selection/persistence.
-
-Stop after one bounded seam, validate strongly, and record another useful checkpoint.
+On the next Dev run, first consume any new v1.0.23 target-machine evidence and actual Coordinator/HANDOFF changes. If no new direction exists, do not invent a second MS-019 seam merely because acceptance remains externally blocked.
 
 ## Release chunk decision
 
-**v1.0.24 should keep accumulating.** The current MS-020 seam is useful and coherent but not yet a sufficiently substantial next release chunk by itself. A checkpoint is not a freeze.
+**v1.0.24 should keep accumulating.** The current work is useful but a checkpoint is not a freeze and Dev does not own publication.
 
 ## User dependency
 
-No product/design decision is required. Reference-machine verification of released v1.0.23 remains the external dependency. Autonomous development can continue on v1.0.24.
+No product/design decision is required. Reference-machine verification of released v1.0.23 remains the external dependency. Autonomous development can continue under Coordinator sequencing.
