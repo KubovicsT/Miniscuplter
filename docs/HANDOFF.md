@@ -9,9 +9,9 @@ Last updated: 2026-09-11
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Current writable development branch:** `v1.0.24`.
 - **Frozen release source:** `v1.0.23` at exact boundary `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
-- **Latest validated v1.0.24 implementation/test checkpoint:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`.
+- **Latest validated v1.0.24 implementation/test checkpoint:** `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5`.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts MS-020.
+- **Coordinator critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts MS-020.
 
 ## v1.0.23 release outcome — frozen source remains untouched
 
@@ -21,35 +21,37 @@ Concrete failure: the frozen candidate still built itself as **v1.0.22**. `build
 
 Do not modify v1.0.23 or release-control from Dev. Coordinator owns release diagnosis and any directed frozen-source correction. Propagate any eventual release-source fix forward to v1.0.24 without rewriting published history.
 
-## This Dev Cycle — first bounded MS-020 slice
+## This Dev Cycle — second bounded MS-020 slice
 
 With no new reference-machine evidence available, work followed the Coordinator-approved v1.0.24 structural baton.
 
-### Heavyweight local-runtime ownership seam
+### Component/runtime mutation now shares heavyweight ownership
 
 Commits:
 
-- `be2b10c8099ce6977ea0ff217e5f93d1af2f8e5f` — adds `ai_backend/resource_ownership.py`, one explicit process-local heavyweight-runtime lease with owner identity and safe release;
-- `6030be36ceb7b8a5f2841fc0010816b7e80a2820` — binds `3d-generate` lifecycle to that lease using the existing transport/job ID and exposes the active owner in progress snapshots;
-- `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` — adds focused lifecycle/parallel-owner regressions.
+- `71bda33b66cf81a5245cd1e0b1f6585affcc3cee` — protects cached-model release from foreign active heavyweight owners;
+- `01a928c0987ee93476a1592849ba052fa35c472a` — routes install/update/repair/remove through the same authoritative heavyweight lease used by inference and exposes component-operation identity/busy state;
+- `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` — adds inference-vs-component, foreign-release, error-release and operation-kind regressions.
 
 Behavior now established:
 
-1. a 3D generation job acquires the one heavyweight-runtime owner before heavyweight provider execution;
-2. the owner identity is the existing generation job ID rather than a parallel identity system;
-3. progress snapshots expose current resource ownership;
-4. successful completion and failure release ownership deterministically;
-5. a second nonblocking owner cannot steal an active lease;
-6. existing provider-qualification semantics remain unchanged.
+1. a component install/update/repair/remove creates an explicit operation identity and kind (`component-install`, `component-update`, `component-repair`, `component-remove`);
+2. it acquires the same `resource_ownership` lease used by `3d-generate`, non-blocking, before any component mutation;
+3. an active inference owner cannot be stolen, cleared or interrupted by component mutation;
+4. `release_all_models()` independently refuses to tear down cached models while a foreign heavyweight owner exists;
+5. once the component operation owns the lease, cached models can be released safely before mutation;
+6. v1.0.5 audited/resumable install/update remains the underlying implementation, preserving deterministic staging, partial-download resume behavior and storage containment;
+7. component status exposes the current resource owner and successful operations return their operation id/kind;
+8. failure paths release ownership deterministically.
 
-This is deliberately **not** the completed Job Broker. The first seam is process-local and serializes current 3D heavyweight work. It does not yet provide durable queued state, worker/process isolation, crash recovery or true cancellation acknowledgement.
+This remains deliberately process-local and is **not** the completed Job Broker. It does not yet provide persistent queued state, worker/process isolation, truthful terminal cancellation acknowledgement after actual worker stop, or crash recovery.
 
 ## Validation
 
-Exact implementation/test checkpoint `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` is fully green:
+Exact implementation/test checkpoint `6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` is fully green:
 
-- `core-foundation` run `34553049740`: **PASS**;
-- broader `build` run `34553049801`: **PASS**;
+- `core-foundation` run `34557452791`: **PASS**;
+- broader `build` run `34557452815`: **PASS**;
 - C# editor/launcher/updater/Core builds: **PASS**;
 - Python compile and runtime dependency resolution: **PASS**;
 - core logic, execution and job regressions: **PASS**;
@@ -61,24 +63,25 @@ Later commits in this run are documentation-only and do not supersede the valida
 
 ## Exact next task
 
-First consume any new reference-machine Stage-C evidence. If none exists, continue **one bounded MS-020 slice**:
+First consume any new reference-machine Stage-C evidence. If none exists, continue **one bounded MS-020 slice** focused on cancellation truthfulness for the currently migrated heavyweight 3D lifecycle.
 
-**Make component install/update/remove/repair share the same authoritative heavyweight resource owner as inference.**
+**Make cancellation state distinguish “requested” from “worker actually stopped”, without pretending process isolation is already complete.**
 
 Requirements:
 
-- do not allow model/runtime mutation to race active heavyweight inference;
-- do not steal or silently clear an active inference owner;
-- use explicit operation identity/kind rather than a second unrelated lock system;
-- account for `model_manager.py` delegating install/update to `model_manager_v105`;
-- preserve transactional/resumable model-install behavior and storage containment;
-- expose a useful busy/ownership state to callers;
-- add focused regressions for inference-vs-install/remove exclusion and release-on-error;
-- stop after this ownership slice; durable queue persistence, isolated workers, cancellation acknowledgement and crash recovery remain later MS-020 work.
+- map the current editor/backend cancellation/reset path before changing semantics;
+- keep `request_cancel` as a request/cancelling state only;
+- add one explicit terminal cancellation acknowledgement path that is invoked only after the owned worker/provider execution is actually known to have stopped or the owned backend process has been terminated;
+- never release the heavyweight lease merely because cancellation was requested;
+- prevent a cancellation-requested job from later being recorded as a successful provider qualification or silently completing as if no cancellation occurred;
+- preserve Stage-C stale-result/candidate protections and do not apply partial output;
+- ensure the next heavyweight job cannot start until the prior owner is truly released;
+- add focused regressions for cancel-request → still-owned, terminal acknowledgement → released, and attempted late completion after cancellation;
+- stop after this cancellation-lifecycle slice. Persistent queue/journal state, isolated worker processes and crash recovery remain later MS-020 work unless the implementation evidence proves one is a prerequisite.
 
 ## Release/checkpoint rule
 
-`2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` is a useful validated implementation checkpoint, but it does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
+`6f6c1ed9784af8aabb5835413cd5f1dbeb6598e5` is a useful validated implementation checkpoint, but it does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
 
 ## User verification dependency
 
