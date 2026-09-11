@@ -361,35 +361,9 @@ public partial class Main
         _v1093DTimer = new Timer { WaitTime = .75, OneShot = false }; _v1093DTimer.Timeout += TickV1093D; AddChild(_v1093DTimer);
     }
 
-    async void V109Generate3DAsync()
-    {
-        if (_v1093DBusy) return;
-        string image = !string.IsNullOrEmpty(_lastEditedImage) ? _lastEditedImage : _lastCapture;
-        if (string.IsNullOrWhiteSpace(image) || !File.Exists(image)) { SetV1093DResult("3D status: no approved 2D source.", "Generate/open a 2D result first."); return; }
-        string output = AppDataRoot.Resolve($"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"); string prompt = _prompt?.Text.Trim() ?? "";
-        _v1093DBusy = true; _v1093DStarted = DateTime.UtcNow; _v1093DProvider = _v098Routes.Quality3D; SetV1093DBusy(true);
-        try
-        {
-            SetV1093DPhase("Checking local AI service…", "Source image verified: " + Path.GetFileName(image), 5);
-            if (!await _ai.HealthAsync()) throw new InvalidOperationException("The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.");
-            if (_v097ActivePreset != null) { SetV1093DPhase("Applying quality preset…", $"{_v097ActivePreset.Name} · {_v097ActivePreset.ShapeSteps} 3D steps", 10); await PushV097PresetToBackendAsync(_v097ActivePreset); }
-            SetV1093DPhase("Resolving 3D provider…", "Using your Settings → Models routing preference.", 15);
-            if (_v1093DProvider.Equals("auto", StringComparison.OrdinalIgnoreCase)) _v1093DProvider = await ResolveV109Quality3DProviderAsync();
-            SetV1093DPhase($"{_v1093DProvider} loading / reconstructing…", "Model loading can take time before GPU usage rises. The activity bar is a heartbeat because current 3D providers do not expose a reliable step percentage.", 22);
-            string path = await _ai.Generate3DRoutedAsync(image, prompt, output, "quality", _v1093DProvider);
-            SetV1093DPhase("Validating generated STL…", path, 90);
-            if (!File.Exists(path) || new FileInfo(path).Length == 0) throw new InvalidOperationException("The 3D provider returned without a usable STL file.");
-            var mesh = MeshIO.LoadStl(path); if (mesh.GetSurfaceCount() == 0) throw new InvalidOperationException("The generated STL contains no renderable mesh surface.");
-            SetV1093DPhase("Importing mesh into scene…", "Adding the result non-destructively as a new scene object.", 96);
-            AddMeshObject(mesh, $"AI 3D — {_v1093DProvider}"); FrameSelected();
-            double sec = (DateTime.UtcNow - _v1093DStarted).TotalSeconds; SetV1093DResult($"3D status: completed with {_v1093DProvider} in {sec:0}s.", "Output: " + path); SetStatus("AI 3D part added non-destructively.");
-        }
-        catch (Exception ex)
-        {
-            double sec = (DateTime.UtcNow - _v1093DStarted).TotalSeconds; string detail = V108FriendlyAiError(ex); SetV1093DResult($"3D status: FAILED after {sec:0}s.", detail); SetStatus("3D AI error: " + detail); V109ShowError("2D → 3D generation failed", detail);
-        }
-        finally { _v1093DBusy = false; SetV1093DBusy(false); }
-    }
+    // Historical v1.0.9 compatibility entry point. Stage-C owns generation/persistence now.
+    // Keep the method during migration so older composition hooks remain valid, but delegate immediately.
+    void V109Generate3DAsync() => V1020Generate3DAsync();
 
     async Task<string> ResolveV109Quality3DProviderAsync()
     {
