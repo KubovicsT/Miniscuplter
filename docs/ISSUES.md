@@ -322,14 +322,14 @@ Last reconciled: 2026-09-10
 - **Severity:** High product/UX acceptance
 - **Status:** IN PROGRESS — USER-DIRECTED ACCEPTANCE SCOPE
 - **User direction:** 2026-09-10 annotated UI specification, reinforced by 2026-09-11 v1.0.25 reference-machine screenshot and explicit acceptance corrections.
-- **Scheduling rule:** MS-029 and any new serious correctness, persistence, data-safety, release, or Stage-C blocker preempt MS-027. Once the active blocker is cleared, the 2026-09-11 user-directed UI acceptance tranche is the next product-facing v1.0.26 work before optional architecture/fallback modernization.
+- **Scheduling rule:** MS-030 and MS-009, plus any new serious correctness/persistence/data-safety/release/Stage-C blocker, preempt MS-027. Once those are code-fixed and validated, the 2026-09-11 user-directed UI acceptance tranche is the next product-facing v1.0.26 work before integrated release hardening.
 - **Primary goal:** make Miniscuplter feel like a compact modeling application rather than a large form full of explanatory text, while preserving the existing backend/state semantics.
 - **v1.0.23 slice 1 implementation:** commits `f169f6e3428a64804e8778c05353b9d07a87dfe3`, `5faa1e528e6a81fb8db15942c68b3da71391743d` and `74ec73a14645071bb2742fb68f778bedd656aabd` add a final editor-only preference layer after `InstallV1022Acceptance()`. It persists the outer/body and viewport/right-panel splitter positions under `AppDataRoot.Resolve("Settings/ui_preferences.json")`, clamps restored panel widths, defaults the main UI text scale to 90%, exposes a 75–135% Settings → Interface font-scale control plus Reset Workspace Layout, and seeds reusable hover tooltips for core toolbar actions. It does not reference `ProjectStore` or own Stage-C generation/actions.
 - **v1.0.23 regression coverage:** `tools/core_logic_tests.py` now guards final installer ordering, controlled-root preference storage, both splitter fields, bounded font scale, Interface settings/tooltips, replacement-safe preference writes, and absence of project/Stage-C-generation ownership from the preference layer.
 - **Validation:** implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed Stage-B/Core, full C# builds, Python/core/execution/geometry/release-audit validation, portable package layout/hash and installer-definition compilation. Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs; packaging was still finishing when this ledger entry was written and must be checked before claiming exact-head validation.
 - **Result:** first bounded modernization slice is implemented without broadening into a UI rewrite or displacing the v1.0.22 acceptance dependency. Real restart/layout/scale behavior still needs target/UI verification before the slice can be considered accepted.
 - **2026-09-11 v1.0.25 reference-machine evidence:** the current UI still presents the AI command entry as a single top strip with a separate full-width action row; the top-right orientation control is only a flat letter/button box rather than an actual 3D view cube; the viewport's top-left tool overlay still consumes substantial space with letter controls plus instructional text; and the right-side 3D panel still contains persistent explanatory paragraphs. The user explicitly wants detailed explanations moved behind small circular `i` affordances shown on hover.
-- **Next action after MS-029:** implement the user-directed MS-027 acceptance tranche below. Reuse existing command dispatch, viewport-tool state, camera/view snapping, and panel action owners; this is a presentation/interaction correction, not permission to create parallel state machines.
+- **Next action after MS-030 and MS-009:** implement the user-directed MS-027 acceptance tranche below. Reuse existing command dispatch, viewport-tool state, camera/view snapping, and panel action owners; this is a presentation/interaction correction, not permission to create parallel state machines.
 
 ### Required workspace structure
 
@@ -383,7 +383,7 @@ Last reconciled: 2026-09-10
 
 ### Current user-directed acceptance tranche
 
-After MS-029 is cleared, implement these visible v1.0.25 corrections as one coordinated MS-027 tranche, in bounded commits/checkpoints:
+After MS-030 and MS-009 are code-fixed, implement these visible v1.0.25 corrections as one coordinated MS-027 tranche, in bounded commits/checkpoints:
 
 1. multi-line scrollable AI command console/history, replacing the single-line top strip and oversized top action band while preserving one dispatch owner;
 2. real interactive 3D orientation cube in the viewport corner, not a flat box of letter buttons;
@@ -431,25 +431,27 @@ Do not broaden this tranche into scene-tree redesign, resource-graph work, new m
 
 ## MS-029 — Successful self-update health probe closes the updated launcher
 
-- **Severity:** Critical
-- **Status:** IN PROGRESS
+- **Severity:** Critical release-path regression
+- **Status:** FIXED - NEEDS USER VERIFICATION
 - **First observed:** 2026-09-11 user/reference-machine update to v1.0.25.
-- **Symptoms:** after a successful application update, the updated launcher opens briefly and then exits instead of remaining open on the new version.
-- **Repository evidence / root cause:** `Updater/Program.cs::VerifyLauncherStartup` starts the updated launcher with `--update-health-token`, waits for the launcher to write the health token, then kills that process in `finally` even on the successful-health path. The successful updater path subsequently commits/cleans up and returns without starting the launcher normally. `Launcher/Program.cs` writes the token but does not intentionally close or relaunch itself. This behavior matches the reference-machine observation.
-- **Impact:** the application update can complete, but the expected post-update launcher session is terminated and the user must reopen the launcher manually. No data-loss/rollback evidence is currently reported, but this is a release/update reliability blocker.
-- **Required fix:** preserve failed-probe rollback semantics, but make the successful path leave or start a normal updated launcher after the transaction is committed. Add focused regression coverage for successful health validation/restart and failed-probe rollback. Because the updater that installs a release comes from the previously installed version, account explicitly for the v1.0.25 → next-release transition rather than assuming new updater code controls that one update.
-- **Verification:** exact-head automated validation plus a real Windows self-update from an installed prior stable build; confirm the new version remains open after update without manual relaunch and no updater error/rollback artifact is produced.
-- **Next action:** preempt MS-019 fallback work and implement the smallest safe hotfix on v1.0.26.
+- **Root cause:** `Updater/Program.cs::VerifyLauncherStartup` killed the updated launcher from `finally` even after a successful health token and the success path did not relaunch it normally.
+- **Implementation:** `9f36f44f7b792c2bbdf51cbdaa81cf72b1bebf6b` preserves a launcher after confirmed health while retaining failure/timed-out-probe termination and rollback; `e6ae3d3541de6de4bec19838e71595e4b76dbedfa` adds health-protocol regression coverage.
+- **Automated evidence:** exact-head branch build/Core validation is green through current v1.0.26 planning HEAD.
+- **Immutable-transition limitation:** the updater that installs v1.0.26 from published v1.0.25 is the already-installed v1.0.25 updater, so that one transition may still show the old brief-open/close behavior and require a manual launcher reopen. The v1.0.26 fix protects subsequent transitions. Do not rewrite v1.0.25 or add risky detached-process compatibility machinery solely to hide this one-time limitation.
+- **Verification:** on a future update driven by the fixed updater, confirm the healthy updated launcher remains open and failed health checks still roll back/restart safely.
+- **Next action:** preserve the fix through v1.0.26 integrated release hardening; no further feature work is required for MS-029 now.
 
 ## MS-030 — Packaged backend health fails after successful Runtime Repair
 
 - **Severity:** Critical
 - **Status:** IN PROGRESS
 - **First observed:** released v1.0.25 reference-machine testing on 2026-09-11.
-- **Reproduction:** 3D generation fails after ~2 seconds at “Checking local AI service…” with “The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.” Repair AI Runtime then completes successfully, but the same health failure persists.
+- **Reproduction:** 3D generation fails after ~2 seconds at local-backend health; Repair AI Runtime can report success yet retry still fails.
 - **Impact:** blocks the primary Stage-C `2D → 3D` workflow completely.
-- **Repository evidence / root-cause hypothesis:** `setup_ai_backend.bat` creates and validates the backend-directory `.venv`, but does not launch `app.py` or verify `/health`. `Scripts/BackendLauncher.cs` independently selects Python and currently prefers `Runtime/Python/python.exe` before the backend-local `.venv`. A different interpreter can therefore be launched from the one Repair validated. This hypothesis must be confirmed from selected-interpreter/process-exit/backend-log evidence.
-- **Diagnostic gap:** the UI collapses backend launch/readiness failures into generic Repair guidance even after Repair succeeded. Backend stdout/stderr is written to `AIData/Logs/backend.log`, but selected interpreter, exit code, and recent startup stderr are not surfaced at the failure point.
-- **Required fix:** unify Repair and backend-launch runtime ownership; prefer/use the exact repaired environment or validate any alternate interpreter against the same runtime contract; add backend startup/health smoke validation to Repair; surface selected interpreter/backend path/process exit/recent bounded stderr on startup failure.
-- **Verification:** interpreter-selection/runtime-contract tests, packaged Windows backend startup/health validation, then reference-machine 3D generation reaching provider resolution/inference.
-- **Next action:** MS-030 is P0 and preempts MS-029, MS-009, MS-027 and MS-019 until backend health works.
+- **Attempt 1 — runtime authority convergence:** `4efd840eaa774a87c7dd8ec8aaba98479e02e266` made the editor use the backend-local repaired `.venv` and removed embedded/PATH interpreter fallback. `6dcb754b552f6254d6ab6165ecf94725f354bc2d` added a Repair health smoke using the same interpreter. `1e6ed3541de6de4bec19838e71595e4b76dbedfa` added source regressions. CI is green.
+- **Coordinator end-to-end finding (2026-09-11):** Attempt 1 is incomplete. `ai_backend/app.py` defines `app = FastAPI(...)` and endpoints, but has no executable server entry point. Both `BackendLauncher` and Repair invoke it as `python app.py`, which can exit without opening port 7868. Green source/build CI therefore does not prove backend startup.
+- **Second hidden risk:** Repair currently probes production port 7868. If another backend is already listening, Repair could validate the wrong process. The smoke must use an isolated port or otherwise bind health identity to the process/runtime it launched and verify expected backend version/identity.
+- **Required fix:** establish one canonical backend server-start contract shared by editor and Repair; run the actual Uvicorn/FastAPI server under the repaired venv; keep loopback-only binding; isolate/identify the Repair smoke; retain process-tree containment and bounded startup stderr/exit diagnostics.
+- **Verification:** actual packaged startup/health lifecycle test plus focused regression coverage and full exact-head validation; reference-machine Repair must only succeed after its own backend is healthy, and Generate 3D must then reach provider resolution/inference.
+- **Next action:** complete canonical server startup before any MS-009/MS-027 work. Move only to FIXED - NEEDS USER VERIFICATION after the real server lifecycle is proven in the packaged path.
+
