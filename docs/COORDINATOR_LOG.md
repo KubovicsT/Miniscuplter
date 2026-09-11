@@ -95,3 +95,26 @@ Reference-machine v1.0.25 fails Stage-C 3D generation at the local backend healt
 Repository inspection shows Repair validates the backend-directory virtual environment, while the editor backend launcher can select a different Python executable first. Repair also does not currently prove that the packaged backend can start and answer its health endpoint. Dev must confirm the actual selected interpreter/process-exit evidence, unify the runtime ownership contract, add a real startup/health smoke to Repair, and improve startup diagnostics.
 
 MS-030 preempts MS-029, MS-009 and MS-027 until backend health works. v1.0.26 remains writable and is not release-ready.
+
+## 2026-09-11 — AMP-005 first end-to-end review and rolling execution plan
+
+### No-race / repository truth
+Latest stable remains v1.0.25 at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`. v1.0.26 is writable with no release request. Dev's latest implementation checkpoint `1e6ed354...` and the pre-review docs HEAD `845e76a9...` both had green Core/build Actions. The last Dev run completed before this review and no release workflow was active, so planning mutation was safe.
+
+### Whole-system assessment
+The selective-refactor architecture remains correct. Recent failures share a common seam problem: historical layers can each be locally reasonable while no single end-to-end owner proves the full runtime/render/UI contract. The response is authority convergence plus acceptance evidence, not another broad rewrite.
+
+### MS-030 deeper diagnosis
+Dev correctly unified Repair/editor interpreter selection and added stronger diagnostics, but Coordinator inspection found both paths still execute `python app.py`. The Python module defines FastAPI `app` and endpoints but no executable server entry point, so this command does not actually start Uvicorn. This invalidates any claim that MS-030 is fixed merely because source regressions/builds are green. Repair also probes fixed production port 7868, which can validate an unrelated already-running backend. MS-030 therefore stays IN PROGRESS and P0 until one canonical real server-start contract plus process-bound/isolated health smoke is proven.
+
+### MS-029 release-path judgment
+The updater health-probe fix is coherent and CI-green. Published v1.0.25 cannot be retroactively changed, so its updater may still close the launcher once while installing v1.0.26. Accept a manual reopen for that immutable one-transition edge; do not spend architecture complexity trying to retrofit an old published updater. MS-029 moves to FIXED - NEEDS USER VERIFICATION for future fixed-updater transitions.
+
+### Viewport/UI architecture risk
+MS-009 should be treated as a presentation-authority conflict until disproven. Do not add another resize watchdog/reassertion layer; instrument and retire the changing owner. For MS-027, converge toward one current workspace composition owner while reusing action/state owners; avoid another independent versioned UI state machine.
+
+### AMP-005 execution plan
+HANDOFF now carries four substantial objectives: canonical backend startup, viewport resize authority, the user-directed compact UI tranche, then integrated v1.0.26 release-candidate hardening. Dev may auto-proceed A→B→C→D. The queue intentionally stops after D because release/freeze becomes a Coordinator-owned strategic boundary. This provides multi-run depth without speculative unrelated work.
+
+### Release decision
+KEEP v1.0.26 ACCUMULATING. Do not freeze while MS-030/MS-009 or the defined MS-027 tranche are incomplete. After Objective D, review exact current HEAD; if coherent and green, create the forward version branch and initiate release-control from that exact boundary.
