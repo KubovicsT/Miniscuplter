@@ -29,6 +29,7 @@ app_project = text("Miniscuplter.csproj")
 installer = text("installer/Miniscuplter.iss")
 export_presets = text("export_presets.cfg")
 backend = text("ai_backend/app.py")
+backend_server = text("ai_backend/serve.py")
 job_progress = text("ai_backend/job_progress.py")
 workflow = text(".github/workflows/build.yml")
 core_workflow = text(".github/workflows/core_foundation.yml")
@@ -289,6 +290,10 @@ require("ResumeAvailable" in model_service and "resume_available" in model_servi
 require("RedirectStandardOutput = true" in runtime_setup_service and "RedirectStandardError = true" in runtime_setup_service and "Kill(entireProcessTree: true)" in runtime_setup_service, "runtime setup is not streamed/cancellable")
 require("RichTextBox" in runtime_dialog and "RequestCancel" in runtime_dialog and "cached downloads" in runtime_dialog.lower(), "runtime setup progress dialog missing")
 require("JobObjectLimitKillOnJobClose" in backend_launcher and "AssignProcessToJobObject" in backend_launcher, "editor backend process containment missing")
+require('uvicorn.run("app:app"' in backend_server and '--instance-token' in backend_server and '127.0.0.1' in backend_server, "canonical loopback backend server entry point missing")
+require('serve.py' in backend_launcher and '--instance-token' in backend_launcher and 'JsonDocument.Parse' in backend_launcher and 'instance_token' in backend_launcher, "editor does not launch/verify the canonical instance-bound backend server")
+require('serve.py' in runtime_setup_service and 'ReserveLoopbackPort' in runtime_setup_service and '--instance-token' in runtime_setup_service and 'JsonDocument.Parse' in runtime_setup_service, "Repair does not verify its own isolated canonical backend server")
+require('"instance_token": os.getenv("MINISCULPTER_BACKEND_INSTANCE", "")' in backend, "backend health identity is not bound to the launched server instance")
 require("JobObjectLimitKillOnJobClose" in launcher_job and "AssignProcessToJobObject" in launcher_job and "OwnedChildProcessJob.Dispose" in launcher_program, "launcher child-process containment missing")
 
 # Application self-update: verified, resumable, storage-aware and data preserving.
