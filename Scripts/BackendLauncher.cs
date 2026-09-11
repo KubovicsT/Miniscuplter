@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -23,6 +24,7 @@ public partial class BackendLauncher : Node
     IntPtr _job = IntPtr.Zero;
     string? _backendPath;
     string? _pythonPath;
+    string? _instanceToken;
 
     public override void _Ready()
     {
@@ -79,22 +81,24 @@ public partial class BackendLauncher : Node
 
         string[] backendCandidates =
         {
-            Path.Combine(root, "ai_backend", "app.py"),
-            Path.Combine(root, "App", "ai_backend", "app.py"),
-            ProjectSettings.GlobalizePath("res://ai_backend/app.py")
+            Path.Combine(root, "ai_backend"),
+            Path.Combine(root, "App", "ai_backend"),
+            ProjectSettings.GlobalizePath("res://ai_backend")
         };
-        string? app = Array.Find(backendCandidates, File.Exists);
-        if (app == null)
+        string? backendDir = Array.Find(backendCandidates, dir => File.Exists(Path.Combine(dir, "app.py")) && File.Exists(Path.Combine(dir, "serve.py")));
+        if (backendDir == null)
         {
             GD.Print("AI backend files were not found; editor remains usable without AI.");
             return;
         }
+        string app = Path.Combine(backendDir, "app.py");
+        string server = Path.Combine(backendDir, "serve.py");
 
         // Repair AI Runtime creates and validates the virtual environment beside app.py.
         // Launch that exact environment. Do not prefer a separate embedded/system Python or
         // silently fall back to PATH, because that can make Repair report success while the
         // editor starts the backend with a different, unvalidated interpreter.
-        string python = Path.Combine(Path.GetDirectoryName(app)!, ".venv", "Scripts", "python.exe");
+        string python = Path.Combine(backendDir, ".venv", "Scripts", "python.exe");
         _backendPath = Path.GetFullPath(app);
         _pythonPath = Path.GetFullPath(python);
         lock (_logLock) _recentStderr.Clear();
@@ -115,7 +119,14 @@ public partial class BackendLauncher : Node
                 RedirectStandardError = true,
                 WorkingDirectory = Path.GetDirectoryName(app) ?? root
             };
-            psi.ArgumentList.Add(app);
+            _instanceToken = Guid.NewGuid().ToString("N");
+            psi.ArgumentList.Add(server);
+            psi.ArgumentList.Add("--host");
+            psi.ArgumentList.Add("127.0.0.1");
+            psi.ArgumentList.Add("--port");
+            psi.ArgumentList.Add("7868");
+            psi.ArgumentList.Add("--instance-token");
+            psi.ArgumentList.Add(_instanceToken);
             psi.Environment["MINISCULPTER_ROOT"] = root;
             AppDataRoot.ApplyEnvironment(psi.Environment);
             psi.Environment["MINISCULPTER_PARENT_PID"] = Environment.ProcessId.ToString();
@@ -173,7 +184,16 @@ public partial class BackendLauncher : Node
             try
             {
                 using var response = await _readinessHttp.GetAsync("http://127.0.0.1:7868/health");
-                if (response.IsSuccessStatusCode) return;
+                if (response.IsSuccessStatusCode)
+                {
+                    string payload = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(payload);
+                    var root = doc.RootElement;
+                    string version = root.TryGetProperty("version", out var versionNode) ? versionNode.GetString() ?? "" : "";
+                    string token = root.TryGetProperty("instance_token", out var tokenNode) ? tokenNode.GetString() ?? "" : "";
+                    if (version == "1.0.26" && !string.IsNullOrWhiteSpace(_instanceToken) && token == _instanceToken)
+                        return;
+                }
             }
             catch (HttpRequestException) { }
             catch (TaskCanceledException) { }
