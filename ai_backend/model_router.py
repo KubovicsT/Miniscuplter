@@ -4,6 +4,7 @@ from typing import Any
 from model_manager import component_path, hardware_info
 from model_capabilities import role_options
 from provider_readiness import inspect_provider, readiness_status, route_eligible
+import resource_ownership
 
 @dataclass(frozen=True)
 class RouteDecision:
@@ -102,7 +103,13 @@ def routing_status()->dict[str,Any]:
     for label,role in rolemap.items():r["capabilities"][label]=role_options(role,int(hw.get("vram_mb",0) or 0))
     return r
 
-def release_all_models():
+def release_all_models(*, allow_owner_id:str|None=None):
+    owner=resource_ownership.snapshot()
+    if owner.get("active") and owner.get("owner_id") != allow_owner_id:
+        raise resource_ownership.ResourceBusyError(
+            f"Cannot release local runtime models while heavyweight work is owned by "
+            f"{owner.get('kind') or 'another operation'} ({owner.get('owner_id') or 'unknown owner'})."
+        )
     for module_name,fn_name in (("local_image","release_models"),("sdxl_image","release_models"),("flux_klein","release_models"),("modern_image","release_models"),("hunyuan_shape","release_model"),("triposr_shape","release_model"),("semantic_select","release_model")):
         try:
             m=__import__(module_name,fromlist=[fn_name]);fn=getattr(m,fn_name,None)
