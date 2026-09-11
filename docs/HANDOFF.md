@@ -6,28 +6,74 @@ Last updated: 2026-09-11
 
 ## Current state
 
-- **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7` until the active v1.0.23 publication succeeds.
+- **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Current writable development branch:** `v1.0.24`.
 - **Frozen release source:** `v1.0.23` at exact boundary `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
-- **Latest validated v1.0.23 code/test checkpoint:** `1665a9c9fabd8a3d0f1f4f8ed79411f749e158f6`; subsequent commits through the frozen HEAD are documentation-only and exact-head branch CI is green.
+- **Latest v1.0.24 implementation/test head:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts fallback work.
+- **Critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts MS-020.
 
-## Coordinator release boundary
+## v1.0.23 release outcome — frozen source remains untouched
 
-The complete planned bounded MS-027 sequence has accumulated into a coherent, substantial, independently testable UI/acceptance-support increment: workspace preferences/UI scaling/tooltips; direct viewport tools; synchronized hierarchy; view cube and selected-object orbit; unified AI command/history dispatcher; MS-026 resource telemetry; and density/spacing cleanup. The branch is therefore large enough to release rather than continue accumulating unrelated work.
+Coordinator froze v1.0.23 and initiated publication at `a6532003bc6ecfcf79fc15afa3ee772cb117b982`. The autonomous release workflow validated the request and exact SHA, passed C#, Core, Python/runtime, job regressions, geometry/release audit, verified Godot download and the full Windows build, then failed **versioned-output verification**.
 
-The Coordinator established the v1.0.23 release boundary at `a6532003bc6ecfcf79fc15afa3ee772cb117b982` and created v1.0.24 from that exact SHA so Dev can continue while publication runs. v1.0.23 is frozen: do not commit application or documentation changes there while its release request is active.
+Concrete failure: the frozen candidate still built itself as **v1.0.22**. `build_release.ps1` logged `Building Miniscuplter v1.0.22 release package...` and Inno Setup emitted `Miniscuplter-Setup-1.0.22.exe`, while the v1.0.23 release gate correctly required `Miniscuplter-Setup-1.0.23.exe`.
 
-## Immediate Dev baton on v1.0.24
+Do not modify v1.0.23 or release-control from Dev. Coordinator owns release diagnosis and any directed frozen-source correction. Propagate any eventual release-source fix forward to v1.0.24 without rewriting published history.
 
-1. Check first for new reference-machine evidence. Any serious Stage-C/persistence/viewport/storage/cancellation issue is P0.
-2. Do not invent another MS-027 UI slice: the planned sequence is complete.
-3. If user evidence remains unavailable, begin the next already-approved structural objective conservatively: **MS-020 durable Job Broker ownership/resource locking/cancellation/crash recovery**, starting with a bounded architecture/implementation slice that directly improves long-running local job reliability and preserves current Stage-C behavior.
-4. Keep Core durable-state authority, Godot presentation/input authority and Python inference/geometry authority intact.
-5. Do not modify the frozen v1.0.23 branch or its release request.
-6. If Coordinator reports a concrete v1.0.23 release-source failure, make only the directed minimum fix on the frozen source path and propagate the equivalent fix forward to v1.0.24.
+## This Dev Cycle — first bounded MS-020 slice
+
+With no new reference-machine evidence available, work followed the Coordinator-approved v1.0.24 structural baton.
+
+### Heavyweight local-runtime ownership seam
+
+Commits:
+
+- `be2b10c8099ce6977ea0ff217e5f93d1af2f8e5f` — adds `ai_backend/resource_ownership.py`, one explicit process-local heavyweight-runtime lease with owner identity and safe release;
+- `6030be36ceb7b8a5f2841fc0010816b7e80a2820` — binds `3d-generate` lifecycle to that lease using the existing transport/job ID and exposes the active owner in progress snapshots;
+- `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` — adds focused lifecycle/parallel-owner regressions.
+
+Behavior now established:
+
+1. a 3D generation job acquires the one heavyweight-runtime owner before heavyweight provider execution;
+2. the owner identity is the existing generation job ID rather than a parallel identity system;
+3. progress snapshots expose current resource ownership;
+4. successful completion and failure release ownership deterministically;
+5. a second nonblocking owner cannot steal an active lease;
+6. existing provider-qualification semantics remain unchanged.
+
+This is deliberately **not** the completed Job Broker. The first seam is process-local and serializes current 3D heavyweight work. It does not yet provide durable queued state, worker/process isolation, crash recovery or true cancellation acknowledgement.
+
+## Validation
+
+Exact implementation/test head `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`:
+
+- `core-foundation` run `34553049740`: **PASS**;
+- broader `build` run `34553049801`: **still running at handoff write** — inspect its final conclusion before calling this a fully validated release-worthy checkpoint.
+
+Do not treat later documentation-only commits as replacing the code/test checkpoint. If the broader run fails, inspect the actual failing step and fix forward on v1.0.24.
+
+## Exact next task
+
+First consume any new reference-machine Stage-C evidence. If none exists and exact-head implementation validation is green, continue **one bounded MS-020 slice**:
+
+**Make component install/update/remove/repair share the same authoritative heavyweight resource owner as inference.**
+
+Requirements:
+
+- do not allow model/runtime mutation to race active heavyweight inference;
+- do not steal or silently clear an active inference owner;
+- use explicit operation identity/kind rather than a second unrelated lock system;
+- account for `model_manager.py` delegating install/update to `model_manager_v105`;
+- preserve transactional/resumable model-install behavior and storage containment;
+- expose a useful busy/ownership state to callers;
+- add focused regressions for inference-vs-install/remove exclusion and release-on-error;
+- stop after this ownership slice; durable queue persistence, isolated workers, cancellation acknowledgement and crash recovery remain later MS-020 work.
+
+## Release/checkpoint rule
+
+The MS-020 code/test head may be recorded as an implementation checkpoint after its full CI is green, but that does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
 
 ## User verification dependency
 
-Reference-machine testing remains required. Prefer the newest successfully published build when available. Exercise Generate 3D → candidate → Apply → save/close/reopen → same object/revision; resize/presentation; no starter sphere/opaque floor; transform/sculpt; cleanup/export; storage containment; cancellation/recovery; and the resource panel during a long AI job.
+Reference-machine testing remains required. Until a newer build is successfully published, v1.0.22 remains the latest stable build. Exercise Generate 3D → candidate → Apply → save/close/reopen → same object/revision; resize/presentation; no starter sphere/opaque floor; transform/sculpt; cleanup/export; storage containment; cancellation/recovery; and resource behavior during a long AI job.
