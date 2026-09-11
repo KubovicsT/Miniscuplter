@@ -9,7 +9,8 @@ Last reconciled: 2026-09-11
 - **Latest published stable release:** `v1.0.25`.
 - **Stable release target:** `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
 - **Current writable development branch:** `v1.0.26`.
-- **Current fully validated implementation checkpoint:** `d4aef5d55170ef45298e9db942cb250d78e911d2`.
+- **Latest CI-green implementation checkpoint:** `1e6ed3541de6de4bec19838e71595e4b76dbedfa` (not release-worthy yet because MS-030's server-start contract remains incomplete).
+- **Current planning HEAD:** `674255595923c7c89cec3dac52080484c2fb25ed`.
 - **Overall completion:** **57% acceptance-weighted**.
 
 v1.0.25 is published and immutable. All new development belongs on v1.0.26 unless Coordinator establishes a newer forward branch or freezes v1.0.26.
@@ -46,24 +47,20 @@ Exact-head validation is green: Core foundation, C# editor/launcher/updater/Core
 
 ## Critical path
 
-**MS-030 packaged backend health/runtime ownership is now P0.** Released v1.0.25 fails the local AI backend health check before provider resolution, and Repair AI Runtime completes successfully without fixing it. Repository inspection shows Repair validates the backend-local `.venv`, while the editor backend launcher can prefer `Runtime/Python/python.exe` first; that mismatch is a concrete root-cause hypothesis requiring process/log confirmation. This blocks the entire Stage-C 3D path.
+**MS-030 remains P0 and is not yet fixed.** Dev removed interpreter divergence and added Repair health validation, but end-to-end review found both Repair and editor still launch `python app.py`. The module defines FastAPI `app` but has no executable server entry point, so this command does not start Uvicorn. Repair's fixed-port health probe also needs protection against validating an unrelated pre-existing backend.
 
-**MS-029 updater/launcher reliability remains Critical after MS-030.** User/reference-machine testing after an application update reproduced the updated launcher opening briefly and then closing. Repository inspection identifies the direct cause: the updater's successful health-probe path kills the launched updated launcher in `VerifyLauncherStartup` and does not perform a normal post-commit restart. This preempts the planned MS-019 ground-placement fallback until fixed and validated.
+After the canonical backend-start contract is fixed, the authorized order is:
 
-After MS-030 and MS-029, MS-009 is the next development blocker: released v1.0.25 still darkens the 3D viewport/grid after splitter resize. The user-directed MS-027 UI tranche follows once that renderer/resize regression is fixed, while Stage-C reference-machine testing continues:
+`MS-009 resize/render authority → MS-027 compact workspace tranche → integrated v1.0.26 release-candidate hardening`
 
-`MS-027: multiline scrollable AI console → real interactive view cube → compact viewport tools → right-panel hover-help cleanup`
+**MS-029 code is fixed and CI-green.** Future updates can preserve the healthy launcher. Because v1.0.25 is immutable, its old updater may still close the launcher once while installing v1.0.26; a manual reopen is an accepted one-transition compatibility limitation rather than justification for risky retrofit machinery.
 
-Stage-C acceptance remains concurrently required on the released build:
-
-`accepted 2D baseline → local 3D generation → candidate → Apply → save → close/reopen → same durable object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
-
-Also verify viewport resize/presentation, starter-scene removal, storage containment, provider/resource behavior and cancellation/recovery. New serious target-machine evidence immediately preempts fallback work.
+Stage-C acceptance remains the overarching milestone and resumes on the reference machine after a fixed release is published.
 
 ## Next execution direction
 
-The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-030 first with deterministic repaired-runtime/backend interpreter ownership, startup-health validation and useful process diagnostics. Then fix MS-029, followed by MS-009 before the bounded MS-027 user-acceptance tranche. Ground-placement work remains deferred. Coordinator will reassess release readiness after the critical updater/viewport regressions and the defined UI tranche have exact-head validation.
+AMP-005 rolling execution is active. HANDOFF contains four substantial objectives with explicit dependencies, acceptance/preemption conditions and auto-proceed permission. Dev should continue across them without waiting between completed checkpoints. Ground-placement/MS-019 and unrelated feature breadth are deliberately deferred until the integrated release candidate reaches Coordinator review.
 
 ## User dependency
 
-No product/design decision is required. The backend-health failure is sufficiently reproduced; do not keep retrying Repair or 3D generation on v1.0.25. The post-update close is also sufficiently reproduced. Manually reopen the installed launcher once; if that manual launch also exits, report it because that would be a separate startup problem. Autonomous MS-030 diagnosis/fix work can continue; no further user action is required until a new build is ready. Continue testing the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.
+No product/design decision is required. The backend-health, resize and UI failures are sufficiently reproduced; do not keep retrying those paths on v1.0.25. Manually reopen the installed launcher once; if that manual launch also exits, report it because that would be a separate startup problem. Autonomous MS-030 diagnosis/fix work can continue; no further user action is required until a new build is ready. Continue testing the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.
