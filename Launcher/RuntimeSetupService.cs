@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Text;
 
 namespace Miniscuplter.Launcher;
@@ -83,6 +84,93 @@ internal sealed class RuntimeSetupService
         cancellationToken.ThrowIfCancellationRequested();
         if (process.ExitCode == 2) throw new InvalidOperationException("Python 3.10 x64 is required for the current local-AI runtime. Install Python 3.10 x64, then click Repair AI Runtime again.");
         if (process.ExitCode != 0) throw new InvalidOperationException($"AI runtime setup exited with code {process.ExitCode}. See the setup log for the failing command.");
-        return "AI runtime repaired successfully. Xet/model download support and runtime dependencies were verified.";
+
+        progress?.Report(new RuntimeSetupEvent(DateTimeOffset.Now, "verify", "Starting the repaired backend with its validated virtual-environment interpreter..."));
+        await VerifyBackendHealthAsync(progress, cancellationToken);
+        return "AI runtime repaired successfully. The exact repaired backend environment started and answered its health check.";
+    }
+
+    async Task VerifyBackendHealthAsync(IProgress<RuntimeSetupEvent>? progress, CancellationToken cancellationToken)
+    {
+        string[] backendCandidates =
+        {
+            Path.Combine(_settings.InstallRoot, "ai_backend", "app.py"),
+            Path.Combine(_settings.InstallRoot, "App", "ai_backend", "app.py")
+        };
+        string? app = Array.Find(backendCandidates, File.Exists);
+        if (app == null)
+            throw new InvalidOperationException("Repair completed, but the packaged AI backend app.py could not be found for startup verification.");
+
+        string backendDir = Path.GetDirectoryName(app)!;
+        string python = Path.Combine(backendDir, ".venv", "Scripts", "python.exe");
+        if (!File.Exists(python))
+            throw new InvalidOperationException($"Repair completed, but its validated interpreter is missing: {python}");
+
+        var psi = new ProcessStartInfo(python)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            WorkingDirectory = backendDir
+        };
+        psi.ArgumentList.Add(app);
+        psi.Environment["MINISCULPTER_ROOT"] = _settings.InstallRoot;
+        psi.Environment["MINISCULPTER_DATA"] = _settings.DataRoot;
+        psi.Environment["MINISCULPTER_PARENT_PID"] = Environment.ProcessId.ToString();
+        psi.Environment["PYTHONUNBUFFERED"] = "1";
+
+        using var backend = OwnedChildProcessJob.Start(psi);
+        Task<string> stdoutTask = backend.StandardOutput.ReadToEndAsync();
+        Task<string> stderrTask = backend.StandardError.ReadToEndAsync();
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        try
+        {
+            while (DateTime.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (backend.HasExited)
+                {
+                    string stderr = await stderrTask;
+                    throw new InvalidOperationException($"Repaired AI backend exited before health validation (exit {backend.ExitCode}). Backend: {app}; interpreter: {python}; recent stderr: {Tail(stderr, 4000)}");
+                }
+
+                try
+                {
+                    using var response = await http.GetAsync("http://127.0.0.1:7868/health", cancellationToken);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        progress?.Report(new RuntimeSetupEvent(DateTimeOffset.Now, "verify", $"Backend health verified with interpreter {python}."));
+                        return;
+                    }
+                }
+                catch (HttpRequestException) { }
+                catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested) { }
+
+                await Task.Delay(250, cancellationToken);
+            }
+
+            throw new TimeoutException($"Repaired AI backend did not answer health within 30 seconds. Backend: {app}; interpreter: {python}; recent stderr: {Tail(await CompletedTextAsync(stderrTask), 4000)}");
+        }
+        finally
+        {
+            try { if (!backend.HasExited) backend.Kill(entireProcessTree: true); } catch { }
+            try { await backend.WaitForExitAsync(); } catch { }
+            try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
+        }
+    }
+
+    static async Task<string> CompletedTextAsync(Task<string> task)
+    {
+        if (task.IsCompleted) return await task;
+        return "<backend still running; stderr stream not yet complete>";
+    }
+
+    static string Tail(string value, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "<none captured>";
+        string text = value.Trim();
+        return text.Length <= maxChars ? text : text[^maxChars..];
     }
 }
