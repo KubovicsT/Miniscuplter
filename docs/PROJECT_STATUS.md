@@ -48,7 +48,11 @@ Exact-head validation is green: Core foundation, C# editor/launcher/updater/Core
 
 **MS-029 updater/launcher reliability is now P0.** User/reference-machine testing after an application update reproduced the updated launcher opening briefly and then closing. Repository inspection identifies the direct cause: the updater's successful health-probe path kills the launched updated launcher in `VerifyLauncherStartup` and does not perform a normal post-commit restart. This preempts the planned MS-019 ground-placement fallback until fixed and validated.
 
-Stage-C reference-machine acceptance remains the next acceptance objective after MS-029:
+After MS-029, the next development objective is the user-directed MS-027 UI acceptance tranche while Stage-C reference-machine testing continues:
+
+`MS-027: multiline scrollable AI console → real interactive view cube → compact viewport tools → right-panel hover-help cleanup`
+
+Stage-C acceptance remains concurrently required on the released build:
 
 `accepted 2D baseline → local 3D generation → candidate → Apply → save → close/reopen → same durable object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
@@ -56,7 +60,7 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-029 with a bounded launcher/updater hotfix, regression coverage, and Windows update-path validation before returning to the mapped-object ground-placement seam. After that checkpoint, Coordinator will immediately reassess whether v1.0.26 is release-sized.
+The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-029 with a bounded launcher/updater hotfix, regression coverage, and Windows update-path validation before returning to the mapped-object ground-placement seam. After the MS-029 checkpoint, Dev should execute the bounded MS-027 user-acceptance tranche rather than return to ground-placement work. Coordinator will reassess release readiness after the combined hotfix + UI tranche has exact-head validation.
 
 ## User dependency
 

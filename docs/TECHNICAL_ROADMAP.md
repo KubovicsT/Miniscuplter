@@ -11,7 +11,7 @@ Acceptance-weighted completion: **57%**
 
 ## 1. Current objective
 
-Fix the newly reproduced MS-029 self-update launcher termination regression first, then resume Stage-C reference-machine acceptance on released v1.0.25 and bounded architectural convergence on v1.0.26.
+Fix MS-029 first, then implement the newly confirmed user-directed MS-027 UI acceptance tranche on v1.0.26 while reference-machine Stage-C testing of released v1.0.25 continues. Optional architecture/fallback work remains behind those acceptance needs.
 
 Accepted thin slice remains:
 
@@ -27,7 +27,7 @@ v1.0.26 has now completed the Coordinator-authorized viewport-drag transform aut
 
 ## 3. Release decision
 
-**KEEP v1.0.26 ACCUMULATING; DO NOT FREEZE BEFORE MS-029 IS FIXED.**
+**KEEP v1.0.26 ACCUMULATING; DO NOT FREEZE BEFORE MS-029 AND THE USER-DIRECTED MS-027 UI TRANCHE ARE REVIEWED.**
 
 The user has reproduced a Critical updater/launcher regression on the reference machine. The exact code path is identified: updater health validation kills the successfully started updated launcher and never performs a normal post-commit restart. v1.0.26 remains writable; MS-029 now preempts the planned MS-019 fallback. After a validated MS-029 checkpoint, Coordinator should immediately reassess release readiness. The existing viewport-drag authority seam plus a release-reliability hotfix is likely a sufficiently meaningful chunk, but no release decision is made before the fix and Windows update-path validation exist.
 
@@ -36,13 +36,22 @@ The user has reproduced a Critical updater/launcher regression on the reference 
 ### P0 — Fix MS-029 self-update launcher termination
 Reference-machine evidence proves the successful update health probe opens the new launcher and then terminates it. Dev must implement the smallest safe fix that preserves rollback on failed health checks while ensuring a normal updated launcher remains/runs after a committed update. Add focused automated coverage and validate the exact Windows update path. Account for the fact that the updater applying the next release is the already-installed v1.0.25 updater.
 
-### P1 — Consume remaining reference-machine evidence
-Any reproduced persistence, data-loss, viewport, storage, cancellation, provider or Stage-C blocker immediately preempts fallback work. Test the latest published immutable build, v1.0.25.
+### P1 — MS-027 user-directed UI acceptance tranche
+The 2026-09-11 v1.0.25 screenshot confirms the current workspace still violates the intended compact modeling-app UX. After MS-029 is fixed, implement only this tranche:
+- replace the single-line AI prompt/top action bands with a compact multi-line vertically scrollable command console/history while retaining one authoritative dispatch owner;
+- restore/build a real interactive 3D orientation cube in the viewport corner rather than the current flat letter-button box;
+- compact the top-left viewport tool controls and remove persistent instruction text;
+- remove explanatory prose from right-side workflow tabs and expose detailed help through small circular `i` hover affordances/tooltips;
+- keep dynamic state/errors/progress/warnings directly visible.
+Do not broaden this slice into scene hierarchy, resource graphs, new modeling behavior, or duplicate UI/state ownership.
 
-### P2 — Complete Stage-C acceptance
+### P2 — Consume remaining reference-machine evidence
+Any reproduced persistence, data-loss, viewport, storage, cancellation, provider or Stage-C blocker immediately preempts UI/fallback work. Continue testing the latest published immutable build, v1.0.25.
+
+### P3 — Complete Stage-C acceptance
 Required evidence: accepted 2D baseline; intended local 3D route; visible Ready/Conflict candidate; explicit Apply; save/reopen same object/revision; transforms plus one supported sculpt/edit path; cleanup/exact STL export; viewport/starter-scene checks; storage containment; provider/resource evidence; cancellation/recovery.
 
-### P3 — bounded MS-019 fallback
+### P4 — bounded MS-019 fallback
 If reference-machine evidence remains unavailable, take exactly one next authority-retirement seam: **mapped-object ground placement transform authority**.
 
 Requirements:
@@ -56,26 +65,26 @@ Requirements:
 
 Do not combine this with selection retirement, broad persistence cleanup, sculpt architecture, MS-020 expansion or MS-027 UI modernization.
 
-### P4 — after next checkpoint
+### P5 — after next checkpoint
 Coordinator should review combined v1.0.26 trajectory and release chunk size again. Do not infer another MS-019 seam without newer roadmap direction.
 
-### P5 — after Stage-C acceptance
+### P6 — after Stage-C acceptance
 Finish MS-020 only for lifecycle gaps exposed by evidence; continue outward MS-019 migration; make provider-tier decisions from measured MS-022 results; then broaden Stage-D practical editing/sculpt/parts work.
 
 ## 5. Current issue priorities
 
 1. MS-029 — Critical / IN PROGRESS: successful self-update kills the updated launcher health-probe session and does not perform a normal post-commit restart.
 2. MS-018 — Critical / IN PROGRESS: Stage-C acceptance.
-3. MS-023 — Critical / FIXED - NEEDS USER VERIFICATION: durable generation/apply/reload ownership.
-4. MS-009 — Critical / FIXED - NEEDS USER VERIFICATION: viewport stability/readability.
-5. MS-024 — High / FIXED - NEEDS USER VERIFICATION: client-fill/resize seams.
-6. MS-013 — High / FIXED - NEEDS USER VERIFICATION: storage containment.
-7. MS-022 — High / IN PROGRESS: practical provider qualification.
-8. MS-004 — High / FIXED - NEEDS USER VERIFICATION: cancellation/recovery.
-9. MS-020 — High / IN PROGRESS: expand only from evidence.
-10. MS-019 — High architectural risk / IN PROGRESS: bounded proven authority retirement only.
-11. MS-025 — Medium / FIXED - NEEDS USER VERIFICATION: starter scene removal.
-12. MS-027 — Medium: opportunistic fallback only; currently preempted by MS-019 sequencing.
+3. MS-027 — High / IN PROGRESS: explicit v1.0.25 UI acceptance corrections; next after MS-029 unless a new serious blocker appears.
+4. MS-023 — Critical / FIXED - NEEDS USER VERIFICATION: durable generation/apply/reload ownership.
+5. MS-009 — Critical / FIXED - NEEDS USER VERIFICATION: viewport stability/readability.
+6. MS-024 — High / FIXED - NEEDS USER VERIFICATION: client-fill/resize seams.
+7. MS-013 — High / FIXED - NEEDS USER VERIFICATION: storage containment.
+8. MS-022 — High / IN PROGRESS: practical provider qualification.
+9. MS-004 — High / FIXED - NEEDS USER VERIFICATION: cancellation/recovery.
+10. MS-020 — High / IN PROGRESS: expand only from evidence.
+11. MS-019 — High architectural risk / IN PROGRESS: bounded proven authority retirement only.
+12. MS-025 — Medium / FIXED - NEEDS USER VERIFICATION: starter scene removal.
 
 ## 6. Release discipline
 

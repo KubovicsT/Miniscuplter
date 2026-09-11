@@ -317,16 +317,17 @@ Last reconciled: 2026-09-10
 
 ## MS-027 — Modular resizable workspace UI overhaul
 
-- **Severity:** Medium product/UX modernization
-- **Status:** IN PROGRESS — OPPORTUNISTIC WORKSTREAM
-- **User direction:** 2026-09-10 annotated UI screenshot and follow-up specification.
-- **Scheduling rule:** this work must not displace an active correctness, persistence, data-safety, release, or acceptance blocker. The Dev Cycle may advance a bounded MS-027 slice when the critical path is genuinely blocked on user testing/input or there is otherwise no higher-priority unblocked task. Any newly reproduced critical-path regression immediately preempts MS-027 work.
+- **Severity:** High product/UX acceptance
+- **Status:** IN PROGRESS — USER-DIRECTED ACCEPTANCE SCOPE
+- **User direction:** 2026-09-10 annotated UI specification, reinforced by 2026-09-11 v1.0.25 reference-machine screenshot and explicit acceptance corrections.
+- **Scheduling rule:** MS-029 and any new serious correctness, persistence, data-safety, release, or Stage-C blocker preempt MS-027. Once the active blocker is cleared, the 2026-09-11 user-directed UI acceptance tranche is the next product-facing v1.0.26 work before optional architecture/fallback modernization.
 - **Primary goal:** make Miniscuplter feel like a compact modeling application rather than a large form full of explanatory text, while preserving the existing backend/state semantics.
 - **v1.0.23 slice 1 implementation:** commits `f169f6e3428a64804e8778c05353b9d07a87dfe3`, `5faa1e528e6a81fb8db15942c68b3da71391743d` and `74ec73a14645071bb2742fb68f778bedd656aabd` add a final editor-only preference layer after `InstallV1022Acceptance()`. It persists the outer/body and viewport/right-panel splitter positions under `AppDataRoot.Resolve("Settings/ui_preferences.json")`, clamps restored panel widths, defaults the main UI text scale to 90%, exposes a 75–135% Settings → Interface font-scale control plus Reset Workspace Layout, and seeds reusable hover tooltips for core toolbar actions. It does not reference `ProjectStore` or own Stage-C generation/actions.
 - **v1.0.23 regression coverage:** `tools/core_logic_tests.py` now guards final installer ordering, controlled-root preference storage, both splitter fields, bounded font scale, Interface settings/tooltips, replacement-safe preference writes, and absence of project/Stage-C-generation ownership from the preference layer.
 - **Validation:** implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed Stage-B/Core, full C# builds, Python/core/execution/geometry/release-audit validation, portable package layout/hash and installer-definition compilation. Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs; packaging was still finishing when this ledger entry was written and must be checked before claiming exact-head validation.
 - **Result:** first bounded modernization slice is implemented without broadening into a UI rewrite or displacing the v1.0.22 acceptance dependency. Real restart/layout/scale behavior still needs target/UI verification before the slice can be considered accepted.
-- **Next action:** first consume any new v1.0.22 reference-machine evidence. If acceptance remains externally blocked and no higher-priority unblocked issue exists, the next bounded MS-027 slice is the direct icon-based viewport tool strip, reusing the existing `V1018ViewportTool` state/input owner rather than creating a parallel tool state machine.
+- **2026-09-11 v1.0.25 reference-machine evidence:** the current UI still presents the AI command entry as a single top strip with a separate full-width action row; the top-right orientation control is only a flat letter/button box rather than an actual 3D view cube; the viewport's top-left tool overlay still consumes substantial space with letter controls plus instructional text; and the right-side 3D panel still contains persistent explanatory paragraphs. The user explicitly wants detailed explanations moved behind small circular `i` affordances shown on hover.
+- **Next action after MS-029:** implement the user-directed MS-027 acceptance tranche below. Reuse existing command dispatch, viewport-tool state, camera/view snapping, and panel action owners; this is a presentation/interaction correction, not permission to create parallel state machines.
 
 ### Required workspace structure
 
@@ -344,8 +345,9 @@ Last reconciled: 2026-09-10
 3. **Compact information density**
    - smaller default text than the current UI;
    - user-adjustable UI/font scale in Settings;
-   - unnecessary always-visible instructional paragraphs removed;
-   - tooltips provide explanations on hover;
+   - unnecessary always-visible instructional paragraphs removed from viewport overlays and right-side workflow panels;
+   - use small circular `i` help affordances beside relevant section/action labels; hovering them exposes the detailed explanation;
+   - ordinary tool/action hover tooltips remain available where an extra `i` is unnecessary;
    - important state, errors, progress and destructive-action warnings remain directly visible.
 
 4. **Scene hierarchy**
@@ -360,11 +362,13 @@ Last reconciled: 2026-09-10
    - provider/job stage/elapsed time and compact peak summary.
 
 6. **Unified AI command console**
-   - one primary AI prompt/command entry surface;
+   - replace the single-line top command strip with a compact multi-line text console, visually closer to a command terminal than a one-line form field;
+   - the text area must preserve line breaks and have its own vertical scrolling when content/history exceeds the visible height;
+   - keep an explicit Run action; do not make multiline editing impossible just to support submission;
    - previous commands/history are visible and reusable;
-   - keyboard Up/Down history navigation plus explicit previous/next controls;
-   - action buttons on the right invoke correctly named contextual AI operations, e.g. Generate 2D Concept, Edit Selected Region, Enhance Selected Region, Generate 3D from Accepted Image, Generate Alternative, Smart Select, and only other actions that actually exist;
-   - all buttons and typed commands route through one authoritative command/action dispatch layer. Do not create duplicate AI handlers or parallel state ownership.
+   - keyboard history navigation and explicit previous/next controls remain available;
+   - contextual AI action buttons stay compact and associated with the console rather than consuming a second full-width explanatory/action band across the top;
+   - action buttons invoke only real contextual operations and all buttons/typed commands route through one authoritative command/action dispatch layer. Do not create duplicate AI handlers or parallel state ownership.
 
 ### Global requirements
 
@@ -375,15 +379,16 @@ Last reconciled: 2026-09-10
 - Prefer a single current UI composition owner rather than adding another versioned overlay on top of legacy UI.
 - Maintain keyboard/mouse accessibility and sensible minimum sizes at normal Windows display scaling.
 
-### Recommended implementation order when opportunistic work is allowed
+### Current user-directed acceptance tranche
 
-1. persistent workspace-layout settings + UI/font scale + tooltip infrastructure;
-2. icon-based viewport tool strip;
-3. scene hierarchy tree synchronized with selection;
-4. view cube + selection-centered orbit;
-5. unified AI command console/history using one dispatch owner;
-6. MS-026 performance graphs inside the planned performance region;
-7. spacing/polish and removal of obsolete explanatory UI.
+After MS-029 is cleared, implement these visible v1.0.25 corrections as one coordinated MS-027 tranche, in bounded commits/checkpoints:
+
+1. multi-line scrollable AI command console/history, replacing the single-line top strip and oversized top action band while preserving one dispatch owner;
+2. real interactive 3D orientation cube in the viewport corner, not a flat box of letter buttons;
+3. compact top-left viewport tool controls with active-state visibility and no permanent instructional paragraph;
+4. remove persistent explanatory prose from the right-side workflow tabs and replace detailed help with small circular `i` hover affordances/tooltips.
+
+Do not broaden this tranche into scene-tree redesign, resource-graph work, new modeling features, or another UI state owner.
 
 ### Acceptance
 
@@ -393,8 +398,8 @@ Last reconciled: 2026-09-10
 - scene-tree and viewport selection agree;
 - view cube snaps correctly and tracks camera orientation;
 - orbit uses the selected entity as pivot;
-- AI history navigation works and actions are routed once;
-- tooltips replace nonessential persistent explanations;
+- AI console is visibly multi-line, vertically scrollable, preserves line breaks/history, and actions are routed once;
+- small circular `i` hover help/tooltips replace nonessential persistent explanations in the viewport and right-side panels;
 - resource panel is low-overhead and local-only per MS-026;
 - no Stage-C persistence, generation, transform, cleanup/export or cancellation regression.
 

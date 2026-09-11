@@ -29,7 +29,8 @@ The previously authorized viewport-drag MS-019 seam is complete and validated. M
 4. Account for transition compatibility: the updater that installs the next release is the updater already present in v1.0.25. Do not assume the newly packaged updater controls that first transition; document any unavoidable one-time manual-reopen behavior or implement a safe compatible bridge if feasible.
 5. Add focused regression coverage for successful health-token validation + normal post-commit launcher availability and failed health validation + rollback.
 6. Run strongest launcher/updater/C# packaging/release-audit validation available. Record MS-029 state and the exact checkpoint in PROJECT_STATUS/ISSUES/HANDOFF.
-7. Stop after the bounded hotfix/checkpoint for Coordinator release reassessment. Do not resume ground-placement/MS-019 fallback until newer Coordinator direction. Dev does not create release-control, tags or GitHub Releases.
+7. After the bounded MS-029 hotfix/checkpoint, do **not** resume ground-placement/MS-019. The next Coordinator-authorized work is the user-directed MS-027 UI acceptance tranche: multi-line scrollable AI command console; actual interactive 3D view cube; compact viewport tool controls without instructional paragraphs; right-panel explanatory prose replaced by small circular `i` hover help. Keep this tranche presentation-only and reuse existing action/state owners.
+8. Record a checkpoint after each coherent UI sub-slice if useful, but continue within this defined tranche unless a new serious blocker appears. Dev does not create release-control, tags or GitHub Releases.
 
 ## User verification dependency
 
@@ -39,6 +40,6 @@ Continue testing released v1.0.25 on the reference Windows / GTX 1080 machine:
 
 `accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
-Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery, and resource behavior during a long AI job.
+Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery, and resource behavior during a long AI job. The current v1.0.25 screenshot already establishes that the command strip, view-cube representation, viewport help density and right-panel explanatory text do not meet UI acceptance.
 
 No product/design decision is currently required.

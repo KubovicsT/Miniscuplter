@@ -54,3 +54,22 @@ The updater that installs a new release is copied from the previously installed 
 
 ### User dependency
 No product decision is required. A single manual launcher reopen can distinguish the identified one-time post-update kill from any separate startup crash. Autonomous hotfix work can otherwise continue.
+
+## 2026-09-11 — v1.0.25 UI acceptance feedback raises MS-027 from fallback to explicit scope
+
+### Reference-machine evidence
+User supplied a v1.0.25 screenshot and explicit corrections. The top AI interaction remains a one-line prompt plus a large separate action row rather than the intended scrollable multi-line command console. The viewport's upper-right orientation control is a flat box of letter buttons, not a real 3D view cube. The upper-left viewport tool overlay still contains letter controls plus permanent instructions. The right-side workflow tabs still devote substantial space to explanatory prose.
+
+### Product-direction decision
+This is explicit user-owned UX direction, not optional polish. MS-027 is therefore no longer merely opportunistic fallback. It becomes the next product-facing v1.0.26 tranche after the Critical MS-029 updater regression is fixed, unless a new serious correctness/data/release blocker appears.
+
+### Bounded tranche
+1. Multi-line, vertically scrollable AI command console/history with explicit Run and one existing dispatch owner; remove the oversized top action band.
+2. Actual interactive 3D orientation cube in the viewport corner, using existing camera/view authority.
+3. Compact viewport tool controls with active state; remove permanent instructional paragraph.
+4. Remove right-panel explanatory prose and expose detailed descriptions through small circular `i` hover affordances/tooltips. Preserve direct visibility for live state, errors, progress and warnings.
+
+Do not expand this tranche into scene-tree redesign, resource graphs, new modeling functionality, or duplicate state ownership.
+
+### Release implication
+v1.0.26 remains writable. Do not freeze before MS-029 is fixed and this user-directed MS-027 tranche is reviewed. The combination of viewport-authority work, release-reliability hotfix and visible UI acceptance corrections is expected to form a coherent substantial release candidate once validated.
