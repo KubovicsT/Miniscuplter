@@ -63,3 +63,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Canonical docs touched:** CROSS_AGENT_CONTEXT only; no roadmap/product/release decision changed.
 - **Follow-up owner:** Project Coordinator and Automation Manager should treat current automation definitions/repository process records as the source of truth for future manual execution.
 
+
+
+### 2026-09-12 01:55 Europe/Budapest — Automation Manager — USER PROCESS DECISION
+- **User input / event:** User retired the global GitHub lease approach because its connector failures were causing more disruption than the overlap risk it was meant to prevent. User will manually pause conflicting tasks before intentionally running another conflicting task.
+- **Evidence / scope:** AMP-006 v1 stranded leases; AMP-006 v2 still suffered connector safety blocks on heartbeat/release writes. The latest Coordinator run followed the new rules correctly but still stopped on a blocked heartbeat.
+- **Action / interpretation:** Removed AMP-006 lease behavior from all active Coordinator, Dev, Manager and Daily prompts. Scheduled tasks now use only a lightweight visible-activity/no-race check; manual overlap prevention is user-managed. Historical automation-lock files are no longer prerequisites or authoritative runtime state.
+- **Canonical docs touched:** active automation prompts; CROSS_AGENT_CONTEXT. AMP-006 should be treated as HARMFUL / RETIRED.
+- **Follow-up owner:** Automation Manager should verify that the no-lease/manual-pause model reduces process failures without producing real overlap incidents.
