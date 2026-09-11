@@ -30,7 +30,7 @@ Published releases are immutable; failures are fixed forward.
 
 ### 2026-09-10 — Reference-machine evidence outranks CI
 
-Released v1.0.20 target testing reopened viewport/rendering work despite green CI. Observed duplicate SubViewport/world/presentation ownership matched the resize-dependent symptom. Coordinator rejected another overlay/full viewport rewrite and narrowed v1.0.21 to one native resize/world/presentation owner plus neutral Blender-like workspace presentation.
+Released v1.0.20 target testing reopened viewport/rendering work despite green CI. Duplicate SubViewport/world/presentation ownership matched the resize-dependent symptom. Coordinator rejected another overlay/full viewport rewrite and narrowed v1.0.21 to one native resize/world/presentation owner plus neutral Blender-like workspace presentation.
 
 v1.0.21 target retest partially passed: initial viewport improved, but right-panel resize still changed presentation and whole-window resize left black seams. This narrowed follow-up work rather than invalidating the architecture.
 
@@ -86,21 +86,20 @@ Validated checkpoint: `e3dfba9aa26d7045b4bf9602920a484c443789c7`.
 
 This proves the ordered restart-reconciliation seam sufficiently for current needs. **Do not broaden MS-020 into a generalized persistent queue merely because acceptance remains blocked.**
 
-## 2026-09-11 — v1.0.23 publication failures and complete identity repair
+## 2026-09-11 — v1.0.23 publication failure history and successful repair
 
-### Failure 1
+### Failure 1 — partial release identity
 
 The first v1.0.23 publication attempt passed substantial validation and reached the Windows build path, but generated 1.0.22 release identity/installer naming because the frozen source had not been advanced consistently. Publication was correctly blocked.
 
 A first repair advanced launcher/installer identity only. That repair was incomplete.
 
-### Failure 2
+### Failure 2 — strict audit exposed the incomplete repair
 
-The second autonomous retry failed during strict release audit before Windows export. Exact request/source SHA validation, C#/Core, Python/runtime/job and geometry checks passed. Release audit reported launcher/installer mismatches because the audit still expected 1.0.22.
+The second autonomous retry failed during strict release audit before Windows export. Exact request/source SHA validation, C#/Core, Python/runtime/job and geometry checks passed. The audit still expected 1.0.22 and rejected the partially updated source.
 
-Inspection proved the deeper defect: v1.0.23 identity was split across versions.
+Inspection proved the full defect. Before complete repair:
 
-Before complete repair:
 - launcher = 1.0.23;
 - installer = 1.0.23;
 - updater = 1.0.22;
@@ -112,15 +111,37 @@ Before complete repair:
 
 Coordinator classified this as one release-source identity defect, **not** a reason to weaken the audit.
 
-### Complete repair
+### Complete repair and publication
 
-Frozen v1.0.23 now advances the complete audited identity set to 1.0.23. Current candidate:
+Coordinator advanced the complete audited v1.0.23 identity set to 1.0.23 without broadening application scope. Final source candidate:
 
 `bda683264448fc8b51c7c538db61f8c0487a699a`
 
-Exact-head branch validation was started automatically by these source commits. Release-control must not move to this candidate until that exact-head branch validation is green. If green, update the existing v1.0.23 request to this SHA and rerun the complete exact-SHA release pipeline. If red, diagnose only the concrete failure and keep v1.0.23 frozen.
+Exact-head `build` run `34575269020` and `core-foundation` run `34575269038` both passed. Coordinator then updated the existing release-control request to that exact SHA.
 
-This failure history must remain visible: version identity is a set of user/tool-visible surfaces, not only launcher/installer metadata.
+Autonomous release run `34575505010` completed successfully through:
+
+- request/source SHA and no-existing-release/tag checks;
+- exact candidate checkout;
+- C#/Core build and tests;
+- Python/runtime dependency checks;
+- core/job regressions;
+- geometry regressions;
+- strict release audit;
+- verified Godot 4.7.2 .NET/templates;
+- full Windows release build;
+- versioned package/ZIP/SHA verification;
+- silent `Miniscuplter-Setup-1.0.23.exe` smoke install;
+- staged/uploaded verified assets;
+- immediate immutable-target recheck;
+- lightweight `v1.0.23` tag creation;
+- GitHub Release publication.
+
+GitHub latest release now reports `v1.0.23` targeting exactly `bda683264448fc8b51c7c538db61f8c0487a699a`; the tag ref resolves to the same commit.
+
+**Lesson:** release version identity is a coordinated contract across all user/tool-visible surfaces. Future release preparation must advance and audit them as one set. Preserve the strict audit.
+
+v1.0.23 is now immutable; development continues only on v1.0.24.
 
 ## 2026-09-11 — Post-MS-020 sequencing / v1.0.24 release decision
 
@@ -134,16 +155,16 @@ The explicitly ordered MS-020 restart-reconciliation work is complete enough to 
 
 Retire/delegate exactly one duplicate historical authority at an already-migrated Stage-C seam, with focused regression coverage proving the replacement owner.
 
-Preferred first target: a remaining historical Stage-C generation/persistence owner already superseded by the final v1.0.22 acceptance owner. If inspection proves that seam is already inert, choose the smallest equivalent duplicate authority in transform/selection/persistence. Preserve compatibility until replacement behavior is proven. Stop after one seam.
+Preferred first target: a remaining historical Stage-C generation/persistence owner already superseded by the final v1.0.22/v1.0.23 acceptance owner. If inspection proves that seam is already inert, choose the smallest equivalent duplicate authority in transform/selection/persistence. Preserve compatibility until replacement behavior is proven. Stop after one seam.
 
 ### v1.0.24 release chunk decision
 
 **KEEP ACCUMULATING.**
 
-The current v1.0.24 MS-020 seam is useful and coherent but not a sufficiently substantial next release by itself while v1.0.23 has not yet published. A useful checkpoint is evidence, not a freeze.
+The current v1.0.24 MS-020 seam is useful and coherent but not a sufficiently substantial next release by itself. v1.0.23 has just become the user-testable stable increment. A useful checkpoint is evidence, not a freeze.
 
 Reconsider a v1.0.24 boundary after one additional coherent authority-retirement increment, or sooner if important target-machine fixes materially increase release value.
 
 ### User dependency
 
-No new product decision is required. Reference-machine Stage-C verification remains the primary external dependency and immediately preempts fallback work when evidence arrives.
+No new product decision is required. Reference-machine Stage-C verification of released v1.0.23 remains the primary external dependency and immediately preempts fallback work when evidence arrives.
