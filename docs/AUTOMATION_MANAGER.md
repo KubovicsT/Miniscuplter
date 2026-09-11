@@ -2,7 +2,7 @@
 
 > Durable supervisory memory for scheduled-task/process reviews. Read this file completely at the start of every manager run. Preserve failed/rejected history.
 
-Last manager review/update: 2026-09-10 23:39 Europe/Budapest
+Last manager review/update: 2026-09-11 22:32 Europe/Budapest
 
 ## Stable hierarchy
 
@@ -324,3 +324,51 @@ Current process contract:
 The active Dev, Coordinator, Automation Manager, and Daily Report prompts were updated to this model. No schedules changed as part of this policy update.
 
 AMP-003 remains applied at the every-three-hours Coordinator cadence. Its original anti-wait rationale is reduced by this new model, but the tighter cadence remains useful for roadmap supervision and release-chunk decisions; evaluate it on those outcomes rather than candidate-blocking time.
+
+
+---
+
+## AMP-005 — Long-horizon Coordinator engineering decomposition (2026-09-11)
+
+Status: **APPROVED / APPLIED — INCONCLUSIVE PENDING VERIFICATION**
+
+User intent:
+- increase useful engineering throughput between Coordinator reviews;
+- do **not** manufacture smaller per-Dev-cycle tasks or optimize for run count;
+- preserve Coordinator as end-to-end technical/architectural owner of the whole application;
+- let Dev execute substantial authorized objectives continuously without waiting after each completed slice.
+
+Applied automation changes:
+- **Minisculpter Coordination** now explicitly owns end-to-end conceptual engineering understanding of the whole application, periodic broad architecture review, system decomposition, and a rolling long-horizon Dev execution plan.
+- Coordinator should normally maintain roughly **3–6 hours** of safely pre-authorized engineering work, usually **3–5 substantial ordered objectives** when dependencies allow.
+- Objectives must be meaningful engineering outcomes, not artificial hourly/per-run tickets. One objective may span multiple Dev runs.
+- Each queued objective should define outcome, architectural boundaries/constraints, dependencies, acceptance/stop condition, preemption conditions, and whether Dev may automatically proceed.
+- Coordinator must plan farther ahead than Dev executes while preserving Dev's ordinary implementation freedom.
+- **Minisculpter Dev** now treats a scheduled run ending as a continuation point, not a task boundary; it continues CURRENT OBJECTIVE across runs and automatically advances through valid NEXT OBJECTIVES.
+- Dev uses **COORDINATOR REVIEW REQUESTED** only when the queue is exhausted/invalidated, strategic authority is required, a user decision is required, or release/freeze state leaves no safe work.
+- **Automation Manager** now audits whole-system Coordinator quality, execution-plan depth, artificial fragmentation, queue starvation, Dev idle time, and architectural coherence.
+- **Daily Report** reports engineering trajectory/current objective and queue health only when material; it does not dump the full execution queue.
+- No schedules, titles or enablement states changed.
+
+HANDOFF operating contract expected on subsequent Coordinator/Dev runs:
+- CURRENT OBJECTIVE
+- ordered NEXT OBJECTIVES
+- meaningful outcome and acceptance/stop conditions
+- important constraints/dependencies/preemption conditions
+- auto-proceed permission
+- current writable branch/release state/latest useful checkpoint
+- COORDINATOR REVIEW REQUESTED only under the explicit escalation conditions above
+
+Verification plan:
+1. Compare the next several Coordinator intervals with prior behavior for Dev runs that perform no useful implementation solely because direction ran out.
+2. Measure whether meaningful engineering outcomes completed per Coordinator interval increase without increasing artificial task fragmentation.
+3. Confirm substantial objectives can span multiple Dev runs and Dev advances automatically when acceptance conditions are met.
+4. Confirm Coordinator continues broad architecture/system review rather than degrading into a ticket generator.
+5. Confirm the queue is shortened when dependencies genuinely prevent safe look-ahead rather than filled with speculative work.
+6. Classify AMP-005 as HELPED / NEUTRAL / HARMFUL / INCONCLUSIVE from those concrete outcomes.
+
+### Review-history entry — 2026-09-11 22:32 Europe/Budapest
+- User explicitly approved AMP-005 after clarifying that the goal is more work between Coordinator cycles, not more/smaller Dev-cycle tasks.
+- User further clarified Coordinator's job includes end-to-end engineering/architecture ownership of the whole application, review of completed work, system decomposition and technical direction.
+- Updated the four active automation prompts accordingly.
+- Schedules remain unchanged: Dev hourly at :00; Coordinator every three hours at :30; Manager 05:30/17:30; Daily Report 22:45 Europe/Budapest.
