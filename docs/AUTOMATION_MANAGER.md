@@ -382,3 +382,38 @@ Verification plan:
 - Keep AMP-005 formally INCONCLUSIVE pending several more Coordinator intervals.
 - Watch HANDOFF freshness after rapid multi-objective Dev progress; the next pass should reconcile objective completion cleanly.
 - No new automation proposal warranted.
+
+
+---
+
+## AMP-006 — Global manual/scheduled run lease (2026-09-11)
+
+Status: **USER-DIRECTED / APPLIED — PENDING VERIFICATION**
+
+User intent:
+- manual runs of Dev, Coordinator, Manager or Daily Report must be safe without pausing schedules;
+- scheduled invocations must not overlap a manually triggered run;
+- cross-role races must also be prevented, not only duplicate same-role runs.
+
+Applied design:
+- created dedicated branch `automation-locks`;
+- added `.automation-locks/global.json` as the single global compare-and-swap lease;
+- all four active automations must acquire and verify this lease before substantive work;
+- a live unexpired lease causes later manual/scheduled invocations to SKIP/DEFER without mutating project state;
+- lease duration is 90 minutes with renewal near 60 minutes;
+- crashed runs recover by lease expiry; no run may clear another live token;
+- normal completion releases the lease before final user-facing output whenever possible;
+- lock-branch commits are process metadata only and do not count as project/release activity;
+- existing role-specific no-race checks remain as a second layer.
+
+Implementation:
+- updated active Miniscuplter Dev, Coordination, Automation Manager and Daily Report prompts;
+- schedules/titles/enablement unchanged;
+- live CAS acquire/release test on `automation-locks/.automation-locks/global.json` succeeded.
+
+Verification plan:
+1. Manually start a task near its scheduled boundary and confirm the later invocation skips cleanly.
+2. Confirm a manual run of one role also blocks a different Miniscuplter role from mutating concurrently.
+3. Confirm skipped runs leave project/HANDOFF/roadmap/release state untouched.
+4. Confirm normal runs release the lease and crashed runs recover after expiry.
+5. Watch whether serialization causes material throughput loss; adjust only with user approval if needed.
