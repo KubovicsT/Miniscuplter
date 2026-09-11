@@ -9,58 +9,66 @@ Last reconciled: 2026-09-11
 - **Latest published stable release:** `v1.0.25`.
 - **Stable release target:** `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
 - **Current writable development branch:** `v1.0.26`.
-- **Latest CI-green implementation checkpoint:** `1e6ed3541de6de4bec19838e71595e4b76dbedfa` (not release-worthy yet because MS-030's server-start contract remains incomplete).
-- **Current planning HEAD:** `674255595923c7c89cec3dac52080484c2fb25ed`.
-- **Overall completion:** **57% acceptance-weighted**.
+- **Latest exact-head CI-green implementation checkpoint before docs reconciliation:** `4418d74fde5c6cbb72237946d73ad2f960abfd73`.
+- **Current objective:** integrated v1.0.26 release-candidate hardening (Objective D in HANDOFF).
+- **Overall completion:** **approximately 64% acceptance-weighted**; the current release chunk is implementation-complete for Objectives A–C but still needs exact-candidate Windows export/installer hardening and later target-machine verification.
 
 v1.0.25 is published and immutable. All new development belongs on v1.0.26 unless Coordinator establishes a newer forward branch or freezes v1.0.26.
 
-## v1.0.25 release chunk
+## v1.0.26 completed implementation outcomes
 
-v1.0.25 published the complete bounded MS-019 transform-command authority set:
+### Canonical backend startup / MS-030
 
-- mapped Move nudges derive position from durable Core project state;
-- mapped Rotate Y nudges derive rotation from durable Core project state;
-- mapped Scale nudges derive scale from durable Core project state;
-- each operation commits through transactional Stage-C state and projects the committed result back to Godot;
-- failures restore presentation from durable state;
-- focused regression guards prevent these mapped commands from returning to generic scene-observed persistence.
+The repaired runtime and editor now launch a real FastAPI/Uvicorn server through packaged `ai_backend/serve.py` using the backend-local repaired `.venv`. Repair uses an isolated loopback smoke port plus a unique instance token and validates the expected `1.0.26` health identity before success. Editor production startup uses the same server entry point, loopback-only binding, production port and instance-bound readiness validation. The old import-only `python app.py` gap is no longer present.
 
-Published immutable release boundary: `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
+Automated exact-head evidence includes the canonical backend lifecycle test, C# runtime-ownership tests, Python/runtime tests, release audit and green Windows C#/packaging jobs.
 
-## v1.0.26 progress
+**Acceptance status:** code/automated fix complete; MS-030 still requires reference-machine Repair + Generate 3D verification before RESOLVED.
 
-The v1.0.26 forward branch is now fully bootstrapped with consistent `1.0.26` identity across audited launcher/updater/editor/backend/installer/Windows metadata/release-audit surfaces.
+### Viewport resize authority / MS-009
 
-The Coordinator-authorized bounded MS-019 viewport-drag transform authority seam is also implemented and validated:
+The native viewport pipeline now explicitly retires historical resize owners rather than stacking another repaint/watchdog layer. `SubViewportContainer.Stretch` remains the normal size owner; the legacy direct resize handler and resize-triggered world repair are unsubscribed, and the old size watchdog is stopped. Focused regression coverage guards these ownership invariants.
 
-- Godot remains the live viewport input/presentation owner during Move/Rotate/Scale gestures;
-- gesture start captures the mapped object's durable Core transform and active mesh revision plus the presentation start transform;
-- release persists only the gesture delta/scale ratio onto the captured durable Core transform rather than copying the already-mutated scene transform into Core;
-- a stale mesh revision or changed durable transform rejects the commit;
-- failures restore Godot presentation from current durable Core state;
-- focused regression coverage prevents viewport drag release from returning to generic scene-observed transform persistence.
+**Acceptance status:** implementation/automated regression work complete; MS-009 still requires target-machine splitter-resize verification because the symptom is renderer/GPU-sensitive.
 
-Validated checkpoint: `d4aef5d55170ef45298e9db942cb250d78e911d2`.
+### Compact workspace tranche / MS-027
 
-Exact-head validation is green: Core foundation, C# editor/launcher/updater/Core tests, semantic-version identity, Python/runtime, execution/job regressions, geometry regressions, strict release audit, portable package/layout, ZIP SHA-256 sidecar and installer-definition compilation. Branch release/publication jobs were correctly skipped.
+The user-directed visible tranche is implemented: multi-line scrollable AI command console/history with Run, rendered interactive orientation cube, compact viewport tool controls without permanent instruction prose, and workflow explanation text moved behind compact info/tooltips. The existing authoritative action/camera/tool owners remain in use.
+
+**Acceptance status:** automated workspace acceptance and packaging gates are green; target-machine UX verification remains after publication.
+
+### Updater / MS-029
+
+The v1.0.26 updater-side health behavior remains fixed and CI-green. The immutable v1.0.25 updater can still cause a one-time manual launcher reopen while installing v1.0.26; that transition limitation remains accepted and must not be "fixed" by rewriting published history.
+
+## Exact-head validation evidence
+
+At implementation checkpoint `4418d74fde5c6cbb72237946d73ad2f960abfd73`, GitHub Actions passed:
+
+- editor, launcher, updater and Core C# build/tests;
+- semantic-version identity checks;
+- Python compilation and dependency resolution;
+- core logic, execution foundation and durable job journal tests;
+- compact workspace regressions;
+- canonical backend lifecycle test;
+- real geometry regressions;
+- strict release audit;
+- portable package build/layout validation;
+- ZIP SHA-256 sidecar verification;
+- installer-definition compilation.
+
+The ordinary branch workflow correctly skipped publication and the tag-only full Windows release job. Therefore a **real Godot Windows export, generated installer build from that export, and silent installer smoke-install are not yet recorded for the exact v1.0.26 candidate** and remain Objective D work.
 
 ## Critical path
 
-**MS-030 remains P0 and is not yet fixed.** Dev removed interpreter divergence and added Repair health validation, but end-to-end review found both Repair and editor still launch `python app.py`. The module defines FastAPI `app` but has no executable server entry point, so this command does not start Uvicorn. Repair's fixed-port health probe also needs protection against validating an unrelated pre-existing backend.
+`Objective D — integrated v1.0.26 release-candidate hardening`
 
-After the canonical backend-start contract is fixed, the authorized order is:
+Remaining work is bounded release-candidate validation and documentation reconciliation, not new product breadth. The next release-worthy checkpoint must include the strongest available Windows/Godot/export/installer evidence without Dev creating a release-control request, tag or GitHub Release.
 
-`MS-009 resize/render authority → MS-027 compact workspace tranche → integrated v1.0.26 release-candidate hardening`
-
-**MS-029 code is fixed and CI-green.** Future updates can preserve the healthy launcher. Because v1.0.25 is immutable, its old updater may still close the launcher once while installing v1.0.26; a manual reopen is an accepted one-transition compatibility limitation rather than justification for risky retrofit machinery.
-
-Stage-C acceptance remains the overarching milestone and resumes on the reference machine after a fixed release is published.
-
-## Next execution direction
-
-AMP-005 rolling execution is active. HANDOFF contains four substantial objectives with explicit dependencies, acceptance/preemption conditions and auto-proceed permission. Dev should continue across them without waiting between completed checkpoints. Ground-placement/MS-019 and unrelated feature breadth are deliberately deferred until the integrated release candidate reaches Coordinator review.
+Once Objective D's stop condition is met, HANDOFF must mark `COORDINATOR REVIEW REQUESTED`; release/freeze/publication then belongs to Coordinator.
 
 ## User dependency
 
-No product/design decision is required. The backend-health, resize and UI failures are sufficiently reproduced; do not keep retrying those paths on v1.0.25. Manually reopen the installed launcher once; if that manual launch also exits, report it because that would be a separate startup problem. Autonomous MS-030 diagnosis/fix work can continue; no further user action is required until a new build is ready. Continue testing the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.
+No product/design decision or further v1.0.25 retry is required now. Continue using the published v1.0.25 only for already-useful paths; do not repeatedly retry the known backend-health, resize or UI acceptance failures.
+
+After a fixed release is published, target-machine acceptance should cover update/reopen, Repair health, Generate 3D reaching provider inference, splitter resize invariance, compact workspace behavior, storage containment/cancellation, and the full Stage-C save/reopen/edit/cleanup/export path.
