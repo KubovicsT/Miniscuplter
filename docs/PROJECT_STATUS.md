@@ -8,65 +8,61 @@ Last reconciled: 2026-09-11
 
 - **Latest published stable release:** `v1.0.24`.
 - **Stable release target:** `784f408efba8a876b889fd704e051f22229de368`.
-- **Current writable development branch:** `v1.0.25`.
-- **Latest fully validated v1.0.25 implementation/test checkpoint:** `94554d21519cb06c286a686631d2ad44ca6648b7`.
+- **Frozen v1.0.25 release boundary:** `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
+- **Current writable development branch:** `v1.0.26`.
 - **Overall completion:** **57% acceptance-weighted**.
 
-v1.0.24 is published and immutable. All further implementation changes belong on v1.0.25 or a later Coordinator-designated forward branch.
+v1.0.24 is published and immutable. v1.0.25 is frozen for Coordinator-owned publication. All new development belongs on v1.0.26.
 
-## v1.0.24 publication outcome
+## v1.0.25 release chunk
 
-v1.0.24 is now the latest published immutable release at `784f408efba8a876b889fd704e051f22229de368`. Its release chunk contains the bounded MS-020 heavyweight-job reliability work and the first bounded MS-019 generation-authority retirement seam. Reference-machine acceptance still outranks CI for user-observed Stage-C/runtime/viewport behavior.
+v1.0.25 accumulated the complete bounded MS-019 transform-command authority set:
 
-## Current v1.0.25 progress — bounded MS-019 transform authority
+- mapped Move nudges derive position from durable Core project state;
+- mapped Rotate Y nudges derive rotation from durable Core project state;
+- mapped Scale nudges derive scale from durable Core project state;
+- each operation commits through transactional Stage-C state and projects the committed result back to Godot;
+- failures restore presentation from durable state;
+- focused regression guards prevent these mapped commands from returning to generic scene-observed persistence.
 
-Three deliberately narrow transform seams have now been implemented and validated on the forward branch:
+Current exact release boundary is `a7fc4bcf5f771c18060e5aee7c98026131731c2a`. Exact-head Core and broader build CI were green before the release freeze.
 
-- mapped Stage-C 1 mm Move commands derive the durable transform from Core project state rather than an already-mutated Godot scene node;
-- mapped Stage-C Rotate Y ±5° commands derive rotation from `ProjectObject.Transform.RotationEuler`, apply only the requested Y-axis delta, save through Stage-C, then project durable state back to Godot;
-- mapped Stage-C Scale ±5% commands now derive scale from `ProjectObject.Transform.Scale`, apply only the requested uniform factor, save transactionally, then project the durable transform back to Godot;
-- compatibility behavior remains for unmapped/pre-migration objects;
-- focused source-wiring regressions prevent mapped Move/Rotate/Scale commands from returning to generic scene-observed persistence.
+## Release state
 
-Move implementation: `ec54845c19ed632640f813d1ee76ce2708638389`.
-Rotate implementation/test checkpoint: `e0666bbd7e56d340f112238f78c836b958a64675`.
-Scale test gate: `3ad632925e6a6fd512e5dcee44bdf6f1aca2c102`.
-Scale implementation/checkpoint: `94554d21519cb06c286a686631d2ad44ca6648b7`.
+Coordinator decided the accumulated v1.0.25 scope is coherent and substantial enough for publication.
 
-Ground placement, viewport-drag authority, selection retirement and broader persistence cleanup were deliberately not included in the Scale seam.
+- v1.0.25 source branch: **FROZEN**.
+- v1.0.26: writable forward branch created from the exact v1.0.25 boundary.
+- v1.0.25 publication is Coordinator-owned through autonomous release-control.
+- v1.0.24 remains latest stable until the v1.0.25 release workflow succeeds.
 
-## Validation state
+Do not write application or documentation commits to frozen v1.0.25 while its release request is active.
 
-Exact-head CI for Scale checkpoint `94554d21519cb06c286a686631d2ad44ca6648b7` is green:
+## v1.0.26 bootstrap
 
-- `core-foundation` run `34607736187`: PASS;
-- `build` run `34607736306`: PASS;
-- semantic-version branch identity: PASS;
-- C# editor/launcher/updater/Core restore/build: PASS;
-- backend Python compile/dependency resolution: PASS;
-- core logic and execution/job regressions: PASS;
-- real geometry regressions: PASS;
-- strict release audit: PASS;
-- portable package/layout and ZIP SHA-256 sidecar: PASS;
-- installer-definition compilation: PASS;
-- release/publication jobs remained outside Dev ownership and no publication action was taken.
+The forward branch was created from the frozen release SHA. Coordinator began aligning v1.0.26 version identity, but a connector safety block prevented completing every audited identity surface in this review.
 
-`94554d21...` is therefore a useful fully validated checkpoint. It is informational only and does not freeze v1.0.25.
+Before ordinary implementation, Dev should:
+1. finish all remaining `1.0.25 → 1.0.26` version identity surfaces;
+2. run exact-head branch validation;
+3. update HANDOFF/STATUS with the validated v1.0.26 bootstrap SHA.
+
+This is forward-branch work only and must not alter frozen v1.0.25.
 
 ## Critical path
 
-Stage-C reference-machine acceptance remains P0 on **released v1.0.24**:
+Stage-C reference-machine acceptance remains P0:
 
-`accepted 2D baseline → local 3D generation → Ready/Conflict candidate → Apply → save → close/reopen → same durable object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
+`accepted 2D baseline → local 3D generation → candidate → Apply → save → close/reopen → same durable object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
 Also verify viewport resize/presentation, starter-scene removal, storage containment, provider/resource behavior and cancellation/recovery. New serious target-machine evidence immediately preempts fallback work.
 
 ## Next execution direction
 
-Consume v1.0.24 target-machine evidence first. The Coordinator-approved bounded Scale authority seam is complete and validated. Do not continue directly into ground placement, viewport-drag, selection or persistence authority without current Coordinator sequencing. Do not broaden MS-020 or resume opportunistic MS-027 UI work without evidence or Coordinator direction.
+After v1.0.26 identity/bootstrap is green and if reference-machine evidence remains unavailable, take exactly one bounded MS-019 seam: **viewport-drag transform commit authority** for mapped Stage-C objects.
 
-The validated checkpoint is informational only; it does not stop continuous development.
+Do not combine it with ground placement, selection retirement, broad persistence cleanup, MS-020 expansion or new MS-027 UI work.
 
 ## User dependency
 
-No product/design decision is required. Reference-machine verification of released v1.0.24 remains the external dependency.
+No product/design decision is required. Test the latest published immutable release on the reference machine; once v1.0.25 publication succeeds, prefer that release for the next full Stage-C pass.
