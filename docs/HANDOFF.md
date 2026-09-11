@@ -9,80 +9,84 @@ Last updated: 2026-09-11
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Current writable development branch:** `v1.0.24`.
 - **Frozen release source:** `v1.0.23` at exact boundary `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
-- **Latest validated v1.0.24 implementation/test checkpoint:** `f5ea1378c4ff1ba177262a275469ef8d310d7cc2`.
+- **Latest validated v1.0.24 implementation/test checkpoint:** `c8451493b31306d12db7ed360a836e3e3b941fb2`.
 - **Overall completion:** **57% acceptance-weighted**.
 - **Coordinator critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts MS-020.
 
 ## Frozen v1.0.23 release source
 
-Do not modify v1.0.23 or release-control from Dev. The publication attempt reached the full Windows/Godot build but failed versioned-output verification because the frozen source still produced v1.0.22 release metadata/package naming. Coordinator owns release diagnosis and any directed frozen-source correction. Propagate any eventual required fix forward to v1.0.24.
+Do not modify v1.0.23 or release-control from Dev. The latest published release remains v1.0.22. The prior v1.0.23 publication attempt failed output-version verification because the frozen source still produced v1.0.22 release metadata/package naming. Coordinator owns diagnosis and any directed frozen-source correction. This Dev cycle made no release-control, tag, release, or v1.0.23 mutation.
 
-## This Dev Cycle — third bounded MS-020 slice
+## This Dev Cycle — bounded MS-020 restart reconciliation
 
-With no new target-machine evidence available, this run completed the cancellation-truthfulness baton for the migrated heavyweight 3D lifecycle.
+With no new target-machine evidence available, this run completed the exact Coordinator baton: persist only enough heavyweight 3D job lifecycle state to reconcile an owned-backend restart/crash truthfully.
 
-### Commits
+### Implementation commits
 
-- `eefb73ad78ad1dd7dc2542f00d34536a9e5438f6` — adds explicit terminal cancellation acknowledgement and rejects late successful completion after cancellation;
-- `e5511afdcedc8b8541fe92c5ab90fc972fedaed3` — adds focused cancellation ownership/lifecycle regressions;
-- `f5ea1378c4ff1ba177262a275469ef8d310d7cc2` — makes terminal cancellation acknowledgement idempotent after self-review.
+- `e163488d13576d781df152a52715caf7668d1188` — adds the contained, compact, atomic heavyweight job lifecycle journal;
+- `1d85da472a2793668a5f30eae62fd45ce8259c3d` — persists/reconciles the migrated 3D job lifecycle and restores only a terminal tombstone after restart;
+- `d5c7dd6ccee6938b129c3361054ed340f6384c2f` — adds completion/restart/cancelling/corrupt-journal/containment regressions;
+- `57624d3acfec99306ce29d0b208e2de97aaf00b1` — wires the new journal regressions into the existing execution/job CI leg.
 
-### Behavior now established
+### Restart/recovery semantics now established
 
-1. `request_cancel(job_id)` is request-only. An active job becomes `cancelling` but remains active and retains its heavyweight lease.
-2. `acknowledge_cancel()` is the explicit terminal state transition for a cancellation-requested job once owned execution is known to have stopped.
-3. Terminal acknowledgement sets `active=false`, `state/stage=cancelled`, then releases heavyweight ownership.
-4. A provider that returns success after cancellation was requested cannot be recorded as a successful job; `complete()` converts that outcome to terminal cancellation and raises `JobCancellationAcknowledged`.
-5. Late cancelled completion cannot persist provider qualification.
-6. A provider error after cancellation is also terminal `cancelled`, not generic `failed`.
-7. Terminal cancellation is idempotent, so the FastAPI wrapper's follow-up `fail()` cannot append a second terminal transition or release ownership twice.
-8. Progress updates ignore already-terminal jobs.
+1. Only the migrated heavyweight `3d-generate` lifecycle is journaled; this is not a generalized durable queue.
+2. The journal lives under the existing Miniscuplter-controlled backend data root at `state/job-lifecycle.json` via `storage.resolve()`.
+3. Writes are same-directory atomic replacements with flush/fsync before replace; temporary files are not authoritative.
+4. Persisted data is intentionally compact: job identity/kind/state/stage/progress/provider/cancel flag/timestamps plus a whitelist of Stage-C identity fields. Event history, model weights, output blobs and arbitrary large context are not persisted.
+5. On startup, a stale `running` record from the dead prior backend becomes inactive terminal `interrupted`, explicitly stating that no output was accepted.
+6. A stale `cancelling`/cancel-requested record becomes inactive terminal `cancelled` after restart.
+7. Startup recovery never reacquires the process-local heavyweight lease and never restores or auto-applies a prior generated candidate.
+8. Corrupt/unsupported persisted state fails closed as inactive `recovery-error`; it does not claim the GPU/runtime owner. A later explicit new job may atomically replace that untrusted tombstone.
+9. Existing truthful cancellation behavior remains intact: cancellation retains ownership until terminal acknowledgement while the process is alive; restart reconciles the dead-process case separately.
 
-### Important boundary that remains
+## Version-identity regression found and fixed forward on v1.0.24
 
-Current provider adapters are still synchronous inside the owned backend process. The editor's existing hard-cancel path cancels its HTTP request and restarts the owned backend process; that process termination is still the reliable physical stop boundary for such providers. The newly explicit backend acknowledgement path is truthful for a still-alive backend after provider execution returns/stops, but this slice does **not** claim persistent progress across process restart, isolated provider worker processes, a durable queue, or crash recovery.
+The first CI pass of the new restart slice exposed a release-audit failure unrelated to the journal: v1.0.24 launcher/installer metadata already said 1.0.24 while updater/editor/backend/export/display/audit metadata still said 1.0.22. That would make a future v1.0.24 package internally inconsistent.
 
-The process-local resource lease naturally dies with a terminated backend; durability across restart remains future MS-020 work.
+Forward-only fixes on the writable v1.0.24 branch:
+
+- `260f6666bbc046d0bddb4bd6a378ef97b27f614f` — updater version 1.0.24;
+- `55c2435dd307eade9d020ceaa424849b66932fc0` — editor assembly version 1.0.24;
+- `c0eddca2c21fabc69bf45d3f6b08e7397b0dbdef` — backend API version 1.0.24;
+- `e0cecfc54cc290a09b2a0e120dccc078272b91fb` — Windows export file/product version 1.0.24.0;
+- `2021629f106fdcb49dc29ef767e4e635a392f985` — displayed editor version 1.0.24;
+- `c8451493b31306d12db7ed360a836e3e3b941fb2` — release audit now validates 1.0.24 identity.
+
+The frozen v1.0.23 source was not changed.
 
 ## Validation
 
-Exact implementation/test checkpoint `f5ea1378c4ff1ba177262a275469ef8d310d7cc2` is fully green:
+Exact implementation/test checkpoint `c8451493b31306d12db7ed360a836e3e3b941fb2` is fully green:
 
-- `core-foundation` run `34560559516`: **PASS**;
-- broader `build` run `34560559542`: **PASS**;
+- `core-foundation` run `34564634258`: **PASS**;
+- broader `build` run `34564634248`: **PASS**;
 - C# editor/launcher/updater/Core builds: **PASS**;
-- Python compile and runtime dependency resolution: **PASS**;
+- Python compilation/runtime dependency resolution: **PASS**;
 - core logic and execution/job regressions: **PASS**;
-- new cancellation tests cover request → still owned, explicit acknowledgement → released, cancelled provider failure, and attempted late success → cancelled/no qualification;
-- real geometry regressions and release audit: **PASS**;
-- portable package layout/hash and installer-definition compilation: **PASS**.
+- new journal regressions cover clean completion persistence, active-job crash/restart → interrupted, cancelling restart → cancelled, corrupt-journal fail-closed behavior, controlled-root containment and no leftover temp authority;
+- real geometry regressions: **PASS**;
+- release audit after 1.0.24 identity reconciliation: **PASS**;
+- portable package layout and ZIP SHA-256 verification: **PASS**;
+- installer-definition compilation: **PASS**;
+- branch push correctly skipped tag-only full Windows release/publication jobs.
 
 Documentation commits after this checkpoint do not supersede the validated code/test checkpoint.
 
 ## Exact next task
 
-First consume any new reference-machine Stage-C evidence. If none exists, continue **one bounded MS-020 durability slice** addressing the restart gap exposed above, without jumping to a complete broker rewrite.
+First consume any new reference-machine Stage-C/cancellation/storage evidence. If new evidence exists, reproduce and prioritize any serious correctness/persistence/data-safety/viewport/provider regression immediately.
 
-**Persist only the minimum job lifecycle/tombstone state needed to reconcile an owned-backend restart or crash truthfully.**
-
-Requirements:
-
-- inspect existing Miniscuplter-controlled storage helpers and use an existing contained data/state root; do not create arbitrary paths;
-- persist a compact job record for the currently migrated heavyweight 3D lifecycle containing identity, kind, state, cancellation flag, timestamps and Stage-C context needed for safe reconciliation;
-- use atomic/transactional file replacement; never leave a partially written journal as authoritative state;
-- on backend startup/recovery, convert a previously active/cancelling record from the dead prior process into an explicit interrupted/cancelled terminal outcome rather than pretending it is still running or completed;
-- do not restore or auto-apply generated candidates from an interrupted job;
-- do not persist provider weights, large outputs or unbounded event history in the journal;
-- preserve one-heavyweight-owner behavior and current editor hard-cancel recovery;
-- add focused regressions for clean completion persistence, crash/restart reconciliation of active/cancelling state, corrupt-journal fail-closed behavior, and storage containment;
-- stop after this bounded restart-reconciliation seam. Isolated provider worker processes and a generalized persistent queue remain later MS-020 work unless implementation evidence proves they are prerequisites.
-
-If Coordinator changes this baton before the next Dev run, Coordinator direction wins.
+If no new evidence exists, **do not broaden MS-020 into a generalized persistent queue or isolated-worker rewrite on your own.** This run has completed the currently explicit bounded restart-reconciliation seam. Re-read TECHNICAL_ROADMAP / COORDINATOR_LOG / current HANDOFF for the next Coordinator-sequenced slice. If Coordinator still directs MS-020, take only the next narrowly bounded lifecycle/ownership seam it specifies.
 
 ## Release/checkpoint rule
 
-`f5ea1378c4ff1ba177262a275469ef8d310d7cc2` is a useful validated implementation checkpoint. It does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
+`c8451493b31306d12db7ed360a836e3e3b941fb2` is a useful validated implementation checkpoint. It does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
 
 ## User verification dependency
 
-Reference-machine testing remains required. Until a newer build is successfully published, v1.0.22 remains the latest stable build. Exercise Generate 3D → candidate → Apply → save/close/reopen → same object/revision; resize/presentation; no starter sphere/opaque floor; transform/sculpt; cleanup/export; storage containment; cancellation/recovery; and resource behavior during a long AI job.
+Reference-machine testing remains required. `v1.0.22` is still the latest successfully published build, so exercise:
+
+`accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
+
+Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery and resource behavior during a long AI job. The new durable restart journal is development-only in v1.0.24 and cannot be user-qualified until that work reaches a published build.
