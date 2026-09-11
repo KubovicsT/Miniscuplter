@@ -1,15 +1,15 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace Miniscuplter;
 
 public partial class Main
 {
     PanelContainer? _viewCubePanel;
-    Control? _viewCubeSurface;
+    SubViewportContainer? _viewCubeHost;
+    SubViewport? _viewCubeViewport;
+    Camera3D? _viewCubeCamera;
     Timer? _viewCubeSyncTimer;
-    readonly Dictionary<string, (Button Button, Vector3 Normal)> _viewCubeFaces = new();
 
     public void InstallViewCube()
     {
@@ -21,32 +21,88 @@ public partial class Main
             Name = "ViewportViewCube",
             MouseFilter = Control.MouseFilterEnum.Pass,
             ZIndex = 30,
-            TooltipText = "View cube — click a visible face to snap the camera. Orbit pivots around the selected object."
+            TooltipText = "Orientation cube — click a face, edge, or corner to snap the authoritative viewport camera."
         };
         _viewCubePanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
-        _viewCubePanel.OffsetLeft = -126;
+        _viewCubePanel.OffsetLeft = -118;
         _viewCubePanel.OffsetRight = -12;
         _viewCubePanel.OffsetTop = 12;
-        _viewCubePanel.OffsetBottom = 126;
+        _viewCubePanel.OffsetBottom = 118;
         host.AddChild(_viewCubePanel);
 
-        _viewCubeSurface = new Control
+        _viewCubeHost = new SubViewportContainer
         {
-            Name = "ViewCubeSurface",
-            CustomMinimumSize = new Vector2(112, 112),
-            MouseFilter = Control.MouseFilterEnum.Pass
+            Name = "ViewCube3D",
+            Stretch = true,
+            MouseFilter = Control.MouseFilterEnum.Stop,
+            CustomMinimumSize = new Vector2(104, 104),
+            TooltipText = _viewCubePanel.TooltipText
         };
-        _viewCubePanel.AddChild(_viewCubeSurface);
+        _viewCubePanel.AddChild(_viewCubeHost);
 
-        AddViewCubeFace("Front", "F", Vector3.Back, Mathf.Pi, 0f);
-        AddViewCubeFace("Back", "B", Vector3.Forward, 0f, 0f);
-        AddViewCubeFace("Left", "L", Vector3.Left, Mathf.Pi / 2f, 0f);
-        AddViewCubeFace("Right", "R", Vector3.Right, -Mathf.Pi / 2f, 0f);
-        AddViewCubeFace("Top", "T", Vector3.Up, _yaw, -1.5f);
-        AddViewCubeFace("Bottom", "D", Vector3.Down, _yaw, 1.5f);
+        _viewCubeViewport = new SubViewport
+        {
+            Name = "ViewCubeViewport",
+            Size = new Vector2I(104, 104),
+            TransparentBg = true,
+            OwnWorld3D = true,
+            HandleInputLocally = false,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always
+        };
+        _viewCubeHost.AddChild(_viewCubeViewport);
 
-        // Observe the existing viewport input path only to retarget the orbit pivot before the first
-        // motion event. V1018 remains the owner of orbit state and mouse handling.
+        var root = new Node3D { Name = "OrientationCubeScene" };
+        _viewCubeViewport.AddChild(root);
+
+        var cubeMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(.58f, .62f, .68f),
+            Roughness = .78f,
+            Metallic = 0f,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled
+        };
+        var cube = new MeshInstance3D
+        {
+            Name = "OrientationCubeMesh",
+            Mesh = new BoxMesh { Size = new Vector3(1.55f, 1.55f, 1.55f) },
+            MaterialOverride = cubeMaterial
+        };
+        root.AddChild(cube);
+
+        var key = new DirectionalLight3D
+        {
+            Name = "OrientationCubeLight",
+            RotationDegrees = new Vector3(-40f, -35f, 0f),
+            LightEnergy = 1.25f,
+            ShadowEnabled = false
+        };
+        root.AddChild(key);
+
+        var environment = new WorldEnvironment
+        {
+            Name = "OrientationCubeEnvironment",
+            Environment = new Godot.Environment
+            {
+                BackgroundMode = Godot.Environment.BGMode.Color,
+                BackgroundColor = new Color(0f, 0f, 0f, 0f),
+                AmbientLightSource = Godot.Environment.AmbientSource.Color,
+                AmbientLightColor = new Color(.75f, .78f, .82f),
+                AmbientLightEnergy = .7f
+            }
+        };
+        root.AddChild(environment);
+
+        _viewCubeCamera = new Camera3D
+        {
+            Name = "OrientationCubePresentationCamera",
+            Current = true,
+            Fov = 28f,
+            Near = .05f,
+            Far = 20f
+        };
+        root.AddChild(_viewCubeCamera);
+
+        _viewCubeHost.GuiInput += ViewCubeGuiInput;
         host.GuiInput += ViewCubeObserveViewportInput;
 
         _viewCubeSyncTimer = new Timer
@@ -61,25 +117,6 @@ public partial class Main
         RefreshViewCube();
     }
 
-    void AddViewCubeFace(string name, string label, Vector3 normal, float yaw, float pitch)
-    {
-        if (_viewCubeSurface == null) return;
-
-        var button = new Button
-        {
-            Name = $"ViewCube{name}",
-            Text = label,
-            TooltipText = $"Snap to {name} view",
-            CustomMinimumSize = new Vector2(28, 24),
-            Size = new Vector2(28, 24),
-            FocusMode = Control.FocusModeEnum.None,
-            MouseFilter = Control.MouseFilterEnum.Stop
-        };
-        button.Pressed += () => SnapViewCube(yaw, pitch, name);
-        _viewCubeSurface.AddChild(button);
-        _viewCubeFaces[name] = (button, normal);
-    }
-
     void ViewCubeObserveViewportInput(InputEvent input)
     {
         if (input is InputEventMouseButton button &&
@@ -89,49 +126,115 @@ public partial class Main
 
     void RefreshViewCube()
     {
-        if (_viewCubeSurface == null || !IsInstanceValid(_viewCubeSurface) ||
+        if (_viewCubeCamera == null || !IsInstanceValid(_viewCubeCamera) ||
             _camera == null || !IsInstanceValid(_camera))
             return;
 
-        Vector2 center = _viewCubeSurface.Size / 2f;
-        if (center.X <= 1f || center.Y <= 1f)
-            center = new Vector2(56, 56);
-
-        Vector3 right = _camera.GlobalTransform.Basis.X.Normalized();
-        Vector3 up = _camera.GlobalTransform.Basis.Y.Normalized();
-        Vector3 viewVector = (_camera.GlobalPosition - _focus).Normalized();
-
-        foreach (var pair in _viewCubeFaces)
-        {
-            Button button = pair.Value.Button;
-            Vector3 normal = pair.Value.Normal;
-            if (!IsInstanceValid(button)) continue;
-
-            float facing = normal.Dot(viewVector);
-            button.Visible = facing >= -0.12f;
-            if (!button.Visible) continue;
-
-            float screenX = normal.Dot(right);
-            float screenY = -normal.Dot(up);
-            Vector2 position = center + new Vector2(screenX, screenY) * 35f - button.Size / 2f;
-            button.Position = position;
-            button.Modulate = new Color(1f, 1f, 1f, Mathf.Clamp(0.72f + Math.Max(0f, facing) * 0.28f, 0.72f, 1f));
-        }
+        Basis basis = _camera.GlobalTransform.Basis.Orthonormalized();
+        _viewCubeCamera.GlobalTransform = new Transform3D(basis, basis.Z * 3.8f);
     }
 
-    void SnapViewCube(float yaw, float pitch, string name)
+    void ViewCubeGuiInput(InputEvent input)
+    {
+        if (input is not InputEventMouseButton button ||
+            button.ButtonIndex != MouseButton.Left || !button.Pressed ||
+            _viewCubeCamera == null || !IsInstanceValid(_viewCubeCamera))
+            return;
+
+        Vector3 origin = _viewCubeCamera.ProjectRayOrigin(button.Position);
+        Vector3 direction = _viewCubeCamera.ProjectRayNormal(button.Position).Normalized();
+        if (!TryHitOrientationCube(origin, direction, out Vector3 hit))
+            return;
+
+        const float half = .775f;
+        const float edgeThreshold = half * .68f;
+        bool x = Math.Abs(hit.X) >= edgeThreshold;
+        bool y = Math.Abs(hit.Y) >= edgeThreshold;
+        bool z = Math.Abs(hit.Z) >= edgeThreshold;
+
+        if (!x && !y && !z)
+        {
+            float ax = Math.Abs(hit.X), ay = Math.Abs(hit.Y), az = Math.Abs(hit.Z);
+            x = ax >= ay && ax >= az;
+            y = ay > ax && ay >= az;
+            z = az > ax && az > ay;
+        }
+
+        Vector3 from = new(
+            x ? Math.Sign(hit.X) : 0f,
+            y ? Math.Sign(hit.Y) : 0f,
+            z ? Math.Sign(hit.Z) : 0f);
+        if (from.LengthSquared() < .5f)
+            return;
+        from = from.Normalized();
+
+        int axes = (x ? 1 : 0) + (y ? 1 : 0) + (z ? 1 : 0);
+        string label = axes >= 3 ? "Corner" : axes == 2 ? "Edge" : OrientationFaceName(from);
+        SnapViewCube(from, label);
+        GetViewport().SetInputAsHandled();
+    }
+
+    static bool TryHitOrientationCube(Vector3 origin, Vector3 direction, out Vector3 hit)
+    {
+        const float half = .775f;
+        float near = float.NegativeInfinity;
+        float far = float.PositiveInfinity;
+
+        for (int axis = 0; axis < 3; axis++)
+        {
+            float o = axis == 0 ? origin.X : axis == 1 ? origin.Y : origin.Z;
+            float d = axis == 0 ? direction.X : axis == 1 ? direction.Y : direction.Z;
+            if (Math.Abs(d) < 0.00001f)
+            {
+                if (o < -half || o > half)
+                {
+                    hit = default;
+                    return false;
+                }
+                continue;
+            }
+
+            float t1 = (-half - o) / d;
+            float t2 = (half - o) / d;
+            if (t1 > t2) (t1, t2) = (t2, t1);
+            near = Math.Max(near, t1);
+            far = Math.Min(far, t2);
+            if (near > far)
+            {
+                hit = default;
+                return false;
+            }
+        }
+
+        float t = near >= 0f ? near : far;
+        if (t < 0f || float.IsInfinity(t))
+        {
+            hit = default;
+            return false;
+        }
+        hit = origin + direction * t;
+        return true;
+    }
+
+    static string OrientationFaceName(Vector3 from)
+    {
+        float ax = Math.Abs(from.X), ay = Math.Abs(from.Y), az = Math.Abs(from.Z);
+        if (ax >= ay && ax >= az) return from.X >= 0 ? "Right" : "Left";
+        if (ay >= ax && ay >= az) return from.Y >= 0 ? "Top" : "Bottom";
+        return from.Z >= 0 ? "Front" : "Back";
+    }
+
+    void SnapViewCube(Vector3 cameraFrom, string name)
     {
         FocusCameraOnSelectionPreservingPosition(false);
-        _yaw = yaw;
-        _pitch = pitch;
+        Vector3 dir = -cameraFrom.Normalized();
+        _yaw = Mathf.Atan2(dir.X, dir.Z);
+        _pitch = Math.Clamp(Mathf.Asin(Math.Clamp(dir.Y, -1f, 1f)), -1.5f, 1.5f);
         UpdateCamera();
         RefreshViewCube();
         SetStatus($"View: {name}");
     }
 
-    // Presentation/input helper only. Main's existing _focus/_yaw/_pitch/_distance fields remain
-    // the single camera authority. Recomputing the spherical camera state from the current camera
-    // position prevents an RMB orbit from jumping when its pivot moves to the selected object.
     void PrepareOrbitFocusForSelection()
     {
         FocusCameraOnSelectionPreservingPosition(true);
