@@ -1,389 +1,149 @@
 # Miniscuplter Coordinator Log
 
-> Durable Project Coordinator memory. Read completely on every Coordinator run. Preserve strategic decisions, rejected directions, evidence, and outcomes so the project does not oscillate without new evidence.
+> Durable Project Coordinator memory. Preserve strategic decisions, rejected/failed approaches, evidence and outcomes so direction does not oscillate without new evidence.
 
-## 2026-09-10 — Initial substantive Coordinator review
+## Durable architecture / sequencing history
 
-### Review checkpoint
+### 2026-09-10 — Selective-refactor direction preserved
 
-- Stable release: `v1.0.19`
-- Stable application commit: `52f3b95fb6addc0f9f1e7123b75068da4ef1513c`
-- Development branch: `v1.0.20`
-- Latest fully validated application commit reviewed: `dfedbf533e0adb3b7712fe8e18e0a7d901b7929b`
-- Acceptance-weighted completion: 57%.
+Coordinator accepted the takeover architecture as the governing direction rather than a ground-up rewrite:
 
-### Strategic assessment
+- Core owns durable project/object/revision/history state;
+- Godot owns presentation, input and viewport behavior;
+- Python owns inference/geometry execution;
+- stable IDs, immutable revisions and transactional history replace widget/name authority incrementally;
+- STL is interchange/export, not internal project truth;
+- migration is proven before legacy authority is removed.
 
-Preserve the selective-migration direction. Finish the Stage-C state-authority gap before broadening: transactional mapped-object transforms, one bounded immutable mesh-edit path, and regression coverage through save/reload/undo/cleanup/export. Keep v1.0.20 bounded and publish it as the testable increment before target-machine acceptance. No product-level user decision was required.
+v1.0.20 was deliberately bounded to Stage-C state authority: durable transforms, one immutable sculpt/edit path, save/reload/undo/cleanup/export regression coverage. Full sculpt migration, full Job Broker reconstruction, Rig/Pose, kitbash, provider proliferation and broad legacy removal were explicitly deferred.
 
-### Durable decisions
+### 2026-09-10 — Autonomous release-control validated
 
-- Core owns durable project state; Godot projects migrated state; Python executes inference/geometry; STL is interchange/export only.
-- v1.0.20 must not absorb full sculpt migration, full Job Broker durability, Rig/Pose migration, kitbash migration, provider proliferation, global legacy removal, or a full UI rewrite.
-- Target-machine acceptance remains required for Stage-C acceptance, but publication of a verified installable build may precede that evidence so the user can test the exact immutable build.
-- Any target-machine defect is fixed forward in the next semantic version.
+The permanent `release-control` mechanism became the exact-SHA publication path. Early orchestration defects were preserved as lessons:
 
----
+1. request discovery initially examined only the triggering commit instead of the full push range;
+2. an expected failing `gh release view` probe left `$LASTEXITCODE` nonzero.
 
-## 2026-09-10 — v1.0.20 release-orchestration checkpoint
+Both were fixed without weakening release gates. v1.0.20 then published through exact-SHA validation, C#/Core/Python/geometry checks, real Godot Windows export, package/hash verification, installer smoke test and immutable-target verification.
 
-### No-race / repository checkpoint
+Published releases are immutable; failures are fixed forward.
 
-- Latest Dev Cycle had completed before this review.
-- Latest published stable remained `v1.0.19`.
-- Development branch remained `v1.0.20`.
-- Live v1.0.20 HEAD observed before Coordinator documentation changes: `6ead6ae2f3c2823b7b3b93f2fae805e6808f6f57`.
-- Validated application/release-candidate code: `bc3106d606b4450aa5cb9d4395b77a5d6e78f11a`.
-- Acceptance-weighted completion: **58%**.
+### 2026-09-10 — Reference-machine evidence outranks CI
 
-### Dev Cycle trajectory assessment
+Released v1.0.20 target testing reopened viewport/rendering work despite green CI. Observed duplicate SubViewport/world/presentation ownership matched the resize-dependent symptom. Coordinator rejected another overlay/full viewport rewrite and narrowed v1.0.21 to one native resize/world/presentation owner plus neutral Blender-like workspace presentation.
 
-The Dev Cycle followed the Coordinator roadmap successfully. It completed the bounded v1.0.20 application target rather than broadening:
+v1.0.21 target retest partially passed: initial viewport improved, but right-panel resize still changed presentation and whole-window resize left black seams. This narrowed follow-up work rather than invalidating the architecture.
 
-- mapped move/rotate/scale/ground and gizmo commits now update durable Core transform state;
-- save/reload and export use durable transform state;
-- Stage-C undo/redo uses project transactions;
-- one bounded sculpt/edit path creates immutable child mesh revisions with stale-parent protection;
-- restore, cleanup and export remain aligned to object/revision authority;
-- regression coverage was added for transform persistence, sculpt lineage, undo/redo, save/reload and export interactions.
+### 2026-09-10 — v1.0.22 acceptance fixes
 
-This is evidence of architectural convergence, not churn. The previous P0 state-authority gap is sufficiently complete for the bounded release candidate.
+User evidence showed generated 3D could appear while Stage-C candidate state remained `none`, then disappear after restart. Root cause was duplicate historical Generate-3D event ownership. v1.0.22 therefore installed a final single generation owner while preserving the migrated Core candidate/Apply path. The release also contained client-fill/resize and starter-scene/presentation guards.
 
-### Autonomous release-control assessment
+These fixes remain `FIXED - NEEDS USER VERIFICATION` until the released flow passes on the reference machine.
 
-The permanent `release-control` mechanism is strategically acceptable. It preserves separation between a Dev Cycle release decision and an independently gated exact-SHA Windows build/export/smoke/publication process. Keep the historical explicit-tag workflow as fallback; do not weaken release safety merely for automation convenience.
+### 2026-09-10 — MS-027 bounded UI fallback
 
-Two bootstrap defects were observed:
+User-directed workspace modernization was accepted as an opportunistic fallback only while Stage-C acceptance was externally blocked. Bounded slices were sequenced instead of a monolithic rewrite:
 
-1. request discovery initially examined only the triggering commit rather than the full push range;
-2. an expected failing `gh release view` probe left `$LASTEXITCODE` nonzero after otherwise-successful validation.
+- workspace splitter persistence / UI scale / tooltips;
+- direct viewport tool strip reusing existing tool state;
+- synchronized scene hierarchy;
+- view cube + selection-centered orbit;
+- unified AI command/history dispatcher;
+- resource telemetry;
+- density/polish.
 
-Both were classified as release-orchestration defects rather than source-candidate defects. The Dev Cycle was directed to repair them without reopening v1.0.20 application scope or weakening gates.
+A development-only compile regression (MS-028) from inaccessible tool-strip composition was fixed narrowly; this reinforced exact-head validation before further fallback work.
 
-### Priority change
+New presentation work should prefer stable version-neutral components instead of normalizing new `Main.V10xx...` layers.
 
-Previous P0 (`MS-019` bounded transform + one mesh-edit authority) was complete enough for the release candidate. Release orchestration became immediate P0 in service of `MS-018` publication/qualification.
+## Release ownership history
 
----
+### 2026-09-10 — Coordinator became exclusive release owner
 
-## 2026-09-10 — v1.0.20 published / target-acceptance checkpoint
+User reassigned release readiness/publication from Dev to Coordinator. Dev prepares/validates checkpoints; Coordinator decides release chunk size and owns release-control/publication.
 
-### No-race and repository checkpoint
+### 2026-09-10 — Continuous-development release model superseded stop-at-candidate behavior
 
-- The latest Dev Cycle completed before substantive review.
-- `v1.0.20` is now the published stable release.
-- Published target: `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
-- Autonomous-release run `34508060099` completed successfully through exact-SHA validation, C#/Core, Python/runtime, job/geometry regressions, release audit, verified Godot 4.7.2 Windows export, output/hash verification, installer creation, silent installer smoke-install, immutable-target recheck, tag creation and GitHub Release publication.
-- Forward-only development branch `v1.0.21` exists from the exact published target.
-- v1.0.21 HEAD reviewed before Coordinator roadmap update: `214b890b3c46be4ef7451c5c9a8fd60f03eee10f`.
-- Exact-head v1.0.21 Core, C#, Python/geometry/release-audit and packaging jobs are green. Full Windows-release/publication jobs were correctly skipped for an ordinary branch push.
-- Acceptance-weighted completion remains **58%** because release publication does not substitute for target-machine acceptance.
+User clarified that release-worthy checkpoints do **not** freeze development. Dev records useful checkpoint SHAs and continues. Coordinator chooses a sufficiently large/coherent release boundary at the **current semantic-version branch HEAD**, creates/uses the next forward version branch, then freezes only the prior source branch by creating the release request.
 
-### Outcome of previous direction
+Never rewind a moving version branch to publish an older checkpoint. A failed publication leaves the prior source frozen until the concrete failure is diagnosed.
 
-The Dev Cycle followed the roadmap successfully:
+## 2026-09-11 — v1.0.23 release chunk / v1.0.24 continuous development
 
-- it fixed the release-controller `$LASTEXITCODE` defect at the release-control boundary;
-- it did not reopen or broaden v1.0.20 application scope;
-- it preserved exact-SHA, build/export/hash/smoke and immutability gates;
-- it drove the controller to a successful real Windows release;
-- it preserved v1.0.20 immutability and moved forward to v1.0.21.
+v1.0.23 accumulated the planned MS-027 sequence and became a sufficiently coherent testable release chunk. Coordinator froze v1.0.23 and created v1.0.24 from the exact release boundary so Dev could continue independently.
 
-This validates both the bounded-release sequencing and the permanent autonomous release-control architecture. The explicit-tag release path remains fallback only.
+v1.0.24 then advanced a bounded MS-020 reliability seam while Stage-C user evidence remained unavailable:
 
-### Strategic assessment
+- one heavyweight runtime owner;
+- shared ownership for component/runtime mutation;
+- truthful cancellation retaining ownership until actual termination;
+- compact durable heavyweight-job lifecycle/tombstone state;
+- restart reconciliation of abandoned running/cancelling jobs;
+- fail-closed corrupt/unsupported state;
+- bounded journal reads before decode/parse.
 
-**Preserve the selective-refactor direction.** No architectural reset is warranted.
+Validated checkpoint: `e3dfba9aa26d7045b4bf9602920a484c443789c7`.
 
-The critical path has now moved from architecture implementation and release orchestration to **real reference-machine acceptance**. The correct response is not to immediately begin another broad migration. The project needs runtime evidence on the intended GTX 1080 / 8 GB VRAM / 16 GB RAM machine before deciding which structural work should follow.
+This proves the ordered restart-reconciliation seam sufficiently for current needs. **Do not broaden MS-020 into a generalized persistent queue merely because acceptance remains blocked.**
 
-### Priority decision
+## 2026-09-11 — v1.0.23 publication failures and complete identity repair
 
-Current order:
+### Failure 1
 
-1. `MS-018` — complete the released v1.0.20 Stage-C flow on the reference machine.
-2. `MS-009` — verify viewport/grid/model/gizmo; reproduced blank viewport becomes immediate P0.
-3. `MS-013` — verify storage containment; severe leakage/safety regression becomes P0.
-4. `MS-022` — qualify one intended lightweight/default 3D provider with elapsed time and RAM/VRAM evidence.
-5. `MS-004` — cancellation/recovery during a real job where practical.
-6. broader `MS-019` / `MS-020` work waits behind acceptance unless a concrete runtime blocker requires it.
+The first v1.0.23 publication attempt passed substantial validation and reached the Windows build path, but generated 1.0.22 release identity/installer naming because the frozen source had not been advanced consistently. Publication was correctly blocked.
 
-### v1.0.21 scope decision
+A first repair advanced launcher/installer identity only. That repair was incomplete.
 
-Until target-machine evidence arrives, v1.0.21 is primarily a forward-fix/acceptance-support branch.
+### Failure 2
 
-Allowed work:
-- fixes for reproduced v1.0.20 defects;
-- diagnostics directly needed to establish acceptance evidence;
-- regressions for observed failures;
-- accurate acceptance documentation.
+The second autonomous retry failed during strict release audit before Windows export. Exact request/source SHA validation, C#/Core, Python/runtime/job and geometry checks passed. Release audit reported launcher/installer mismatches because the audit still expected 1.0.22.
 
-Do not use scheduled-cycle availability as a reason to start full sculpt migration, broad legacy removal, full Job Broker reconstruction, Rig/Pose, kitbash, provider proliferation, UI rewrite, or optional cleanup breadth.
+Inspection proved the deeper defect: v1.0.23 identity was split across versions.
 
-If target-machine acceptance is green, the next Coordinator review should sequence the next structural milestone. Current default ordering after acceptance is `MS-020` durable job ownership/queue/crash recovery, then `MS-019` outward migration from the proven Stage-C seam, provider-tier decisions from measured `MS-022` evidence, then broader Stage-D practical editing work.
+Before complete repair:
+- launcher = 1.0.23;
+- installer = 1.0.23;
+- updater = 1.0.22;
+- Godot C# assembly = 1.0.22;
+- Windows file/product metadata = 1.0.22;
+- backend API = 1.0.22;
+- editor displayed version = 1.0.22;
+- release-audit expected version = 1.0.22.
 
-### Risks to monitor
+Coordinator classified this as one release-source identity defect, **not** a reason to weaken the audit.
 
-- treating CI/release success as real-machine acceptance;
-- Dev Cycles drifting into generalized infrastructure while waiting for user evidence;
-- v1.0.21 becoming a broad migration branch before acceptance;
-- compatibility bridges becoming long-term duplicate authority;
-- provider policy being based on theoretical support instead of measured reference-machine behavior.
+### Complete repair
+
+Frozen v1.0.23 now advances the complete audited identity set to 1.0.23. Current candidate:
+
+`bda683264448fc8b51c7c538db61f8c0487a699a`
+
+Exact-head branch validation was started automatically by these source commits. Release-control must not move to this candidate until that exact-head branch validation is green. If green, update the existing v1.0.23 request to this SHA and rerun the complete exact-SHA release pipeline. If red, diagnose only the concrete failure and keep v1.0.23 frozen.
+
+This failure history must remain visible: version identity is a set of user/tool-visible surfaces, not only launcher/installer metadata.
+
+## 2026-09-11 — Post-MS-020 sequencing / v1.0.24 release decision
+
+### Direction assessment
+
+**PRESERVE** Stage-C as the critical path and the selective-refactor architecture.
+
+The explicitly ordered MS-020 restart-reconciliation work is complete enough to stop infrastructure expansion. Since Stage-C acceptance is still externally blocked, the next fallback should move outward into one bounded MS-019 migration seam rather than deepen broker generality.
+
+### Next fallback objective
+
+Retire/delegate exactly one duplicate historical authority at an already-migrated Stage-C seam, with focused regression coverage proving the replacement owner.
+
+Preferred first target: a remaining historical Stage-C generation/persistence owner already superseded by the final v1.0.22 acceptance owner. If inspection proves that seam is already inert, choose the smallest equivalent duplicate authority in transform/selection/persistence. Preserve compatibility until replacement behavior is proven. Stop after one seam.
+
+### v1.0.24 release chunk decision
+
+**KEEP ACCUMULATING.**
+
+The current v1.0.24 MS-020 seam is useful and coherent but not a sufficiently substantial next release by itself while v1.0.23 has not yet published. A useful checkpoint is evidence, not a freeze.
+
+Reconsider a v1.0.24 boundary after one additional coherent authority-retirement increment, or sooner if important target-machine fixes materially increase release value.
 
 ### User dependency
 
-No product-level decision is required. The important dependency is now real testing of released v1.0.20 on the reference machine. Concrete pass/fail observations should drive v1.0.21 fixes. If testing exposes a difficult-to-reverse product tradeoff, escalate that decision to the user rather than embedding it in an implementation fix.
-
-
----
-
-## 2026-09-10 — v1.0.20 viewport target evidence / MS-009 reopened
-
-### No-race and repository checkpoint
-
-- The most recent Dev Cycle had completed before this review.
-- Stable release remains `v1.0.20` at `e63cb0601cdbb91af5be191458ecdbcb7c0b7944`.
-- Development branch is `v1.0.21`.
-- Live branch HEAD before this Coordinator update was `5072e03688e4a1a101c458215e9df8a9fa288110`.
-- The latest exact-head branch validation before this user evidence was green for Core, C#, Python/geometry/release-audit and packaging; ordinary branch pushes correctly skipped full release/publication jobs.
-- Acceptance-weighted completion remains **58%**.
-
-### New reference-machine evidence
-
-The user supplied a screenshot from released v1.0.20 and a precise resize observation:
-
-- the historical blank viewport is materially improved: the grid/floor and starter 3D model now render;
-- in the normal resting layout, the floor/grid presentation is dark blue/gray and the model is too dark to inspect;
-- while the left edge/divider of the AI side panel is actively dragged, the grid temporarily appears correct;
-- this makes MS-009 a reproduced target-machine defect rather than "fixed, needs verification";
-- the user explicitly requested a Blender-like viewport/model color scheme.
-
-### Architectural interpretation
-
-Repository inspection found overlapping presentation authority that matches the symptom:
-
-- v1.0.19 declares `SubViewportContainer.Stretch` the native sizing contract;
-- `V1017SyncViewport()` still assigns `SubViewport.Size` and runs periodically;
-- `Main.V109Responsive.cs` also assigns `SubViewport.Size` after resize;
-- v1.0.19 queues a delayed full `V1019RepairViewportPipeline()` 0.25 s after every resize; continuous divider movement repeatedly postpones that callback, which correlates strongly with the user's "looks right only while dragging" report;
-- v1.0.17 and v1.0.19 also overlap `OwnWorld3D` / explicit `World3D` creation/rebind behavior;
-- the very dark lit object makes loss/mismatch of effective lighting/world registration a serious hypothesis;
-- v1.0.19's near-black blue-gray floor/background is also not the requested visual hierarchy even if ownership is fixed.
-
-These are strong hypotheses, not yet a claimed root-cause proof.
-
-### Priority change
-
-**MS-009 is reopened and promoted to immediate P0.**
-
-The remaining Stage-C acceptance work (MS-018/MS-013/MS-022/MS-004) stays important, but there is little value qualifying generation/edit/export usability while the core inspection viewport is unstable/unreadable.
-
-### Coordinator direction
-
-v1.0.21 should remain narrow:
-
-1. make the native viewport path the only normal resize-size owner;
-2. stop full world/camera/material repair from running as a routine post-resize side effect;
-3. establish one coherent World3D/light/environment/camera ownership/rebind contract;
-4. apply a Blender-like neutral dark-gray background, visible neutral grid, colored axes and light neutral-gray model with readable studio lighting;
-5. validate invariance before/during/after splitter resize and across tab changes/manual repair;
-6. publish a narrow v1.0.21 test build when release gates are satisfied;
-7. keep MS-009 open until user/reference-machine retest passes.
-
-Do not answer this failure by adding another render overlay or by broad UI refactor.
-
-### User decision
-
-No additional decision is required. The requested Blender-like visual direction is sufficiently specific for implementation-level color/lighting choices.
-
-
----
-
-## 2026-09-10 — v1.0.21 viewport partial-pass verification
-
-### User evidence
-
-The user retested released v1.0.21 on the reference Windows/GTX 1080 machine.
-
-Observed:
-- initial 3D viewport now looks good and is materially more readable;
-- resizing the right-side AI panel still changes viewport color;
-- whole-window resize still leaves black seams/gaps.
-
-### Coordinator interpretation
-
-This is a **partial success**, not a failed overall direction. v1.0.21 proved the new native viewport sizing/lighting/palette direction improves the baseline. The remaining failures are narrower state-ownership/layout defects.
-
-Repository inspection shows one residual duplicate presentation owner: legacy `V1017RepairViewport()` still writes the old dark environment/ambient settings and remains reachable from historical paths even when the v1.0.19+ native pipeline is installed. This must be neutralized/delegated in v1.0.22. The exact right-panel resize trigger must still be traced before claiming it is the sole cause.
-
-MS-024 is now confirmed independently of the SubViewport fix and should be treated as outer/root responsive-layout failure. Inspect root Control/client-area fill behavior rather than reviving competing SubViewport sizing.
-
-### Priority
-
-MS-023 remains immediate P0 because successful generated 3D work can disappear after restart. MS-009/MS-024 are the next narrow correctness/usability fixes. No broad viewport rewrite is warranted.
-
-No user product decision is required.
-
-
----
-
-## 2026-09-10 — User-directed modular UI modernization plan
-
-### Release/no-race checkpoint
-
-- v1.0.22 autonomous release completed successfully at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
-- A forward-only v1.0.23 planning/development branch was created from that exact published target.
-- The UI plan was intentionally not written while the 21:00 Dev Cycle or v1.0.22 release freeze was active.
-
-### User direction accepted
-
-The user provided an annotated workspace layout and specified:
-- direct icon buttons for tools rather than dropdown;
-- interactive camera-linked view cube with face/edge/corner snapping and selection-centered orbit;
-- substantially less always-visible explanatory text, with hover help instead;
-- smaller typography plus in-app font/UI scaling;
-- collapsible scene tree for all entities;
-- performance/resource graphs;
-- unified AI command line/history with previous-command navigation and action buttons for real AI operations;
-- resizable regions and persistence of the user's workspace arrangement across restarts.
-
-### Coordinator sequencing decision
-
-Track the full request as **MS-027** and integrate MS-026 as its performance-panel component.
-
-MS-027 is an **opportunistic secondary workstream**, not a new P0. Dev Cycle may take bounded UI slices when acceptance/correctness work is blocked on user input/testing or no higher-priority unblocked task exists. Any newly reproduced high-severity issue preempts UI modernization immediately.
-
-Implement incrementally and avoid another legacy overlay. The AI console must converge commands/actions on one authoritative dispatcher specifically to avoid repeating the duplicate-generation-handler failure found in MS-023.
-
-No further user product decision is required for this initial UI direction.
-
-
----
-
-## 2026-09-10 — v1.0.23 direct-tool-strip review and red-build correction
-
-### No-race / repository checkpoint
-
-- A newer repository/CI transition began during this Coordinator review, so the first attempted planning write was aborted.
-- The Coordinator waited for exact-head CI to finish before mutating planning state.
-- Latest stable remains `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
-- Development branch is `v1.0.23`.
-- Exact branch HEAD reviewed before this write: `549d1018866e242a3b0d5344f6840903a36fa6f6`.
-- Exact-head Core-foundation, Python/runtime/geometry/release-audit and packaging passed; C# build failed.
-- No active release freeze was present.
-- Acceptance-weighted completion remains **57%**.
-
-### Dev Cycle trajectory
-
-The worker stayed within the approved MS-027 fallback while released-v1.0.22 target-machine evidence remained unavailable. It implemented the second bounded slice: direct Select / Move / Rotate / Scale / Sculpt controls reusing the existing V1018 tool state rather than adding a second tool/input state machine.
-
-That functional direction remains aligned with the roadmap.
-
-### New execution regression
-
-Exact-head broader build is red. C# fails with `CS0122` because `ExtrasInstaller` calls `Main.InstallV1023ViewportToolStrip()` while the method is inaccessible at that call site.
-
-Evidence:
-- prior failing build run: `34524072795`;
-- current exact-head failing build run: `34527580075`;
-- current dotnet job repeats the same accessibility failure;
-- other validation families remain green.
-
-HANDOFF was originally written while CI was queued and correctly warned not to claim validation, but the completed result is now a known failed validation state.
-
-### Direction decision
-
-**PRESERVE** the selective-refactor architecture and Stage-C milestone.
-
-**NARROW** the immediate execution sequence:
-1. repair the compile regression;
-2. restore green exact-head validation;
-3. only then resume reference-machine acceptance or one bounded MS-027 fallback slice.
-
-No architectural redesign is justified by this failure.
-
-### UI architecture guard
-
-The direct controls correctly reuse V1018 tool authority, but the new presentation was again delivered as a `Main.V1023...` overlay. This is acceptable only as a migration bridge. Future MS-027 work should prefer stable version-neutral UI components/services and must not normalize another `Main.V10xx...` layer per slice.
-
-### User dependency
-
-No new product decision is required. The reference-machine v1.0.22 acceptance pass remains the main external dependency once the branch build is restored.
-
-
----
-
-## 2026-09-10 — Release ownership transition / v1.0.23 readiness checkpoint
-
-### Repository / no-race checkpoint
-
-- User-directed authority now makes the Coordinator the exclusive release owner.
-- Dev owns candidate preparation only.
-- No active Dev/release workflow was changing repository state at the substantive review gate.
-- Latest published stable remains `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
-- Current development branch is `v1.0.23`.
-- Exact HEAD reviewed before Coordinator writes: `47722291cf771865c21304fd245dc2c2bab51103`.
-- Exact-head branch Core and broader build validation are green.
-- No v1.0.23 release-control request exists.
-- Acceptance-weighted completion remains **57%**.
-
-### Dev trajectory
-
-Since the previous Coordinator checkpoint:
-- MS-028 was repaired narrowly and validation returned green.
-- Dev then completed the Coordinator-approved synchronized scene-hierarchy slice.
-- The hierarchy uses a stable version-neutral presentation file, reflects existing object/parent state, and delegates selection to existing authority rather than inventing a second scene model.
-
-This is architectural convergence and follows the bounded MS-027 fallback policy.
-
-### Release decision
-
-**v1.0.23 is NOT READY FOR RELEASE REVIEW at this checkpoint.**
-
-The Coordinator did not create a release request because:
-- Dev has not marked an exact candidate **READY FOR COORDINATOR RELEASE REVIEW**;
-- v1.0.23 remains an active development branch with one further bounded fallback slice available;
-- released-v1.0.22 target-machine acceptance evidence is still outstanding and may preempt UI work;
-- ordinary branch CI does not substitute for the Coordinator's release-readiness decision or the exact-SHA Windows/Godot release pipeline.
-
-This is a sequencing decision, not a rejection of the current implementation.
-
-### Direction decision
-
-**PRESERVE** the Stage-C critical path and selective-refactor architecture.
-
-Continue one bounded fallback slice only while reference-machine acceptance is unavailable. The next approved slice is view cube + selected-object orbit pivot, reusing existing camera/selection authority.
-
-### Release-owner operating rule
-
-When Dev believes the v1.0.23 increment is coherent:
-1. stop candidate-invalidating work;
-2. record exact SHA and validation evidence in HANDOFF/STATUS;
-3. mark **READY FOR COORDINATOR RELEASE REVIEW**;
-4. do not publish.
-
-Coordinator will then independently review scope/gates and either:
-- publish via exact-SHA release-control under branch freeze; or
-- return the candidate to Dev with a concrete blocking reason.
-
-### User dependency
-
-No new product decision is required. Released-v1.0.22 target-machine verification remains the main external dependency.
-
----
-
-## 2026-09-10 — User-directed continuous-development release model
-
-The user refined the Coordinator-owned release process so Dev does not stop merely because it has reached or recorded a release-worthy checkpoint.
-
-Effective operating rule:
-- Dev may record exact checkpoint SHAs and validation evidence, then continue implementing the roadmap.
-- Checkpoints are advisory only and do not freeze the semantic-version branch.
-- Coordinator owns release chunk size and decides when accumulated scope is coherent/substantial enough to publish.
-- Only an actual Coordinator release request creates a freeze.
-- The release candidate is the exact current HEAD at the chosen boundary; do not rewind the moving version branch to an older checkpoint.
-- Before or as release-control is initiated, create/use the next forward semantic-version branch from the frozen SHA and make it the writable Dev branch.
-- Dev continues there while the prior version publishes.
-- A failed release preserves the frozen source until diagnosis; required fixes are managed forward without rewriting published history.
-
-This supersedes earlier same-day wording that required Dev to stop candidate-invalidating work merely after marking READY FOR COORDINATOR RELEASE REVIEW. The goal is continuous Dev throughput plus larger Coordinator-curated releases.
+No new product decision is required. Reference-machine Stage-C verification remains the primary external dependency and immediately preempts fallback work when evidence arrives.
