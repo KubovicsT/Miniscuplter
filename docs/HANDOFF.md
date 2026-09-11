@@ -9,79 +9,80 @@ Last updated: 2026-09-11
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Current writable development branch:** `v1.0.24`.
 - **Frozen release source:** `v1.0.23` at exact boundary `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
-- **Latest validated v1.0.24 implementation/test checkpoint:** `c8451493b31306d12db7ed360a836e3e3b941fb2`.
+- **Latest validated v1.0.24 implementation/test checkpoint:** `7255bb75f0ea18409fe5ad63734cbd99c17ba18d`.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Coordinator critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts MS-020.
+- **Coordinator critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts architectural/fallback work.
 
-## Frozen v1.0.23 release source
+## Release state
 
-Do not modify v1.0.23 or release-control from Dev. The latest published release remains v1.0.22. The prior v1.0.23 publication attempt failed output-version verification because the frozen source still produced v1.0.22 release metadata/package naming. Coordinator owns diagnosis and any directed frozen-source correction. This Dev cycle made no release-control, tag, release, or v1.0.23 mutation.
+Do not modify v1.0.23 or release-control from Dev. v1.0.22 remains the latest published release.
 
-## This Dev Cycle — bounded MS-020 restart reconciliation
+The first v1.0.23 publication attempt failed output-version verification because the frozen source still produced v1.0.22 release metadata/package naming. A later Coordinator-owned corrected-candidate retry (`release-control` run `34562412676`) also failed, this time in the combined geometry/release-audit step before Windows export/package publication. Coordinator owns diagnosis and any directed frozen-source correction. This Dev cycle made no release-control, tag, release, or v1.0.23 mutation.
 
-With no new target-machine evidence available, this run completed the exact Coordinator baton: persist only enough heavyweight 3D job lifecycle state to reconcile an owned-backend restart/crash truthfully.
+## Previously completed bounded MS-020 baton
 
-### Implementation commits
+The explicit restart/recovery slice remains complete at validated checkpoint `c8451493b31306d12db7ed360a836e3e3b941fb2`:
 
-- `e163488d13576d781df152a52715caf7668d1188` — adds the contained, compact, atomic heavyweight job lifecycle journal;
-- `1d85da472a2793668a5f30eae62fd45ce8259c3d` — persists/reconciles the migrated 3D job lifecycle and restores only a terminal tombstone after restart;
-- `d5c7dd6ccee6938b129c3361054ed340f6384c2f` — adds completion/restart/cancelling/corrupt-journal/containment regressions;
-- `57624d3acfec99306ce29d0b208e2de97aaf00b1` — wires the new journal regressions into the existing execution/job CI leg.
+1. migrated heavyweight `3d-generate` work has one process-local runtime lease;
+2. component install/update/repair/remove shares the same heavyweight owner;
+3. cancellation remains `cancelling` and retains ownership until physical terminal acknowledgement; late success cannot qualify/apply;
+4. compact lifecycle state is journaled under the existing Miniscuplter-controlled backend root using atomic replacement;
+5. dead-process `running` work reconciles to inactive `interrupted`; stale cancelling work reconciles to inactive `cancelled`;
+6. restart never reacquires the process-local GPU lease and never restores/auto-applies a prior candidate;
+7. corrupt/unsupported journal state fails closed as inactive `recovery-error`.
 
-### Restart/recovery semantics now established
+Do **not** expand this into a generalized persistent queue or isolated-worker rewrite without new Coordinator sequencing.
 
-1. Only the migrated heavyweight `3d-generate` lifecycle is journaled; this is not a generalized durable queue.
-2. The journal lives under the existing Miniscuplter-controlled backend data root at `state/job-lifecycle.json` via `storage.resolve()`.
-3. Writes are same-directory atomic replacements with flush/fsync before replace; temporary files are not authoritative.
-4. Persisted data is intentionally compact: job identity/kind/state/stage/progress/provider/cancel flag/timestamps plus a whitelist of Stage-C identity fields. Event history, model weights, output blobs and arbitrary large context are not persisted.
-5. On startup, a stale `running` record from the dead prior backend becomes inactive terminal `interrupted`, explicitly stating that no output was accepted.
-6. A stale `cancelling`/cancel-requested record becomes inactive terminal `cancelled` after restart.
-7. Startup recovery never reacquires the process-local heavyweight lease and never restores or auto-applies a prior generated candidate.
-8. Corrupt/unsupported persisted state fails closed as inactive `recovery-error`; it does not claim the GPU/runtime owner. A later explicit new job may atomically replace that untrusted tombstone.
-9. Existing truthful cancellation behavior remains intact: cancellation retains ownership until terminal acknowledgement while the process is alive; restart reconciles the dead-process case separately.
+## This Dev Cycle — release-version identity regression guard
 
-## Version-identity regression found and fixed forward on v1.0.24
+No new target-machine acceptance evidence or new Coordinator MS-020 slice was available. Rather than invent broader broker work, this run addressed a concrete release-safety recurrence: semantic-version branches could inherit stale prior-version metadata while both the hard-coded release audit and package surfaces agreed with each other, allowing ordinary branch CI to look healthy until release-control compared against the requested version.
 
-The first CI pass of the new restart slice exposed a release-audit failure unrelated to the journal: v1.0.24 launcher/installer metadata already said 1.0.24 while updater/editor/backend/export/display/audit metadata still said 1.0.22. That would make a future v1.0.24 package internally inconsistent.
+Implementation checkpoint:
 
-Forward-only fixes on the writable v1.0.24 branch:
+- `7255bb75f0ea18409fe5ad63734cbd99c17ba18d` — adds an early branch-derived `Verify semantic-version branch identity` CI step on `v1.*` pushes.
 
-- `260f6666bbc046d0bddb4bd6a378ef97b27f614f` — updater version 1.0.24;
-- `55c2435dd307eade9d020ceaa424849b66932fc0` — editor assembly version 1.0.24;
-- `c0eddca2c21fabc69bf45d3f6b08e7397b0dbdef` — backend API version 1.0.24;
-- `e0cecfc54cc290a09b2a0e120dccc078272b91fb` — Windows export file/product version 1.0.24.0;
-- `2021629f106fdcb49dc29ef767e4e635a392f985` — displayed editor version 1.0.24;
-- `c8451493b31306d12db7ed360a836e3e3b941fb2` — release audit now validates 1.0.24 identity.
+The guard derives expected identity from `github.ref_name` and checks:
 
-The frozen v1.0.23 source was not changed.
+- launcher assembly version;
+- updater assembly version;
+- editor assembly version;
+- Inno Setup application version;
+- Windows exported file version;
+- Windows exported product version;
+- backend API `APP_VERSION`;
+- displayed editor version;
+- `tools/release_audit.py` expected version.
+
+Any stale surface now fails the development-branch CI immediately with a consolidated mismatch report. This specifically closes the process gap exposed by the v1.0.23 publication failure and the multi-file v1.0.24 identity reconciliation without changing Coordinator release ownership.
 
 ## Validation
 
-Exact implementation/test checkpoint `c8451493b31306d12db7ed360a836e3e3b941fb2` is fully green:
+Exact implementation/test checkpoint `7255bb75f0ea18409fe5ad63734cbd99c17ba18d` is fully green:
 
-- `core-foundation` run `34564634258`: **PASS**;
-- broader `build` run `34564634248`: **PASS**;
+- `core-foundation` run `34568222471`: **PASS**;
+- broader `build` run `34568222539`: **PASS**;
+- new branch-derived semantic-version identity guard: **PASS**;
 - C# editor/launcher/updater/Core builds: **PASS**;
 - Python compilation/runtime dependency resolution: **PASS**;
 - core logic and execution/job regressions: **PASS**;
-- new journal regressions cover clean completion persistence, active-job crash/restart → interrupted, cancelling restart → cancelled, corrupt-journal fail-closed behavior, controlled-root containment and no leftover temp authority;
 - real geometry regressions: **PASS**;
-- release audit after 1.0.24 identity reconciliation: **PASS**;
+- release audit: **PASS**;
 - portable package layout and ZIP SHA-256 verification: **PASS**;
 - installer-definition compilation: **PASS**;
 - branch push correctly skipped tag-only full Windows release/publication jobs.
 
-Documentation commits after this checkpoint do not supersede the validated code/test checkpoint.
+Documentation commits after this checkpoint do not supersede the validated implementation/test checkpoint.
 
 ## Exact next task
 
-First consume any new reference-machine Stage-C/cancellation/storage evidence. If new evidence exists, reproduce and prioritize any serious correctness/persistence/data-safety/viewport/provider regression immediately.
-
-If no new evidence exists, **do not broaden MS-020 into a generalized persistent queue or isolated-worker rewrite on your own.** This run has completed the currently explicit bounded restart-reconciliation seam. Re-read TECHNICAL_ROADMAP / COORDINATOR_LOG / current HANDOFF for the next Coordinator-sequenced slice. If Coordinator still directs MS-020, take only the next narrowly bounded lifecycle/ownership seam it specifies.
+1. Inspect actual release/branch/CI state and re-read current ROADMAP / COORDINATOR_LOG first.
+2. Consume any new reference-machine Stage-C/cancellation/storage evidence immediately; a serious reproduced regression preempts everything else.
+3. If no new evidence exists, follow the next Coordinator-sequenced bounded task. **Do not independently broaden MS-020 now that its explicitly ordered restart seam is complete.**
+4. Preserve the semantic-version identity guard when creating/advancing future version branches; any branch-name/version mismatch is a release-safety blocker, not something to waive.
 
 ## Release/checkpoint rule
 
-`c8451493b31306d12db7ed360a836e3e3b941fb2` is a useful validated implementation checkpoint. It does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
+`7255bb75f0ea18409fe5ad63734cbd99c17ba18d` is a useful validated implementation checkpoint. It does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
 
 ## User verification dependency
 
@@ -89,4 +90,4 @@ Reference-machine testing remains required. `v1.0.22` is still the latest succes
 
 `accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
-Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery and resource behavior during a long AI job. The new durable restart journal is development-only in v1.0.24 and cannot be user-qualified until that work reaches a published build.
+Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery and resource behavior during a long AI job. The v1.0.24 restart journal and release-identity CI hardening are development-only until they reach a published build.
