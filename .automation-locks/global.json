@@ -1,1 +1,1 @@
-{"state":"free","owner_role":null,"run_token":null,"acquired_at":null,"lease_until":null}
+{"state":"active","owner_role":"coordinator","run_token":"coord-manual-20260911T233700Z-9c4f2e1b","acquired_at":"2026-09-11T23:37:00Z","lease_until":"2026-09-11T23:47:00Z"}
