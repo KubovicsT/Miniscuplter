@@ -11,7 +11,7 @@ Last updated: 2026-09-11
 - **Latest validated implementation checkpoint:** `d4aef5d55170ef45298e9db942cb250d78e911d2`.
 - **Latest Coordinator planning commits:** roadmap `61c1ad61e9cf6e9d265d50db53daa35e3bae69d3`, coordinator log `042dcc2a7ddda6f410d28522861e350fb7c88594`.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Critical path:** Stage-C reference-machine acceptance on released v1.0.25. Serious correctness/persistence/viewport/data-safety/storage/cancellation regressions preempt fallback work.
+- **Critical path:** MS-029 self-update launcher termination hotfix, then Stage-C reference-machine acceptance on released v1.0.25. Serious correctness/persistence/viewport/data-safety/storage/cancellation regressions preempt fallback work.
 
 ## Release state
 
@@ -23,16 +23,19 @@ The previously authorized viewport-drag MS-019 seam is complete and validated. M
 
 ## Exact next task
 
-1. Consume any new v1.0.25 reference-machine evidence first. Any serious Stage-C/runtime/storage/viewport/persistence/cancellation regression preempts fallback work.
-2. If no such evidence is available, implement exactly one bounded MS-019 seam: **mapped-object ground placement transform authority**.
-3. Preserve the existing viewport/input presentation owner. Derive requested placement from durable Core object/revision/transform state; commit through the existing Core transactional transform path; reject stale state before persistence; project committed Core state back into Godot; restore from Core on failure.
-4. Add focused regression coverage preventing ground placement from returning to scene-observed durable persistence.
-5. Do not combine this with selection retirement, broad persistence cleanup, sculpt architecture, MS-020 expansion or MS-027 UI modernization.
-6. Validate exact HEAD, record the checkpoint in execution-state docs, and continue only under newer Coordinator direction. Dev does not create release-control, tags or GitHub Releases.
+1. **Preempt the mapped-object ground-placement seam. Fix MS-029 first.**
+2. Reproduce from code/tests the successful update path in `Updater/Program.cs`: the updated launcher writes the health token, then `VerifyLauncherStartup` kills it in `finally`, and the committed success path never launches the launcher normally.
+3. Implement the smallest safe post-update restart/health protocol. Preserve rollback when health validation fails. On successful commit, the updated launcher must remain/rerun normally without user intervention.
+4. Account for transition compatibility: the updater that installs the next release is the updater already present in v1.0.25. Do not assume the newly packaged updater controls that first transition; document any unavoidable one-time manual-reopen behavior or implement a safe compatible bridge if feasible.
+5. Add focused regression coverage for successful health-token validation + normal post-commit launcher availability and failed health validation + rollback.
+6. Run strongest launcher/updater/C# packaging/release-audit validation available. Record MS-029 state and the exact checkpoint in PROJECT_STATUS/ISSUES/HANDOFF.
+7. Stop after the bounded hotfix/checkpoint for Coordinator release reassessment. Do not resume ground-placement/MS-019 fallback until newer Coordinator direction. Dev does not create release-control, tags or GitHub Releases.
 
 ## User verification dependency
 
-Test released v1.0.25 on the reference Windows / GTX 1080 machine:
+The reference-machine report that the launcher opens briefly and closes immediately after update is accepted as MS-029 reproduction evidence. Manually reopen `Miniscuplter.Launcher.exe` once; only report back immediately if that manual launch also closes, because that would be a second startup failure rather than the identified post-update health-probe termination.
+
+Continue testing released v1.0.25 on the reference Windows / GTX 1080 machine:
 
 `accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 

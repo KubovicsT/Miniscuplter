@@ -37,3 +37,20 @@ Stage-C reference-machine acceptance on released v1.0.25 remains P0. If evidence
 
 ### User dependency
 No product decision is required. Reference-machine v1.0.25 end-to-end Stage-C, viewport/resize, storage containment, cancellation/recovery and resource-behavior evidence remains the principal acceptance dependency.
+
+## 2026-09-11 — MS-029 self-update launcher termination preemption
+
+### Reference-machine evidence
+User reported that after an application update the Miniscuplter launcher opens briefly and then closes instead of remaining open on the new version. This is accepted as higher-authority runtime evidence and immediately preempts the planned MS-019 ground-placement fallback.
+
+### Root cause confirmed from repository
+The released updater's `VerifyLauncherStartup` starts the updated launcher with `--update-health-token`, waits for the token, and then kills that process from `finally` even on the successful-health path. The transaction then records launcher health, commits, cleans the update package/work directory and exits without a normal launcher restart. `Launcher/Program.cs` only writes the token on `Shown`; it does not close or relaunch itself. The code behavior directly matches the user's observation.
+
+### Priority / release decision
+Created MS-029 as Critical / IN PROGRESS. v1.0.26 stays writable and must **not** freeze before this regression is fixed. Ground-placement MS-019 work is preempted. After a bounded MS-029 fix plus regression and Windows update-path evidence, Coordinator should immediately reassess release readiness; the existing viewport-drag authority work plus the release-reliability fix is likely release-sized.
+
+### Transition risk
+The updater that installs a new release is copied from the previously installed version. Therefore a fix packaged in the next version does not automatically change the v1.0.25 updater performing the v1.0.25 → next-version transition. Dev must explicitly account for this compatibility edge. A one-time manual reopen may remain unavoidable for that transition unless a safe bridge is possible; published v1.0.25 remains immutable.
+
+### User dependency
+No product decision is required. A single manual launcher reopen can distinguish the identified one-time post-update kill from any separate startup crash. Autonomous hotfix work can otherwise continue.

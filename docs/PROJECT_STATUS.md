@@ -46,7 +46,9 @@ Exact-head validation is green: Core foundation, C# editor/launcher/updater/Core
 
 ## Critical path
 
-Stage-C reference-machine acceptance remains P0:
+**MS-029 updater/launcher reliability is now P0.** User/reference-machine testing after an application update reproduced the updated launcher opening briefly and then closing. Repository inspection identifies the direct cause: the updater's successful health-probe path kills the launched updated launcher in `VerifyLauncherStartup` and does not perform a normal post-commit restart. This preempts the planned MS-019 ground-placement fallback until fixed and validated.
+
+Stage-C reference-machine acceptance remains the next acceptance objective after MS-029:
 
 `accepted 2D baseline → local 3D generation → candidate → Apply → save → close/reopen → same durable object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
@@ -54,8 +56,8 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated. Do not invent a second MS-019 seam or broaden MS-020/MS-027 from this status alone. Consume new target-machine evidence first; otherwise follow the next Coordinator sequencing recorded in HANDOFF/ROADMAP after repository bootstrap.
+The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-029 with a bounded launcher/updater hotfix, regression coverage, and Windows update-path validation before returning to the mapped-object ground-placement seam. After that checkpoint, Coordinator will immediately reassess whether v1.0.26 is release-sized.
 
 ## User dependency
 
-No product/design decision is required. Test the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.
+No product/design decision is required. The post-update close is sufficiently reproduced. Manually reopen the installed launcher once; if that manual launch also exits, report it because that would be a separate startup problem. Otherwise autonomous MS-029 hotfix work can continue. Continue testing the latest published immutable release `v1.0.25` on the reference machine, especially the full Stage-C acceptance path, save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery.

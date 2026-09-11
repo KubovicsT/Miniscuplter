@@ -421,3 +421,15 @@ Last reconciled: 2026-09-10
 - **Impact:** current v1.0.23 HEAD is not release-ready; no further MS-027 feature slice should begin while exact-head C# validation is red.
 - **Resolution:** commit `75e4990e04e273c00bf3eecc66e0ae93924b5571` made the composition entry point public. Subsequent exact-head C#/Core/Python/geometry/release-audit/packaging validation passed, and later scene-hierarchy work remained green.
 - **Next action:** none for MS-028; preserve the failed-build history as regression context.
+
+## MS-029 — Successful self-update health probe closes the updated launcher
+
+- **Severity:** Critical
+- **Status:** IN PROGRESS
+- **First observed:** 2026-09-11 user/reference-machine update to v1.0.25.
+- **Symptoms:** after a successful application update, the updated launcher opens briefly and then exits instead of remaining open on the new version.
+- **Repository evidence / root cause:** `Updater/Program.cs::VerifyLauncherStartup` starts the updated launcher with `--update-health-token`, waits for the launcher to write the health token, then kills that process in `finally` even on the successful-health path. The successful updater path subsequently commits/cleans up and returns without starting the launcher normally. `Launcher/Program.cs` writes the token but does not intentionally close or relaunch itself. This behavior matches the reference-machine observation.
+- **Impact:** the application update can complete, but the expected post-update launcher session is terminated and the user must reopen the launcher manually. No data-loss/rollback evidence is currently reported, but this is a release/update reliability blocker.
+- **Required fix:** preserve failed-probe rollback semantics, but make the successful path leave or start a normal updated launcher after the transaction is committed. Add focused regression coverage for successful health validation/restart and failed-probe rollback. Because the updater that installs a release comes from the previously installed version, account explicitly for the v1.0.25 → next-release transition rather than assuming new updater code controls that one update.
+- **Verification:** exact-head automated validation plus a real Windows self-update from an installed prior stable build; confirm the new version remains open after update without manual relaunch and no updater error/rollback artifact is produced.
+- **Next action:** preempt MS-019 fallback work and implement the smallest safe hotfix on v1.0.26.

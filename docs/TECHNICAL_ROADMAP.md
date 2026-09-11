@@ -11,7 +11,7 @@ Acceptance-weighted completion: **57%**
 
 ## 1. Current objective
 
-Complete Stage-C reference-machine acceptance on released v1.0.25 while continuing bounded architectural convergence on v1.0.26 whenever target-machine evidence is unavailable.
+Fix the newly reproduced MS-029 self-update launcher termination regression first, then resume Stage-C reference-machine acceptance on released v1.0.25 and bounded architectural convergence on v1.0.26.
 
 Accepted thin slice remains:
 
@@ -27,19 +27,22 @@ v1.0.26 has now completed the Coordinator-authorized viewport-drag transform aut
 
 ## 3. Release decision
 
-**KEEP v1.0.26 ACCUMULATING.**
+**KEEP v1.0.26 ACCUMULATING; DO NOT FREEZE BEFORE MS-029 IS FIXED.**
 
-The current HEAD is coherent and green, and `d4aef5d5...` is a useful release-worthy checkpoint, but the post-v1.0.25 accumulated product increment is still only one bounded authority-retirement seam. That is not yet a sufficiently substantial Coordinator-curated release chunk. No release freeze/request is justified. v1.0.26 remains writable and Dev should continue.
+The user has reproduced a Critical updater/launcher regression on the reference machine. The exact code path is identified: updater health validation kills the successfully started updated launcher and never performs a normal post-commit restart. v1.0.26 remains writable; MS-029 now preempts the planned MS-019 fallback. After a validated MS-029 checkpoint, Coordinator should immediately reassess release readiness. The existing viewport-drag authority seam plus a release-reliability hotfix is likely a sufficiently meaningful chunk, but no release decision is made before the fix and Windows update-path validation exist.
 
 ## 4. Ordered critical path
 
-### P0 — Consume reference-machine evidence
+### P0 — Fix MS-029 self-update launcher termination
+Reference-machine evidence proves the successful update health probe opens the new launcher and then terminates it. Dev must implement the smallest safe fix that preserves rollback on failed health checks while ensuring a normal updated launcher remains/runs after a committed update. Add focused automated coverage and validate the exact Windows update path. Account for the fact that the updater applying the next release is the already-installed v1.0.25 updater.
+
+### P1 — Consume remaining reference-machine evidence
 Any reproduced persistence, data-loss, viewport, storage, cancellation, provider or Stage-C blocker immediately preempts fallback work. Test the latest published immutable build, v1.0.25.
 
-### P1 — Complete Stage-C acceptance
+### P2 — Complete Stage-C acceptance
 Required evidence: accepted 2D baseline; intended local 3D route; visible Ready/Conflict candidate; explicit Apply; save/reopen same object/revision; transforms plus one supported sculpt/edit path; cleanup/exact STL export; viewport/starter-scene checks; storage containment; provider/resource evidence; cancellation/recovery.
 
-### P2 — bounded MS-019 fallback
+### P3 — bounded MS-019 fallback
 If reference-machine evidence remains unavailable, take exactly one next authority-retirement seam: **mapped-object ground placement transform authority**.
 
 Requirements:
@@ -53,25 +56,26 @@ Requirements:
 
 Do not combine this with selection retirement, broad persistence cleanup, sculpt architecture, MS-020 expansion or MS-027 UI modernization.
 
-### P3 — after next checkpoint
+### P4 — after next checkpoint
 Coordinator should review combined v1.0.26 trajectory and release chunk size again. Do not infer another MS-019 seam without newer roadmap direction.
 
-### P4 — after Stage-C acceptance
+### P5 — after Stage-C acceptance
 Finish MS-020 only for lifecycle gaps exposed by evidence; continue outward MS-019 migration; make provider-tier decisions from measured MS-022 results; then broaden Stage-D practical editing/sculpt/parts work.
 
 ## 5. Current issue priorities
 
-1. MS-018 — Critical / IN PROGRESS: Stage-C acceptance.
-2. MS-023 — Critical / FIXED - NEEDS USER VERIFICATION: durable generation/apply/reload ownership.
-3. MS-009 — Critical / FIXED - NEEDS USER VERIFICATION: viewport stability/readability.
-4. MS-024 — High / FIXED - NEEDS USER VERIFICATION: client-fill/resize seams.
-5. MS-013 — High / FIXED - NEEDS USER VERIFICATION: storage containment.
-6. MS-022 — High / IN PROGRESS: practical provider qualification.
-7. MS-004 — High / FIXED - NEEDS USER VERIFICATION: cancellation/recovery.
-8. MS-020 — High / IN PROGRESS: expand only from evidence.
-9. MS-019 — High architectural risk / IN PROGRESS: bounded proven authority retirement only.
-10. MS-025 — Medium / FIXED - NEEDS USER VERIFICATION: starter scene removal.
-11. MS-027 — Medium: opportunistic fallback only; currently preempted by MS-019 sequencing.
+1. MS-029 — Critical / IN PROGRESS: successful self-update kills the updated launcher health-probe session and does not perform a normal post-commit restart.
+2. MS-018 — Critical / IN PROGRESS: Stage-C acceptance.
+3. MS-023 — Critical / FIXED - NEEDS USER VERIFICATION: durable generation/apply/reload ownership.
+4. MS-009 — Critical / FIXED - NEEDS USER VERIFICATION: viewport stability/readability.
+5. MS-024 — High / FIXED - NEEDS USER VERIFICATION: client-fill/resize seams.
+6. MS-013 — High / FIXED - NEEDS USER VERIFICATION: storage containment.
+7. MS-022 — High / IN PROGRESS: practical provider qualification.
+8. MS-004 — High / FIXED - NEEDS USER VERIFICATION: cancellation/recovery.
+9. MS-020 — High / IN PROGRESS: expand only from evidence.
+10. MS-019 — High architectural risk / IN PROGRESS: bounded proven authority retirement only.
+11. MS-025 — Medium / FIXED - NEEDS USER VERIFICATION: starter scene removal.
+12. MS-027 — Medium: opportunistic fallback only; currently preempted by MS-019 sequencing.
 
 ## 6. Release discipline
 
@@ -79,7 +83,7 @@ Dev records validated checkpoints and continues. Checkpoints are evidence, not f
 
 ## 7. User dependency
 
-No product/design decision is required. Test released v1.0.25 on the reference Windows / GTX 1080 machine:
+No product/design decision is required. For the just-completed update, manually reopen the installed launcher once; if that manual launch also exits, report it because that would indicate a second startup defect. Otherwise the MS-029 symptom is sufficiently reproduced and autonomous hotfix work can proceed. Continue testing released v1.0.25 on the reference Windows / GTX 1080 machine:
 
 `accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
 
