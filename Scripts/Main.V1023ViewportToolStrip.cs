@@ -23,17 +23,25 @@ public partial class Main
         var strip = new HBoxContainer
         {
             Name = "ViewportToolStrip",
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin
         };
         tools.AddChild(strip);
         tools.MoveChild(strip, Math.Min(1, tools.GetChildCount() - 1));
 
-        AddV1023ToolButton(strip, V1018ViewportTool.Select, "S", "Select objects in the viewport");
-        AddV1023ToolButton(strip, V1018ViewportTool.Move, "M", "Move — drag a colored gizmo axis");
-        AddV1023ToolButton(strip, V1018ViewportTool.Rotate, "R", "Rotate — drag a colored gizmo axis");
-        AddV1023ToolButton(strip, V1018ViewportTool.Scale, "X", "Scale — drag a colored gizmo axis");
-        AddV1023ToolButton(strip, V1018ViewportTool.Sculpt, "B", "Sculpt with the active brush");
+        AddV1023ToolButton(strip, V1018ViewportTool.Select, "⌖", "Select objects in the viewport");
+        AddV1023ToolButton(strip, V1018ViewportTool.Move, "↔", "Move — drag a colored gizmo axis");
+        AddV1023ToolButton(strip, V1018ViewportTool.Rotate, "⟳", "Rotate — drag a colored gizmo axis");
+        AddV1023ToolButton(strip, V1018ViewportTool.Scale, "⤢", "Scale — drag a colored gizmo axis");
+        AddV1023ToolButton(strip, V1018ViewportTool.Sculpt, "✎", "Sculpt with the active brush");
 
+        foreach (Label label in tools.GetChildren().OfType<Label>())
+        {
+            string text = label.Text ?? "";
+            if (text.Equals("VIEWPORT TOOL", StringComparison.OrdinalIgnoreCase) ||
+                text.StartsWith("RMB orbit", StringComparison.OrdinalIgnoreCase))
+                label.Visible = false;
+        }
+        _v1018ToolOverlay.CustomMinimumSize = Vector2.Zero;
         V1023RefreshToolButtons();
     }
 
@@ -45,9 +53,9 @@ public partial class Main
             Text = iconText,
             TooltipText = tooltip,
             ToggleMode = true,
-            CustomMinimumSize = new Vector2(34, 32),
+            CustomMinimumSize = new Vector2(36, 32),
             FocusMode = Control.FocusModeEnum.None,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin
         };
         button.Pressed += () => V1023ChooseViewportTool(tool);
         strip.AddChild(button);
