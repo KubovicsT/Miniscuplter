@@ -45,6 +45,38 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify semantic-version branch identity
+        if: github.event_name == 'push' && startsWith(github.ref_name, 'v1.')
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $checks = @(
+            @{ Path = 'Launcher/Miniscuplter.Launcher.csproj'; Token = "<Version>$version</Version>"; Label = 'launcher' },
+            @{ Path = 'Updater/Miniscuplter.Updater.csproj'; Token = "<Version>$version</Version>"; Label = 'updater' },
+            @{ Path = 'Miniscuplter.csproj'; Token = "<Version>$version</Version>"; Label = 'editor assembly' },
+            @{ Path = 'installer/Miniscuplter.iss'; Token = "#define MyAppVersion `"$version`""; Label = 'installer' },
+            @{ Path = 'export_presets.cfg'; Token = "application/file_version=`"$version.0`""; Label = 'Windows file version' },
+            @{ Path = 'export_presets.cfg'; Token = "application/product_version=`"$version.0`""; Label = 'Windows product version' },
+            @{ Path = 'ai_backend/app.py'; Token = "APP_VERSION = `"$version`""; Label = 'backend API' },
+            @{ Path = 'Scripts/Main.V100Release.cs'; Token = "Ready — Miniscuplter v$version"; Label = 'editor display' },
+            @{ Path = 'tools/release_audit.py'; Token = "EXPECTED = `"$version`""; Label = 'release audit' }
+          )
+          $mismatches = @()
+          foreach ($check in $checks) {
+            if (-not (Test-Path $check.Path)) {
+              $mismatches += "$($check.Label): missing $($check.Path)"
+              continue
+            }
+            $content = Get-Content $check.Path -Raw
+            if (-not $content.Contains($check.Token)) {
+              $mismatches += "$($check.Label): expected '$($check.Token)' in $($check.Path)"
+            }
+          }
+          if ($mismatches.Count -gt 0) {
+            $detail = $mismatches -join "`n - "
+            throw "Semantic-version branch ${{ github.ref_name }} has stale release identity:`n - $detail"
+          }
+          Write-Host "Semantic-version identity matches branch ${{ github.ref_name }} across all release surfaces."
       - uses: actions/setup-python@v5
         with: { python-version: '3.10' }
       - name: Compile backend sources
