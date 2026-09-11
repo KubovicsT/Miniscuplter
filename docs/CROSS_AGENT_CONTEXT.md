@@ -55,3 +55,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Action / interpretation:** Updated all four active prompts to use CROSS_AGENT_CONTEXT. Coordinator and Dev must persist material user test evidence, bug results, requested changes and decisions here and also update the appropriate canonical docs. Daily reads this context for reporting. Manager audits whether user evidence/requests propagate correctly and uses it for process improvement without taking over product authority.
 - **Canonical docs touched:** CROSS_AGENT_CONTEXT; active automation prompts. AUTOMATION_EVENTS retained as historical process telemetry and marked superseded for new shared entries.
 - **Follow-up owner:** Automation Manager should verify future Coordinator/Dev runs actually capture user runtime evidence and change requests without excessive duplication.
+
+### 2026-09-12 01:28 Europe/Budapest — Project Coordinator — USER PROCESS CLARIFICATION
+- **User input / event:** User explicitly superseded older automation/process instructions from earlier chat context for all future manual Coordinator runs.
+- **Evidence / scope:** Current Miniscuplter Coordination automation definition and current repository process state are authoritative. Manual runs must use AMP-006 v2 with a 10-minute lease and heartbeat-based liveness, must not enable/disable or otherwise modify automations, must use CROSS_AGENT_CONTEXT for material shared context, and must follow current release/forward-branch safety rules.
+- **Action / interpretation:** Older chat instructions that conflict with current automation/repository rules are to be ignored. This applies to future manual runs in this Coordinator chat.
+- **Canonical docs touched:** CROSS_AGENT_CONTEXT only; no roadmap/product/release decision changed.
+- **Follow-up owner:** Project Coordinator and Automation Manager should treat current automation definitions/repository process records as the source of truth for future manual execution.
+
