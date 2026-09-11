@@ -93,6 +93,12 @@ jobs:
       - name: Install geometry regression dependencies
         if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
         run: python -m pip install "numpy<2.3" "trimesh>=4.4,<6" "scipy>=1.13" "scikit-image>=0.24" "rtree>=1.3,<2"
+      - name: Install backend lifecycle test dependencies
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
+        run: python -m pip install "fastapi==0.116.1" "uvicorn==0.35.0" "requests==2.32.4" "pydantic==2.11.7" "Pillow>=10.4.0"
+      - name: Run canonical backend lifecycle test
+        if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
+        run: python tools/backend_lifecycle_tests.py
       - name: Run real geometry regression tests
         if: startsWith(github.ref_name, 'v1.') || github.event_name == 'pull_request'
         run: python tools/geometry_regression_tests.py
