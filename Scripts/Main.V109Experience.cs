@@ -54,13 +54,9 @@ public partial class Main
         {
             sub.OwnWorld3D = true;
             sub.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
-            void SyncSize()
-            {
-                var s = host.Size;
-                sub.Size = new Vector2I(Math.Max(1, (int)s.X), Math.Max(1, (int)s.Y));
-            }
-            host.Resized += SyncSize;
-            SyncSize();
+            host.Resized -= V109SyncLegacyViewportSize;
+            host.Resized += V109SyncLegacyViewportSize;
+            V109SyncLegacyViewportSize();
         }
 
         if (_world == null || _v109GridRoot != null) return;
@@ -78,6 +74,18 @@ public partial class Main
             env.AmbientLightColor = new Color(.42f, .44f, .50f);
             env.AmbientLightEnergy = .95f;
         }
+    }
+
+    void V109SyncLegacyViewportSize()
+    {
+        // Compatibility-only owner for pre-v1.0.19 composition. The native pipeline
+        // explicitly unsubscribes this handler and relies on SubViewportContainer.Stretch.
+        if (_v1019ViewportPipelineInstalled) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host ||
+            FindChild("Viewport", true, false) is not SubViewport sub)
+            return;
+        var size = host.Size;
+        sub.Size = new Vector2I(Math.Max(1, (int)size.X), Math.Max(1, (int)size.Y));
     }
 
     void AddV109GridSurface(string name, float spacing, Color color, bool majorsOnly)
