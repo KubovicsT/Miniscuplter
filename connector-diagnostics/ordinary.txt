@@ -1,1 +1,2 @@
 ordinary write probe
+invocation_id=manager-2026-09-12-0105
