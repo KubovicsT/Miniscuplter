@@ -16,8 +16,9 @@ public partial class Main
         Detail3DPreview
     }
 
-    LineEdit? _aiCommandInput;
-    Label? _aiCommandHistoryLabel;
+    TextEdit? _aiCommandInput;
+    VBoxContainer? _aiCommandHistoryList;
+    ScrollContainer? _aiCommandHistoryScroll;
     readonly List<string> _aiCommandHistory = new();
     int _aiCommandHistoryIndex = -1;
 
@@ -30,52 +31,63 @@ public partial class Main
         var panel = new VBoxContainer
         {
             Name = "AI Command Console",
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin
         };
         panel.AddThemeConstantOverride("separation", 3);
 
         var commandRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        var input = new LineEdit
+        var input = new TextEdit
         {
             Name = "AI Command Input",
-            PlaceholderText = "AI command or prompt — try /help, concept…, edit…, select…, 3d…",
+            PlaceholderText = "AI command or prompt…",
+            CustomMinimumSize = new Vector2(0, 72),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            TooltipText = "Enter a slash command or a prompt. Plain text generates a 2D concept; prefixes edit/select/3d/detail3d route through the existing authoritative actions."
+            ScrollFitContentHeight = false,
+            WrapMode = TextEdit.LineWrappingMode.Boundary,
+            TooltipText = "Multi-line AI command console. Use Run (or Ctrl+Enter) to execute; Ctrl+Up/Down navigates command history."
         };
-        var previous = new Button { Text = "◀", TooltipText = "Previous AI command" };
-        var next = new Button { Text = "▶", TooltipText = "Next AI command" };
-        var run = new Button { Text = "Run", TooltipText = "Run through the authoritative AI command dispatcher" };
+        var controls = new VBoxContainer { CustomMinimumSize = new Vector2(74, 0) };
+        var historyRow = new HBoxContainer();
+        var previous = new Button { Text = "◀", TooltipText = "Previous AI command", CustomMinimumSize = new Vector2(34, 28) };
+        var next = new Button { Text = "▶", TooltipText = "Next AI command", CustomMinimumSize = new Vector2(34, 28) };
+        var run = new Button { Text = "Run", TooltipText = "Run through the authoritative AI command dispatcher", CustomMinimumSize = new Vector2(72, 36) };
+        historyRow.AddChild(previous);
+        historyRow.AddChild(next);
+        controls.AddChild(historyRow);
+        controls.AddChild(run);
         commandRow.AddChild(input);
-        commandRow.AddChild(previous);
-        commandRow.AddChild(next);
-        commandRow.AddChild(run);
+        commandRow.AddChild(controls);
         panel.AddChild(commandRow);
 
-        var actionRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        AddAiConsoleButton(actionRow, "Generate 2D Concept", AiConsoleAction.GenerateConcept,
+        var actionRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin };
+        AddAiConsoleButton(actionRow, "2D Concept", AiConsoleAction.GenerateConcept,
             "Generate a 2D concept from the command text using the existing local concept-generation path.");
-        AddAiConsoleButton(actionRow, "Edit Selected Region", AiConsoleAction.EditSelectedRegion,
+        AddAiConsoleButton(actionRow, "Edit Region", AiConsoleAction.EditSelectedRegion,
             "Edit the active Smart Selection using the existing revision-safe 2D edit path.");
-        AddAiConsoleButton(actionRow, "Smart Select", AiConsoleAction.SmartSelect,
+        AddAiConsoleButton(actionRow, "Select", AiConsoleAction.SmartSelect,
             "Create the existing semantic Smart Selection from the command text.");
         AddAiConsoleButton(actionRow, "Generate 3D", AiConsoleAction.Generate3DFromAcceptedImage,
             "Generate 3D from the durable accepted baseline through the Stage-C candidate path.");
-        AddAiConsoleButton(actionRow, "Detail 3D Preview", AiConsoleAction.Detail3DPreview,
+        AddAiConsoleButton(actionRow, "3D Detail", AiConsoleAction.Detail3DPreview,
             "Generate the existing non-destructive selected-detail 3D preview.");
         panel.AddChild(actionRow);
 
-        _aiCommandHistoryLabel = new Label
+        _aiCommandHistoryScroll = new ScrollContainer
         {
-            Text = "AI history: empty",
-            TooltipText = "Use Up/Down or the arrow buttons to revisit previous AI commands."
+            Name = "AI Command History",
+            CustomMinimumSize = new Vector2(0, 52),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            TooltipText = "Recent AI commands. Use Ctrl+Up/Down or the arrow buttons to reuse them."
         };
-        panel.AddChild(_aiCommandHistoryLabel);
+        _aiCommandHistoryList = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _aiCommandHistoryScroll.AddChild(_aiCommandHistoryList);
+        panel.AddChild(_aiCommandHistoryScroll);
 
         root.AddChild(panel);
         root.MoveChild(panel, Math.Min(toolbar.GetIndex() + 1, root.GetChildCount() - 1));
         _aiCommandInput = input;
 
-        input.TextSubmitted += async text => await ExecuteAiConsoleInputAsync(text);
         input.GuiInput += OnAiCommandInput;
         run.Pressed += async () => await ExecuteAiConsoleInputAsync(input.Text);
         previous.Pressed += () => NavigateAiCommandHistory(-1);
@@ -97,12 +109,17 @@ public partial class Main
     void OnAiCommandInput(InputEvent ev)
     {
         if (ev is not InputEventKey key || !key.Pressed || key.Echo) return;
-        if (key.Keycode == Godot.Key.Up)
+        if (key.CtrlPressed && key.Keycode == Godot.Key.Enter)
+        {
+            _ = ExecuteAiConsoleInputAsync(_aiCommandInput?.Text ?? "");
+            GetViewport().SetInputAsHandled();
+        }
+        else if (key.CtrlPressed && key.Keycode == Godot.Key.Up)
         {
             NavigateAiCommandHistory(-1);
             GetViewport().SetInputAsHandled();
         }
-        else if (key.Keycode == Godot.Key.Down)
+        else if (key.CtrlPressed && key.Keycode == Godot.Key.Down)
         {
             NavigateAiCommandHistory(1);
             GetViewport().SetInputAsHandled();
@@ -117,7 +134,6 @@ public partial class Main
         else
             _aiCommandHistoryIndex = Math.Clamp(_aiCommandHistoryIndex + direction, 0, _aiCommandHistory.Count - 1);
         _aiCommandInput.Text = _aiCommandHistory[_aiCommandHistoryIndex];
-        _aiCommandInput.CaretColumn = _aiCommandInput.Text.Length;
         _aiCommandInput.GrabFocus();
         RefreshAiCommandHistoryLabel();
     }
@@ -135,14 +151,31 @@ public partial class Main
 
     void RefreshAiCommandHistoryLabel()
     {
-        if (_aiCommandHistoryLabel == null) return;
-        if (_aiCommandHistory.Count == 0)
+        if (_aiCommandHistoryList == null) return;
+        foreach (Node child in _aiCommandHistoryList.GetChildren())
+            child.QueueFree();
+
+        int start = Math.Max(0, _aiCommandHistory.Count - 8);
+        for (int i = start; i < _aiCommandHistory.Count; i++)
         {
-            _aiCommandHistoryLabel.Text = "AI history: empty";
-            return;
+            var label = new Label
+            {
+                Text = $"{i + 1}. {_aiCommandHistory[i]}",
+                TooltipText = _aiCommandHistory[i],
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            };
+            _aiCommandHistoryList.AddChild(label);
         }
-        int index = Math.Clamp(_aiCommandHistoryIndex < 0 ? _aiCommandHistory.Count - 1 : _aiCommandHistoryIndex, 0, _aiCommandHistory.Count - 1);
-        _aiCommandHistoryLabel.Text = $"AI history {index + 1}/{_aiCommandHistory.Count}: {_aiCommandHistory[index]}";
+
+        if (_aiCommandHistoryScroll != null)
+            CallDeferred(nameof(ScrollAiCommandHistoryToBottom));
+    }
+
+    void ScrollAiCommandHistoryToBottom()
+    {
+        if (_aiCommandHistoryScroll == null) return;
+        _aiCommandHistoryScroll.ScrollVertical = int.MaxValue;
     }
 
     async Task ExecuteAiConsoleInputAsync(string raw)
