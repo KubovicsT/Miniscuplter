@@ -47,3 +47,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Action / interpretation:** Created CROSS_AGENT_CONTEXT as the general bridge. Active agents are to record material user evidence, requests, decisions and automation incidents here while also updating their normal canonical documents.
 - **Canonical docs touched:** CROSS_AGENT_CONTEXT created; automation prompts to be synchronized in this Manager run. AUTOMATION_EVENTS remains historical process telemetry but is superseded as the general cross-agent bridge.
 - **Follow-up owner:** Automation Manager should audit whether entries are complete enough to reconstruct user evidence/requests without duplicating canonical project state.
+
+
+### 2026-09-12 01:22 Europe/Budapest — Automation Manager — PROCESS CHANGE APPLIED
+- **User input / event:** User clarified that runtime test results, requested application changes and other material project input must propagate across specialist agents, not just automation/process incidents.
+- **Evidence / scope:** Active Coordinator, Dev, Daily and Manager prompts previously referenced the narrower AUTOMATION_EVENTS bridge.
+- **Action / interpretation:** Updated all four active prompts to use CROSS_AGENT_CONTEXT. Coordinator and Dev must persist material user test evidence, bug results, requested changes and decisions here and also update the appropriate canonical docs. Daily reads this context for reporting. Manager audits whether user evidence/requests propagate correctly and uses it for process improvement without taking over product authority.
+- **Canonical docs touched:** CROSS_AGENT_CONTEXT; active automation prompts. AUTOMATION_EVENTS retained as historical process telemetry and marked superseded for new shared entries.
+- **Follow-up owner:** Automation Manager should verify future Coordinator/Dev runs actually capture user runtime evidence and change requests without excessive duplication.
