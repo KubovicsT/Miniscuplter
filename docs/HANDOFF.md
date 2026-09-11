@@ -8,38 +8,54 @@ Last updated: 2026-09-11
 
 - **Latest published stable:** `v1.0.25` at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
 - **Current writable development branch:** `v1.0.26`.
-- **Latest validated implementation checkpoint:** `d4aef5d55170ef45298e9db942cb250d78e911d2`.
-- **Latest Coordinator planning commits:** roadmap `61c1ad61e9cf6e9d265d50db53daa35e3bae69d3`, coordinator log `042dcc2a7ddda6f410d28522861e350fb7c88594`.
+- **Current Dev implementation/test HEAD:** `1e6ed3541de6de4bec19838e71595e4b76dbedfa`; exact-head GitHub Actions were queued at handoff time, so this is **not yet recorded as release-worthy**.
+- **Latest previously fully validated implementation checkpoint:** `d4aef5d55170ef45298e9db942cb250d78e911d2`.
+- **Latest Coordinator planning commits:** roadmap `61c1ad61e9cf6e9d265d50db53daa35e3bae69d3`, coordinator log `042dcc2a7ddda6f410d28522861e350fb7c88594`; Coordinator also inserted `fc0903e15734c5425ebd0962339e7db9c8b90cb6` during this Dev run to elevate MS-030 above MS-029.
 - **Overall completion:** **57% acceptance-weighted**.
-- **Critical path:** MS-030 packaged backend health/runtime ownership → MS-029 updater restart → MS-009 resize-induced viewport darkening → user-directed MS-027 UI tranche → remaining Stage-C acceptance. Serious correctness/persistence/viewport/data-safety/storage/cancellation regressions preempt fallback work.
+- **Critical path:** MS-030 packaged backend health/runtime ownership → MS-029 updater restart → MS-009 resize-induced viewport darkening → user-directed MS-027 UI tranche → remaining Stage-C acceptance.
 
 ## Release state
 
-v1.0.25 is published and immutable. v1.0.26 remains writable. Coordinator reviewed the viewport-drag checkpoint and decided **KEEP v1.0.26 ACCUMULATING**; no release freeze/request is active for v1.0.26.
+v1.0.25 is published and immutable. v1.0.26 remains writable. No release freeze/request is active for v1.0.26. Dev did not create release-control state, tags or releases.
 
-## Completed v1.0.26 checkpoint
+## This Dev run
 
-The previously authorized viewport-drag MS-019 seam is complete and validated. Mapped Move/Rotate/Scale gestures capture durable Core transform plus presentation start state, commit only the resulting gesture delta/scale ratio through Core, reject stale state, and reproject/restore Godot presentation from durable Core truth. Do not repeat or broaden this seam.
+### MS-029 bounded updater hotfix
+
+- `9f36f44f7b792c2bbdf51cbdaa81cf72b1bebf6`: `VerifyLauncherStartup` now tracks confirmed health. A launcher that has written the health token remains the normal post-update launcher instead of being killed by `finally`; failed/timed-out probes are still terminated before rollback.
+- `e6ae3d7d0c8186398fec94aa756f75ca9fe2c89d`: added CI-gated source regression coverage for health success survival plus failure rollback/restored-launcher restart.
+- Transition constraint remains: an update **from published v1.0.25** is executed by the updater already installed in v1.0.25. The fixed updater packaged in v1.0.26 cannot retroactively control that first transition, so v1.0.25 → v1.0.26 may still require one manual launcher reopen. Do not add a risky detached-process bridge merely to hide this one-time compatibility limit.
+
+### MS-030 P0 packaged backend-health/runtime ownership
+
+Coordinator raised MS-030 during this run, and Dev immediately preempted further MS-029/MS-009 work.
+
+- `4efd840eaa774a87c7dd8ec8aaba98479e02e266`: editor backend launch now uses exactly `<backend>/.venv/Scripts/python.exe`, the environment Repair creates/validates. Removed preference for `Runtime/Python/python.exe` and removed arbitrary PATH-Python fallback. Startup/readiness errors now include backend path, selected interpreter, exit state and bounded recent stderr.
+- `6dcb754b552f6254d6ab6165ecf94725f354bc2d`: Repair AI Runtime now starts the repaired backend with that same interpreter and requires a real `http://127.0.0.1:7868/health` response before reporting success; the temporary probe process tree is always cleaned up.
+- `1e6ed3541de6de4bec19838e71595e4b76dbedfa`: added CI-gated regression coverage preventing interpreter divergence, arbitrary Python fallback, loss of startup diagnostics, or Repair success without real backend health validation.
+
+This confirms the repository-level interpreter-divergence hypothesis and removes the duplicate runtime authority. Reference-machine verification is still required before MS-030 can move beyond **FIXED - NEEDS USER VERIFICATION**.
+
+## Validation state
+
+- Exact-head CI for `1e6ed3541de6de4bec19838e71595e4b76dbedfa` was queued at end of run (`build` plus `core-foundation`). Do **not** claim this checkpoint green until those runs complete.
+- The branch's prior checkpoint `d4aef5d5...` remains the latest fully validated checkpoint until then.
+- If CI fails, inspect the failing exact-head job first and fix the defect without weakening runtime/health/update safety contracts.
 
 ## Exact next task
 
-1. **Fix MS-030 first.** Reproduce the packaged v1.0.25 path where 3D generation fails at backend health even though Repair AI Runtime succeeds.
-2. Capture the exact backend path, selected Python interpreter, process lifetime/exit code and startup stderr; confirm or reject the interpreter-divergence hypothesis.
-3. Make backend runtime ownership deterministic: use the exact environment Repair validated, or validate any alternate interpreter against the same fingerprint/import contract before launch. Do not silently fall back to arbitrary Python.
-4. Strengthen Repair so success proves the backend can actually start and answer health, not only that packages/imports/CUDA checks pass.
-5. Improve the failure diagnostic to expose selected interpreter/backend path/process exit and bounded recent stderr instead of only “Use Repair AI Runtime.”
-6. Add focused tests and strongest packaged Windows/runtime validation. Keep MS-030 FIXED - NEEDS USER VERIFICATION until the reference machine reaches provider resolution/inference.
-7. After MS-030, resume the already recorded order: MS-029 → MS-009 → bounded MS-027 UI tranche. Ground-placement/MS-019 remains deferred. Dev does not publish releases.
-
+1. Resolve exact-head CI for `1e6ed3541de6de4bec19838e71595e4b76dbedfa`; fix any compile/test/package/audit regression found.
+2. If green, record that SHA (or its coherent superseding fix SHA) as the latest useful implementation checkpoint. Keep MS-030 **FIXED - NEEDS USER VERIFICATION** until the reference machine reaches backend health/provider resolution using the packaged build.
+3. Preserve the MS-029 hotfix already in ancestry. After MS-030 validation, finish MS-029 validation/documentation without inventing extra updater architecture.
+4. Then follow Coordinator order: MS-009 resize-induced viewport darkening → bounded user-directed MS-027 UI tranche. Ground-placement/MS-019 remains deferred.
+5. Dev does not publish releases.
 
 ## User verification dependency
 
-The reference-machine report that the launcher opens briefly and closes immediately after update is accepted as MS-029 reproduction evidence. Manually reopen `Miniscuplter.Launcher.exe` once; only report back immediately if that manual launch also closes, because that would be a second startup failure rather than the identified post-update health-probe termination.
+No product/design decision is required.
 
-The v1.0.25 Stage-C test is now blocked at local backend health even after a successful Repair; no more 3D-generation retries are needed until a new build is available. Other independent checks may continue:
+For released v1.0.25, do not keep retrying Repair or 3D generation: the backend-health failure is sufficiently reproduced for MS-030. The post-update close is also sufficiently reproduced for MS-029. Manually reopening `Miniscuplter.Launcher.exe` once is useful only to distinguish the known updater termination from a separate launcher startup failure; report it only if the manual launch also closes.
 
-`accepted 2D baseline → Generate 3D → candidate visible/reviewable → Apply → save → close/reopen → same object/revision → Move/Rotate/Scale/sculpt → cleanup → exact STL export`
+When a build containing the MS-030 fix becomes available, the decisive retest is: Repair AI Runtime must finish only after backend health succeeds, then Generate 3D must pass backend health and reach provider resolution/inference. MS-030 remains user-verification-dependent until that happens.
 
-Also verify whole-window/right-panel resize presentation, no starter sphere/opaque floor, storage containment, cancellation/recovery, and resource behavior during a long AI job. The current v1.0.25 screenshots already establish both that the command strip/view-cube/help density/right-panel prose do not meet UI acceptance **and** that splitter resize still changes/darkens the viewport/grid presentation (MS-009). No additional reproduction steps are needed before Dev investigates.
-
-No product/design decision is currently required.
+Independent v1.0.25 checks may continue for save/reopen persistence, mapped Move/Rotate/Scale/sculpt, viewport resizing/presentation, storage containment and cancellation/recovery, but no additional reproduction is needed for the already-recorded MS-009 resize darkening or MS-027 UI acceptance gaps.
