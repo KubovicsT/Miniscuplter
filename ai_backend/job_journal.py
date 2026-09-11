@@ -11,6 +11,7 @@ import storage
 
 _SCHEMA_VERSION = 1
 _JOURNAL_RELATIVE = Path("state") / "job-lifecycle.json"
+_MAX_JOURNAL_BYTES = 256 * 1024
 _ALLOWED_CONTEXT_KEYS = {
     "generation_job_id",
     "project_id",
@@ -107,8 +108,12 @@ def load() -> dict | None:
     if path.is_symlink() or not path.is_file():
         raise JournalCorruptError("Job lifecycle journal path is not a regular managed file.")
     try:
+        # Bound resource use before allocating/decoding the journal. Keep the
+        # post-read check too because the file could change between stat/read.
+        if path.stat().st_size > _MAX_JOURNAL_BYTES:
+            raise JournalCorruptError("Job lifecycle journal is unexpectedly large.")
         raw = path.read_text(encoding="utf-8")
-        if len(raw) > 256 * 1024:
+        if len(raw.encode("utf-8")) > _MAX_JOURNAL_BYTES:
             raise JournalCorruptError("Job lifecycle journal is unexpectedly large.")
         parsed = json.loads(raw)
     except JournalCorruptError:
