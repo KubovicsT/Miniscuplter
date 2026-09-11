@@ -5,11 +5,14 @@ from threading import Lock, local
 from time import time
 from uuid import uuid4
 
+import resource_ownership
+
 _lock = Lock()
 _context = local()
 _jobs: dict[str, dict] = {}
 _current_id: str | None = None
 _MAX_EVENTS = 96
+_HEAVYWEIGHT_KINDS = {"3d-generate"}
 
 _3D_PROVIDER_COMPONENTS = {
     "triposr": "triposr",
@@ -29,6 +32,7 @@ def _snapshot(entry: dict) -> dict:
     result = dict(entry)
     result["events"] = deepcopy(entry.get("events", []))
     result["context"] = deepcopy(entry.get("context", {}))
+    result["resource_owner"] = resource_ownership.snapshot()
     return result
 
 
@@ -67,33 +71,49 @@ def begin(kind: str, client_job_id: str | None = None, context: dict | None = No
     global _current_id
     requested = (client_job_id or "").strip()
     job_id = requested if requested and len(requested) <= 96 else uuid4().hex
-    now = _now()
     safe_context = deepcopy(context or {})
+
+    # Resolve identity before acquiring the heavyweight lease so the lease and the progress
+    # record share the same durable transport/job id. This first MS-020 seam is deliberately
+    # blocking: a second 3D request cannot execute concurrently with the active owner.
     with _lock:
         if job_id in _jobs:
             job_id = f"{job_id}-{uuid4().hex[:8]}"
-        entry = {
-            "active": True,
-            "job_id": job_id,
-            "kind": kind,
-            "state": "running",
-            "stage": "queued",
-            "detail": "Request accepted by the local AI backend.",
-            "progress": 1.0,
-            "provider": None,
-            "cancel_requested": False,
-            "sequence": 0,
-            "started_at": now,
-            "updated_at": now,
-            "context": safe_context,
-            "events": [],
-        }
-        _jobs[job_id] = entry
-        _current_id = job_id
-        if len(_jobs) > 96:
-            for old_id, _ in sorted(_jobs.items(), key=lambda kv: kv[1].get("updated_at", 0.0))[:-72]:
-                _jobs.pop(old_id, None)
-        _event(entry, "queued", entry["detail"], 1.0)
+
+    owns_resource = kind in _HEAVYWEIGHT_KINDS
+    if owns_resource:
+        resource_ownership.acquire(job_id, kind, blocking=True)
+
+    now = _now()
+    try:
+        with _lock:
+            entry = {
+                "active": True,
+                "job_id": job_id,
+                "kind": kind,
+                "state": "running",
+                "stage": "queued",
+                "detail": "Request accepted by the local AI backend.",
+                "progress": 1.0,
+                "provider": None,
+                "cancel_requested": False,
+                "sequence": 0,
+                "started_at": now,
+                "updated_at": now,
+                "context": safe_context,
+                "events": [],
+            }
+            _jobs[job_id] = entry
+            _current_id = job_id
+            if len(_jobs) > 96:
+                for old_id, _ in sorted(_jobs.items(), key=lambda kv: kv[1].get("updated_at", 0.0))[:-72]:
+                    _jobs.pop(old_id, None)
+            _event(entry, "queued", entry["detail"], 1.0)
+    except Exception:
+        if owns_resource:
+            resource_ownership.release(job_id)
+        raise
+
     _context.job_id = job_id
     return job_id
 
@@ -130,6 +150,7 @@ def complete(detail: str = "Completed.", provider: str | None = None) -> None:
     if not job_id:
         return
     qualification: tuple[str, str | None, float] | None = None
+    kind = ""
     with _lock:
         entry = _jobs.get(job_id)
         if entry is None:
@@ -146,11 +167,15 @@ def complete(detail: str = "Completed.", provider: str | None = None) -> None:
         if provider:
             entry["provider"] = provider
         _event(entry, "completed", detail, 100.0)
+        kind = str(entry.get("kind") or "")
         qualification = (
-            str(entry.get("kind") or ""),
+            kind,
             entry.get("provider"),
             max(0.0, completed_at - float(entry.get("started_at") or completed_at)),
         )
+
+    if kind in _HEAVYWEIGHT_KINDS:
+        resource_ownership.release(job_id)
 
     # Never hold the progress lock while persisting provider qualification. A slow or failed
     # state write must not block polling or turn an already verified inference into a failed job.
@@ -165,10 +190,12 @@ def fail(detail: str) -> None:
     job_id = current_job_id()
     if not job_id:
         return
+    kind = ""
     with _lock:
         entry = _jobs.get(job_id)
         if entry is None:
             return
+        kind = str(entry.get("kind") or "")
         entry.update({
             "active": False,
             "state": "failed",
@@ -177,6 +204,9 @@ def fail(detail: str) -> None:
             "updated_at": _now(),
         })
         _event(entry, "failed", detail, entry.get("progress", 0.0))
+
+    if kind in _HEAVYWEIGHT_KINDS:
+        resource_ownership.release(job_id)
 
 
 def request_cancel(job_id: str) -> dict | None:
@@ -219,6 +249,7 @@ def current() -> dict:
                 "updated_at": _now(),
                 "context": {},
                 "events": [],
+                "resource_owner": resource_ownership.snapshot(),
             }
         return _snapshot(_jobs[_current_id])
 
