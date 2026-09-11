@@ -18,15 +18,15 @@ public partial class Main
 
     public void InstallV1020StageCEditingAuthority()
     {
-        // MS-019: Stage-C owns durable nudge commands for mapped objects. The historical button
-        // handler may still update the Godot presentation first during migration, but its scene
-        // value is no longer consulted when deciding the durable move transaction.
+        // MS-019: Stage-C owns durable nudge commands for mapped objects. Historical button
+        // handlers may still update Godot presentation first during migration, but scene values
+        // are no longer consulted for the bounded move/rotate command pairs retired below.
         HookV1020MoveButton("Move +X 1 mm", new Vec3(1, 0, 0));
         HookV1020MoveButton("Move -X 1 mm", new Vec3(-1, 0, 0));
         HookV1020MoveButton("Move +Y 1 mm", new Vec3(0, 1, 0));
         HookV1020MoveButton("Move -Y 1 mm", new Vec3(0, -1, 0));
-        HookV1020TransformButton("Rotate Y +5°", "rotate");
-        HookV1020TransformButton("Rotate Y -5°", "rotate");
+        HookV1020RotateButton("Rotate Y +5°", Mathf.DegToRad(5f));
+        HookV1020RotateButton("Rotate Y -5°", Mathf.DegToRad(-5f));
         HookV1020TransformButton("Scale +5%", "scale");
         HookV1020TransformButton("Scale -5%", "scale");
         HookV1020TransformButton("Place selected on Y=0", "ground");
@@ -112,6 +112,55 @@ public partial class Main
         {
             V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
             SetStatus("Stage-C move failed safely; restored durable transform: " + ex.Message);
+            return true;
+        }
+    }
+
+    void HookV1020RotateButton(string text, float deltaYRadians)
+    {
+        foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>().Where(b => b.Text == text))
+            button.Pressed += () => CallDeferred(nameof(V1020CommitRotateCommandDeferred), deltaYRadians);
+    }
+
+    async void V1020CommitRotateCommandDeferred(float deltaYRadians)
+    {
+        await V1020CommitRotateCommandAsync(deltaYRadians);
+    }
+
+    async Task<bool> V1020CommitRotateCommandAsync(float deltaYRadians)
+    {
+        MeshInstance3D? target = _selected;
+        if (target == null || !GodotObject.IsInstanceValid(target) ||
+            !_v1013ObjectIds.TryGetValue(target.GetInstanceId(), out ObjectId objectId) ||
+            _v1020StageCSession == null)
+            return false;
+
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
+                if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? current)) return false;
+
+                Vec3 rotation = current.Transform.RotationEuler;
+                TransformState requested = new(
+                    current.Transform.Position,
+                    new Vec3(rotation.X, rotation.Y + deltaYRadians, rotation.Z),
+                    current.Transform.Scale);
+                bool changed = StageCEditing.SetTransform(session, objectId, requested, "rotate");
+                if (changed)
+                    await V1020SaveSessionAsync();
+                V1020ProjectObjectStateToScene(target, session.Current.Objects[objectId], reloadMesh: false);
+            }
+            finally { _v1020StageCGate.Release(); }
+            SetStatus("Stage-C rotate committed to project state.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
+            SetStatus("Stage-C rotate failed safely; restored durable transform: " + ex.Message);
             return true;
         }
     }
