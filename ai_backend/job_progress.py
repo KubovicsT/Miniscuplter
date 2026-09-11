@@ -194,6 +194,8 @@ def complete(detail: str = "Completed.", provider: str | None = None) -> None:
         if entry is None:
             return
         if entry.get("cancel_requested"):
+            if entry.get("state") == "cancelled" and not entry.get("active"):
+                raise JobCancellationAcknowledged("Cancellation was already acknowledged after provider execution stopped.")
             kind = _mark_cancelled_locked(
                 entry,
                 "Cancellation acknowledged after provider execution stopped; late completion was discarded.",
@@ -242,6 +244,8 @@ def fail(detail: str) -> None:
     with _lock:
         entry = _jobs.get(job_id)
         if entry is None:
+            return
+        if entry.get("state") == "cancelled" and not entry.get("active"):
             return
         if entry.get("cancel_requested"):
             kind = _mark_cancelled_locked(
