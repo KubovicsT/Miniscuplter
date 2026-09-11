@@ -442,4 +442,11 @@ Verification focus:
 5. Observe whether the task execution environment can sustain the requested low-frequency re-checking without premature run termination; the scheduler does not expose a native blocking mutex/sleep primitive.
 
 
-Connector diagnostic: ordinary append succeeded if this line is present.
+### Manager reliability checkpoint — 2026-09-12
+- AMP-006 v1: **HARMFUL**. A Coordinator run left an orphaned lease and the next scheduled run exited instead of waiting.
+- AMP-006 v2: **APPLIED / PENDING VERIFICATION**. Liveness now depends on recent heartbeat activity with bounded waiting and stale-owner recovery.
+- AMP-007: **USER-DIRECTED / APPLIED**. Automation Manager is the operational reliability owner for scheduler, GitHub-process, lease/no-race and release-control defects; Coordinator retains release decisions.
+- Connector finding: repository permissions and ordinary writes are healthy. Some higher-risk or context-sensitive writes are rejected by the connector safety layer even when app permissions allow all actions.
+- Release-control finding: v1.0.24 and v1.0.25 published successfully. Historical v1.0.20 failures included release-control defects; v1.0.23 failures included candidate version-identity defects. Failures should be classified from workflow job/step/log evidence before retry.
+- Current project state: stable v1.0.25; writable v1.0.26; no v1.0.26 release request; integrated candidate hardening remains current. TECHNICAL_ROADMAP is stale relative to HANDOFF/PROJECT_STATUS.
+- Release-workflow action-major maintenance remains unapplied because attaching the modified high-impact publication workflow was rejected by the connector safety layer.
