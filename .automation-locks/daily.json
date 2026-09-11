@@ -1,0 +1,8 @@
+{
+  "role": "daily",
+  "state": "free",
+  "run_token": null,
+  "acquired_at": null,
+  "lease_until": null,
+  "note": "Dedicated same-role manual/scheduled run lease. Do not use for project state."
+}
