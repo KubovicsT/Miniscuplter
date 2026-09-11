@@ -24,6 +24,10 @@ _3D_PROVIDER_COMPONENTS = {
 }
 
 
+class JobCancellationAcknowledged(RuntimeError):
+    """Raised when provider execution has ended after cancellation was requested."""
+
+
 def _now() -> float:
     return time()
 
@@ -65,6 +69,19 @@ def _record_completed_inference(kind: str, provider: str | None, elapsed_seconds
         elapsed_seconds=elapsed_seconds,
         benchmark={"hardware": hardware_info()},
     )
+
+
+def _mark_cancelled_locked(entry: dict, detail: str) -> str:
+    cancelled_at = _now()
+    entry.update({
+        "active": False,
+        "state": "cancelled",
+        "stage": "cancelled",
+        "detail": detail,
+        "updated_at": cancelled_at,
+    })
+    _event(entry, "cancelled", detail, entry.get("progress", 0.0))
+    return str(entry.get("kind") or "")
 
 
 def begin(kind: str, client_job_id: str | None = None, context: dict | None = None) -> str:
@@ -132,7 +149,7 @@ def report(stage: str, detail: str = "", progress: float | None = None, provider
         return
     with _lock:
         entry = _jobs.get(job_id)
-        if entry is None:
+        if entry is None or not entry.get("active"):
             return
         entry["stage"] = stage
         if detail:
@@ -145,37 +162,68 @@ def report(stage: str, detail: str = "", progress: float | None = None, provider
         _event(entry, stage, entry.get("detail", ""), entry.get("progress", 0.0))
 
 
+def acknowledge_cancel(detail: str = "Cancellation acknowledged after the owned worker stopped.", job_id: str | None = None) -> dict | None:
+    target = job_id or current_job_id()
+    if not target:
+        return None
+    kind = ""
+    snapshot: dict | None = None
+    with _lock:
+        entry = _jobs.get(target)
+        if entry is None or not entry.get("cancel_requested"):
+            return None
+        if entry.get("state") == "cancelled" and not entry.get("active"):
+            return _snapshot(entry)
+        kind = _mark_cancelled_locked(entry, detail)
+        snapshot = _snapshot(entry)
+
+    if kind in _HEAVYWEIGHT_KINDS:
+        resource_ownership.release(target)
+    return snapshot
+
+
 def complete(detail: str = "Completed.", provider: str | None = None) -> None:
     job_id = current_job_id()
     if not job_id:
         return
     qualification: tuple[str, str | None, float] | None = None
     kind = ""
+    cancelled = False
     with _lock:
         entry = _jobs.get(job_id)
         if entry is None:
             return
-        completed_at = _now()
-        entry.update({
-            "active": False,
-            "state": "completed",
-            "stage": "completed",
-            "detail": detail,
-            "progress": 100.0,
-            "updated_at": completed_at,
-        })
-        if provider:
-            entry["provider"] = provider
-        _event(entry, "completed", detail, 100.0)
-        kind = str(entry.get("kind") or "")
-        qualification = (
-            kind,
-            entry.get("provider"),
-            max(0.0, completed_at - float(entry.get("started_at") or completed_at)),
-        )
+        if entry.get("cancel_requested"):
+            kind = _mark_cancelled_locked(
+                entry,
+                "Cancellation acknowledged after provider execution stopped; late completion was discarded.",
+            )
+            cancelled = True
+        else:
+            completed_at = _now()
+            entry.update({
+                "active": False,
+                "state": "completed",
+                "stage": "completed",
+                "detail": detail,
+                "progress": 100.0,
+                "updated_at": completed_at,
+            })
+            if provider:
+                entry["provider"] = provider
+            _event(entry, "completed", detail, 100.0)
+            kind = str(entry.get("kind") or "")
+            qualification = (
+                kind,
+                entry.get("provider"),
+                max(0.0, completed_at - float(entry.get("started_at") or completed_at)),
+            )
 
     if kind in _HEAVYWEIGHT_KINDS:
         resource_ownership.release(job_id)
+
+    if cancelled:
+        raise JobCancellationAcknowledged("Cancellation acknowledged after provider execution stopped.")
 
     # Never hold the progress lock while persisting provider qualification. A slow or failed
     # state write must not block polling or turn an already verified inference into a failed job.
@@ -195,15 +243,21 @@ def fail(detail: str) -> None:
         entry = _jobs.get(job_id)
         if entry is None:
             return
-        kind = str(entry.get("kind") or "")
-        entry.update({
-            "active": False,
-            "state": "failed",
-            "stage": "failed",
-            "detail": detail,
-            "updated_at": _now(),
-        })
-        _event(entry, "failed", detail, entry.get("progress", 0.0))
+        if entry.get("cancel_requested"):
+            kind = _mark_cancelled_locked(
+                entry,
+                "Cancellation acknowledged after provider execution stopped with an error.",
+            )
+        else:
+            kind = str(entry.get("kind") or "")
+            entry.update({
+                "active": False,
+                "state": "failed",
+                "stage": "failed",
+                "detail": detail,
+                "updated_at": _now(),
+            })
+            _event(entry, "failed", detail, entry.get("progress", 0.0))
 
     if kind in _HEAVYWEIGHT_KINDS:
         resource_ownership.release(job_id)
@@ -214,8 +268,10 @@ def request_cancel(job_id: str) -> dict | None:
         entry = _jobs.get(job_id)
         if entry is None:
             return None
+        if not entry.get("active"):
+            return _snapshot(entry)
         entry["cancel_requested"] = True
-        entry["state"] = "cancelling" if entry.get("active") else entry.get("state", "failed")
+        entry["state"] = "cancelling"
         entry["stage"] = "cancelling"
         entry["detail"] = "Cancellation requested; the owned worker must terminate before the next job starts."
         entry["updated_at"] = _now()
