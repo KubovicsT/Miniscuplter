@@ -440,3 +440,16 @@ Do not broaden this tranche into scene-tree redesign, resource-graph work, new m
 - **Required fix:** preserve failed-probe rollback semantics, but make the successful path leave or start a normal updated launcher after the transaction is committed. Add focused regression coverage for successful health validation/restart and failed-probe rollback. Because the updater that installs a release comes from the previously installed version, account explicitly for the v1.0.25 → next-release transition rather than assuming new updater code controls that one update.
 - **Verification:** exact-head automated validation plus a real Windows self-update from an installed prior stable build; confirm the new version remains open after update without manual relaunch and no updater error/rollback artifact is produced.
 - **Next action:** preempt MS-019 fallback work and implement the smallest safe hotfix on v1.0.26.
+
+## MS-030 — Packaged backend health fails after successful Runtime Repair
+
+- **Severity:** Critical
+- **Status:** IN PROGRESS
+- **First observed:** released v1.0.25 reference-machine testing on 2026-09-11.
+- **Reproduction:** 3D generation fails after ~2 seconds at “Checking local AI service…” with “The local AI backend did not answer its health check. Use Repair AI Runtime in Launcher.” Repair AI Runtime then completes successfully, but the same health failure persists.
+- **Impact:** blocks the primary Stage-C `2D → 3D` workflow completely.
+- **Repository evidence / root-cause hypothesis:** `setup_ai_backend.bat` creates and validates the backend-directory `.venv`, but does not launch `app.py` or verify `/health`. `Scripts/BackendLauncher.cs` independently selects Python and currently prefers `Runtime/Python/python.exe` before the backend-local `.venv`. A different interpreter can therefore be launched from the one Repair validated. This hypothesis must be confirmed from selected-interpreter/process-exit/backend-log evidence.
+- **Diagnostic gap:** the UI collapses backend launch/readiness failures into generic Repair guidance even after Repair succeeded. Backend stdout/stderr is written to `AIData/Logs/backend.log`, but selected interpreter, exit code, and recent startup stderr are not surfaced at the failure point.
+- **Required fix:** unify Repair and backend-launch runtime ownership; prefer/use the exact repaired environment or validate any alternate interpreter against the same runtime contract; add backend startup/health smoke validation to Repair; surface selected interpreter/backend path/process exit/recent bounded stderr on startup failure.
+- **Verification:** interpreter-selection/runtime-contract tests, packaged Windows backend startup/health validation, then reference-machine 3D generation reaching provider resolution/inference.
+- **Next action:** MS-030 is P0 and preempts MS-029, MS-009, MS-027 and MS-019 until backend health works.
