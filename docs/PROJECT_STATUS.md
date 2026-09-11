@@ -48,7 +48,7 @@ Exact-head validation is green: Core foundation, C# editor/launcher/updater/Core
 
 **MS-029 updater/launcher reliability is now P0.** User/reference-machine testing after an application update reproduced the updated launcher opening briefly and then closing. Repository inspection identifies the direct cause: the updater's successful health-probe path kills the launched updated launcher in `VerifyLauncherStartup` and does not perform a normal post-commit restart. This preempts the planned MS-019 ground-placement fallback until fixed and validated.
 
-After MS-029, the next development objective is the user-directed MS-027 UI acceptance tranche while Stage-C reference-machine testing continues:
+After MS-029, MS-009 is the next development blocker: released v1.0.25 still darkens the 3D viewport/grid after splitter resize. The user-directed MS-027 UI tranche follows once that renderer/resize regression is fixed, while Stage-C reference-machine testing continues:
 
 `MS-027: multiline scrollable AI console → real interactive view cube → compact viewport tools → right-panel hover-help cleanup`
 
@@ -60,7 +60,7 @@ Also verify viewport resize/presentation, starter-scene removal, storage contain
 
 ## Next execution direction
 
-The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-029 with a bounded launcher/updater hotfix, regression coverage, and Windows update-path validation before returning to the mapped-object ground-placement seam. After the MS-029 checkpoint, Dev should execute the bounded MS-027 user-acceptance tranche rather than return to ground-placement work. Coordinator will reassess release readiness after the combined hotfix + UI tranche has exact-head validation.
+The single Coordinator-authorized v1.0.26 viewport-drag authority seam is complete and fully validated, but new reference-machine evidence has preempted fallback work. Dev must fix MS-029 with a bounded launcher/updater hotfix, regression coverage, and Windows update-path validation before returning to the mapped-object ground-placement seam. After the MS-029 checkpoint, Dev must fix MS-009's resize-induced viewport darkening before the bounded MS-027 user-acceptance tranche. Ground-placement work remains deferred. Coordinator will reassess release readiness after the critical updater/viewport regressions and the defined UI tranche have exact-head validation.
 
 ## User dependency
 

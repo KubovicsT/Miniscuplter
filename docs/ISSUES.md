@@ -117,8 +117,8 @@ Last reconciled: 2026-09-10
 ## MS-009 — 3D viewport/grid/model/gizmo rendering is unstable or unreadable
 
 - **Severity:** Critical
-- **Status:** FIXED - NEEDS USER VERIFICATION
-- **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine testing
+- **Status:** IN PROGRESS
+- **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine testing and reproduced again on released v1.0.25
 - **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect; the grid does not occlude geometry.
 - **Historical actual:** output STL could exist while the center 3D surface was completely blank.
 - **v1.0.20 evidence:** grid/floor and starter model finally rendered, but the resting grid/model were very dark, appearance changed after splitter resize settled, and the opaque floor could hide generated geometry.
@@ -126,8 +126,10 @@ Last reconciled: 2026-09-10
 - **v1.0.21 implementation:** commits `fa381d4...`, `4d064a4...`, `6b80e14...`, `88abb5c...`, `c00bfc8...` make `SubViewportContainer.Stretch` the normal size owner; make legacy size writers defer; stop the v1.0.17 timer; remove delayed full repair on ordinary resize; replace the old tab full-repair handler with lightweight refresh; consolidate owned World3D setup; and apply neutral gray studio presentation/diagnostics.
 - **v1.0.21 target-machine result:** partial success. Initial 3D viewport appearance is good, but right-panel resize changed viewport color and opaque-grid behavior remained suspect.
 - **v1.0.22 fix:** final acceptance guard runs after historical installers; host resize/recovery reasserts `V1019ConfigureStudioLighting`, the opaque `Grid ground` mesh is hidden while bars/axes remain, and no new manual `SubViewport.Size` owner is introduced. Release audit and core wiring tests guard these invariants.
-- **Verification:** implementation/Core/C#/Python/geometry/release-audit validation is green in the v1.0.22 candidate; this remains a real-renderer symptom and therefore is not resolved until the released build is retested.
-- **Next action:** on released v1.0.22 compare initial viewport, right-panel drag/settle and whole-window resize; confirm palette/grid/model visibility remains invariant and generated geometry cannot be hidden by the floor.
+- **Verification history:** implementation/Core/C#/Python/geometry/release-audit validation was green in the v1.0.22 candidate, but this is a real-renderer symptom and CI was never sufficient acceptance evidence.
+- **v1.0.25 reference-machine result (2026-09-11): FAILED.** User screenshot after right-panel/splitter resize shows the 3D viewport/grid presentation still darkens materially after resize. Layout fill remains present, so this evidence is MS-009 rather than the separate MS-024 client-fill seam.
+- **Current code observation:** `V1022InstallViewportPresentationGuard` reacts to `ViewportHost.Resized` by reapplying studio lighting, hiding the opaque grid ground, updating the gizmo and arming the render probe. The persisted failure proves that this lightweight reassertion is not sufficient on the reference renderer. Do not add another blind delayed repaint/reassert loop without identifying which render/world/environment state actually changes across resize.
+- **Next action:** reproduce/instrument initial-vs-post-resize viewport state on Windows/Godot, compare SubViewport world/environment/camera/grid material/render target state before and after splitter drag, identify the state transition that causes the dark presentation, then fix the single owner/root cause. Preserve Stretch as the size owner unless evidence proves it is wrong; do not reintroduce competing `SubViewport.Size` writers. Require reference-machine retest before resolving.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 

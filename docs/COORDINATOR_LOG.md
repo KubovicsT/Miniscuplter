@@ -73,3 +73,17 @@ Do not expand this tranche into scene-tree redesign, resource graphs, new modeli
 
 ### Release implication
 v1.0.26 remains writable. Do not freeze before MS-029 is fixed and this user-directed MS-027 tranche is reviewed. The combination of viewport-authority work, release-reliability hotfix and visible UI acceptance corrections is expected to form a coherent substantial release candidate once validated.
+
+## 2026-09-11 — MS-009 re-opened by v1.0.25 splitter-resize evidence
+
+### Reference-machine evidence
+User supplied a second v1.0.25 screenshot showing that after panel/splitter resize the 3D viewport/grid becomes materially darker. The UI still fills the client area, so this is not evidence that MS-024's black-seam/client-fill symptom returned; it is the already-tracked MS-009 renderer/presentation instability.
+
+### Acceptance consequence
+MS-009 moves from FIXED - NEEDS USER VERIFICATION back to **IN PROGRESS**. The v1.0.22 presentation guard did not solve the real reference-machine behavior. Automated green status did not constitute acceptance and must not be used to re-close the issue without target-machine evidence.
+
+### Technical direction
+After MS-029, Dev must investigate MS-009 before the MS-027 UI tranche. The current resize handler already reapplies studio lighting, hides the opaque grid ground, updates the gizmo and arms a render probe, yet the failure persists. Therefore the next attempt must compare pre/post-resize SubViewport, World3D/environment, camera, grid/material and render-target state and identify the actual changed owner/state. Avoid another blind timer/full-repair layer and avoid restoring competing manual `SubViewport.Size` ownership unless instrumentation proves Stretch itself is the problem.
+
+### Release consequence
+v1.0.26 remains writable and is not release-ready. Do not freeze it while MS-029 or MS-009 is unresolved. The user-directed MS-027 tranche remains in scope after those critical regressions are cleared.
