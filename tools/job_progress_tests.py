@@ -59,6 +59,61 @@ def test_cancel_state() -> None:
     assert cancelled["state"] == "cancelling"
     assert job_progress.is_cancel_requested(job_id)
     job_progress.fail("cancelled")
+    assert job_progress.get(job_id)["state"] == "cancelled"
+
+
+def test_cancel_request_retains_heavyweight_owner_until_acknowledged() -> None:
+    job_id = job_progress.begin("3d-generate", "cancel-owner-retained")
+    requested = job_progress.request_cancel(job_id)
+    assert requested is not None
+    owner = resource_ownership.snapshot()
+    assert owner["active"] is True
+    assert owner["owner_id"] == job_id
+    assert job_progress.get(job_id)["state"] == "cancelling"
+
+    terminal = job_progress.acknowledge_cancel(job_id=job_id)
+    assert terminal is not None
+    assert terminal["state"] == "cancelled"
+    assert terminal["active"] is False
+    assert resource_ownership.snapshot()["active"] is False
+
+
+def test_late_completion_after_cancel_is_discarded_and_never_qualified() -> None:
+    original = job_progress._record_completed_inference
+    recorded: list[tuple[str, str | None, float]] = []
+    try:
+        job_progress._record_completed_inference = lambda kind, provider, elapsed: recorded.append((kind, provider, elapsed))
+        job_id = job_progress.begin("3d-generate", "cancel-late-completion")
+        job_progress.report("running_inference", "provider still running", 75, "triposr")
+        job_progress.request_cancel(job_id)
+        assert resource_ownership.snapshot()["owner_id"] == job_id
+        try:
+            job_progress.complete("mesh saved and verified", "triposr")
+            raise AssertionError("late completion after cancellation must not be accepted")
+        except job_progress.JobCancellationAcknowledged:
+            pass
+        snapshot = job_progress.get(job_id)
+        assert snapshot is not None
+        assert snapshot["state"] == "cancelled"
+        assert snapshot["stage"] == "cancelled"
+        assert snapshot["active"] is False
+        assert snapshot["provider"] == "triposr"
+        assert recorded == []
+        assert resource_ownership.snapshot()["active"] is False
+    finally:
+        job_progress._record_completed_inference = original
+
+
+def test_cancelled_failure_acknowledges_stop_and_releases_owner() -> None:
+    job_id = job_progress.begin("3d-generate", "cancelled-failure")
+    job_progress.request_cancel(job_id)
+    assert resource_ownership.snapshot()["owner_id"] == job_id
+    job_progress.fail("provider stopped with cancellation error")
+    snapshot = job_progress.get(job_id)
+    assert snapshot is not None
+    assert snapshot["state"] == "cancelled"
+    assert snapshot["active"] is False
+    assert resource_ownership.snapshot()["active"] is False
 
 
 def test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease() -> None:
@@ -229,6 +284,9 @@ if __name__ == "__main__":
     test_job_identity_and_event_history()
     test_stage_c_context_is_retained_and_snapshot_isolated()
     test_cancel_state()
+    test_cancel_request_retains_heavyweight_owner_until_acknowledged()
+    test_late_completion_after_cancel_is_discarded_and_never_qualified()
+    test_cancelled_failure_acknowledges_stop_and_releases_owner()
     test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease()
     test_component_mutation_cannot_interrupt_active_inference()
     test_model_release_refuses_foreign_owner()
