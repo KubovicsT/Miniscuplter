@@ -1,7 +1,7 @@
 {
-  "state": "active",
-  "owner_role": "dev",
-  "run_token": "dev-20260911T215813Z-5f3c2f8e9d1a4a65b7c0f32e4d91ab6c",
-  "acquired_at": "2026-09-11T21:58:13Z",
-  "lease_until": "2026-09-11T23:28:13Z"
+  "state": "free",
+  "owner_role": null,
+  "run_token": null,
+  "acquired_at": null,
+  "lease_until": null
 }
