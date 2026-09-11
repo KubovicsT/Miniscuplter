@@ -1,2 +1,0 @@
-ordinary write probe
-run_token=8d8b7b9c5e4a4d419b3c6c5d6724a6f1
