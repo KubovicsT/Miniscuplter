@@ -43,6 +43,7 @@ references1016 = text("Scripts/Main.V1016References.cs")
 usability1017 = text("Scripts/Main.V1017Usability.cs")
 viewport1018 = text("Scripts/Main.V1018Foundation.cs")
 viewport1019 = text("Scripts/Main.V1019ViewportPipeline.cs")
+stagec1020 = text("Scripts/Main.V1020StageCBridge.cs")
 acceptance1022 = text("Scripts/Main.V1022Acceptance.cs")
 safety1012 = text("Scripts/Main.V1012Safety.cs")
 performance = text("ai_backend/performance_runtime.py")
@@ -108,7 +109,7 @@ require("_ai.CancelCurrentRequest()" in ai_feedback, "AI job cancel does not rea
 require("File.Exists(_lastEditedImage)" in ai_feedback, "AI success does not verify produced image")
 require("AI generation failed" in ai_feedback and "AcceptDialog" in ai_feedback, "AI failures are not surfaced visibly")
 
-# v1.0.9: central settings, visible viewport, large preview, reference repair and 3D feedback.
+# v1.0.9: central settings, visible viewport, large preview and reference repair remain compatibility UI.
 require("InstallV109Experience" in extras, "v1.0.9 experience installer missing")
 for token in ("Settings", "GPU / VRAM", "VRAM allocator ceiling", "QUALITY PRESET", "ACTIVE MODEL ROUTING"):
     require(token in v109, f"v1.0.9 settings surface missing: {token}")
@@ -116,9 +117,26 @@ require("Viewport Grid v1.0.9" in v109 and "ImmediateMesh" in v109 and "Minor gr
 require("OwnWorld3D = true" in v109 and "sub.Size" in v109, "viewport sizing/world visibility guard missing")
 require("Open Large 2D Preview" in v109 and "FitV109Preview" in v109 and "Open Externally" in v109, "large zoomable 2D preview missing")
 require("Miniscuplter/1.0.9" in v109 and "Wikimedia Commons" in v109 and "Reference search FAILED" in v109, "Wikimedia reference-search 403/visibility repair missing")
-for token in ("3D status:", "Generating 3D Part…", "Cancel 3D Job", "Validating generated STL", "Importing mesh into scene", "elapsed"):
-    require(token in v109, f"2D-to-3D feedback missing: {token}")
-require("_ai.CancelCurrentRequest()" in v109 and "Generate3DRoutedAsync" in v109, "2D-to-3D job is not cancellable/routed")
+for token in ("3D status:", "Generating 3D Part…", "Cancel 3D Job", "elapsed"):
+    require(token in v109, f"2D-to-3D compatibility feedback missing: {token}")
+
+# MS-019: v1.0.9 keeps display/cancel compatibility, but canonical Stage-C owns execution, validation and durable Apply.
+require("V1020Generate3DAsync();" in v109 and "Generate3DRoutedAsync" not in v109, "legacy v1.0.9 3D entry point regained provider execution authority")
+require("_ai.CancelCurrentRequest()" in v109 and "V1020CancelStageCGeneration" in stagec1020, "2D-to-3D cancellation path is not preserved across the Stage-C migration")
+for token in (
+    "V1020Generate3DAsync",
+    "StageCGeneration.BeginImageToMesh",
+    "AiStageCGenerationContext",
+    "Generate3DStageCAsync",
+    "Validating generated STL",
+    "Saving immutable candidate revision",
+    "StageCGeneration.RegisterResult",
+    "Apply 3D Candidate",
+    "StageCGeneration.ApplyCandidate",
+):
+    require(token in stagec1020, f"canonical Stage-C generation/apply authority missing: {token}")
+require('"Review the candidate, then choose Apply 3D Candidate or Discard Candidate."' in stagec1020, "3D result can bypass explicit candidate review/apply")
+require('AddMeshObject(mesh, $"AI 3D — {candidate.Provider}")' in stagec1020, "applied Stage-C candidate is not imported through the canonical Apply path")
 require('"mode": "auto"' in performance and '"vram_target_fraction": 0.85' in performance, "GPU performance policy defaults missing")
 require("set_per_process_memory_fraction" in sdxl and "enable_model_cpu_offload" in sdxl and "enable_sequential_cpu_offload" in sdxl, "VRAM-first SDXL tiered policy missing")
 require('mode == "fast"' in sdxl and 'mode == "balanced"' in sdxl, "SDXL performance modes missing")
