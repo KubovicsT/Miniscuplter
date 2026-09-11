@@ -1,2 +1,2 @@
 ordinary write probe
-invocation_id=manager-2026-09-12-0105
+run_token=8d8b7b9c5e4a4d419b3c6c5d6724a6f1
