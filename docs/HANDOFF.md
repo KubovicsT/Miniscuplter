@@ -9,7 +9,7 @@ Last updated: 2026-09-11
 - **Latest published stable:** `v1.0.22` at `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Current writable development branch:** `v1.0.24`.
 - **Frozen release source:** `v1.0.23` at exact boundary `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
-- **Latest v1.0.24 implementation/test head:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`.
+- **Latest validated v1.0.24 implementation/test checkpoint:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`.
 - **Overall completion:** **57% acceptance-weighted**.
 - **Critical path:** Stage-C reference-machine acceptance. Any reproduced correctness/persistence/viewport/data-safety/storage/cancellation regression preempts MS-020.
 
@@ -46,16 +46,22 @@ This is deliberately **not** the completed Job Broker. The first seam is process
 
 ## Validation
 
-Exact implementation/test head `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`:
+Exact implementation/test checkpoint `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` is fully green:
 
 - `core-foundation` run `34553049740`: **PASS**;
-- broader `build` run `34553049801`: **still running at handoff write** — inspect its final conclusion before calling this a fully validated release-worthy checkpoint.
+- broader `build` run `34553049801`: **PASS**;
+- C# editor/launcher/updater/Core builds: **PASS**;
+- Python compile and runtime dependency resolution: **PASS**;
+- core logic, execution and job regressions: **PASS**;
+- real geometry regressions and release audit: **PASS**;
+- portable package layout/hash: **PASS**;
+- installer-definition compilation: **PASS**.
 
-Do not treat later documentation-only commits as replacing the code/test checkpoint. If the broader run fails, inspect the actual failing step and fix forward on v1.0.24.
+Later commits in this run are documentation-only and do not supersede the validated code/test checkpoint.
 
 ## Exact next task
 
-First consume any new reference-machine Stage-C evidence. If none exists and exact-head implementation validation is green, continue **one bounded MS-020 slice**:
+First consume any new reference-machine Stage-C evidence. If none exists, continue **one bounded MS-020 slice**:
 
 **Make component install/update/remove/repair share the same authoritative heavyweight resource owner as inference.**
 
@@ -72,7 +78,7 @@ Requirements:
 
 ## Release/checkpoint rule
 
-The MS-020 code/test head may be recorded as an implementation checkpoint after its full CI is green, but that does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
+`2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` is a useful validated implementation checkpoint, but it does not freeze v1.0.24 and does not authorize publication. Release readiness/chunk size/publication remain Coordinator-owned.
 
 ## User verification dependency
 
