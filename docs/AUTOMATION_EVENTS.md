@@ -36,3 +36,11 @@ Entries should be appended chronologically and preserve failed attempts.
 - **Action taken:** Added AUTOMATION_EVENTS logging rules to Coordinator, Dev, Daily and Manager prompts. Manager must read/reconcile the log every completed audit; other agents append concise entries only for material automation/process incidents or user process directions.
 - **Result:** Applied. Schedules and role ownership unchanged; Dev remains intentionally paused.
 - **Manager follow-up:** Evaluate whether the log improves incident reconstruction without becoming noisy or duplicating ordinary HANDOFF/ROADMAP content.
+
+
+### 2026-09-12 01:20 Europe/Budapest — Automation Manager — SCOPE SUPERSEDED
+- **Trigger / user direction:** User clarified that cross-agent persistence must include all material project input, not only automation/process matters.
+- **Observed evidence:** Runtime test results, bug evidence, requested application changes and user decisions can be trapped in specialist chats just like automation incidents.
+- **Action taken:** Created `docs/CROSS_AGENT_CONTEXT.md` as the general cross-agent bridge. This AUTOMATION_EVENTS file remains historical automation/process telemetry; new material cross-agent context should be written to CROSS_AGENT_CONTEXT, including automation incidents.
+- **Result:** Applied.
+- **Manager follow-up:** Prefer CROSS_AGENT_CONTEXT for new shared entries and preserve this file for history.
