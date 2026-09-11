@@ -87,3 +87,11 @@ After MS-029, Dev must investigate MS-009 before the MS-027 UI tranche. The curr
 
 ### Release consequence
 v1.0.26 remains writable and is not release-ready. Do not freeze it while MS-029 or MS-009 is unresolved. The user-directed MS-027 tranche remains in scope after those critical regressions are cleared.
+
+## 2026-09-11 — MS-030 backend health blocker
+
+Reference-machine v1.0.25 fails Stage-C 3D generation at the local backend health check even after Repair AI Runtime succeeds. This makes MS-030 Critical/P0 and blocks the main 2D-to-3D path.
+
+Repository inspection shows Repair validates the backend-directory virtual environment, while the editor backend launcher can select a different Python executable first. Repair also does not currently prove that the packaged backend can start and answer its health endpoint. Dev must confirm the actual selected interpreter/process-exit evidence, unify the runtime ownership contract, add a real startup/health smoke to Repair, and improve startup diagnostics.
+
+MS-030 preempts MS-029, MS-009 and MS-027 until backend health works. v1.0.26 remains writable and is not release-ready.
