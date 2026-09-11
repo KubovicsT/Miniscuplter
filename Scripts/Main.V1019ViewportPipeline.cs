@@ -22,6 +22,10 @@ public partial class Main
         if (_world == null) return;
 
         _v1019ViewportPipelineInstalled = true;
+        // v1.0.9 attached a host-resize writer before the native Stretch pipeline existed.
+        // Retire that exact historical owner now; leaving it subscribed made splitter resize
+        // mutate the render target behind Stretch and reproduced the user's resize-only render change.
+        host.Resized -= V109SyncLegacyViewportSize;
         // v1.0.17's watchdog used to write SubViewport.Size every 500 ms. Once the native
         // Stretch-owned pipeline is authoritative that timer must no longer participate in layout.
         _v1017ViewportTimer?.Stop();
