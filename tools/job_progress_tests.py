@@ -7,6 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ai_backend"))
 
 import job_progress
 import resource_ownership
+import model_manager
+import model_router
 
 
 def test_job_identity_and_event_history() -> None:
@@ -76,6 +78,105 @@ def test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease() ->
     assert resource_ownership.snapshot()["active"] is False
 
 
+def test_component_mutation_cannot_interrupt_active_inference() -> None:
+    resource_ownership.acquire("inference-owner", "3d-generate", blocking=False)
+    original_install = model_manager._v105_install_component
+    original_release = model_router.release_all_models
+    called = {"install": 0, "release": 0}
+    try:
+        model_manager._v105_install_component = lambda *_args, **_kwargs: called.__setitem__("install", called["install"] + 1) or {"installed": True}
+        model_router.release_all_models = lambda **_kwargs: called.__setitem__("release", called["release"] + 1)
+        try:
+            model_manager.install_component("triposr")
+            raise AssertionError("component install should be rejected while inference owns the runtime")
+        except resource_ownership.ResourceBusyError:
+            pass
+        assert called == {"install": 0, "release": 0}
+        owner = resource_ownership.snapshot()
+        assert owner["active"] is True
+        assert owner["owner_id"] == "inference-owner"
+    finally:
+        model_manager._v105_install_component = original_install
+        model_router.release_all_models = original_release
+        resource_ownership.release("inference-owner")
+
+
+def test_model_release_refuses_foreign_owner() -> None:
+    resource_ownership.acquire("inference-release-owner", "3d-generate", blocking=False)
+    try:
+        try:
+            model_router.release_all_models()
+            raise AssertionError("model release must not tear down an active inference owner")
+        except resource_ownership.ResourceBusyError:
+            pass
+        owner = resource_ownership.snapshot()
+        assert owner["owner_id"] == "inference-release-owner"
+    finally:
+        resource_ownership.release("inference-release-owner")
+
+
+def test_component_owner_is_visible_and_released_after_error() -> None:
+    original_install = model_manager._v105_install_component
+    original_release = model_router.release_all_models
+    observed: dict = {}
+    try:
+        def fake_release(*, allow_owner_id=None):
+            current = resource_ownership.snapshot()
+            assert current["active"] is True
+            assert current["owner_id"] == allow_owner_id
+            observed["kind"] = current["kind"]
+
+        def broken_install(*_args, **_kwargs):
+            raise RuntimeError("simulated component failure")
+
+        model_router.release_all_models = fake_release
+        model_manager._v105_install_component = broken_install
+        try:
+            model_manager.install_component("triposr")
+            raise AssertionError("simulated component failure should escape")
+        except RuntimeError as exc:
+            assert "simulated component failure" in str(exc)
+        assert observed["kind"] == "component-install"
+        assert resource_ownership.snapshot()["active"] is False
+    finally:
+        model_manager._v105_install_component = original_install
+        model_router.release_all_models = original_release
+        owner = resource_ownership.snapshot()
+        if owner["active"]:
+            resource_ownership.release(owner["owner_id"])
+
+
+def test_component_update_remove_and_repair_use_shared_owner() -> None:
+    original_update = model_manager._v105_update_component
+    original_install = model_manager._v105_install_component
+    original_uninstall = model_manager._legacy_uninstall_component
+    original_release = model_router.release_all_models
+    observed: list[str] = []
+    try:
+        def fake_release(*, allow_owner_id=None):
+            current = resource_ownership.snapshot()
+            assert current["owner_id"] == allow_owner_id
+            observed.append(current["kind"])
+        model_router.release_all_models = fake_release
+        model_manager._v105_update_component = lambda _cid: {"updated": True}
+        model_manager._v105_install_component = lambda _cid, _update=False: {"installed": True}
+        model_manager._legacy_uninstall_component = lambda _cid: {"installed": False}
+
+        assert model_manager.update_component("triposr")["operation_kind"] == "component-update"
+        assert model_manager.repair_component("triposr")["operation_kind"] == "component-repair"
+        assert model_manager.uninstall_component("triposr")["operation_kind"] == "component-remove"
+        assert observed == ["component-update", "component-repair", "component-remove"]
+        assert resource_ownership.snapshot()["active"] is False
+    finally:
+        model_manager._v105_update_component = original_update
+        model_manager._v105_install_component = original_install
+        model_manager._legacy_uninstall_component = original_uninstall
+        model_router.release_all_models = original_release
+        owner = resource_ownership.snapshot()
+        if owner["active"]:
+            resource_ownership.release(owner["owner_id"])
+
+
 def test_only_verified_3d_completion_records_qualification() -> None:
     original = job_progress._record_completed_inference
     recorded: list[tuple[str, str | None, float]] = []
@@ -93,8 +194,6 @@ def test_only_verified_3d_completion_records_qualification() -> None:
         assert resource_ownership.snapshot()["active"] is False
 
         successful_3d = job_progress.begin("3d-generate", "qualification-success-3d")
-        # Simulate Auto falling back: the provider attached to the completed job must be the
-        # final provider that actually produced the verified output.
         job_progress.report("loading_model", "fallback selected", 20, "triposr")
         job_progress.complete("mesh saved and verified", "sf3d")
         assert job_progress.get(successful_3d)["provider"] == "sf3d"
@@ -131,6 +230,10 @@ if __name__ == "__main__":
     test_stage_c_context_is_retained_and_snapshot_isolated()
     test_cancel_state()
     test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease()
+    test_component_mutation_cannot_interrupt_active_inference()
+    test_model_release_refuses_foreign_owner()
+    test_component_owner_is_visible_and_released_after_error()
+    test_component_update_remove_and_repair_use_shared_owner()
     test_only_verified_3d_completion_records_qualification()
     test_qualification_recording_failure_cannot_fail_completed_job()
     print("job_progress_tests: PASS")
