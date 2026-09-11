@@ -64,5 +64,6 @@ public partial class ExtrasInstaller : Node
         main.InstallViewCube();
         main.InstallAiCommandConsole();
         main.InstallResourceTelemetry();
+        main.InstallWorkspaceDensity();
     }
 }
