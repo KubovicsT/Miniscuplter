@@ -18,10 +18,13 @@ public partial class Main
 
     public void InstallV1020StageCEditingAuthority()
     {
-        HookV1020TransformButton("Move +X 1 mm", "move");
-        HookV1020TransformButton("Move -X 1 mm", "move");
-        HookV1020TransformButton("Move +Y 1 mm", "move");
-        HookV1020TransformButton("Move -Y 1 mm", "move");
+        // MS-019: Stage-C owns durable nudge commands for mapped objects. The historical button
+        // handler may still update the Godot presentation first during migration, but its scene
+        // value is no longer consulted when deciding the durable move transaction.
+        HookV1020MoveButton("Move +X 1 mm", new Vec3(1, 0, 0));
+        HookV1020MoveButton("Move -X 1 mm", new Vec3(-1, 0, 0));
+        HookV1020MoveButton("Move +Y 1 mm", new Vec3(0, 1, 0));
+        HookV1020MoveButton("Move -Y 1 mm", new Vec3(0, -1, 0));
         HookV1020TransformButton("Rotate Y +5°", "rotate");
         HookV1020TransformButton("Rotate Y -5°", "rotate");
         HookV1020TransformButton("Scale +5%", "scale");
@@ -62,6 +65,55 @@ public partial class Main
         }
         if (!_v1020ViewportEditingObserverAttached)
             SetStatus("Stage-C editing bridge could not attach to the authoritative viewport tool; transform buttons remain durable, viewport drag commits are unavailable.");
+    }
+
+    void HookV1020MoveButton(string text, Vec3 delta)
+    {
+        foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>().Where(b => b.Text == text))
+            button.Pressed += () => CallDeferred(nameof(V1020CommitMoveCommandDeferred), delta.X, delta.Y, delta.Z);
+    }
+
+    async void V1020CommitMoveCommandDeferred(float x, float y, float z)
+    {
+        await V1020CommitMoveCommandAsync(new Vec3(x, y, z));
+    }
+
+    async Task<bool> V1020CommitMoveCommandAsync(Vec3 delta)
+    {
+        MeshInstance3D? target = _selected;
+        if (target == null || !GodotObject.IsInstanceValid(target) ||
+            !_v1013ObjectIds.TryGetValue(target.GetInstanceId(), out ObjectId objectId) ||
+            _v1020StageCSession == null)
+            return false;
+
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
+                if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? current)) return false;
+
+                Vec3 position = current.Transform.Position;
+                TransformState requested = new(
+                    new Vec3(position.X + delta.X, position.Y + delta.Y, position.Z + delta.Z),
+                    current.Transform.RotationEuler,
+                    current.Transform.Scale);
+                bool changed = StageCEditing.SetTransform(session, objectId, requested, "move");
+                if (changed)
+                    await V1020SaveSessionAsync();
+                V1020ProjectObjectStateToScene(target, session.Current.Objects[objectId], reloadMesh: false);
+            }
+            finally { _v1020StageCGate.Release(); }
+            SetStatus("Stage-C move committed to project state.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
+            SetStatus("Stage-C move failed safely; restored durable transform: " + ex.Message);
+            return true;
+        }
     }
 
     void HookV1020TransformButton(string text, string operation)
