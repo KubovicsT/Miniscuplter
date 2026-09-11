@@ -58,6 +58,18 @@ internal static class StageCAuthorityRetirementTests
             !editing.Contains("HookV1020TransformButton(\"Rotate Y +5°\"", StringComparison.Ordinal) &&
             !editing.Contains("HookV1020TransformButton(\"Rotate Y -5°\"", StringComparison.Ordinal),
             "mapped rotate commands must not regress to scene-observed transform persistence");
+
+        Assert(
+            editing.Contains("V1020CommitScaleCommandAsync", StringComparison.Ordinal) &&
+            editing.Contains("Vec3 scale = current.Transform.Scale;", StringComparison.Ordinal),
+            "mapped scale nudges must derive from Core durable transform state");
+        Assert(
+            editing.Contains("new Vec3(scale.X * factor, scale.Y * factor, scale.Z * factor)", StringComparison.Ordinal),
+            "mapped scale nudges must apply their command factor to durable Core state");
+        Assert(
+            !editing.Contains("HookV1020TransformButton(\"Scale +5%\"", StringComparison.Ordinal) &&
+            !editing.Contains("HookV1020TransformButton(\"Scale -5%\"", StringComparison.Ordinal),
+            "mapped scale commands must not regress to scene-observed transform persistence");
     }
 
     static void Assert(bool condition, string message)
