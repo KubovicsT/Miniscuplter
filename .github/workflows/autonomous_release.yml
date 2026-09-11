@@ -1,4 +1,3 @@
-# connector diagnostic comment only
 name: autonomous-release
 
 on:
@@ -26,7 +25,7 @@ jobs:
       source_branch: ${{ steps.request.outputs.source_branch }}
     steps:
       - name: Check out release-control request
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -85,7 +84,7 @@ jobs:
           Write-Host "Validated release request $version at $candidate from $sourceBranch."
 
       - name: Check out exact candidate SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.request.outputs.candidate_sha }}
           fetch-depth: 0
@@ -230,7 +229,7 @@ jobs:
       contents: write
     steps:
       - name: Check out exact candidate for tag creation
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.validate-build.outputs.candidate_sha }}
           fetch-depth: 0
