@@ -10,7 +10,7 @@ Last reconciled: 2026-09-11
 - **Stable release target:** `c1ba2d01517cc6bca5a6e6cde3b1e85f853dd0d7`.
 - **Frozen v1.0.23 release boundary:** `a6532003bc6ecfcf79fc15afa3ee772cb117b982`.
 - **Current writable development branch:** `v1.0.24`, created from that exact release boundary.
-- **Latest v1.0.24 MS-020 implementation/test head:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`; exact-head CI is running and must be green before this is called a validated checkpoint.
+- **Latest validated v1.0.24 MS-020 implementation/test checkpoint:** `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959`.
 - **Overall completion:** **57% acceptance-weighted**.
 
 ## v1.0.23 release state
@@ -45,6 +45,15 @@ First bounded slice:
 - progress snapshots expose the current resource owner;
 - completion and failure release ownership deterministically;
 - focused regressions verify lifecycle release and prevent a second owner from stealing an active lease.
+
+Validation for `2cd8a6c85ac9cfe838c7ac14144b75dd9510a959` is green:
+
+- Stage-B/Core (`core-foundation` run `34553049740`): **PASS**;
+- C# editor/launcher/updater/Core builds: **PASS**;
+- Python compile/dependency resolution: **PASS**;
+- core/execution/job regressions: **PASS**;
+- geometry regressions and release audit: **PASS**;
+- portable package layout/hash and installer-definition compilation: **PASS**.
 
 This intentionally does **not** claim the final durable Job Broker. Component install/update/remove/repair still need to share the same resource owner; persistent queueing, worker/process isolation, real cancellation acknowledgement and crash recovery remain future bounded MS-020 slices.
 
