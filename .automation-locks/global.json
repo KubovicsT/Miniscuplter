@@ -1,7 +1,7 @@
 {
-  "state": "active",
-  "owner_role": "manager",
-  "run_token": "manager-2026-09-12-0115",
-  "acquired_at": "2026-09-11T23:15:00Z",
-  "lease_until": "2026-09-11T23:29:00Z"
+  "state": "free",
+  "owner_role": null,
+  "run_token": null,
+  "acquired_at": null,
+  "lease_until": null
 }
