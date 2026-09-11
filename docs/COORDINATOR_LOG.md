@@ -29,38 +29,36 @@ v1.0.23 accumulated the planned MS-027 sequence and became a coherent release ch
 
 Lesson: release version identity is one coordinated contract across all user/tool-visible surfaces.
 
-## 2026-09-11 — v1.0.24 structural trajectory
+## 2026-09-11 — v1.0.24 structural trajectory and publication
 
-While Stage-C reference-machine evidence remained unavailable, Dev completed a bounded MS-020 reliability seam:
-- heavyweight runtime/component ownership;
-- truthful cancellation ownership;
-- compact lifecycle/tombstone persistence;
-- restart reconciliation;
-- fail-closed corrupt/unsupported state;
-- bounded journal reads.
+While Stage-C reference-machine evidence remained unavailable, Dev completed a bounded MS-020 reliability seam covering heavyweight runtime/component ownership, truthful cancellation ownership, compact lifecycle/tombstone persistence, restart reconciliation, fail-closed corrupt/unsupported state and bounded journal reads.
 
-Coordinator then ordered exactly one MS-019 authority-retirement seam. Dev retired historical `V109Generate3DAsync` authority by delegating to canonical `V1020Generate3DAsync`, added focused regression coverage, and repaired strict release-audit expectations to follow actual migrated authority rather than requiring the legacy implementation. Exact-head v1.0.24 CI returned green.
+Coordinator then ordered exactly one MS-019 authority-retirement seam. Dev retired historical `V109Generate3DAsync` authority by delegating to canonical `V1020Generate3DAsync`, added focused regression coverage, and repaired strict release-audit expectations to follow actual migrated authority rather than requiring the legacy implementation.
+
+Coordinator froze v1.0.24 at exact boundary `784f408efba8a876b889fd704e051f22229de368` and created v1.0.25 from that boundary for continuous development. Autonomous release-control subsequently passed the exact-SHA C#/Core/Python/job/geometry checks, strict audit, real Godot Windows export, package/hash verification and installer smoke install. v1.0.24 published on 2026-09-11 at that exact target with `Miniscuplter-Setup-1.0.24.exe` and verified release artifacts.
 
 This is architectural convergence: fewer competing owners, not another bridge.
 
-## 2026-09-11 — v1.0.24 release boundary / v1.0.25 forward branch
+## 2026-09-11 — v1.0.25 Rotate authority checkpoint review
+
+### No-race / repository truth
+
+Latest stable is v1.0.24 at `784f408efba8a876b889fd704e051f22229de368`. Current writable branch is v1.0.25. Reviewed branch HEAD before Coordinator documentation was `1808de62d3bdb2b26c26e95cdd33ec01b54d4eaa`; exact-head build/Core workflows completed successfully. No active release publication is pending for v1.0.24.
+
+### Dev trajectory
+
+Dev followed the bounded MS-019 fallback policy and migrated only mapped Rotate Y ±5° authority. The implementation derives requested rotation from durable Core state, commits through the established transactional path, projects the durable result back to Godot, and restores durable presentation on failure. Focused regression coverage prevents return to the generic scene-observed transform hook. Validated implementation checkpoint: `e0666bbd7e56d340f112238f78c836b958a64675`.
 
 ### Release chunk decision
 
-**FREEZE v1.0.24 FOR RELEASE.**
+**KEEP v1.0.25 ACCUMULATING.**
 
-Exact boundary: `784f408efba8a876b889fd704e051f22229de368`.
+One additional bounded transform-authority seam after v1.0.24 is useful but too small for another Coordinator-curated release. No freeze or release request is justified. Continuous Dev remains preferable.
 
-Rationale: the version now combines two coherent, related reliability/migration increments—bounded MS-020 job lifecycle ownership/recovery plus one proven MS-019 Stage-C authority retirement. This is materially larger and more useful than the earlier MS-020-only checkpoint, while further accumulation would unnecessarily delay a meaningful structural increment. Branch CI at exact boundary is green; release-control remains responsible for full Windows/Godot/package/installer proof.
+### Next sequencing decision
 
-### Continuous development
-
-Created v1.0.25 from the exact v1.0.24 boundary before release initiation. v1.0.25 is writable; v1.0.24 is frozen once its release request is submitted. Dev must continue on v1.0.25 rather than wait for publication.
-
-### Next fallback direction
-
-Stage-C acceptance remains P0. If user evidence is still unavailable, v1.0.25 may retire one next smallest proven duplicate authority under MS-019, preferably transform/selection/persistence where the replacement owner is already regression-testable. Do not broaden MS-020 or resume opportunistic MS-027 UI expansion merely because acceptance is external.
+Stage-C reference-machine acceptance on released v1.0.24 remains P0. If evidence remains unavailable, the next approved bounded MS-019 seam is mapped Scale ±5% authority, using the same proven durable-Core-first transactional pattern. Do not combine it with ground placement, viewport-drag persistence, selection retirement or broad cleanup. Stop and validate after the scale seam, then continue only under the next available roadmap direction.
 
 ### User dependency
 
-No product decision required. Test published v1.0.23 end-to-end on the reference machine; any reproduced serious blocker immediately preempts fallback work.
+No product decision is required. Test released v1.0.24 end-to-end on the reference machine; any serious reproduced blocker immediately preempts fallback migration work.
