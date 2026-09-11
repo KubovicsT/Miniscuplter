@@ -7,7 +7,8 @@ Last updated: 2026-09-11
 ## Current state
 
 - **Latest published stable:** `v1.0.24` at `784f408efba8a876b889fd704e051f22229de368`.
-- **Current writable development branch:** `v1.0.25`.
+- **Frozen release source:** `v1.0.25` at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
+- **Current writable development branch:** `v1.0.26`.
 - **Current fully validated implementation checkpoint:** `94554d21519cb06c286a686631d2ad44ca6648b7`.
 - **Current documentation HEAD after this handoff:** this commit; inspect Git for its exact SHA before mutation.
 - **Overall completion:** **57% acceptance-weighted**.
@@ -15,7 +16,7 @@ Last updated: 2026-09-11
 
 ## Release state
 
-v1.0.24 is published and immutable. v1.0.25 is the writable forward branch. No release-control request, tag, GitHub Release, or Coordinator freeze was created by Dev.
+v1.0.24 is published and immutable. Coordinator has frozen v1.0.25 at exact boundary `a7fc4bcf5f771c18060e5aee7c98026131731c2a` for publication. v1.0.26 is the writable forward branch.
 
 ## Work completed in this run
 
@@ -56,8 +57,8 @@ Exact-head CI for implementation/test checkpoint `94554d21519cb06c286a686631d2ad
 ## Exact next task
 
 1. Consume any new v1.0.24 reference-machine evidence first; serious Stage-C/runtime/storage/viewport/persistence/cancellation regressions preempt fallback work.
-2. The bounded Scale seam is complete; do **not** continue directly into ground placement, viewport-drag persistence, selection retirement or persistence cleanup without current Coordinator sequencing.
-3. If the Coordinator orders another MS-019 fallback seam and no target-machine regression exists, take exactly one proven seam with a focused regression and stop after validation.
+2. First finish v1.0.26 version identity across all audited surfaces and obtain green exact-head validation.
+3. If reference-machine evidence remains unavailable after that bootstrap, take exactly one bounded MS-019 seam: viewport-drag transform commit authority for mapped Stage-C objects; keep the existing viewport input owner, commit through Core durable state, restore on failure, add focused regression coverage, and stop after validation.
 4. Do not broaden MS-020 or resume opportunistic MS-027 UI work without evidence/Coordinator direction.
 5. Do not create release-control, tags or GitHub Releases; publication remains Coordinator-owned.
 
