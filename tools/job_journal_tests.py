@@ -173,9 +173,27 @@ def test_corrupt_journal_fails_closed_without_claiming_resource() -> None:
             assert job_journal.load()["state"] == "failed"
 
 
+def test_oversized_journal_is_rejected_before_decode() -> None:
+    with TemporaryDirectory() as raw:
+        root = Path(raw).resolve()
+        with _with_data_root(root):
+            path = job_journal.journal_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"{" + (b"x" * (job_journal._MAX_JOURNAL_BYTES + 1)))
+
+            restored = job_progress.recover_persisted_state()
+            assert restored is None
+            current = job_progress.current()
+            assert current["state"] == "recovery-error"
+            assert current["active"] is False
+            assert "unexpectedly large" in current["detail"]
+            assert resource_ownership.snapshot()["active"] is False
+
+
 if __name__ == "__main__":
     test_clean_completion_is_persisted_without_large_history()
     test_running_job_becomes_interrupted_after_backend_restart()
     test_cancelling_job_becomes_cancelled_after_backend_restart()
     test_corrupt_journal_fails_closed_without_claiming_resource()
+    test_oversized_journal_is_rejected_before_decode()
     print("job_journal_tests: PASS")
