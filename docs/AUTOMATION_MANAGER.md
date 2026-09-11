@@ -399,7 +399,7 @@ Applied design:
 - created dedicated branch `automation-locks`;
 - added `.automation-locks/global.json` as the single global compare-and-swap lease;
 - all four active automations must acquire and verify this lease before substantive work;
-- a live unexpired lease causes later manual/scheduled invocations to SKIP/DEFER without mutating project state;
+- a live unexpired lease causes later manual/scheduled invocations to WAIT for their turn for up to 30 minutes without mutating project state;
 - lease duration is 90 minutes with renewal near 60 minutes;
 - crashed runs recover by lease expiry; no run may clear another live token;
 - normal completion releases the lease before final user-facing output whenever possible;
@@ -412,8 +412,31 @@ Implementation:
 - live CAS acquire/release test on `automation-locks/.automation-locks/global.json` succeeded.
 
 Verification plan:
-1. Manually start a task near its scheduled boundary and confirm the later invocation skips cleanly.
+1. Manually start a task near its scheduled boundary and confirm the later invocation waits, then proceeds after lease release.
 2. Confirm a manual run of one role also blocks a different Miniscuplter role from mutating concurrently.
-3. Confirm skipped runs leave project/HANDOFF/roadmap/release state untouched.
+3. Confirm waiting runs leave project/HANDOFF/roadmap/release state untouched until they acquire the lease.
 4. Confirm normal runs release the lease and crashed runs recover after expiry.
 5. Watch whether serialization causes material throughput loss; adjust only with user approval if needed.
+
+
+### AMP-006 amendment — wait instead of skip (2026-09-11)
+
+User correction:
+- contention must not immediately skip/drop a run;
+- a contending manual or scheduled invocation should wait for the current Miniscuplter run to release the global lease, then execute;
+- maximum contention wait is 30 minutes from that invocation's original wait-start time.
+
+Updated behavior:
+- all four active tasks now re-check the global lease at low frequency (target roughly every 1–2 minutes when the execution environment permits waiting);
+- when the lease frees within 30 minutes, the waiting invocation atomically acquires it and proceeds normally;
+- CAS conflicts return the invocation to the same wait loop without resetting the original 30-minute clock;
+- only an actual 30-minute contention timeout may end without running the task;
+- project/release/planning/report state remains untouched while waiting;
+- schedules, titles and enablement remain unchanged.
+
+Verification focus:
+1. Manual-vs-scheduled overlap should serialize rather than skip.
+2. Cross-role overlap should serialize the same way.
+3. Successful waiters should proceed after lease release.
+4. 30-minute timeout should be rare and clearly reported as LEASE WAIT TIMEOUT.
+5. Observe whether the task execution environment can sustain the requested low-frequency re-checking without premature run termination; the scheduler does not expose a native blocking mutex/sleep primitive.
