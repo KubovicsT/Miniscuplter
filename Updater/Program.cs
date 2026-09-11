@@ -702,13 +702,18 @@ internal static class Program
         psi.ArgumentList.Add("--update-health-token");
         psi.ArgumentList.Add(token);
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start the updated launcher for health validation.");
+        bool healthConfirmed = false;
 
         try
         {
             var sw = Stopwatch.StartNew();
             while (sw.ElapsedMilliseconds < LauncherHealthTimeoutMs)
             {
-                if (File.Exists(token) && new FileInfo(token).Length > 0) return;
+                if (File.Exists(token) && new FileInfo(token).Length > 0)
+                {
+                    healthConfirmed = true;
+                    return;
+                }
                 if (process.HasExited)
                     throw new InvalidOperationException("The updated launcher exited before confirming startup health (exit code " + process.ExitCode + "). The previous application will be restored.");
                 Thread.Sleep(250);
@@ -717,15 +722,21 @@ internal static class Program
         }
         finally
         {
-            try
+            // A successful health probe is the normal post-update launcher session. Disposing
+            // our Process handle must not terminate it. Failed/timed-out probes are terminated
+            // before rollback so the new executable does not remain live while files restore.
+            if (!healthConfirmed)
             {
-                if (!process.HasExited)
+                try
                 {
-                    process.Kill(true);
-                    process.WaitForExit(5000);
+                    if (!process.HasExited)
+                    {
+                        process.Kill(true);
+                        process.WaitForExit(5000);
+                    }
                 }
+                catch { }
             }
-            catch { }
         }
     }
 
