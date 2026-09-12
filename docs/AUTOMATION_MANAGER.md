@@ -2,7 +2,7 @@
 
 > Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/` and Git history.
 
-Last manager review: 2026-09-12
+Last manager review: 2026-09-12 13:04 Europe/Budapest
 
 ## Role model
 - User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
@@ -12,7 +12,7 @@ Last manager review: 2026-09-12
 - Daily Report is reporting-only.
 
 ## Active automations
-- `Minisculpter Dev` — currently disabled; hourly schedule preserved.
+- `Minisculpter Dev` — currently disabled by user/manual pause; hourly schedule preserved.
 - `Minisculpter Coordination` — enabled, every 3 hours at :30.
 - `Daily Minisculpter report` — enabled, daily 22:45 Europe/Budapest.
 - `Minisculpter Automation` — enabled, twice daily.
@@ -29,14 +29,17 @@ Last manager review: 2026-09-12
 ## Current repository / release truth
 - Stable: `v1.0.27` at `7d40d06cb4084403db3193ec77ab77b71baa24e2`.
 - Writable: `v1.0.28`; no release freeze/publication.
-- Current order: bootstrap → P0 MS-020 → P0 MS-031 → MS-009 → MS-026/MS-027 → integrated Coordinator review.
-- Bootstrap remains incomplete while `ai_backend/app.py` and `tools/release_audit.py` still identify as 1.0.27.
+- Integrated application checkpoint: `4b6ea637ca572b7e7983bfbba051635e21a5b40c`.
+- A–E implementation queue complete; current state is integrated checkpoint / Coordinator review.
+- MS-020, MS-031, MS-009, MS-026 and MS-027 are fixed in code and pending user verification.
+- MS-029 and MS-030 remain verification-pending.
 
 ## Current process state
 - Neutral-state migration removed HANDOFF, TECHNICAL_ROADMAP and monolithic ISSUES from the live write path.
 - CURRENT_EXECUTION_STATE authority-header reconciliation succeeded at `ef074abe...`.
 - ISSUE_STATE was created at `0a898202...` and carries MS-020 released-build evidence plus MS-031.
-- Dev became disabled at about 10:51:37 Europe/Budapest while its last_run_time remained about 05:59:12. This was not a Dev self-pause. Task control exposes no actor/origin, so a manual/user pause cannot be excluded; do not auto-resume without explicit authorization or trustworthy provenance.
+- Pause provenance update: Dev self-paused, the user manually resumed it, then the user manually paused it again. The present disabled state is therefore a confirmed user/manual pause.
+- Scheduler timestamps are insufficient by themselves to determine historical pause origin when direct user provenance is available.
 
 ## Reliability outcomes
 - AMP-006 global lease: HARMFUL / RETIRED.
@@ -49,5 +52,5 @@ Last manager review: 2026-09-12
 ## Verification focus
 1. Confirm Coordinator/Dev can update CURRENT_EXECUTION_STATE, TECHNICAL_DIRECTION_STATE and ISSUE_STATE without recurring safety blocks.
 2. Preserve manual-pause safety; do not auto-resume ambiguous Dev disablement.
-3. Once explicitly resumed, Dev begins with bootstrap then MS-020/MS-031 before grid/UI.
+3. Current A–E queue is complete; next engineering movement depends on Coordinator release review and subsequent state replenishment.
 4. Keep PROJECT_STATUS secondary so stale dashboard wording cannot override authoritative state.
