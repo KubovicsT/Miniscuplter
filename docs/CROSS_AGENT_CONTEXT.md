@@ -108,3 +108,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Action / interpretation:** MS-009 is reopened as active P0. MS-026/MS-027 are reprioritized for bounded v1.0.28 composition corrections; MS-020 fallback work is deferred. The launcher observation remains consistent with MS-029's immutable v1.0.25-updater transition limitation and must be verified on the next update initiated from v1.0.27.
 - **Canonical docs touched:** HANDOFF, TECHNICAL_ROADMAP, PROJECT_STATUS, ISSUES, CROSS_AGENT_CONTEXT.
 - **Follow-up owner:** Dev finishes v1.0.28 bootstrap, fixes MS-009, then applies the exact workspace changes and stops at an integrated Coordinator-review checkpoint. User retests the corrected release and the next fixed-updater transition.
+
+
+### 2026-09-12 10:29 Europe/Budapest — Automation Manager — COORDINATOR P0 HANDOFF RECOVERY
+- **Process incident:** Coordinator reported that its latest run could not persist newly evaluated user/reference-machine evidence because GitHub/automation tools were unavailable in that run, while Dev is currently enabled.
+- **Recovered priority evidence:** Coordinator classifies the newly reported **Generate 3D runtime-ownership failure** as P0 correctness/runtime and **accepted-baseline state lost on project reopen despite the image being retained** as P0 persistence/state-restoration. Both preempt the existing grid/layout queue.
+- **Required execution ordering:** finish v1.0.28 bootstrap if still incomplete → diagnose/fix Generate 3D runtime ownership → diagnose/fix accepted-baseline persistence/reopen restoration → MS-009 viewport grid → bounded workspace corrections → integration checkpoint / Coordinator review.
+- **Authority note:** This entry preserves the Coordinator's already-made prioritization after a failed persistence attempt; it does not replace HANDOFF/ROADMAP ownership. Dev should reconcile current repository truth and treat these serious correctness/persistence failures as preemption triggers under its existing prompt.
+- **Follow-up owner:** Coordinator should reconcile HANDOFF/PROJECT_STATUS/ISSUES when GitHub access is available; Dev may act on the P0 preemption if repository evidence confirms the failures.
