@@ -3,8 +3,8 @@
 > Authoritative end-to-end technical sequencing owned by the Project Coordinator. PROJECT_CHARTER/DECISIONS own product truth; HANDOFF owns the immediate/downstream Dev baton.
 
 Last coordinator review: 2026-09-12
-Latest published stable at review start: `v1.0.25`
-Frozen release candidate: `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8`
+Latest published stable: `v1.0.26`
+Published release target: `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8`
 Current writable development branch: `v1.0.27`
 Acceptance-weighted completion: **approximately 64%**
 
@@ -35,7 +35,7 @@ Exact current v1.0.26 HEAD `a41e0419ba40fd1118775e8f516b1a31145f18d8` passed exa
 
 **Release decision: FREEZE AND RELEASE v1.0.26.**
 
-A single release-control request was submitted for that exact SHA. The source branch is frozen. The existing earlier v1.0.27 branch was previously premature/orphaned; as part of this actual release transition it was fast-forwarded to the true frozen candidate and mechanically bootstrapped to 1.0.27 release identity. v1.0.27 is now the authoritative writable branch.
+The autonomous release-control workflow completed successfully for that exact SHA: exact-SHA validation, Godot Windows export, versioned output verification, installer smoke-install, immutable tag creation and GitHub Release publication all passed. The existing earlier v1.0.27 branch was previously premature/orphaned; as part of this actual release transition it was fast-forwarded to the true frozen candidate and mechanically bootstrapped to 1.0.27 release identity. v1.0.27 is now the authoritative writable branch.
 
 ## 3. Acceptance state carried into the release
 
@@ -68,7 +68,9 @@ Any reproduced Critical defect from this sequence preempts forward migration wor
 
 **Constraints:** no writes to frozen v1.0.26; version identity must be 1.0.27 on all audited surfaces; no feature work until exact-head Core/build/release-audit/package gates are green.
 
-**Acceptance:** semantic-version identity and exact-head validation green.
+**Current bootstrap defect:** `tools/backend_lifecycle_tests.py` still expects backend version 1.0.26, so v1.0.27 `python-syntax` fails after the server answers 1.0.27. This is a mechanical forward-version identity defect, not a product/runtime regression. Fix that expectation first.
+
+**Acceptance:** semantic-version identity, including lifecycle test expectation, and exact-head validation green.
 
 **Preemption:** v1.0.26 release failure requiring source repair.
 
@@ -109,3 +111,12 @@ The earlier v1.0.27 branch at `30f42c5...` was a **PREMATURE / ORPHAN FORWARD BR
 ## 8. User dependency
 
 No product decision is required. Once v1.0.26 is published, reference-machine acceptance should begin immediately using the ordered sequence above.
+
+
+## 9. Publication result / immediate post-release finding
+
+v1.0.26 was published successfully on 2026-09-12 at exact commit `a41e0419ba40fd1118775e8f516b1a31145f18d8`. Verified release assets include the Windows installer, portable ZIP and SHA-256 sidecar.
+
+The first v1.0.27 exact-head build exposed one mechanical bootstrap defect: `tools/backend_lifecycle_tests.py` still hardcodes `EXPECTED_VERSION = "1.0.26"`. The backend itself starts and reports 1.0.27, so the lifecycle test times out waiting for an impossible version match. Treat this as the top v1.0.27 repair before any product work. Dev is currently paused; Coordinator will not alter scheduler state.
+
+A direct Coordinator attempt to patch that single test expectation was blocked by the GitHub connector safety layer. The repository remains writable for documentation, so the engineering repair is still straightforward and is explicitly handed to Dev/Manager process owners rather than retried blindly by Coordinator.
