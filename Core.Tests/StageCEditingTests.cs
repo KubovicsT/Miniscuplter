@@ -92,6 +92,12 @@ internal static class StageCEditingTests
         Assert(session.Current.Objects[objectId].Transform == transformed,
             "stale conditional transform rejection changed durable state");
 
+        ObjectSelectionRef objectSelection = StageCSelection.BindObject(session.Current, objectId);
+        Assert(objectSelection.ObjectId == objectId && objectSelection.MeshRevisionId == generated.Id,
+            "whole-object selection did not bind stable object/revision identity");
+        Assert(StageCSelection.IsCurrent(session.Current, objectSelection),
+            "fresh whole-object selection was incorrectly considered stale");
+
         MeshRevision sculpt = await store.CreateMeshRevisionAsync(
             projectPath, objectId, Tetra(1.15f), "stagec-edit:sculpt-stroke", generated.Id);
         StageCEditing.CommitMeshRevision(session, objectId, generated.Id, sculpt, "sculpt stroke");
@@ -100,6 +106,13 @@ internal static class StageCEditingTests
         Assert(session.Current.Objects[objectId].Transform == transformed, "sculpt commit changed object transform");
         Assert(StageCCleanup.ResolveExportRevision(session.Current, objectId, sculpt.Id).Id == sculpt.Id,
             "export scope did not advance to committed sculpt revision");
+        Assert(!StageCSelection.IsCurrent(session.Current, objectSelection),
+            "revision-bound whole-object selection silently remained current after topology revision advanced");
+        ObjectSelectionRef reboundSelection = StageCSelection.RebindWholeObject(session.Current, objectSelection);
+        Assert(reboundSelection.ObjectId == objectId && reboundSelection.MeshRevisionId == sculpt.Id,
+            "whole-object selection did not explicitly transfer to the current mesh revision");
+        Assert(StageCSelection.IsCurrent(session.Current, reboundSelection),
+            "explicitly rebound whole-object selection is not current");
 
         bool staleRevisionRejected = false;
         try
