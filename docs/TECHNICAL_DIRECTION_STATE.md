@@ -12,24 +12,25 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - architecture_mode: selective refactor; bounded ownership convergence; no broad rewrite
 
 ## Current strategic objective
-- stable_release: v1.0.29
-- release_line: v1.0.30
-- objective: convert the now-durable generation-job lifetime into a fully transactional generation-result workflow, then remove only proven duplicate authority along the 3D/viewport path
-- acceptance_weighted_completion: approximately 66 percent
+- stable_release: v1.0.30
+- release_line: v1.0.31
+- objective: extend the now-transactional 2D-to-3D result path through durable generated-object rehydration, basic cleanup and exact-scope export while preserving storage containment and offline/local-first behavior
+- acceptance_weighted_completion: approximately 68 percent
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
 
 ## Priority order
-1. harden generation-result commit, stale-result rejection, recovery and save/reload continuity
-2. audit viewport/state ownership convergence and remove safely migrated redundancy where it affects correctness
-3. integrated v1.0.30 validation and Coordinator review
+1. generated-object save/reload, revision, selection and edit continuity
+2. transactional basic cleanup and exact durable-revision export scope
+3. Stage-C storage/offline containment audit
+4. integrated v1.0.31 thin-slice validation and Coordinator review
 
 ## Strategic dependencies
-- v1.0.30 semantic bootstrap is complete and exact-head baseline is green
-- generation-result durability follows the v1.0.29 job-envelope/cancellation foundation
-- viewport/state cleanup follows generation/persistence correctness and must preserve migration-before-removal
-- reference-machine evidence may preempt planned cleanup when it reproduces a P0 defect
-- release review follows integrated validation and canonical-state reconciliation
+- v1.0.30 generation result/cancellation ownership is complete and published
+- v1.0.31 semantic bootstrap and exact-head baseline are green
+- cleanup/export integrity depends on durable generated-object rehydration
+- storage/offline audit follows the working thin slice and must not introduce duplicate storage authority
+- any new reference-machine P0 evidence preempts planned downstream work
 
 ## Current deferred work
 - provider-family expansion
@@ -44,6 +45,7 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - local-first behavior preserved
 - stable IDs and immutable revisions preserved
 - transactional state/history preserved
+- STL remains export/interchange, never authoritative project storage
 - migration before legacy removal
 - viewport remains dominant visual workspace
 - accepted direct viewport tool buttons preserved
@@ -57,4 +59,4 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - Dev prepares release-worthy checkpoints but never publishes
 - only actual release-control initiation freezes the source version branch
 - published releases/tags are immutable
-- v1.0.29 is published and frozen; v1.0.30 is the legitimate writable successor branch
+- v1.0.30 is published and frozen; v1.0.31 is the legitimate writable successor branch
