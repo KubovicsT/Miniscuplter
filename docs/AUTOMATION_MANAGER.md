@@ -2,7 +2,7 @@
 
 > Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/` and Git history.
 
-Last manager review: 2026-09-12
+Last manager review: 2026-09-12 13:04 Europe/Budapest
 
 ## Role model
 - User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
@@ -12,7 +12,7 @@ Last manager review: 2026-09-12
 - Daily Report is reporting-only.
 
 ## Active automations
-- `Minisculpter Dev` — currently disabled; hourly schedule preserved.
+- `Minisculpter Dev` — currently disabled by explicit user/manual pause; hourly schedule preserved.
 - `Minisculpter Coordination` — enabled, every 3 hours at :30.
 - `Daily Minisculpter report` — enabled, daily 22:45 Europe/Budapest.
 - `Minisculpter Automation` — enabled, twice daily.
@@ -27,16 +27,19 @@ Last manager review: 2026-09-12
 - `PROJECT_STATUS.md` — secondary dashboard only.
 
 ## Current repository / release truth
-- Stable: `v1.0.27` at `7d40d06cb4084403db3193ec77ab77b71baa24e2`.
-- Writable: `v1.0.28`; no release freeze/publication.
-- Current order: bootstrap → P0 MS-020 → P0 MS-031 → MS-009 → MS-026/MS-027 → integrated Coordinator review.
-- Bootstrap remains incomplete while `ai_backend/app.py` and `tools/release_audit.py` still identify as 1.0.27.
+- Stable: `v1.0.28` at `6ed31b98fe426e0ca0184530a279abce43b7031f`.
+- Writable: `v1.0.29`; no release freeze/publication.
+- Current v1.0.29 objective: semantic-version bootstrap.
+- Remaining identity surfaces: `ai_backend/app.py` APP_VERSION and `tools/release_audit.py` EXPECTED still identify as 1.0.28.
+- Python/runtime validation is blocked at the semantic-version identity gate until those two surfaces can be safely changed.
 
 ## Current process state
 - Neutral-state migration removed HANDOFF, TECHNICAL_ROADMAP and monolithic ISSUES from the live write path.
 - CURRENT_EXECUTION_STATE authority-header reconciliation succeeded at `ef074abe...`.
 - ISSUE_STATE was created at `0a898202...` and carries MS-020 released-build evidence plus MS-031.
-- Dev became disabled at about 10:51:37 Europe/Budapest while its last_run_time remained about 05:59:12. This was not a Dev self-pause. Task control exposes no actor/origin, so a manual/user pause cannot be excluded; do not auto-resume without explicit authorization or trustworthy provenance.
+- Latest Dev run reported two essential large-file version-identity writes safety-blocked on v1.0.29. A transient ranged-read replacement truncated `ai_backend/app.py`; Dev restored the exact original content immediately and the live backend file is intact.
+- Connector inspection shows no safe targeted line-edit/patch operation for ordinary repository files; available write path is whole-file replacement. Repeating the blocked large-file write or using low-level Git APIs to bypass safety is not allowed.
+- User clarified pause provenance: Dev self-paused, user resumed it, then user manually paused it again. The present disabled state is an explicit user pause.
 
 ## Reliability outcomes
 - AMP-006 global lease: HARMFUL / RETIRED.
@@ -47,7 +50,7 @@ Last manager review: 2026-09-12
 - AMP-007C/D/E neutral small-state persistence: HELPED materially.
 
 ## Verification focus
-1. Confirm Coordinator/Dev can update CURRENT_EXECUTION_STATE, TECHNICAL_DIRECTION_STATE and ISSUE_STATE without recurring safety blocks.
-2. Preserve manual-pause safety; do not auto-resume ambiguous Dev disablement.
-3. Once explicitly resumed, Dev begins with bootstrap then MS-020/MS-031 before grid/UI.
-4. Keep PROJECT_STATUS secondary so stale dashboard wording cannot override authoritative state.
+1. Resolve or safely redesign the two large-file v1.0.29 identity surfaces without bypassing connector safety.
+2. Preserve the current explicit user pause until the user resumes Dev.
+3. Keep current neutral state files small and writable.
+4. Future automation replies start with AUTOMATION ISSUES and include LAST RUN time in Europe/Budapest.
