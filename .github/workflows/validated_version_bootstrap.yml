@@ -1,0 +1,92 @@
+name: validated-version-bootstrap
+
+on:
+  push:
+    branches: [release-control]
+    paths:
+      - 'version-requests/*.json'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: miniscuplter-version-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out version request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve request
+        id: req
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- 'version-requests/*.json')
+          [ "${#files[@]}" -eq 1 ]
+          req="${files[0]}"
+          [[ "$req" =~ ^version-requests/v1\.[0-9]+\.[0-9]+\.json$ ]]
+
+          version="$(jq -er '.version' "$req")"
+          branch="$(jq -er '.target_branch' "$req")"
+          expected="$(jq -er '.expected_head_sha | ascii_downcase' "$req")"
+
+          [[ "$version" =~ ^1\.[0-9]+\.[0-9]+$ ]]
+          [ "$branch" = "v$version" ]
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "expected=$expected" >> "$GITHUB_OUTPUT"
+          cp release-tools/sync_version.py "$RUNNER_TEMP/sync_version.py"
+
+      - name: Validate target and synchronize version surfaces
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.req.outputs.version }}
+          TARGET_BRANCH: ${{ steps.req.outputs.branch }}
+          EXPECTED_HEAD: ${{ steps.req.outputs.expected }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin "refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH" --force
+          actual="$(git rev-parse "refs/remotes/origin/$TARGET_BRANCH")"
+          [ "$actual" = "$EXPECTED_HEAD" ]
+
+          ! git ls-remote --exit-code --tags origin "refs/tags/$TARGET_BRANCH" >/dev/null 2>&1
+          ! gh release view "$TARGET_BRANCH" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+
+          git switch --detach "$EXPECTED_HEAD"
+          python "$RUNNER_TEMP/sync_version.py" --version "$VERSION"
+
+          mapfile -t changed < <(git status --short | sed -E 's/^.. //')
+          allowed='^(VERSION|Launcher/Miniscuplter\.Launcher\.csproj|Updater/Miniscuplter\.Updater\.csproj|Miniscuplter\.csproj|installer/Miniscuplter\.iss|export_presets\.cfg|ai_backend/app\.py|Scripts/Main\.V100Release\.cs|tools/release_audit\.py|tools/backend_lifecycle_tests\.py)$'
+          [ "${#changed[@]}" -gt 0 ]
+          for path in "${changed[@]}"; do
+            [[ "$path" =~ $allowed ]] || { echo "unexpected changed path: $path" >&2; exit 1; }
+          done
+
+          python "$RUNNER_TEMP/sync_version.py" --check
+          python -m py_compile ai_backend/app.py tools/release_audit.py tools/backend_lifecycle_tests.py
+          git diff --check
+
+          git fetch origin "refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH" --force
+          [ "$(git rev-parse "refs/remotes/origin/$TARGET_BRANCH")" = "$EXPECTED_HEAD" ]
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION Launcher/Miniscuplter.Launcher.csproj Updater/Miniscuplter.Updater.csproj Miniscuplter.csproj installer/Miniscuplter.iss export_presets.cfg ai_backend/app.py Scripts/Main.V100Release.cs tools/release_audit.py tools/backend_lifecycle_tests.py
+          git commit -m "bootstrap: synchronize $TARGET_BRANCH version identity"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+          gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref "$TARGET_BRANCH"
