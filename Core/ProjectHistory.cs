@@ -88,9 +88,10 @@ public sealed class ProjectSession
     }
 
     /// <summary>
-    /// Persists the current project state and keeps the in-memory session consistent with durable
-    /// storage if the save fails. A failed save must never leave compatibility/UI code believing
-    /// that an uncommitted revision is authoritative.
+    /// Persists a stable snapshot of the current project state and keeps the in-memory session
+    /// consistent with durable storage if the save fails. A successful in-flight save must only
+    /// advance the save point to the revision actually persisted; edits made while awaiting I/O
+    /// remain dirty instead of being incorrectly treated as durable.
     /// </summary>
     public async Task SaveRecoveringAsync(
         Func<ProjectState, Task> saveAsync,
@@ -99,11 +100,12 @@ public sealed class ProjectSession
         if (saveAsync == null) throw new ArgumentNullException(nameof(saveAsync));
         if (loadLastDurableAsync == null) throw new ArgumentNullException(nameof(loadLastDurableAsync));
 
-        ProjectId expectedProjectId = Current.ProjectId;
+        ProjectState stateToSave = Current;
+        ProjectId expectedProjectId = stateToSave.ProjectId;
         try
         {
-            await saveAsync(Current);
-            MarkSaved();
+            await saveAsync(stateToSave);
+            SavedRevisionNumber = stateToSave.RevisionNumber;
         }
         catch (Exception saveError)
         {
