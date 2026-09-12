@@ -9,12 +9,17 @@ internal static class StageCAuthorityRetirementTests
         string legacyPath = Path.Combine(root, "Scripts", "Main.V109Experience.cs");
         string stageCPath = Path.Combine(root, "Scripts", "Main.V1020StageCBridge.cs");
         string editingPath = Path.Combine(root, "Scripts", "Main.V1020StageCEditing.cs");
-        if (!File.Exists(legacyPath) || !File.Exists(stageCPath) || !File.Exists(editingPath))
+        string viewportPath = Path.Combine(root, "Scripts", "Main.V1018Foundation.cs");
+        string selectionPath = Path.Combine(root, "Scripts", "Main.V1027SelectionAuthority.cs");
+        if (!File.Exists(legacyPath) || !File.Exists(stageCPath) || !File.Exists(editingPath) ||
+            !File.Exists(viewportPath) || !File.Exists(selectionPath))
             throw new InvalidOperationException("TEST FAILED: Stage-C authority source files are missing");
 
         string legacy = File.ReadAllText(legacyPath);
         string stageC = File.ReadAllText(stageCPath);
         string editing = File.ReadAllText(editingPath);
+        string viewport = File.ReadAllText(viewportPath);
+        string selection = File.ReadAllText(selectionPath);
 
         Assert(
             legacy.Contains("void V109Generate3DAsync() => V1020Generate3DAsync();", StringComparison.Ordinal),
@@ -112,6 +117,26 @@ internal static class StageCAuthorityRetirementTests
         Assert(
             editing.Contains("V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);", StringComparison.Ordinal),
             "viewport transform failures must restore Godot presentation from durable Core state");
+
+        Assert(
+            viewport.Contains("V1027SelectStableViewportHit(selected);", StringComparison.Ordinal) &&
+            !viewport.Contains("Select(selected);", StringComparison.Ordinal),
+            "production viewport picking must hand scene hits to the stable selection bridge rather than treating a scene node as identity");
+        Assert(
+            viewport.Contains("V1027ReconcileStableViewportSelection();", StringComparison.Ordinal),
+            "viewport selection must reconcile stable identity against current project state");
+        Assert(
+            selection.Contains("StageCSelection.BindObject(session.Current, objectId)", StringComparison.Ordinal) &&
+            selection.Contains("V1020FindSceneObject(binding.ObjectId)", StringComparison.Ordinal),
+            "viewport selection must bind Core object/revision identity before projecting selection back to Godot");
+        Assert(
+            selection.Contains("StageCSelection.RebindWholeObject(state, binding)", StringComparison.Ordinal) &&
+            selection.Contains("rebound.MeshRevisionId != binding.MeshRevisionId", StringComparison.Ordinal) &&
+            selection.Contains("_v1027ViewportSelection = rebound;", StringComparison.Ordinal),
+            "whole-object selection revision transfer must be explicit when the active mesh revision advances");
+        Assert(
+            selection.Contains("V1027InvalidateStableViewportSelection(binding.ObjectId)", StringComparison.Ordinal),
+            "stable viewport selection must invalidate when its Core object no longer exists");
     }
 
     static void Assert(bool condition, string message)
