@@ -25,7 +25,10 @@ jobs:
           set -euo pipefail
           mapfile -t files < <(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- 'patch-requests/*.json')
           [ "${#files[@]}" -eq 1 ]
-          echo "path=${files[0]}" >> "$GITHUB_OUTPUT"
+          request="${files[0]}"
+          echo "path=$request" >> "$GITHUB_OUTPUT"
+          branch="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["target_branch"])' "$request")"
+          echo "target_branch=$branch" >> "$GITHUB_OUTPUT"
       - name: Apply validated patch
         shell: bash
         run: python3 patch-tools/apply_patch_request.py "${{ steps.request.outputs.path }}"
@@ -36,7 +39,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          request="${{ steps.request.outputs.path }}"
-          branch="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["target_branch"])' "$request")"
+          branch="${{ steps.request.outputs.target_branch }}"
           gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
           echo "Dispatched build.yml validation for $branch."
