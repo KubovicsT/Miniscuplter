@@ -8,8 +8,8 @@ This file is the authoritative current-state ledger for active, release-relevant
 - severity: Critical generation/runtime correctness
 - state: REPRODUCED ON RELEASED v1.0.31
 - priority: P0 preemption
-- evidence: GTX 1080 packaged v1.0.31; Generate 3D -> cancel -> retry failed first as user-cancelled, then with local AI backend health-check failure; closing/restarting the app restored generation and a later generation completed in ~390 s
-- desired_state: cancel/retry leaves one healthy authoritative runtime owner and immediate retry works without app restart; no stale job/backend lifecycle survives cancellation
+- evidence: GTX 1080 packaged v1.0.31; Generate 3D -> cancel -> retry failed first as user-cancelled, then with local AI backend health-check failure; closing/restarting the app restored generation and a later generation completed in ~390 s. Coordinator code inspection on v1.0.32 shows V1020CancelStageCGeneration retires the durable Core job envelope but does not itself signal/await backend inference cancellation; this is a root-cause hypothesis, not yet proven.
+- desired_state: cancel/retry leaves one healthy authoritative runtime owner and immediate retry works without app restart; cancellation must retire durable state and explicitly terminate/acknowledge the matching backend job before retry eligibility, with no stale job/backend lifecycle surviving cancellation
 
 ### MS-035 — resize leaves black exterior gutters and does not preserve panel layout
 - severity: High workspace/resize UX
