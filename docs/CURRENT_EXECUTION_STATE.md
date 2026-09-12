@@ -1,41 +1,47 @@
 # Miniscuplter Current Execution State
 
 ## Release state
-- stable: v1.0.29 @ 6d3b6360b14cffb88eecb00a05835bb053b4a9b7
-- writable: v1.0.30
+- stable: v1.0.30 @ 3a349a38836641caee2a7c9c68d9b0e15febe5cd
+- writable: v1.0.31
 - release_freeze: false
 - publication_active: false
-- exact_head: 104d6abbb325cccf2301844e01442e47ba01aabb
-- branch_bootstrap: complete
-- execution_hold: coordinator_review_required
+- exact_head_at_queue_reconciliation: fdc323ec6a77c7be28472517c0500b5686a7e825
+- branch_bootstrap: complete; root VERSION is 1.0.31 and exact-head build 34701875480 passed
+- execution_hold: none
 
 ## Current objective
-### D — v1.0.30 integrated checkpoint
-- state: COMPLETE — COORDINATOR REVIEW REQUESTED
-- outcome: Objectives A-C are integrated on the writable candidate; Dev queue advancement is stopped pending Coordinator review/replenishment
-- checkpoint: 104d6abbb325cccf2301844e01442e47ba01aabb
-- validation: exact-head build run 34700668252 completed successfully, including Core/.NET, Python/runtime/job, backend lifecycle, geometry, release audit, portable packaging/hash and installer compilation
-- continuation: coordinator_review_required
+### A — generated-object rehydration and edit continuity
+- state: READY
+- outcome: prove that a committed generated 3D object survives save/reload with durable identity, active revision, selection and basic-edit eligibility intact
+- architectural constraints: Core remains durable object/revision/selection authority; Godot caches remain presentation-only; no STL-as-project-state regression
+- dependencies: v1.0.30 generation-result integrity foundation
+- acceptance: focused save/reload and selection/edit-continuity regressions plus relevant exact-head validation green
+- stop/preemption: any new P0 reference-machine, data-loss or persistence evidence
+- continuation: automatic to B
 
 ## Next
-- none — Coordinator review/replenishment required before Dev invents further scope
+### B — cleanup/export transaction and exact-scope integrity
+- state: blocked by A
+- outcome: harden the basic cleanup-to-export path so model changes remain transactional and export uses the exact intended durable revision/object scope
+- dependencies: A
+- acceptance: cleanup/history/export-scope regressions cover save/reload continuity; STL remains export/interchange only; relevant exact-head validation green
+- preemption: new P0 user evidence or storage/data-safety defect
+- continuation: automatic to C
 
-## Completed objectives
-### A — v1.0.30 semantic-version bootstrap and exact-head baseline
-- state: COMPLETE
-- evidence: root VERSION and generated version surfaces synchronized to 1.0.30 at 9aa6898aa69cc0deb4bb9e1f2afe0368d13931cd
-- validation: exact-head build completed successfully
+### C — Stage-C storage/offline containment audit
+- state: blocked by A-B
+- outcome: verify the thin-slice path does not introduce uncontrolled project/job/export temporary state outside configured Miniscuplter storage and remains usable offline after required assets are present
+- dependencies: A-B
+- acceptance: targeted containment/offline regressions or concrete audit evidence; no newly proven duplicate storage authority
+- preemption: higher-severity runtime/persistence/user evidence
+- continuation: automatic to D
 
-### B — generation-result commit and recovery integrity
-- state: COMPLETE
-- evidence: cd237c8f3889fcab0a59a1b8bda122c70b78d1de added reusable durable generation-envelope preflight; 3ca05f4b856647f6338ba27dfa110c56cbbcd36d moved that fail-closed check ahead of immutable mesh materialization; 104d6abbb325cccf2301844e01442e47ba01aabb added focused cancelled-result preflight regression coverage
-- acceptance: successful/stale/cancelled/save-reload/recovery paths remain covered; retired results are rejected before project asset materialization; exact-head validation green
-
-### C — viewport/state authority convergence audit and targeted cleanup
-- state: COMPLETE
-- evidence: live Stage-C generation/candidate, transform and viewport-selection paths audited against Core.Tests/StageCAuthorityRetirementTests and current source
-- outcome: no additional safe duplicate durable-state owner was proven; Core remains durable candidate/selection/transform authority while remaining Godot candidate mesh/cache state is presentation-only, so destructive cleanup was not justified
-- acceptance: existing authority-retirement regressions and exact-head integrated validation green
+### D — v1.0.31 integrated thin-slice checkpoint
+- state: blocked by A-C
+- outcome: integrate A-C and run strongest Core/.NET, Python/runtime/job, geometry, persistence, release-audit and packaging validation for Coordinator review
+- dependencies: A-C
+- acceptance: exact-head integrated gates green; canonical state reconciled; no known release blocker introduced
+- continuation: coordinator_review_required
 
 ## Recently completed
-- v1.0.29 Objectives A-D completed and released from 6d3b6360b14cffb88eecb00a05835bb053b4a9b7.
+- v1.0.30 Objectives A-D completed and were released from 3a349a38836641caee2a7c9c68d9b0e15febe5cd after exact-candidate Windows export, installer smoke-install and publication.
