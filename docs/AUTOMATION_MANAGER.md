@@ -474,3 +474,11 @@ Verification focus:
 - Manual overlap prevention is user-managed by pausing conflicting tasks. Scheduled tasks use only a lightweight visible-activity/repository/workflow no-race check and defer only when a real conflicting mutation is evident.
 - Historical lock files remain non-authoritative process artifacts and must not silently reactivate the protocol.
 - Verification focus: confirm no-lease operation reduces connector/process failures without causing actual overlapping repository mutations.
+
+
+### Wait-before-defer coordination rule — 2026-09-12 02:14 Europe/Budapest
+- User confirmed real in-run waiting works and directed agents to use it when another agent is actively working.
+- Active Coordinator, Dev, Manager and Daily prompts now require an actual 30–60 second tool-backed delay plus state refresh/recheck when a clearly conflicting mutating run is visible.
+- Agents repeat the wait/recheck loop for up to 30 minutes from first detection, then stop mutation and report the unresolved overlap if it still exists.
+- This replaces immediate defer behavior but does not resurrect AMP-006; no GitHub lease is used.
+- Verification focus: confirm future runs actually wait, refresh final state after the other agent exits, and avoid false-positive waiting on merely recent activity.
