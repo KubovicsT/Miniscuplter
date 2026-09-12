@@ -151,6 +151,12 @@ public sealed class AIClient
         using var doc = JsonDocument.Parse(body);
         var root = doc.RootElement;
         string path = root.GetProperty("path").GetString() ?? throw new InvalidOperationException("Backend returned no file path.");
+        string expectedPath = Path.GetFullPath(outputPath);
+        string returnedPath = Path.GetFullPath(path);
+        StringComparison pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (!returnedPath.Equals(expectedPath, pathComparison))
+            throw new InvalidOperationException($"Backend returned an unexpected Stage-C output path. Expected {expectedPath}; received {returnedPath}.");
+        path = returnedPath;
         if (!File.Exists(path)) throw new InvalidOperationException($"Backend reported success but output file does not exist: {path}");
         if (new FileInfo(path).Length == 0) throw new InvalidOperationException($"Backend reported success but output file is empty: {path}");
         string actualProvider = root.TryGetProperty("provider", out var providerNode) ? providerNode.GetString() ?? provider : provider;
