@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.29",
+  "expected_head_sha": "02862d55bc86ee9fcae343ba11c96b3ce2dbc46d",
+  "target_path": "Scripts/Main.V1020StageCBridge.cs",
+  "expected_blob_sha": "2bf0e19d11d201d1d613a3a3fa78f74cdd1a3e52",
+  "commit_message": "editor: retire durable generation envelope on cancel",
+  "patch": "diff --git a/Scripts/Main.V1020StageCBridge.cs b/Scripts/Main.V1020StageCBridge.cs\n--- a/Scripts/Main.V1020StageCBridge.cs\n+++ b/Scripts/Main.V1020StageCBridge.cs\n@@ -243,5 +243,23 @@ public partial class Main\n-    void V1020CancelStageCGeneration()\n+    async void V1020CancelStageCGeneration()\n     {\n         if (!_v1093DBusy) return;\n+        var binding = _v1020GenerationBinding;\n         SetStatus(\"Cancelling Stage-C 3D generation; the accepted baseline and any previously saved candidate remain intact.\");\n+        if (binding == null) return;\n+\n+        try\n+        {\n+            await _v1020StageCGate.WaitAsync();\n+            try\n+            {\n+                var session = _v1020StageCSession;\n+                if (session != null && StageCGeneration.AbandonGenerationJob(session, binding))\n+                    await V1020SaveSessionAsync();\n+            }\n+            finally { _v1020StageCGate.Release(); }\n+        }\n+        catch (Exception ex)\n+        {\n+            SetStatus(\"3D generation cancellation is isolating backend work, but its durable job envelope could not be retired: \" + ex.Message);\n+        }\n     }\n"
+}
