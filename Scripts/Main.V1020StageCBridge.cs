@@ -226,6 +226,25 @@ public partial class Main
         {
             double sec = (DateTime.UtcNow - _v1093DStarted).TotalSeconds;
             string detail = V108FriendlyAiError(ex);
+            var failedBinding = _v1020GenerationBinding;
+            if (failedBinding != null)
+            {
+                try
+                {
+                    await _v1020StageCGate.WaitAsync();
+                    try
+                    {
+                        var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session was unavailable while retiring a failed generation job.");
+                        if (StageCGeneration.AbandonGenerationJob(session, failedBinding))
+                            await V1020SaveSessionAsync();
+                    }
+                    finally { _v1020StageCGate.Release(); }
+                }
+                catch (Exception cleanupEx)
+                {
+                    detail += " Durable generation cleanup also failed: " + cleanupEx.Message;
+                }
+            }
             SetV1093DResult($"3D status: FAILED after {sec:0}s.", detail);
             SetStatus("3D AI error: " + detail);
             V109ShowError("2D → 3D generation failed", detail);
