@@ -6,12 +6,12 @@ Last reconciled: 2026-09-12
 
 ## Current release / development state
 
-- **Latest published stable at reconciliation time:** `v1.0.25`.
-- **Frozen v1.0.26 candidate:** `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
-- **v1.0.26 release-control:** active; exact-SHA autonomous release workflow initiated by Coordinator.
+- **Latest published stable:** `v1.0.26`.
+- **Published v1.0.26 target:** `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
+- **v1.0.26 release-control:** completed successfully; exact-SHA validation, Godot Windows export, installer smoke-install, immutable tag and GitHub Release publication all passed.
 - **Current writable development branch:** `v1.0.27`.
 - **v1.0.27 ancestry:** fast-forwarded from the earlier premature/orphan branch to the actual frozen v1.0.26 candidate as part of the legitimate release transition.
-- **v1.0.27 semantic identity:** mechanically bumped to 1.0.27 across audited release surfaces.
+- **v1.0.27 semantic identity:** mechanically bumped to 1.0.27 across audited release surfaces, but the backend lifecycle regression expectation still says 1.0.26 and currently makes the branch build red.
 - **Overall completion:** approximately **64% acceptance-weighted**. Publication does not itself resolve reference-machine acceptance.
 
 ## v1.0.26 release contents
@@ -44,11 +44,10 @@ The autonomous release-control workflow is responsible for the remaining exact-S
 
 ## Current critical path
 
-1. complete/verify v1.0.26 autonomous publication;
-2. validate v1.0.27 bootstrap identity/CI on the forward branch;
-3. consume v1.0.26 GTX 1080 reference-machine evidence;
-4. if acceptance evidence does not preempt, continue bounded Core-authority migration beginning with mapped-object ground placement.
+1. repair the v1.0.27 backend lifecycle test version expectation and return exact-head build CI to green;
+2. consume v1.0.26 GTX 1080 reference-machine evidence;
+3. if acceptance evidence does not preempt, continue bounded Core-authority migration beginning with mapped-object ground placement.
 
 ## User dependency
 
-No product decision is needed. Once v1.0.26 publishes, test update/reopen, Repair AI Runtime, Generate 3D, viewport resize, compact UI and the complete Stage-C save/reopen/edit/cleanup/export flow.
+No product decision is needed. v1.0.26 is published and ready for reference-machine testing: update/reopen, Repair AI Runtime, Generate 3D, viewport resize, compact UI and the complete Stage-C save/reopen/edit/cleanup/export flow.
