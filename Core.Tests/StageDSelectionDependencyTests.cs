@@ -6,7 +6,7 @@ internal static class StageDSelectionDependencyTests
     [ModuleInitializer]
     internal static void ValidateSelectionDependencySeam()
     {
-        RunCoreRoundTripAsync().GetAwaiter().GetResult();
+        Task.Run(RunCoreRoundTripAsync).GetAwaiter().GetResult();
         ValidateProductionWiring();
     }
 
