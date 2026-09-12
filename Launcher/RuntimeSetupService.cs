@@ -112,6 +112,7 @@ internal sealed class RuntimeSetupService
 
         int smokePort = ReserveLoopbackPort();
         string instanceToken = Guid.NewGuid().ToString("N");
+        string expectedVersion = typeof(RuntimeSetupService).Assembly.GetName().Version?.ToString(3) ?? "";
         var psi = new ProcessStartInfo(python)
         {
             UseShellExecute = false,
@@ -158,7 +159,7 @@ internal sealed class RuntimeSetupService
                         JsonElement root = doc.RootElement;
                         string version = root.TryGetProperty("version", out var versionNode) ? versionNode.GetString() ?? "" : "";
                         string token = root.TryGetProperty("instance_token", out var tokenNode) ? tokenNode.GetString() ?? "" : "";
-                        if (version == "1.0.26" && token == instanceToken)
+                        if (version == expectedVersion && token == instanceToken)
                         {
                             progress?.Report(new RuntimeSetupEvent(DateTimeOffset.Now, "verify", $"Backend {version} health verified on isolated loopback port with interpreter {python}."));
                             return;
@@ -171,7 +172,7 @@ internal sealed class RuntimeSetupService
                 await Task.Delay(250, cancellationToken);
             }
 
-            throw new TimeoutException($"Repaired AI backend did not answer health within 30 seconds. Backend: {app}; interpreter: {python}; recent stderr: {Tail(await CompletedTextAsync(stderrTask), 4000)}");
+            throw new TimeoutException($"Repaired AI backend did not answer health within 30 seconds. Expected backend version {expectedVersion}. Backend: {app}; interpreter: {python}; recent stderr: {Tail(await CompletedTextAsync(stderrTask), 4000)}");
         }
         finally
         {
