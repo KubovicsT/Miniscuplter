@@ -34,6 +34,10 @@ internal static class ViewportResizeOwnershipTests
             "native viewport pipeline no longer declares SubViewportContainer.Stretch ownership");
         Assert(!native.Contains("sub.Size =", StringComparison.Ordinal),
             "native viewport pipeline reintroduced direct SubViewport size writes");
+
+        string thinSlice = File.ReadAllText(Path.Combine(root, "Scripts", "Main.V1015ThinSlice.cs"));
+        Assert(thinSlice.Contains("CullMode = BaseMaterial3D.CullModeEnum.Disabled", StringComparison.Ordinal),
+            "triangle-based viewport grid/axes must render two-sided when the opaque ground is hidden");
     }
 
     static void Assert(bool condition, string message)
