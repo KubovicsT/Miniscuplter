@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "ai_backend"
 SERVER = BACKEND / "serve.py"
-EXPECTED_VERSION = "1.0.29"
+EXPECTED_VERSION = "1.0.30"
 
 
 def free_port() -> int:
