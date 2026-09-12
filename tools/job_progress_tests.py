@@ -170,6 +170,18 @@ def test_model_release_refuses_foreign_owner() -> None:
         resource_ownership.release("inference-release-owner")
 
 
+def test_model_release_allows_current_owner() -> None:
+    owner_id = "inference-self-owner"
+    resource_ownership.acquire(owner_id, "3d-generate", blocking=False)
+    try:
+        model_router.release_all_models(allow_owner_id=owner_id)
+        current = resource_ownership.snapshot()
+        assert current["active"] is True
+        assert current["owner_id"] == owner_id
+    finally:
+        resource_ownership.release(owner_id)
+
+
 def test_component_owner_is_visible_and_released_after_error() -> None:
     original_install = model_manager._v105_install_component
     original_release = model_router.release_all_models
@@ -290,6 +302,7 @@ if __name__ == "__main__":
     test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease()
     test_component_mutation_cannot_interrupt_active_inference()
     test_model_release_refuses_foreign_owner()
+    test_model_release_allows_current_owner()
     test_component_owner_is_visible_and_released_after_error()
     test_component_update_remove_and_repair_use_shared_owner()
     test_only_verified_3d_completion_records_qualification()
