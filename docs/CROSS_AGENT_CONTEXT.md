@@ -134,3 +134,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Separation:** behavioral rules stay in automation prompts; TECHNICAL_DIRECTION_STATE stores neutral strategy facts; CURRENT_EXECUTION_STATE stores the active execution queue.
 - **Current strategic order:** v1.0.28 bootstrap → P0 MS-020 generation runtime ownership → P0 MS-031 accepted-baseline persistence → MS-009 grid → MS-026/MS-027 workspace corrections → integrated validation/release review.
 - **Follow-up:** active Coordinator, Dev, Manager and Daily prompts should use TECHNICAL_DIRECTION_STATE for current strategy and treat TECHNICAL_ROADMAP as historical context only.
+
+
+### 2026-09-12 — Automation Manager — ISSUE STATE MIGRATION / DEV DISABLEMENT
+- **Persistence repair:** `docs/ISSUE_STATE.md` now replaces the ~47 KB `docs/ISSUES.md` as current active/release-relevant/user-verification issue truth. Legacy ISSUES remains read-only historical context.
+- **Recovered issue truth:** MS-020 is P0 with released-v1.0.27 Generate 3D runtime-ownership evidence; MS-031 is created as the P0 accepted-baseline save/close/reopen persistence defect. MS-009, MS-026, MS-027, MS-029 and MS-030 current verification states are also captured.
+- **Execution-state repair:** the stale CURRENT_EXECUTION_STATE header was successfully reconciled to TECHNICAL_DIRECTION_STATE at commit `ef074abe...`.
+- **Scheduler incident:** authoritative Dev became disabled at about 10:51:37 Europe/Budapest while its last_run_time remained about 05:59:12, so this disablement was not caused by a Dev run/self-pause. Task control exposes no actor/origin; manual/user pause cannot be excluded. Do not auto-resume on this evidence alone.
+- **Follow-up:** Coordinator/Dev/Manager/Daily use CURRENT_EXECUTION_STATE + TECHNICAL_DIRECTION_STATE + ISSUE_STATE as current truth; HANDOFF/TECHNICAL_ROADMAP/ISSUES are legacy-only.
