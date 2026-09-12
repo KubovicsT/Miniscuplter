@@ -98,6 +98,27 @@ internal static class StageCEditingTests
         Assert(StageCSelection.IsCurrent(session.Current, objectSelection),
             "fresh whole-object selection was incorrectly considered stale");
 
+        SelectionId selectionId = SelectionId.New();
+        ProjectLayout layout = ProjectLayout.FromManifest(projectPath);
+        layout.EnsureDirectories();
+        string selectionAsset = $"data/selection_{selectionId}.json";
+        await File.WriteAllTextAsync(ProjectStore.ResolveAsset(layout, selectionAsset), "{\"weights\":[1,0,1,0]}");
+        SelectionBinding durableSelection = StageCSelection.BindRevisionSelection(
+            session,
+            selectionId,
+            objectId,
+            generated.Id,
+            "smart-select-vertex-weights",
+            selectionAsset);
+        Assert(StageCSelection.IsCurrent(session.Current, durableSelection),
+            "fresh durable revision-dependent selection was incorrectly considered stale");
+        await store.SaveAsync(session.Current, projectPath);
+        ProjectState selectionReload = await store.LoadAsync(projectPath);
+        Assert(selectionReload.Selections.TryGetValue(selectionId, out SelectionBinding? persistedSelection) && persistedSelection == durableSelection,
+            "durable revision-dependent selection did not survive save/reload");
+        Assert(StageCSelection.IsCurrent(selectionReload, durableSelection),
+            "reloaded durable selection was incorrectly considered stale");
+
         MeshRevision sculpt = await store.CreateMeshRevisionAsync(
             projectPath, objectId, Tetra(1.15f), "stagec-edit:sculpt-stroke", generated.Id);
         StageCEditing.CommitMeshRevision(session, objectId, generated.Id, sculpt, "sculpt stroke");
@@ -108,6 +129,8 @@ internal static class StageCEditingTests
             "export scope did not advance to committed sculpt revision");
         Assert(!StageCSelection.IsCurrent(session.Current, objectSelection),
             "revision-bound whole-object selection silently remained current after topology revision advanced");
+        Assert(!StageCSelection.IsCurrent(session.Current, durableSelection),
+            "revision-dependent vertex selection silently survived a mesh revision change");
         ObjectSelectionRef reboundSelection = StageCSelection.RebindWholeObject(session.Current, objectSelection);
         Assert(reboundSelection.ObjectId == objectId && reboundSelection.MeshRevisionId == sculpt.Id,
             "whole-object selection did not explicitly transfer to the current mesh revision");
@@ -135,8 +158,12 @@ internal static class StageCEditingTests
         session.Undo();
         Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == generated.Id, "sculpt undo did not restore generated revision");
         Assert(session.Current.Objects[objectId].Transform == transformed, "sculpt undo changed transform");
+        Assert(StageCSelection.IsCurrent(session.Current, durableSelection),
+            "sculpt undo did not restore revision-dependent selection validity");
         session.Redo();
         Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == sculpt.Id, "sculpt redo did not restore edited revision");
+        Assert(!StageCSelection.IsCurrent(session.Current, durableSelection),
+            "sculpt redo incorrectly left stale vertex selection valid");
 
         MeshRevision stale = await store.CreateMeshRevisionAsync(
             projectPath, objectId, Tetra(1.25f), "stagec-edit:stale", generated.Id);
@@ -151,6 +178,10 @@ internal static class StageCEditingTests
         ProjectState editedReload = await store.LoadAsync(projectPath);
         Assert(editedReload.Objects[objectId].ActiveMeshRevisionId == sculpt.Id, "committed sculpt revision did not survive save/reload");
         Assert(editedReload.Objects[objectId].Transform == transformed, "edited object transform did not survive save/reload");
+        Assert(editedReload.Selections.TryGetValue(selectionId, out SelectionBinding? stalePersisted) && stalePersisted == durableSelection,
+            "historical durable selection binding was lost across edited save/reload");
+        Assert(!StageCSelection.IsCurrent(editedReload, durableSelection),
+            "stale revision-dependent selection became current after save/reload");
         Assert(StageCCleanup.ResolveExportRevision(editedReload, objectId, sculpt.Id).Id == sculpt.Id,
             "reloaded export scope is not the exact edited revision");
     }
