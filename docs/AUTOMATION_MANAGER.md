@@ -21,8 +21,9 @@ Last manager review: 2026-09-12
 ## Current repository / release truth
 - Latest stable: `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
 - Writable development branch: `v1.0.27`.
-- Current branch HEAD: `2d69220a1dbe3e7edd998b9096c4be603ff778f5` (Manager small-file checkpoint); latest engineering checkpoint is `4d924e948647022dce4bd2f7682140a005edebc5`.
-- Exact-head Core/build validation was green before the Manager documentation-only checkpoint.
+- Latest non-Manager project HEAD reviewed before this checkpoint: `2c3205b0c42697a0a75ffd3814f23a452cc24866`; latest engineering checkpoint is `4d924e948647022dce4bd2f7682140a005edebc5`.
+- Core and full build workflows for `2c3205b0...` both completed successfully.
+- Manager documentation commits after that project checkpoint are process-only and do not change engineering acceptance.
 - No active v1.0.27 release request/freeze was observed at this review.
 - Released v1.0.26 target-machine acceptance remains P0 where CI cannot prove GUI/GPU/runtime behavior.
 
