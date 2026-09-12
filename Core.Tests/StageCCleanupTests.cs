@@ -1,7 +1,11 @@
 using Miniscuplter.Core;
+using System.Runtime.CompilerServices;
 
 internal static class StageCCleanupTests
 {
+    [ModuleInitializer]
+    internal static void ValidateCleanupAndExportScope() => Run();
+
     internal static void Run()
     {
         var objectId = ObjectId.New();
