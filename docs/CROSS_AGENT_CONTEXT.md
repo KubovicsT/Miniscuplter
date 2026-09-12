@@ -79,3 +79,10 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Canonical docs touched:** TECHNICAL_ROADMAP, COORDINATOR_LOG, PROJECT_STATUS, HANDOFF and ISSUES on v1.0.27.
 - **Follow-up owner:** Coordinator monitors v1.0.26 release-control to publication/failure classification. User performs GTX 1080 acceptance after publication. Dev, when explicitly resumed, starts with v1.0.27 bootstrap validation and follows HANDOFF.
 
+### 2026-09-12 02:10 Europe/Budapest — Project Coordinator — CROSS-AGENT HANDOFF FACT
+- **User input / event:** User ran the current no-lease Coordinator task with Dev paused and Coordinator as exclusive release owner.
+- **Evidence / scope:** v1.0.26 candidate `a41e0419ba40fd1118775e8f516b1a31145f18d8` passed exact-head CI and autonomous release-control completed successfully through Windows export, installer smoke test, tag creation and GitHub Release publication.
+- **Action / interpretation:** v1.0.26 is now stable. The previously premature/orphan v1.0.27 branch was reconciled into the legitimate release transition and is now authoritative/writable.
+- **Canonical docs touched:** TECHNICAL_ROADMAP, COORDINATOR_LOG, PROJECT_STATUS, HANDOFF and ISSUES on v1.0.27.
+- **Follow-up owner:** User can begin v1.0.26 reference-machine acceptance. Dev remains paused until explicitly resumed.
+
