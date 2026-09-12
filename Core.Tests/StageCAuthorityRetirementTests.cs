@@ -39,6 +39,17 @@ internal static class StageCAuthorityRetirementTests
             "Stage-C must retain candidate registration and explicit Apply ownership");
 
         Assert(
+            stageC.Contains("CallDeferred(nameof(V1020RestoreStageCState));", StringComparison.Ordinal) &&
+            stageC.Contains("async void V1020RestoreStageCState()", StringComparison.Ordinal),
+            "accepted Stage-C baseline must restore after installer composition rather than racing compatibility UI");
+        Assert(
+            stageC.Contains("_v1011BaselineImage = path;", StringComparison.Ordinal) &&
+            stageC.Contains("_lastEditedImage = path;", StringComparison.Ordinal) &&
+            stageC.Contains("_v109Generate3D.Disabled = false;", StringComparison.Ordinal) &&
+            stageC.Contains("_v109Generate3D.Text = \"Generate 3D from Accepted Baseline\";", StringComparison.Ordinal),
+            "durable baseline restore must restore baseline identity and immediate Generate 3D eligibility together");
+
+        Assert(
             editing.Contains("V1020CommitMoveCommandAsync", StringComparison.Ordinal) &&
             editing.Contains("Vec3 position = current.Transform.Position;", StringComparison.Ordinal),
             "mapped move nudges must derive from Core durable transform state");
