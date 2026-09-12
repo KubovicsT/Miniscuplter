@@ -55,6 +55,11 @@ internal static class StageCGenerationTests
         Assert(staleJob.ProjectId == session.Current.ProjectId, "generation job did not capture project identity");
         Assert(staleJob.InputImageRevisionId == firstImage.Id, "generation job did not capture immutable baseline revision");
         Assert(staleJob.InputProjectRevisionNumber + 1 == session.Current.RevisionNumber, "generation job envelope transaction did not advance exactly one project revision");
+        await store.SaveAsync(session.Current, projectPath);
+        var envelopeReload = await store.LoadAsync(projectPath);
+        var reloadedJob = StageCGeneration.ReadGenerationJobs(envelopeReload).Single(x => x.JobId == staleJob.JobId);
+        Assert(reloadedJob == staleJob, "generation job envelope identity changed across project save/reload");
+        Assert(reloadedJob.OutputObjectId == staleJob.OutputObjectId, "generation output object identity changed across project save/reload");
 
         StageCGeneration.AcceptBaseline(session, secondImage.Id);
         var staleMesh = await store.CreateMeshRevisionAsync(projectPath, staleJob.OutputObjectId, Tetra(), "unit-test:stale-generated");
