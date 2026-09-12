@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.31",
+  "expected_head_sha": "e5f90b396323bd595713611e975b40653340663c",
+  "target_path": "Core.Tests/StageCStorageContainmentTests.cs",
+  "expected_blob_sha": "6e5f027b0b5fc825f65191cbc68a8a409fb3d436",
+  "commit_message": "test: strengthen Stage-C storage containment",
+  "patch": "diff --git a/Core.Tests/StageCStorageContainmentTests.cs b/Core.Tests/StageCStorageContainmentTests.cs\n--- a/Core.Tests/StageCStorageContainmentTests.cs\n+++ b/Core.Tests/StageCStorageContainmentTests.cs\n@@ -27,2 +27,4 @@\n             \"Stage-C generation output must be written under the configured temporary root\");\n+        Assert(!bridge.Contains(\"AppDataRoot.Resolve($\\\"ai_part_\", StringComparison.Ordinal),\n+            \"Stage-C generation must not leave transient mesh output at the data-root top level\");\n         Assert(bridge.Contains(\"if (File.Exists(output)) File.Delete(output)\", StringComparison.Ordinal),\n"
+}
