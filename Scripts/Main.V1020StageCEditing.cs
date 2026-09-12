@@ -23,9 +23,9 @@ public partial class Main
 
     public void InstallV1020StageCEditingAuthority()
     {
-        // MS-019: Stage-C owns durable nudge commands for mapped objects. Historical button
-        // handlers may still update Godot presentation first during migration, but scene values
-        // are no longer consulted for the bounded move/rotate/scale command pairs retired below.
+        // MS-019: Stage-C owns durable transform commands for mapped objects. Historical
+        // handlers may still update Godot presentation first for the bounded nudge pairs, but
+        // their persisted values are derived from Core state rather than scene observation.
         HookV1020MoveButton("Move +X 1 mm", new Vec3(1, 0, 0));
         HookV1020MoveButton("Move -X 1 mm", new Vec3(-1, 0, 0));
         HookV1020MoveButton("Move +Y 1 mm", new Vec3(0, 1, 0));
@@ -34,7 +34,7 @@ public partial class Main
         HookV1020RotateButton("Rotate Y -5°", Mathf.DegToRad(-5f));
         HookV1020ScaleButton("Scale +5%", 1.05f);
         HookV1020ScaleButton("Scale -5%", 0.95f);
-        HookV1020TransformButton("Place selected on Y=0", "ground");
+        HookV1020GroundButton("Place selected on Y=0");
 
         foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>())
         {
@@ -219,48 +219,103 @@ public partial class Main
         }
     }
 
-    void HookV1020TransformButton(string text, string operation)
+    void HookV1020GroundButton(string text)
     {
         foreach (Button button in FindChildren("*", "Button", true, false).OfType<Button>().Where(b => b.Text == text))
-            button.Pressed += () => CallDeferred(nameof(V1020CommitSelectedTransformDeferred), operation);
+        {
+            button.Pressed -= CenterOnBuildPlane;
+            button.Pressed += V1020GroundButtonPressed;
+        }
     }
 
-    async void V1020CommitSelectedTransformDeferred(string operation)
+    void V1020GroundButtonPressed()
     {
-        await V1020CommitSelectedTransformAsync(operation);
+        if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out ProjectObject projectObject))
+        {
+            CenterOnBuildPlane();
+            return;
+        }
+
+        _ = V1020CommitGroundCommandAsync(objectId, projectObject.ActiveMeshRevisionId, projectObject.Transform);
     }
 
-    async Task<bool> V1020CommitSelectedTransformAsync(string operation)
+    async Task V1020CommitGroundCommandAsync(
+        ObjectId objectId,
+        RevisionId expectedRevisionId,
+        TransformState expectedTransform)
     {
-        MeshInstance3D? target = _selected;
-        if (target == null || !GodotObject.IsInstanceValid(target) ||
-            !_v1013ObjectIds.TryGetValue(target.GetInstanceId(), out ObjectId objectId) ||
-            _v1020StageCSession == null)
-            return false;
+        MeshInstance3D? target = V1020FindSceneObject(objectId);
+        if (target == null) return;
 
-        TransformState requested = V1020TransformState(target);
         try
         {
             await _v1020StageCGate.WaitAsync();
             try
             {
                 var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
-                if (!session.Current.Objects.ContainsKey(objectId)) return false;
-                bool changed = StageCEditing.SetTransform(session, objectId, requested, operation);
-                if (!changed) return true;
-                await V1020SaveSessionAsync();
+                if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? current))
+                    throw new InvalidOperationException("The Stage-C object no longer exists.");
+                if (current.ActiveMeshRevisionId != expectedRevisionId || current.Transform != expectedTransform)
+                    throw new InvalidOperationException("The object advanced before ground placement could be committed.");
+                if (!session.Current.MeshRevisions.TryGetValue(expectedRevisionId, out MeshRevision? revision) || revision.ObjectId != objectId)
+                    throw new InvalidDataException("Ground placement cannot resolve the exact active mesh revision.");
+
+                string asset = ProjectStore.ResolveAsset(ProjectLayout.FromManifest(_v1020StageCProjectPath), revision.AssetPath);
+                if (!File.Exists(asset))
+                    throw new FileNotFoundException("Ground placement mesh asset is missing.", asset);
+
+                MeshData mesh = MeshBinaryCodec.Read(asset);
+                TransformState requested = V1020GroundedTransform(expectedTransform, mesh, 0f);
+                bool changed = StageCEditing.SetTransformIfCurrent(
+                    session,
+                    objectId,
+                    expectedRevisionId,
+                    expectedTransform,
+                    requested,
+                    "ground");
+                if (changed)
+                    await V1020SaveSessionAsync();
                 V1020ProjectObjectStateToScene(target, session.Current.Objects[objectId], reloadMesh: false);
             }
             finally { _v1020StageCGate.Release(); }
-            SetStatus($"Stage-C {operation} committed to project state.");
-            return true;
+            SetStatus("Stage-C ground placement committed to project state.");
         }
         catch (Exception ex)
         {
             V1020RestoreMappedObjectFromCurrentState(target, objectId, reloadMesh: false);
-            SetStatus("Stage-C transform failed safely; restored durable transform: " + ex.Message);
-            return true;
+            SetStatus("Stage-C ground placement failed safely; restored durable transform: " + ex.Message);
         }
+    }
+
+    static TransformState V1020GroundedTransform(TransformState durable, MeshData mesh, float planeY)
+    {
+        durable.Validate();
+        mesh.Validate();
+        if (!float.IsFinite(planeY))
+            throw new InvalidDataException("Ground plane height must be finite.");
+
+        Basis rotation = Basis.FromEuler(new Vector3(
+            durable.RotationEuler.X,
+            durable.RotationEuler.Y,
+            durable.RotationEuler.Z));
+        float minY = float.PositiveInfinity;
+        for (int i = 0; i < mesh.Positions.Length; i += 3)
+        {
+            Vector3 scaled = new(
+                mesh.Positions[i] * durable.Scale.X,
+                mesh.Positions[i + 1] * durable.Scale.Y,
+                mesh.Positions[i + 2] * durable.Scale.Z);
+            float worldY = durable.Position.Y + (rotation * scaled).Y;
+            minY = Math.Min(minY, worldY);
+        }
+        if (!float.IsFinite(minY))
+            throw new InvalidDataException("Ground placement could not determine a finite mesh bottom.");
+
+        Vec3 position = durable.Position;
+        return new TransformState(
+            new Vec3(position.X, position.Y + (planeY - minY), position.Z),
+            durable.RotationEuler,
+            durable.Scale);
     }
 
     void V1020ObserveViewportEditingCommit(InputEvent ev)
