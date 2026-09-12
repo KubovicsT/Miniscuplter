@@ -1,59 +1,62 @@
 # Miniscuplter Automation Manager
 
-> Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/` and Git history.
+> Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/`, GitHub Issues, and Git history.
 
-Last manager review: 2026-09-12 14:27 Europe/Budapest
+Last manager review: 2026-09-12 18:16 Europe/Budapest
 
 ## Role model
 - User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
 - Coordinator owns architecture, strategy, issue priority/critical path, release readiness/chunking/publication.
-- Dev owns implementation, validation, current execution-state updates and release-candidate preparation; Dev never publishes.
-- Automation Manager owns scheduler/process/GitHub operational reliability and bounded process-infrastructure repair.
+- Dev owns implementation, validation, current execution-state updates and release-worthy checkpoints; Dev never publishes.
+- Automation Manager owns scheduler/process/GitHub operational reliability, bounded process-infrastructure repair and prompt governance.
 - Daily Report is reporting-only.
 
 ## Active automations
-- `Minisculpter Dev` — enabled; current execution state records that the user explicitly resumed Dev. Last recorded run began about 14:24 Europe/Budapest.
-- `Minisculpter Coordination` — enabled, every 3 hours at :30.
-- `Daily Minisculpter report` — enabled, daily 22:45 Europe/Budapest.
-- `Minisculpter Automation` — enabled, twice daily.
-- Legacy duplicate tasks remain disabled.
-- All four authoritative prompts support exact `Run task` as the manual-run alias and require retrieval of the latest saved task definition before execution.
+- `Minisculpter Dev` — enabled; prompt revision `DEV-2026-09-12.002` at this review.
+- `Minisculpter Coordination` — disabled at this review; task control exposes no actor/origin, so pause provenance is unresolved and must not be inferred or overridden.
+- `Minisculpter Automation` — enabled; prompt revision `MGR-2026-09-12.008`.
+- `Daily Minisculpter report` — enabled; prompt revision `DAILY-2026-09-12.003`.
+- Coordinator prompt revision remains `COORD-2026-09-12.006` while disabled.
+- Prompt Ledger and Technical Findings Ledger remain disabled inert storage/history only; legacy duplicate tasks remain disabled.
+- All four authoritative prompts support exact `Run task` as the manual-run alias and retrieve the latest saved task definition before execution.
 
 ## Canonical current-state architecture
-- `CURRENT_EXECUTION_STATE.md` — execution baton.
-- `TECHNICAL_DIRECTION_STATE.md` — Coordinator strategy state.
+- `CURRENT_EXECUTION_STATE.md` — current Coordinator↔Dev execution baton.
+- `TECHNICAL_DIRECTION_STATE.md` — Coordinator medium/long strategy state.
 - `ISSUE_STATE.md` — active/release-relevant/user-verification issue state.
-- `CROSS_AGENT_CONTEXT.md` — material user/cross-agent/process evidence.
+- `CROSS_AGENT_CONTEXT.md` — material user/cross-agent evidence bridge; not the primary automation-incident ledger.
+- `[AMF-xxx]` GitHub Issues — primary Manager→Coordinator technical-finding review/disposition channel during the current pilot.
+- `[AUTO-INC-xxx]` GitHub Issues — primary durable automation/process incident records.
 - `HANDOFF.md`, `TECHNICAL_ROADMAP.md`, `ISSUES.md` — legacy/read-only context.
 - `PROJECT_STATUS.md` — secondary dashboard only.
 
 ## Current repository / release truth
-- Stable: `v1.0.28` at `6ed31b98fe426e0ca0184530a279abce43b7031f`.
-- Writable: `v1.0.29`; no release freeze/publication.
-- Branch HEAD before this Manager record: `fb59325b62a834d3a91e04043eb98491329918ed`.
-- CURRENT objective D is COMPLETE — COORDINATOR REVIEW REQUESTED.
-- Objectives A–C are complete: semantic bootstrap, durable generation job envelope, and cancellation/recovery closure.
-- Validated application head `7b96524ae90fd7ecf237201121de2eaee0ff022f` passed integrated .NET/Core, Python/runtime/job, backend lifecycle, geometry, release-audit and packaging checks.
-- Latest branch-head build/core workflows are green.
+- Stable: `v1.0.30` at `3a349a38836641caee2a7c9c68d9b0e15febe5cd`.
+- Writable: `v1.0.31`; root `VERSION` is `1.0.31`; no release freeze/publication.
+- Branch HEAD before this Manager record: `e823ccb958fd101c2183a84804ce5a4411799421` (`coord: prioritize MS-032 before Stage-C rehydration`).
+- Current objective A0 is `MS-032` terminal non-cancelled generation-failure envelope retirement; state READY.
+- Ordered continuation after A0: generated-object rehydration/edit continuity → cleanup/export integrity → storage/offline containment → integrated v1.0.31 checkpoint / Coordinator review.
+- Latest visible exact-head `core-foundation` workflow for `e823ccb...` completed successfully.
 
-## Current process state
-- `patch-control` is operational and was used repeatedly for Stage-C large-file edits. Two malformed requests failed closed and were followed by corrected successful requests; no target corruption occurred.
-- Release-control has no active v1.0.29 publication request.
-- CURRENT_EXECUTION_STATE is current. TECHNICAL_DIRECTION_STATE and PROJECT_STATUS still lag behind the completed A–C work and should be reconciled by the Coordinator review before further queue advancement.
-- No active conflicting repository or release workflow was observed during this Manager review.
+## Finding / incident state
+- `AMF-001` / GitHub Issue #2 was independently ACCEPTED by Coordinator, promoted to canonical `MS-032`, and closed `completed` after promotion.
+- `AUTO-INC-001` / GitHub Issue #3 records the initial incident-persistence safety block. Persistence succeeded on this review; an explicit state-reason close was safety-blocked, then a narrowed close retry succeeded and GitHub recorded the issue as `completed`.
+- `MS-032` remains active in product code at current HEAD; implementation belongs to Dev, not Manager.
 
 ## Reliability outcomes
 - AMP-006 global lease: HARMFUL / RETIRED.
-- Connector-first routing: HELPED.
-- Wait-before-defer: HELPED.
-- Narrow Coordinator Dev-resume authority: HELPED.
-- AMP-007B degraded mode: HELPED.
-- AMP-007C/D/E neutral small-state persistence: HELPED materially.
-- Validated `patch-control` large-file editing: HELPED; fail-closed behavior also worked on malformed requests.
-- `Run task` latest-prompt manual alias: APPLIED; this Manager run successfully retrieved and executed the current saved definition.
+- Connector-first routing and wait-before-defer: HELPED.
+- Small neutral canonical-state architecture: HELPED materially.
+- Validated `patch-control`: HELPED; fail-closed guards preserved.
+- GitHub-Issue AMF pilot + AMP-008 lifecycle: HELPED.
+- AMP-009 Coordinator minimal-write discipline: HELPED; execution reprioritization no longer requires unnecessary strategy-state rewrites.
+- AMP-010 prompt-contract lint: HELPED; continue checking live prompt agreement each review.
+- AUTO-INC GitHub-Issue protocol: HELPED after the initial persistence block; first incident is now durably recorded and closed.
+- Manager bounded incident-persistence retry policy: HELPED; one narrowed retry recovered the close operation without blind looping.
 
 ## Verification focus
-1. Coordinator reconciles TECHNICAL_DIRECTION_STATE / PROJECT_STATUS and decides v1.0.29 release-readiness/chunk or replenishes CURRENT before Dev advances.
-2. Preserve patch-control fail-closed guards and exact-head/blob discipline.
-3. Confirm Dev enablement remains intentional if future repository/task evidence becomes contradictory.
-4. Keep mutable current-state files small and writable.
+1. Do not infer or override Coordinator disablement provenance; only resume under the established authorization rules.
+2. Dev advances A0 / MS-032 before rehydration when safe to run.
+3. Keep AMF and AUTO-INC lifecycle/status aligned with canonical state and live evidence.
+4. Preserve patch/release/forward/version-control fail-closed guards and exact-head discipline.
+5. Keep this Manager state concise and reconcile it when release/branch/process truth materially changes.
