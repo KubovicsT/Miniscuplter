@@ -522,7 +522,7 @@ public partial class Main
     {
         if (_v109GridRoot == null) return;
         var mesh = new ImmediateMesh();
-        var mat = new StandardMaterial3D { AlbedoColor = color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+        var mat = new StandardMaterial3D { AlbedoColor = color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
         mesh.SurfaceBegin(Mesh.PrimitiveType.Triangles, mat);
         for (float p = -250; p <= 250.01f; p += spacing)
         {
@@ -538,7 +538,7 @@ public partial class Main
     {
         if (_v109GridRoot == null) return;
         var mesh = new ImmediateMesh();
-        var mat = new StandardMaterial3D { AlbedoColor = color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+        var mat = new StandardMaterial3D { AlbedoColor = color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
         mesh.SurfaceBegin(Mesh.PrimitiveType.Triangles, mat);
         AddV1015HorizontalQuad(mesh, new Vector3(0, .065f, 0), 500f, width, xAxis);
         mesh.SurfaceEnd();
