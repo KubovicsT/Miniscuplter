@@ -82,7 +82,7 @@ public partial class Main
     public void InstallResourceTelemetry()
     {
         if (_resourceTelemetryTimer != null) return;
-        if (FindChild("AI Command Console", true, false) is not Control console || console.GetParent() is not VBoxContainer root) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
 
         var panel = new VBoxContainer
         {
@@ -91,11 +91,18 @@ public partial class Main
             TooltipText = "Local, low-overhead resource sampling. Unsupported GPU sensors are omitted rather than estimated."
         };
         panel.AddThemeConstantOverride("separation", 2);
+        panel.MouseFilter = Control.MouseFilterEnum.Pass;
+        panel.ZIndex = 23;
+        panel.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
+        panel.OffsetLeft = 12;
+        panel.OffsetRight = 300;
+        panel.OffsetTop = -220;
+        panel.OffsetBottom = -12;
 
         _resourceJobLabel = new Label { Text = "Resources · idle", TooltipText = "Active provider, current AI stage and elapsed time." };
         panel.AddChild(_resourceJobLabel);
 
-        var grid = new GridContainer { Columns = 4, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var grid = new GridContainer { Columns = 2, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         (_resourceGpuLabel, _resourceGpuGraph) = AddResourceMetric(grid, "GPU", "GPU utilization from NVIDIA telemetry when available.");
         (_resourceVramLabel, _resourceVramGraph) = AddResourceMetric(grid, "VRAM", "Dedicated GPU memory use normalized against dedicated VRAM capacity.");
         (_resourceRamLabel, _resourceRamGraph) = AddResourceMetric(grid, "RAM", "System physical-memory utilization on Windows.");
@@ -109,8 +116,7 @@ public partial class Main
         };
         panel.AddChild(_resourcePeakLabel);
 
-        root.AddChild(panel);
-        root.MoveChild(panel, Math.Min(console.GetIndex() + 1, root.GetChildCount() - 1));
+        host.AddChild(panel);
 
         using var process = Process.GetCurrentProcess();
         _resourceLastCpuTime = process.TotalProcessorTime;
