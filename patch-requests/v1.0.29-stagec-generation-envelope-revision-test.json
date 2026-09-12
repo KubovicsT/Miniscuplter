@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.29",
+  "expected_head_sha": "9ba0631007ad4057eefb60645ccf3c9451aba4a7",
+  "target_path": "Core.Tests/StageCGenerationTests.cs",
+  "expected_blob_sha": "098a298545a832b05a36e5caa3e580cd7dc052bf",
+  "commit_message": "test: assert generation envelope transaction revision",
+  "patch": "diff --git a/Core.Tests/StageCGenerationTests.cs b/Core.Tests/StageCGenerationTests.cs\n--- a/Core.Tests/StageCGenerationTests.cs\n+++ b/Core.Tests/StageCGenerationTests.cs\n@@ -54,7 +54,7 @@ internal static class StageCGenerationTests\n         var staleJob = StageCGeneration.BeginImageToMesh(session);\n         Assert(staleJob.ProjectId == session.Current.ProjectId, \"generation job did not capture project identity\");\n         Assert(staleJob.InputImageRevisionId == firstImage.Id, \"generation job did not capture immutable baseline revision\");\n-        Assert(staleJob.InputProjectRevisionNumber == session.Current.RevisionNumber, \"generation job did not capture project revision number\");\n+        Assert(staleJob.InputProjectRevisionNumber + 1 == session.Current.RevisionNumber, \"generation job envelope transaction did not advance exactly one project revision\");\n \n         StageCGeneration.AcceptBaseline(session, secondImage.Id);\n         var staleMesh = await store.CreateMeshRevisionAsync(projectPath, staleJob.OutputObjectId, Tetra(), \"unit-test:stale-generated\");\n"
+}
