@@ -32,6 +32,37 @@ public static class StageCEditing
         return true;
     }
 
+    public static bool SetTransformIfCurrent(
+        ProjectSession session,
+        ObjectId objectId,
+        RevisionId expectedMeshRevisionId,
+        TransformState expectedTransform,
+        TransformState transform,
+        string operation = "transform")
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        expectedTransform.Validate();
+        transform.Validate();
+        if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))
+            throw new InvalidOperationException($"Stage-C object {objectId} does not exist.");
+        if (obj.ActiveMeshRevisionId != expectedMeshRevisionId || obj.Transform != expectedTransform)
+            throw new InvalidOperationException("Stage-C transform command is stale because the object advanced before commit.");
+        if (obj.Transform == transform) return false;
+
+        session.Execute(
+            $"{TransactionPrefix} {NormalizeOperation(operation)}",
+            state =>
+            {
+                if (!state.Objects.TryGetValue(objectId, out ProjectObject? current))
+                    throw new InvalidOperationException($"Stage-C object {objectId} no longer exists.");
+                if (current.ActiveMeshRevisionId != expectedMeshRevisionId || current.Transform != expectedTransform)
+                    throw new InvalidOperationException("Stage-C object advanced before the transform transaction could commit.");
+                return state.WithObject(current with { Transform = transform });
+            },
+            objectId);
+        return true;
+    }
+
     public static void CommitMeshRevision(
         ProjectSession session,
         ObjectId objectId,
