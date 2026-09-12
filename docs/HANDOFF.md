@@ -2,106 +2,112 @@
 
 > Immediate and downstream execution baton. TECHNICAL_ROADMAP owns whole-system strategy; this file tells Dev what it may execute continuously.
 
-Last updated: 2026-09-11
+Last updated: 2026-09-12
 
 ## Repository / release state
 
-- **Latest published stable:** `v1.0.25` at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
-- **Current writable development branch:** `v1.0.26`.
-- **Current branch HEAD before this handoff commit:** `4418d74fde5c6cbb72237946d73ad2f960abfd73`.
-- **Latest exact-head CI-green implementation checkpoint:** `4418d74fde5c6cbb72237946d73ad2f960abfd73`.
-- **Release freeze:** none.
-- **v1.0.26 release-control request:** none found.
-- **Release decision:** KEEP ACCUMULATING; Dev is now in integrated candidate hardening and must not publish.
+- **Latest published stable at handoff time:** `v1.0.25` at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
+- **Frozen source:** `v1.0.26` at exact candidate `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
+- **v1.0.26 release-control request:** submitted on `release-control`; autonomous release workflow is running.
+- **Current writable development branch:** `v1.0.27`.
+- **Forward-branch reconciliation:** the earlier premature/orphan v1.0.27 was fast-forwarded to the actual frozen v1.0.26 candidate as part of the real release transition.
+- **v1.0.27 identity:** mechanically bootstrapped to 1.0.27 across launcher, updater/editor assembly, installer, Windows export metadata, backend API, editor display and release audit.
+- **Dev automation state:** paused by user/Manager state. Coordinator did not and must not enable it.
 
-## Completed objectives in current ancestry
+## Released-candidate contents
 
-### Objective A — canonical backend startup / repaired-runtime contract: AUTOMATED ACCEPTANCE MET
+v1.0.26 freezes a coherent acceptance/reliability tranche:
+- Core-authoritative viewport Move/Rotate/Scale drag persistence;
+- MS-030 canonical packaged FastAPI/Uvicorn startup and Repair health ownership;
+- MS-029 updater health-probe lifecycle fix;
+- MS-009 retirement of competing resize/world-repair owners;
+- MS-027 user-directed compact workspace tranche.
 
-The earlier incomplete `python app.py` lifecycle has been replaced by a real packaged server contract:
+MS-030, MS-009 and MS-029 remain **FIXED - NEEDS USER VERIFICATION** where applicable. The current MS-027 tranche is implemented but also needs target-machine UX verification.
 
-- `ai_backend/serve.py` is the canonical executable Uvicorn/FastAPI entry point and enforces loopback binding;
-- Repair launches that server with the backend-local repaired `.venv`, an isolated ephemeral port and a unique instance token;
-- Repair verifies both expected backend version and its own instance token before reporting success, then kills/awaits the probe process;
-- editor production startup uses the same `serve.py` contract, same repaired backend-local `.venv`, production port `7868`, expected version and instance-token readiness check;
-- process-tree containment, data/runtime-root environment and bounded diagnostics remain in place;
-- `tools/backend_lifecycle_tests.py`, C# runtime ownership regressions and release audit are in exact-head CI.
+## CURRENT OBJECTIVE — A: validate v1.0.27 bootstrap / preserve release isolation
 
-MS-030 remains **FIXED - NEEDS USER VERIFICATION** in product acceptance terms until the reference machine confirms Repair health and Generate 3D reaches provider resolution/inference.
-
-### Objective B — MS-009 viewport resize/render authority: IMPLEMENTATION ACCEPTED, USER RETEST PENDING
-
-The historical conflicting resize/presentation path is now retired instead of being layered with another repair loop:
-
-- native `SubViewportContainer.Stretch` remains the normal render-target size owner;
-- the v1.0.9 direct resize writer and v1.0.11 resize-triggered world repair are explicitly unsubscribed once the native pipeline takes ownership;
-- the v1.0.17 size watchdog is stopped;
-- ordinary resize only refreshes diagnostics/probing; it does not recreate/rebind world state;
-- focused `ViewportResizeOwnershipTests` guard owner retirement and prohibit reintroducing a direct `SubViewport.Size` writer.
-
-MS-009 remains **FIXED - NEEDS USER VERIFICATION** until the Windows/GTX 1080 reference machine proves grid/background/model/gizmo presentation is invariant through splitter resize.
-
-### Objective C — user-directed MS-027 compact workspace tranche: AUTOMATED ACCEPTANCE MET
-
-The required four visible corrections are implemented as one bounded workspace tranche:
-
-1. multi-line scrollable AI command console/history with explicit Run and authoritative dispatch;
-2. rendered interactive orientation cube synchronized to the authoritative camera;
-3. compact viewport tool controls with permanent instruction prose hidden;
-4. workflow explanatory prose moved behind compact circular info/tooltips.
-
-`WorkspaceAcceptanceTests`, compact workspace Python regressions and exact-head C#/packaging CI cover the tranche. Target-machine UX remains to be verified in the eventual release build.
-
-## CURRENT OBJECTIVE — D: integrated v1.0.26 release-candidate hardening
-
-**Goal / outcome**  
-Produce one coherent exact-HEAD candidate containing runtime, updater, viewport and user-directed UI acceptance work.
-
-**Current progress**
-- Exact-head `4418d74...` GitHub Actions is green for:
-  - editor/launcher/updater/Core C# build and Core tests;
-  - semantic-version identity;
-  - Python compile/dependency resolution;
-  - core logic, execution foundation and durable job journal tests;
-  - compact workspace regressions;
-  - canonical backend lifecycle test;
-  - real geometry regressions;
-  - strict release audit;
-  - portable package creation/layout;
-  - ZIP SHA-256 sidecar verification;
-  - installer-definition compilation.
-- Branch publication jobs were correctly skipped.
-- Full real Godot Windows export + generated-installer smoke-install remain release-candidate gates not exercised by the ordinary branch workflow; do not misreport those as passed.
+**Outcome**  
+Ensure the forward branch is internally coherent while v1.0.26 publishes.
 
 **Constraints**
-- no unrelated feature expansion;
-- reconcile issue/status docs honestly;
-- preserve MS-029 fix and document that immutable v1.0.25's updater can still cause one manual reopen on the v1.0.25 → v1.0.26 transition;
-- run strongest available C#/Core/Python/runtime/geometry/execution/release-audit/Windows export/package/hash/installer validation;
-- verify storage/data/runtime-cache/venv preservation and version identity;
-- Dev must not create release-control, tag or GitHub Release.
+- never mutate frozen v1.0.26 while its release request is active;
+- v1.0.27 remains the only writable application branch;
+- no product-feature changes until semantic-version identity and exact-head CI are green;
+- do not modify release-control from Dev.
 
-**Remaining acceptance work**
-1. obtain/record a real Godot 4.7.2 Windows export at exact candidate HEAD;
-2. build the generated installer from that exact export and smoke-install it;
-3. re-check exact-head release identity, storage/runtime containment and packaged `serve.py` presence;
-4. reconcile PROJECT_STATUS / ISSUES for MS-030, MS-009 and MS-027 without converting target-machine-only evidence into CI acceptance;
-5. record the exact release-worthy checkpoint SHA if every available gate is green.
+**Dependencies**  
+None.
 
-**Acceptance / stop condition**  
-Exact current HEAD coherent, all available automated/package gates green, release-worthy checkpoint recorded, docs list remaining target-machine verification accurately, and HANDOFF marks `COORDINATOR REVIEW REQUESTED`.
+**Acceptance / stop condition**
+- semantic identity is 1.0.27 on all audited surfaces;
+- exact-head Core/build/release-audit/package validation is green;
+- docs identify v1.0.27 as writable and v1.0.26 as frozen/publishing.
 
 **Preemption**  
-Any failing release gate or new serious user evidence.
+Any v1.0.26 release failure that requires a source/candidate fix.
 
-**Auto-proceed:** NO. Release boundary/freeze is Coordinator-owned.
+**Auto-proceed:** YES → Objective B when Dev is enabled and no release/user blocker exists.
 
-## Queue depth / stop boundary
+## NEXT OBJECTIVE — B: bounded MS-019 mapped-object ground-placement authority
 
-Objectives A–C are now implemented and automated-acceptance complete. Objective D is the only authorized remaining objective. Once D's release-candidate gates are complete, stop and mark `COORDINATOR REVIEW REQUESTED`; do not create release-control, tag, release, or unrelated roadmap work.
+**Outcome**  
+Move one remaining scene-observed transform persistence seam onto durable Core transactional authority.
+
+**Constraints**
+- Godot remains live presentation/input owner;
+- Core remains durable transform/history owner;
+- derive from stable object/revision/transform state;
+- reject stale state before persistence;
+- project committed Core state back into Godot and restore from Core on failure;
+- focused regression must prevent scene-observed durable persistence from returning;
+- do not combine with broad selection retirement, sculpt rewrite, provider work or MS-020 expansion.
+
+**Dependencies**  
+Objective A accepted; v1.0.26 release is not failing; no higher-priority reference-machine evidence.
+
+**Acceptance / stop condition**  
+Ground placement persists through the durable transactional path with stale/failure regressions and exact-head validation green.
+
+**Preemption**  
+Any v1.0.26 release failure or new target-machine evidence about backend health, viewport, update behavior, persistence/data loss or Stage-C correctness.
+
+**Auto-proceed:** YES → Objective C if no preemption.
+
+## NEXT OBJECTIVE — C: bounded durable selection/picking authority seam
+
+**Outcome**  
+Advance Stage-D practical editing by moving one concrete selection/picking seam away from widget/name/scene authority onto stable object/revision identity.
+
+**Constraints**
+- one bounded seam only;
+- no scene-tree redesign;
+- selection binds to stable object/revision identity;
+- Godot owns hit-testing/presentation, Core owns durable selection-dependent state where persistence/history requires it;
+- topology/revision changes must invalidate or explicitly transfer selection rather than silently reusing stale indices;
+- preserve current viewport responsiveness.
+
+**Dependencies**  
+Objective B accepted; no new Critical acceptance evidence.
+
+**Acceptance / stop condition**  
+One production selection path uses stable identity with stale-revision regression coverage and no transform/sculpt/Stage-C regression.
+
+**Preemption**  
+Reference-machine failure from v1.0.26, release regression, persistence/data-safety issue, or Coordinator reprioritization.
+
+**Auto-proceed:** NO — Coordinator should review after this seam because v1.0.26 target-machine evidence is expected to materially influence Stage-D sequencing.
+
+## Queue-depth note
+
+The queue intentionally contains three substantial objectives rather than speculative 3–6 hour breadth beyond selection. v1.0.26 publication and imminent GTX 1080 acceptance can legitimately preempt migration work. This is sufficient safe forward work without diluting Stage-C acceptance.
 
 ## User verification dependency
 
-No user action is needed during hardening.
-
-When Coordinator publishes a fixed release, target-machine verification should cover: update/reopen, Repair health, Generate 3D reaching provider inference, resize invariance, the compact UI tranche, and then the full Stage-C save/reopen/edit/cleanup/export path.
+After v1.0.26 publishes, test in this order:
+1. update/reopen behavior;
+2. Repair AI Runtime;
+3. Generate 3D reaching provider resolution/inference;
+4. right-splitter and whole-window resize invariance;
+5. compact command console/view cube/tools/help UI;
+6. full Stage-C candidate Apply → save/reopen → edit/sculpt → cleanup → exact STL export, including storage/cancellation observations.
