@@ -146,7 +146,8 @@ public partial class Main
             try
             {
                 await V1020EnsureSessionAsync();
-                _v1020GenerationBinding = StageCGeneration.BeginImageToMesh(_v1020StageCSession!.Current);
+                _v1020GenerationBinding = StageCGeneration.BeginImageToMesh(_v1020StageCSession!);
+                await V1020SaveSessionAsync();
             }
             finally { _v1020StageCGate.Release(); }
         }
