@@ -30,15 +30,15 @@ Last manager review: 2026-09-12 13:04 Europe/Budapest
 - Stable: `v1.0.28` at `6ed31b98fe426e0ca0184530a279abce43b7031f`.
 - Writable: `v1.0.29`; no release freeze/publication.
 - Current v1.0.29 objective: semantic-version bootstrap.
-- Remaining identity surfaces: `ai_backend/app.py` APP_VERSION and `tools/release_audit.py` EXPECTED still identify as 1.0.28.
-- Python/runtime validation is blocked at the semantic-version identity gate until those two surfaces can be safely changed.
+- Previously blocked backend, release-audit and backend-lifecycle identity surfaces now identify as 1.0.29 through validated patch-control commits.
+- Exact-head build validation at `f83d9fd0e17b83c345a52a79f057bdd5632bf304` is green for .NET, Python/runtime, backend lifecycle, packaging/hash and installer-definition compilation.
 
 ## Current process state
 - Neutral-state migration removed HANDOFF, TECHNICAL_ROADMAP and monolithic ISSUES from the live write path.
 - CURRENT_EXECUTION_STATE authority-header reconciliation succeeded at `ef074abe...`.
 - ISSUE_STATE was created at `0a898202...` and carries MS-020 released-build evidence plus MS-031.
-- Latest Dev run reported two essential large-file version-identity writes safety-blocked on v1.0.29. A transient ranged-read replacement truncated `ai_backend/app.py`; Dev restored the exact original content immediately and the live backend file is intact.
-- Connector inspection shows no safe targeted line-edit/patch operation for ordinary repository files; available write path is whole-file replacement. Repeating the blocked large-file write or using low-level Git APIs to bypass safety is not allowed.
+- `patch-control` now provides exact-HEAD/exact-blob validated one-file unified-diff application for large existing text files on writable semantic-version branches, followed by explicit exact-head `build.yml` dispatch.
+- Live acceptance repaired the two original blocked identity writes plus the stale backend-lifecycle test identity without whole-file replacement; the earlier transient `ai_backend/app.py` truncation remains fully repaired.
 - User clarified pause provenance: Dev self-paused, user resumed it, then user manually paused it again. The present disabled state is an explicit user pause.
 
 ## Reliability outcomes
@@ -51,7 +51,7 @@ Last manager review: 2026-09-12 13:04 Europe/Budapest
 - Validated `patch-control` large-file editing: HELPED in live v1.0.29 acceptance tests.
 
 ## Verification focus
-1. Verify exact-head v1.0.29 validation after the patch-control bootstrap repairs.
+1. Preserve patch-control fail-closed guards and use it only when ordinary whole-file writes are unsafe or blocked.
 2. Preserve the current explicit user pause until the user resumes Dev.
 3. Keep current neutral state files small and writable.
 4. Future automation replies start with AUTOMATION ISSUES and include LAST RUN time in Europe/Budapest.
