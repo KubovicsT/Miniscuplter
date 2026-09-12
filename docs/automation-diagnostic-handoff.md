@@ -31,3 +31,5 @@ Auto-proceed: NO.
 
 ## Preemption
 Any new update/backend/generation/persistence/storage/cancellation/data-safety failure outranks lower work.
+
+Diagnostic update marker: existing-file replacement path.
