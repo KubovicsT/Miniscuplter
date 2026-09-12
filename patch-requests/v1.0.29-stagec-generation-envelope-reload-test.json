@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.29",
+  "expected_head_sha": "d4b1f4ba5b15d24171d3357e4e70c9550112c1b3",
+  "target_path": "Core.Tests/StageCGenerationTests.cs",
+  "expected_blob_sha": "0ce9a2a8dbb6a656eb8fda561a11a9bd943b80f3",
+  "commit_message": "test: prove generation envelope survives reload",
+  "patch": "diff --git a/Core.Tests/StageCGenerationTests.cs b/Core.Tests/StageCGenerationTests.cs\n--- a/Core.Tests/StageCGenerationTests.cs\n+++ b/Core.Tests/StageCGenerationTests.cs\n@@ -55,6 +55,11 @@ internal static class StageCGenerationTests\n         Assert(staleJob.ProjectId == session.Current.ProjectId, \"generation job did not capture project identity\");\n         Assert(staleJob.InputImageRevisionId == firstImage.Id, \"generation job did not capture immutable baseline revision\");\n         Assert(staleJob.InputProjectRevisionNumber + 1 == session.Current.RevisionNumber, \"generation job envelope transaction did not advance exactly one project revision\");\n+        await store.SaveAsync(session.Current, projectPath);\n+        var envelopeReload = await store.LoadAsync(projectPath);\n+        var reloadedJob = StageCGeneration.ReadGenerationJobs(envelopeReload).Single(x => x.JobId == staleJob.JobId);\n+        Assert(reloadedJob == staleJob, \"generation job envelope identity changed across project save/reload\");\n+        Assert(reloadedJob.OutputObjectId == staleJob.OutputObjectId, \"generation output object identity changed across project save/reload\");\n \n         StageCGeneration.AcceptBaseline(session, secondImage.Id);\n         var staleMesh = await store.CreateMeshRevisionAsync(projectPath, staleJob.OutputObjectId, Tetra(), \"unit-test:stale-generated\");\n"
+}
