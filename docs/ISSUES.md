@@ -117,7 +117,7 @@ Last reconciled: 2026-09-10
 ## MS-009 — 3D viewport/grid/model/gizmo rendering is unstable or unreadable
 
 - **Severity:** Critical
-- **Status:** IN PROGRESS
+- **Status:** FIXED - NEEDS USER VERIFICATION
 - **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine testing and reproduced again on released v1.0.25
 - **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect; the grid does not occlude geometry.
 - **Historical actual:** output STL could exist while the center 3D surface was completely blank.
@@ -129,7 +129,8 @@ Last reconciled: 2026-09-10
 - **Verification history:** implementation/Core/C#/Python/geometry/release-audit validation was green in the v1.0.22 candidate, but this is a real-renderer symptom and CI was never sufficient acceptance evidence.
 - **v1.0.25 reference-machine result (2026-09-11): FAILED.** User screenshot after right-panel/splitter resize shows the 3D viewport/grid presentation still darkens materially after resize. Layout fill remains present, so this evidence is MS-009 rather than the separate MS-024 client-fill seam.
 - **Current code observation:** `V1022InstallViewportPresentationGuard` reacts to `ViewportHost.Resized` by reapplying studio lighting, hiding the opaque grid ground, updating the gizmo and arming the render probe. The persisted failure proves that this lightweight reassertion is not sufficient on the reference renderer. Do not add another blind delayed repaint/reassert loop without identifying which render/world/environment state actually changes across resize.
-- **Next action:** reproduce/instrument initial-vs-post-resize viewport state on Windows/Godot, compare SubViewport world/environment/camera/grid material/render target state before and after splitter drag, identify the state transition that causes the dark presentation, then fix the single owner/root cause. Preserve Stretch as the size owner unless evidence proves it is wrong; do not reintroduce competing `SubViewport.Size` writers. Require reference-machine retest before resolving.
+- **v1.0.26 implementation:** historical resize/world-repair owners were retired so native `SubViewportContainer.Stretch` remains the normal render-target size owner; focused ownership regressions guard against restoring direct `SubViewport.Size` writes or resize-triggered world repair.
+- **Next action:** verify on released v1.0.26 using repeated right-splitter and whole-window resize on the GTX 1080 reference machine. CI is not sufficient to resolve this renderer-sensitive issue.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -221,7 +222,7 @@ Last reconciled: 2026-09-10
 - **Actual:** the bounded production path is coherent in code/tests, but the complete workflow has not yet been qualified on the target machine.
 - **Attempts/fixes:** v1.0.12–v1.0.19 hardened provider, viewport, storage, geometry and update seams. v1.0.20 moved accepted baseline, generated candidate, explicit Apply/Discard, transport identity, recovery-safe saves, cleanup and exact STL export onto Core/ProjectStore and added Core-authoritative transform plus one immutable sculpt path. v1.0.22 fixes the production Generate-3D ownership seam that real-machine testing showed could bypass this durable path entirely.
 - **Result:** automated state/revision semantics remain strong, and v1.0.22 now routes the production button deterministically into them. Stage-C itself remains unaccepted pending the released-build reference-machine flow.
-- **Next action:** after v1.0.22 publication run the complete thin slice, including restart persistence, transform/sculpt, cleanup/export, storage and cancellation evidence.
+- **Next action:** after v1.0.26 publication run the complete thin slice on the reference machine, starting with update/reopen, Repair health and Generate 3D, then candidate Apply, save/reopen, transform/sculpt, cleanup/export, storage containment and cancellation evidence.
 
 ## MS-019 — Legacy `Main.V*.cs` architecture remains authoritative
 
@@ -320,7 +321,7 @@ Last reconciled: 2026-09-10
 ## MS-027 — Modular resizable workspace UI overhaul
 
 - **Severity:** High product/UX acceptance
-- **Status:** IN PROGRESS — USER-DIRECTED ACCEPTANCE SCOPE
+- **Status:** IN PROGRESS — CURRENT v1.0.26 USER-DIRECTED TRANCHE IMPLEMENTED, NEEDS USER VERIFICATION
 - **User direction:** 2026-09-10 annotated UI specification, reinforced by 2026-09-11 v1.0.25 reference-machine screenshot and explicit acceptance corrections.
 - **Scheduling rule:** MS-030 and MS-009, plus any new serious correctness/persistence/data-safety/release/Stage-C blocker, preempt MS-027. Once those are code-fixed and validated, the 2026-09-11 user-directed UI acceptance tranche is the next product-facing v1.0.26 work before integrated release hardening.
 - **Primary goal:** make Miniscuplter feel like a compact modeling application rather than a large form full of explanatory text, while preserving the existing backend/state semantics.
@@ -329,7 +330,8 @@ Last reconciled: 2026-09-10
 - **Validation:** implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed Stage-B/Core, full C# builds, Python/core/execution/geometry/release-audit validation, portable package layout/hash and installer-definition compilation. Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs; packaging was still finishing when this ledger entry was written and must be checked before claiming exact-head validation.
 - **Result:** first bounded modernization slice is implemented without broadening into a UI rewrite or displacing the v1.0.22 acceptance dependency. Real restart/layout/scale behavior still needs target/UI verification before the slice can be considered accepted.
 - **2026-09-11 v1.0.25 reference-machine evidence:** the current UI still presents the AI command entry as a single top strip with a separate full-width action row; the top-right orientation control is only a flat letter/button box rather than an actual 3D view cube; the viewport's top-left tool overlay still consumes substantial space with letter controls plus instructional text; and the right-side 3D panel still contains persistent explanatory paragraphs. The user explicitly wants detailed explanations moved behind small circular `i` affordances shown on hover.
-- **Next action after MS-030 and MS-009:** implement the user-directed MS-027 acceptance tranche below. Reuse existing command dispatch, viewport-tool state, camera/view snapping, and panel action owners; this is a presentation/interaction correction, not permission to create parallel state machines.
+- **v1.0.26 tranche result:** the four explicit v1.0.25 corrections are implemented and regression-covered: multi-line scrollable command console/history, rendered interactive orientation cube, compact viewport tools, and explanatory workflow prose moved behind compact info/tooltips. Existing command/camera/tool authority is reused.
+- **Next action:** verify this tranche on released v1.0.26. Keep broader scene-tree/resource/performance workspace work open for later.
 
 ### Required workspace structure
 
@@ -444,14 +446,14 @@ Do not broaden this tranche into scene-tree redesign, resource-graph work, new m
 ## MS-030 — Packaged backend health fails after successful Runtime Repair
 
 - **Severity:** Critical
-- **Status:** IN PROGRESS
+- **Status:** FIXED - NEEDS USER VERIFICATION
 - **First observed:** released v1.0.25 reference-machine testing on 2026-09-11.
 - **Reproduction:** 3D generation fails after ~2 seconds at local-backend health; Repair AI Runtime can report success yet retry still fails.
 - **Impact:** blocks the primary Stage-C `2D → 3D` workflow completely.
 - **Attempt 1 — runtime authority convergence:** `4efd840eaa774a87c7dd8ec8aaba98479e02e266` made the editor use the backend-local repaired `.venv` and removed embedded/PATH interpreter fallback. `6dcb754b552f6254d6ab6165ecf94725f354bc2d` added a Repair health smoke using the same interpreter. `1e6ed3541de6de4bec19838e71595e4b76dbedfa` added source regressions. CI is green.
 - **Coordinator end-to-end finding (2026-09-11):** Attempt 1 is incomplete. `ai_backend/app.py` defines `app = FastAPI(...)` and endpoints, but has no executable server entry point. Both `BackendLauncher` and Repair invoke it as `python app.py`, which can exit without opening port 7868. Green source/build CI therefore does not prove backend startup.
 - **Second hidden risk:** Repair currently probes production port 7868. If another backend is already listening, Repair could validate the wrong process. The smoke must use an isolated port or otherwise bind health identity to the process/runtime it launched and verify expected backend version/identity.
-- **Required fix:** establish one canonical backend server-start contract shared by editor and Repair; run the actual Uvicorn/FastAPI server under the repaired venv; keep loopback-only binding; isolate/identify the Repair smoke; retain process-tree containment and bounded startup stderr/exit diagnostics.
+- **v1.0.26 implementation:** editor and Repair now use the same backend-local repaired `.venv`; packaged `ai_backend/serve.py` is the canonical Uvicorn/FastAPI entry point; Repair uses an isolated loopback smoke port plus an instance token and expected backend version; editor production startup uses the same server contract on port 7868; process-tree containment and bounded startup diagnostics remain intact.
 - **Verification:** actual packaged startup/health lifecycle test plus focused regression coverage and full exact-head validation; reference-machine Repair must only succeed after its own backend is healthy, and Generate 3D must then reach provider resolution/inference.
-- **Next action:** complete canonical server startup before any MS-009/MS-027 work. Move only to FIXED - NEEDS USER VERIFICATION after the real server lifecycle is proven in the packaged path.
+- **Next action:** on released v1.0.26, Repair AI Runtime must complete only after its isolated backend is healthy; then Generate 3D must pass health and reach provider resolution/inference on the GTX 1080 reference machine.
 
