@@ -1,6 +1,6 @@
 # Miniscuplter Technical Direction State
 
-This file is the authoritative medium/long-horizon technical-direction state owned by the Project Coordinator. It stores project strategy facts only; behavioral rules remain in automation prompts. `docs/TECHNICAL_ROADMAP.md` is legacy/read-only context.
+This file is the authoritative medium/long-horizon technical-direction state owned by the Project Coordinator. It stores project strategy facts only; behavioral rules remain in automation prompts. `docs/TECHNICAL_ROADMAP.md` is legacy/read-only context.\n\n- last_reconciled: 2026-09-12
 
 ## Architecture ownership
 - durable_project_state: Core
