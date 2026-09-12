@@ -117,7 +117,7 @@ Last reconciled: 2026-09-10
 ## MS-009 — 3D viewport/grid/model/gizmo rendering is unstable or unreadable
 
 - **Severity:** Critical
-- **Status:** FIXED - NEEDS USER VERIFICATION
+- **Status:** IN PROGRESS
 - **First observed:** repeatedly through v1.0.11–v1.0.18; reopened by released v1.0.20 reference-machine testing and reproduced again on released v1.0.25
 - **Expected:** a visible, stable, readable 3D workspace exists immediately at launch; grid/axes/model/gizmo remain visually consistent across resize; model form/details are easy to inspect; the grid does not occlude geometry.
 - **Historical actual:** output STL could exist while the center 3D surface was completely blank.
@@ -130,7 +130,8 @@ Last reconciled: 2026-09-10
 - **v1.0.25 reference-machine result (2026-09-11): FAILED.** User screenshot after right-panel/splitter resize shows the 3D viewport/grid presentation still darkens materially after resize. Layout fill remains present, so this evidence is MS-009 rather than the separate MS-024 client-fill seam.
 - **Current code observation:** `V1022InstallViewportPresentationGuard` reacts to `ViewportHost.Resized` by reapplying studio lighting, hiding the opaque grid ground, updating the gizmo and arming the render probe. The persisted failure proves that this lightweight reassertion is not sufficient on the reference renderer. Do not add another blind delayed repaint/reassert loop without identifying which render/world/environment state actually changes across resize.
 - **v1.0.26 implementation:** historical resize/world-repair owners were retired so native `SubViewportContainer.Stretch` remains the normal render-target size owner; focused ownership regressions guard against restoring direct `SubViewport.Size` writes or resize-triggered world repair.
-- **Next action:** verify on released v1.0.26 using repeated right-splitter and whole-window resize on the GTX 1080 reference machine. CI is not sufficient to resolve this renderer-sensitive issue.
+- **v1.0.27 reference-machine result (2026-09-12): FAILED.** On the released GTX 1080 build, the 3D viewport grid is absent again. This is stronger evidence than CI and reopens the issue as active P0 work.
+- **Next action:** root-cause the actual grid/render ownership seam on v1.0.28 and restore a visible neutral non-occluding grid at launch and through resize. Do not add another blind timer/repaint/world-repair loop.
 
 ## MS-010 — 2D regional AI editing originally expected image selection in the 3D viewport
 
@@ -309,11 +310,13 @@ Last reconciled: 2026-09-10
 ## MS-026 — In-app resource telemetry/graphs for long AI jobs
 
 - **Severity:** Medium product/observability enhancement
-- **Status:** PLANNED
+- **Status:** IN PROGRESS
 - **First requested:** 2026-09-10 during reference-machine Hunyuan test
 - **User need:** the user currently watches Windows Task Manager during long AI runs to understand resource use and wants useful resource graphs inside Miniscuplter.
 - **First real-machine datapoint:** during a successful Hunyuan-mini run (~402 s), the supplied Task Manager snapshot showed ~97% GPU utilization, ~5.4/8.0 GB dedicated VRAM, ~5.6/16.0 GB total GPU memory including shared memory, ~5.0/15.9 GB system RAM in use, and ~73 °C GPU temperature. Treat these as snapshot values, not proven peaks.
-- **Planned UX:** lightweight rolling graphs/current values for GPU utilization, dedicated VRAM, system RAM and GPU temperature; CPU as secondary. Show job/provider/stage and elapsed time alongside telemetry, and retain a compact post-job summary including observed peak resource values where available.
+- **v1.0.27 reference-machine evidence (2026-09-12):** rolling GPU/temperature, VRAM, RAM and CPU telemetry is visible and functioning, so the feature has moved beyond planned. The current full-width horizontal placement consumes too much workspace.
+- **User layout requirement:** tile the resource telemetry compactly 2×2 in the bottom-left corner rather than as a full-width band.
+- **Planned/remaining UX:** lightweight rolling graphs/current values for GPU utilization, dedicated VRAM, system RAM and GPU temperature; CPU as secondary. Show job/provider/stage and elapsed time alongside telemetry, and retain a compact post-job summary including observed peak resource values where available.
 - **Constraints:** local-only, low overhead, approximately 1 Hz sampling is sufficient, gracefully omit unavailable sensors, and do not invent unsupported metrics. Telemetry must not materially reduce inference performance.
 - **Product value:** supports MS-022 provider qualification and future evidence-based Fast/Balanced/Quality routing instead of being decorative monitoring.
 - **Priority:** implement after the current correctness/persistence and viewport blockers unless minimal sampling directly helps MS-022 acceptance.
@@ -321,7 +324,7 @@ Last reconciled: 2026-09-10
 ## MS-027 — Modular resizable workspace UI overhaul
 
 - **Severity:** High product/UX acceptance
-- **Status:** IN PROGRESS — CURRENT v1.0.26 USER-DIRECTED TRANCHE IMPLEMENTED, NEEDS USER VERIFICATION
+- **Status:** IN PROGRESS — v1.0.27 REFERENCE-MACHINE CORRECTIONS REQUIRED
 - **User direction:** 2026-09-10 annotated UI specification, reinforced by 2026-09-11 v1.0.25 reference-machine screenshot and explicit acceptance corrections.
 - **Scheduling rule:** MS-030 and MS-009, plus any new serious correctness/persistence/data-safety/release/Stage-C blocker, preempt MS-027. Once those are code-fixed and validated, the 2026-09-11 user-directed UI acceptance tranche is the next product-facing v1.0.26 work before integrated release hardening.
 - **Primary goal:** make Miniscuplter feel like a compact modeling application rather than a large form full of explanatory text, while preserving the existing backend/state semantics.
@@ -330,8 +333,10 @@ Last reconciled: 2026-09-10
 - **Validation:** implementation commit `5faa1e528e6a81fb8db15942c68b3da71391743d` passed Stage-B/Core, full C# builds, Python/core/execution/geometry/release-audit validation, portable package layout/hash and installer-definition compilation. Exact code/test commit `74ec73a14645071bb2742fb68f778bedd656aabd` passed Stage-B/Core, C#, Python/core/execution/geometry and release-audit legs; packaging was still finishing when this ledger entry was written and must be checked before claiming exact-head validation.
 - **Result:** first bounded modernization slice is implemented without broadening into a UI rewrite or displacing the v1.0.22 acceptance dependency. Real restart/layout/scale behavior still needs target/UI verification before the slice can be considered accepted.
 - **2026-09-11 v1.0.25 reference-machine evidence:** the current UI still presents the AI command entry as a single top strip with a separate full-width action row; the top-right orientation control is only a flat letter/button box rather than an actual 3D view cube; the viewport's top-left tool overlay still consumes substantial space with letter controls plus instructional text; and the right-side 3D panel still contains persistent explanatory paragraphs. The user explicitly wants detailed explanations moved behind small circular `i` affordances shown on hover.
-- **v1.0.26 tranche result:** the four explicit v1.0.25 corrections are implemented and regression-covered: multi-line scrollable command console/history, rendered interactive orientation cube, compact viewport tools, and explanatory workflow prose moved behind compact info/tooltips. Existing command/camera/tool authority is reused.
-- **Next action:** verify this tranche on released v1.0.26. Keep broader scene-tree/resource/performance workspace work open for later.
+- **v1.0.26 tranche result:** the four explicit v1.0.25 corrections were implemented and regression-covered: multi-line scrollable command console/history, rendered orientation control, compact viewport tools, and explanatory workflow prose moved behind compact info/tooltips. Existing command/camera/tool authority is reused.
+- **v1.0.27 reference-machine evidence (2026-09-12):** viewport tool buttons are accepted. The console is correctly multi-line but still sits at the top and spans too much width; resource telemetry consumes a wide horizontal band; and the cube-in-square orientation control is explicitly rejected.
+- **Updated user direction:** console belongs at bottom center only between the scene tree and right panel, with contextual action buttons vertically stacked immediately to its right; resource graphs belong in a compact 2×2 bottom-left tile; orientation should match Blender's circular XYZ axis gizmo and does not need a cube body.
+- **Next action:** implement these bounded composition corrections on v1.0.28 after the P0 grid repair, preserving existing command/camera/tool authority.
 
 ### Required workspace structure
 
@@ -340,10 +345,10 @@ Last reconciled: 2026-09-10
    - Active tool is visibly highlighted.
    - Long explanatory text moves to hover tooltips/help rather than permanently occupying viewport space.
 
-2. **Interactive view selector cube**
-   - viewport-corner orientation cube rotates with the camera;
-   - clickable faces snap to Front/Back/Left/Right/Top/Bottom;
-   - clickable edges/corners snap to diagonal/isometric views;
+2. **Blender-style orientation gizmo**
+   - use a compact circular XYZ axis gizmo in the viewport corner, visually following Blender's navigation control;
+   - no cube body is required;
+   - axis endpoints and useful diagonal/orientation affordances should snap to canonical views;
    - normal orbit pivots around the currently selected scene entity when one exists.
 
 3. **Compact information density**
@@ -361,17 +366,17 @@ Last reconciled: 2026-09-10
    - this is a presentation of durable project/object identity, not a second independent scene-state model.
 
 5. **Performance/resource panel**
-   - integrate the MS-026 rolling resource telemetry here;
+   - integrate the MS-026 rolling resource telemetry as a compact 2×2 tile in the bottom-left;
    - GPU utilization, dedicated VRAM, system RAM, GPU temperature and useful CPU data where available;
    - provider/job stage/elapsed time and compact peak summary.
 
 6. **Unified AI command console**
-   - replace the single-line top command strip with a compact multi-line text console, visually closer to a command terminal than a one-line form field;
+   - use a compact multi-line text console at the bottom center of the app, horizontally confined to the workspace between the scene tree and right-side panel rather than spanning the whole app;
    - the text area must preserve line breaks and have its own vertical scrolling when content/history exceeds the visible height;
    - keep an explicit Run action; do not make multiline editing impossible just to support submission;
    - previous commands/history are visible and reusable;
    - keyboard history navigation and explicit previous/next controls remain available;
-   - contextual AI action buttons stay compact and associated with the console rather than consuming a second full-width explanatory/action band across the top;
+   - contextual AI action buttons stay compact and are vertically stacked immediately to the console's right; they must not consume a full-width top action band;
    - action buttons invoke only real contextual operations and all buttons/typed commands route through one authoritative command/action dispatch layer. Do not create duplicate AI handlers or parallel state ownership.
 
 ### Global requirements
@@ -440,7 +445,8 @@ Do not broaden this tranche into scene-tree redesign, resource-graph work, new m
 - **Implementation:** `9f36f44f7b792c2bbdf51cbdaa81cf72b1bebf6b` preserves a launcher after confirmed health while retaining failure/timed-out-probe termination and rollback; `e6ae3d3541de6de4bec19838e71595e4b76dbedfa` adds health-protocol regression coverage.
 - **Automated evidence:** exact-head branch build/Core validation is green through current v1.0.26 planning HEAD.
 - **Immutable-transition limitation:** the updater that installs v1.0.26 from published v1.0.25 is the already-installed v1.0.25 updater, so that one transition may still show the old brief-open/close behavior and require a manual launcher reopen. The v1.0.26 fix protects subsequent transitions. Do not rewrite v1.0.25 or add risky detached-process compatibility machinery solely to hide this one-time limitation.
-- **Verification:** on a future update driven by the fixed updater, confirm the healthy updated launcher remains open and failed health checks still roll back/restart safely.
+- **v1.0.25→v1.0.27 reference-machine result (2026-09-12):** update completed but the launcher remained closed and had to be started manually. This is still consistent with the documented limitation because the transition was initiated by the immutable v1.0.25 updater; it does not falsify the fixed updater yet.
+- **Verification:** on the next update initiated from installed v1.0.27, confirm the healthy updated launcher remains open and failed health checks still roll back/restart safely. If it still closes, reopen MS-029 as a live regression.
 - **Next action:** preserve the fix through v1.0.26 integrated release hardening; no further feature work is required for MS-029 now.
 
 ## MS-030 — Packaged backend health fails after successful Runtime Repair
