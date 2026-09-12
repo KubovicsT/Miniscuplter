@@ -2,73 +2,53 @@
 
 > Fast-moving project dashboard. Inspect actual Git/release/CI state before trusting this file.
 
-Last reconciled: 2026-09-11
+Last reconciled: 2026-09-12
 
 ## Current release / development state
 
-- **Latest published stable release:** `v1.0.25`.
-- **Stable release target:** `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
-- **Current writable development branch:** `v1.0.26`.
-- **Latest exact-head CI-green implementation checkpoint before docs reconciliation:** `4418d74fde5c6cbb72237946d73ad2f960abfd73`.
-- **Current objective:** integrated v1.0.26 release-candidate hardening (Objective D in HANDOFF).
-- **Overall completion:** **approximately 64% acceptance-weighted**; the current release chunk is implementation-complete for Objectives A–C but still needs exact-candidate Windows export/installer hardening and later target-machine verification.
+- **Latest published stable at reconciliation time:** `v1.0.25`.
+- **Frozen v1.0.26 candidate:** `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
+- **v1.0.26 release-control:** active; exact-SHA autonomous release workflow initiated by Coordinator.
+- **Current writable development branch:** `v1.0.27`.
+- **v1.0.27 ancestry:** fast-forwarded from the earlier premature/orphan branch to the actual frozen v1.0.26 candidate as part of the legitimate release transition.
+- **v1.0.27 semantic identity:** mechanically bumped to 1.0.27 across audited release surfaces.
+- **Overall completion:** approximately **64% acceptance-weighted**. Publication does not itself resolve reference-machine acceptance.
 
-v1.0.25 is published and immutable. All new development belongs on v1.0.26 unless Coordinator establishes a newer forward branch or freezes v1.0.26.
+## v1.0.26 release contents
 
-## v1.0.26 completed implementation outcomes
+### MS-030 packaged backend health
+Code/automated fix complete. Repair/editor share the backend-local repaired venv and canonical packaged `serve.py` Uvicorn entry point. Repair uses an isolated loopback smoke port and instance/version validation; editor uses the same server contract on production port.
 
-### Canonical backend startup / MS-030
+**Status:** FIXED - NEEDS USER VERIFICATION.
 
-The repaired runtime and editor now launch a real FastAPI/Uvicorn server through packaged `ai_backend/serve.py` using the backend-local repaired `.venv`. Repair uses an isolated loopback smoke port plus a unique instance token and validates the expected `1.0.26` health identity before success. Editor production startup uses the same server entry point, loopback-only binding, production port and instance-bound readiness validation. The old import-only `python app.py` gap is no longer present.
+### MS-009 viewport resize
+Historical direct resize/world-repair/watchdog ownership was retired; native Stretch remains the normal render-target size owner with focused ownership regressions.
 
-Automated exact-head evidence includes the canonical backend lifecycle test, C# runtime-ownership tests, Python/runtime tests, release audit and green Windows C#/packaging jobs.
+**Status:** FIXED - NEEDS USER VERIFICATION.
 
-**Acceptance status:** code/automated fix complete; MS-030 still requires reference-machine Repair + Generate 3D verification before RESOLVED.
+### MS-029 updater health protocol
+Successful health-confirmed launcher processes are no longer killed by the fixed updater path. The immutable v1.0.25 updater may still require one manual reopen while installing v1.0.26.
 
-### Viewport resize authority / MS-009
+**Status:** FIXED - NEEDS USER VERIFICATION.
 
-The native viewport pipeline now explicitly retires historical resize owners rather than stacking another repaint/watchdog layer. `SubViewportContainer.Stretch` remains the normal size owner; the legacy direct resize handler and resize-triggered world repair are unsubscribed, and the old size watchdog is stopped. Focused regression coverage guards these ownership invariants.
+### MS-027 user-directed compact workspace tranche
+Implemented: multi-line scrollable AI command console/history, rendered interactive view cube, compact viewport tools and detailed help moved behind compact info/tooltips.
 
-**Acceptance status:** implementation/automated regression work complete; MS-009 still requires target-machine splitter-resize verification because the symptom is renderer/GPU-sensitive.
+**Status:** current tranche implemented; target-machine UX verification pending. Broader MS-027 workspace work remains open.
 
-### Compact workspace tranche / MS-027
+## Release validation
 
-The user-directed visible tranche is implemented: multi-line scrollable AI command console/history with Run, rendered interactive orientation cube, compact viewport tool controls without permanent instruction prose, and workflow explanation text moved behind compact info/tooltips. The existing authoritative action/camera/tool owners remain in use.
+Exact frozen v1.0.26 HEAD passed ordinary exact-head Core and build CI, including semantic identity, C#/Core, Python/runtime, backend lifecycle, geometry, release audit and packaging gates available in the branch workflow.
 
-**Acceptance status:** automated workspace acceptance and packaging gates are green; target-machine UX verification remains after publication.
+The autonomous release-control workflow is responsible for the remaining exact-SHA real Godot Windows export, generated installer/hash verification, silent smoke-install and publication guards.
 
-### Updater / MS-029
+## Current critical path
 
-The v1.0.26 updater-side health behavior remains fixed and CI-green. The immutable v1.0.25 updater can still cause a one-time manual launcher reopen while installing v1.0.26; that transition limitation remains accepted and must not be "fixed" by rewriting published history.
-
-## Exact-head validation evidence
-
-At implementation checkpoint `4418d74fde5c6cbb72237946d73ad2f960abfd73`, GitHub Actions passed:
-
-- editor, launcher, updater and Core C# build/tests;
-- semantic-version identity checks;
-- Python compilation and dependency resolution;
-- core logic, execution foundation and durable job journal tests;
-- compact workspace regressions;
-- canonical backend lifecycle test;
-- real geometry regressions;
-- strict release audit;
-- portable package build/layout validation;
-- ZIP SHA-256 sidecar verification;
-- installer-definition compilation.
-
-The ordinary branch workflow correctly skipped publication and the tag-only full Windows release job. Therefore a **real Godot Windows export, generated installer build from that export, and silent installer smoke-install are not yet recorded for the exact v1.0.26 candidate** and remain Objective D work.
-
-## Critical path
-
-`Objective D — integrated v1.0.26 release-candidate hardening`
-
-Remaining work is bounded release-candidate validation and documentation reconciliation, not new product breadth. The next release-worthy checkpoint must include the strongest available Windows/Godot/export/installer evidence without Dev creating a release-control request, tag or GitHub Release.
-
-Once Objective D's stop condition is met, HANDOFF must mark `COORDINATOR REVIEW REQUESTED`; release/freeze/publication then belongs to Coordinator.
+1. complete/verify v1.0.26 autonomous publication;
+2. validate v1.0.27 bootstrap identity/CI on the forward branch;
+3. consume v1.0.26 GTX 1080 reference-machine evidence;
+4. if acceptance evidence does not preempt, continue bounded Core-authority migration beginning with mapped-object ground placement.
 
 ## User dependency
 
-No product/design decision or further v1.0.25 retry is required now. Continue using the published v1.0.25 only for already-useful paths; do not repeatedly retry the known backend-health, resize or UI acceptance failures.
-
-After a fixed release is published, target-machine acceptance should cover update/reopen, Repair health, Generate 3D reaching provider inference, splitter resize invariance, compact workspace behavior, storage containment/cancellation, and the full Stage-C save/reopen/edit/cleanup/export path.
+No product decision is needed. Once v1.0.26 publishes, test update/reopen, Repair AI Runtime, Generate 3D, viewport resize, compact UI and the complete Stage-C save/reopen/edit/cleanup/export flow.
