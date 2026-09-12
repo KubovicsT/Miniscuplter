@@ -404,6 +404,8 @@ public partial class Main
                     }
                 }
 
+                V1031RestoreAppliedStageCObjects(session);
+
                 _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current)
                     .Where(x => x.Status is CandidateStatus.Ready or CandidateStatus.Conflict)
                     .OrderByDescending(x => x.CreatedUtc)
