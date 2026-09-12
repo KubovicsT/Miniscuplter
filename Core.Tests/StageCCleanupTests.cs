@@ -26,7 +26,8 @@ internal static class StageCCleanupTests
 
         var output = Revision(objectId, input.Id, "assets/clean.mesh", "cleanup-output");
         ProjectTransaction tx = StageCCleanup.ApplyResult(session, binding, output);
-        Assert(tx.ObjectId == objectId, "cleanup transaction lost target object identity");
+        Assert(tx.AffectedObjectIds.Count == 1 && tx.AffectedObjectIds[0] == objectId,
+            "cleanup transaction lost target object identity");
         Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == output.Id,
             "cleanup transaction did not advance active revision");
         Assert(session.Current.MeshRevisions.ContainsKey(output.Id),
