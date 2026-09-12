@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.30",
+  "expected_head_sha": "cd237c8f3889fcab0a59a1b8bda122c70b78d1de",
+  "target_path": "Scripts/Main.V1020StageCBridge.cs",
+  "expected_blob_sha": "c12b70062d426d13be30a9f890ffdadc080b3bd4",
+  "commit_message": "stagec: reject retired results before materialization",
+  "patch": "--- a/Scripts/Main.V1020StageCBridge.cs\n+++ b/Scripts/Main.V1020StageCBridge.cs\n@@ -203,5 +203,6 @@\n             try\n             {\n                 var session = _v1020StageCSession ?? throw new InvalidOperationException(\"Stage-C project session was lost.\");\n+                StageCGeneration.ValidateResultEnvelope(session.Current, binding);\n                 MeshData data = V1013MeshData(mesh);\n                 var revision = await _v1020StageCStore.CreateMeshRevisionAsync(\n"
+}
