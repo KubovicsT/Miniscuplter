@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.29",
+  "expected_head_sha": "50709560ab822381579725e72ee1238d5142c325",
+  "target_path": "tools/release_audit.py",
+  "expected_blob_sha": "24fc593a2b875e749fde1e68649f08bc879e3560",
+  "commit_message": "bootstrap: update release audit identity to 1.0.29",
+  "patch": "diff --git a/tools/release_audit.py b/tools/release_audit.py\n--- a/tools/release_audit.py\n+++ b/tools/release_audit.py\n@@ -6,7 +6,7 @@ from pathlib import Path\n \n ROOT = Path(__file__).resolve().parents[1]\n SELF = Path(__file__).resolve()\n-EXPECTED = \"1.0.28\"\n+EXPECTED = \"1.0.29\"\n errors: list[str] = []\n \n \n"
+}
