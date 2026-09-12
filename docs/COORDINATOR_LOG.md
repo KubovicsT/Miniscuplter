@@ -118,3 +118,24 @@ HANDOFF now carries four substantial objectives: canonical backend startup, view
 
 ### Release decision
 KEEP v1.0.26 ACCUMULATING. Do not freeze while MS-030/MS-009 or the defined MS-027 tranche are incomplete. After Objective D, review exact current HEAD; if coherent and green, create the forward version branch and initiate release-control from that exact boundary.
+
+## 2026-09-12 — v1.0.26 release initiation and forward-branch reconciliation
+
+### Repository / no-race truth
+Dev automation is paused. No conflicting application-mutating worker was active. v1.0.26 authoritative HEAD was `a41e0419ba40fd1118775e8f516b1a31145f18d8`; exact-head Core and build CI both passed. Latest stable remained v1.0.25 and no v1.0.26 release request existed before this run.
+
+### Release preflight
+The current v1.0.26 HEAD is the intended coherent release boundary. Release identity is consistent across launcher, updater/editor assembly, installer, Windows export metadata, backend API, editor display and release audit. The release chunk contains backend startup/Repair health hardening, updater health-probe correction, viewport resize-owner convergence, Core-authoritative viewport drag persistence and the explicit compact-workspace tranche. User-observed runtime/GUI issues remain verification-dependent rather than being treated as resolved by CI.
+
+### Release decision and execution
+Coordinator judged v1.0.26 release-sized and initiated exactly one autonomous release-control request for `a41e0419ba40fd1118775e8f516b1a31145f18d8`. That request is the v1.0.26 freeze boundary; no later app/docs mutations belong on v1.0.26 while publication is pending.
+
+### Premature v1.0.27 reconciliation
+A prior v1.0.27 branch existed at older SHA `30f42c5...` before any legitimate v1.0.26 freeze and still carried 1.0.26 identity. It was therefore classified PREMATURE / ORPHAN and was not treated as current. During this real release transition it was safely fast-forwarded to the actual frozen candidate, then mechanically bootstrapped to 1.0.27 identity. v1.0.27 is now the authoritative writable branch.
+
+### Technical trajectory
+Selective refactor remains correct. The immediate product critical path after publication is reference-machine acceptance of the repaired runtime, viewport and workspace followed by full Stage-C thin-slice validation. Forward migration is deliberately bounded to mapped-object ground placement and one stable-ID selection seam, both preempted by any new reference-machine blocker.
+
+### Queue
+HANDOFF now carries three substantial objectives: v1.0.27 bootstrap validation, bounded ground-placement authority, and one bounded stable-ID selection/picking seam. Queue depth is intentionally limited because imminent v1.0.26 target-machine evidence can legitimately change Stage-D priority.
+
