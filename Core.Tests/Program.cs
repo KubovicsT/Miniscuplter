@@ -95,6 +95,36 @@ internal static class Program
             Assert(!branchingSession.CanRedo,
                 "a divergent edit after undo should clear the abandoned redo branch");
 
+            var inFlightSaveSession = new ProjectSession(state);
+            inFlightSaveSession.Execute("Snapshot to save", current => current.WithObject(current.Objects[objectId] with
+            {
+                Transform = new TransformState(new Vec3(2, 3, 4), Vec3.Zero, Vec3.One)
+            }), objectId);
+            long revisionBeingSaved = inFlightSaveSession.Current.RevisionNumber;
+            var saveStarted = new TaskCompletionSource<ProjectState>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseSave = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task saveTask = inFlightSaveSession.SaveRecoveringAsync(
+                async snapshot =>
+                {
+                    saveStarted.SetResult(snapshot);
+                    await releaseSave.Task;
+                },
+                () => Task.FromResult(state));
+            ProjectState persistedSnapshot = await saveStarted.Task;
+            Assert(persistedSnapshot.RevisionNumber == revisionBeingSaved,
+                "an in-flight save did not capture the exact revision present when saving began");
+            inFlightSaveSession.Execute("Edit while save is pending", current => current.WithObject(current.Objects[objectId] with
+            {
+                Transform = new TransformState(new Vec3(8, 9, 10), Vec3.Zero, Vec3.One)
+            }), objectId);
+            long newerRevision = inFlightSaveSession.Current.RevisionNumber;
+            releaseSave.SetResult();
+            await saveTask;
+            Assert(inFlightSaveSession.SavedRevisionNumber == revisionBeingSaved,
+                "an in-flight save marked a newer, unpersisted revision as saved");
+            Assert(inFlightSaveSession.Current.RevisionNumber == newerRevision && inFlightSaveSession.IsDirty,
+                "an edit committed while save I/O was pending should remain current and dirty after the older snapshot saves");
+
             var second = await store.CreateMeshRevisionAsync(projectPath, objectId, Tetra(1.1f), "unit-test:second", first.Id);
             var third = await store.CreateMeshRevisionAsync(projectPath, objectId, Tetra(1.2f), "unit-test:third", second.Id);
             session.Execute("Add generated revisions", current => current.WithMeshRevision(second).WithMeshRevision(third), objectId);
