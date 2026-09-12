@@ -20,13 +20,12 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
 
 ## Priority order
-1. establish coherent v1.0.30 semantic identity and exact-head baseline
-2. harden generation-result commit, stale-result rejection, recovery and save/reload continuity
-3. audit viewport/state ownership convergence and remove safely migrated redundancy where it affects correctness
-4. integrated v1.0.30 validation and Coordinator review
+1. harden generation-result commit, stale-result rejection, recovery and save/reload continuity
+2. audit viewport/state ownership convergence and remove safely migrated redundancy where it affects correctness
+3. integrated v1.0.30 validation and Coordinator review
 
 ## Strategic dependencies
-- product work on v1.0.30 depends on semantic bootstrap completion
+- v1.0.30 semantic bootstrap is complete and exact-head baseline is green
 - generation-result durability follows the v1.0.29 job-envelope/cancellation foundation
 - viewport/state cleanup follows generation/persistence correctness and must preserve migration-before-removal
 - reference-machine evidence may preempt planned cleanup when it reproduces a P0 defect
