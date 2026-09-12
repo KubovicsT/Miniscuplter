@@ -54,7 +54,7 @@ internal static class StageCGenerationTests
         var staleJob = StageCGeneration.BeginImageToMesh(session);
         Assert(staleJob.ProjectId == session.Current.ProjectId, "generation job did not capture project identity");
         Assert(staleJob.InputImageRevisionId == firstImage.Id, "generation job did not capture immutable baseline revision");
-        Assert(staleJob.InputProjectRevisionNumber == session.Current.RevisionNumber, "generation job did not capture project revision number");
+        Assert(staleJob.InputProjectRevisionNumber + 1 == session.Current.RevisionNumber, "generation job envelope transaction did not advance exactly one project revision");
 
         StageCGeneration.AcceptBaseline(session, secondImage.Id);
         var staleMesh = await store.CreateMeshRevisionAsync(projectPath, staleJob.OutputObjectId, Tetra(), "unit-test:stale-generated");
