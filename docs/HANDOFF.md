@@ -1,27 +1,32 @@
 # Miniscuplter Handoff
 
-> Immediate Dev execution state. TECHNICAL_ROADMAP owns whole-system sequencing.
+> Current execution baton. TECHNICAL_ROADMAP owns strategy.
 
-Last updated: 2026-09-12
+## Release / branch state
+- Stable: `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
+- `v1.0.27` is **FROZEN** at candidate `7d40d06cb4084403db3193ec77ab77b71baa24e2`; autonomous release-control is running.
+- Forward transition branch: `v1.0.28`, created from the exact frozen candidate.
+- `v1.0.28` is **BOOTSTRAP-ONLY**, not ordinary writable development yet. Launcher/updater/editor/installer/export/display identity is being moved to 1.0.28; backend/audit/lifecycle identity and exact-head CI remain to be completed.
+- Dev scheduler is currently disabled; Coordinator did not change it.
 
-## Repository / release state
-- Stable: `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8` (published, immutable).
-- Writable branch: `v1.0.27`.
-- Current validated engineering checkpoint / HEAD: `4d924e948647022dce4bd2f7682140a005edebc5`.
-- Exact-head Core and full build workflows are green.
-- No active release request freezes `v1.0.27`.
+## CURRENT — A: complete v1.0.28 bootstrap
+**Outcome:** coherent 1.0.28 identity on every audited surface and green exact-head Core/build CI.
+**Constraints:** never mutate frozen v1.0.27; mechanical identity only; no product changes until green.
+**Acceptance:** release audit, backend lifecycle, editor/Core, runtime, geometry and packaging gates green at exact HEAD.
+**Preempt:** any v1.0.27 publication failure requiring candidate/source repair.
+**Auto-proceed:** YES after v1.0.27 publishes and A is green.
 
-## Completed authorized queue
-- **D — revision-bound sculpt/edit:** production sculpt captures exact `ObjectId + MeshRevisionId`, rejects stale/changed selection state, commits a new immutable revision through Core history, saves through the project store, and restores presentation from Core on failure.
-- **E — revision-dependent protected selection:** Smart Selection persists as Core `SelectionBinding` plus project-contained asset data; revision/topology changes invalidate stale vertex indices and valid bindings restore after project/history reconciliation.
-- **F — transactional Stage-D history closure:** focused round-trip covers durable transform, mesh revision advancement, selection validity/invalidation, undo/redo, save/reopen and exact edited export scope. Protected selection restoration through undo history is regression-covered.
+## NEXT — B: durable local job envelope (MS-020)
+Persist one canonical job record for generation with stable job ID, immutable project/object/revision input context, stage/state and contained artifacts. Recover truthful terminal/incomplete state after backend restart. No provider expansion.
+**Auto-proceed:** YES if no target-machine blocker.
 
-Validation checkpoint `4d924e948647022dce4bd2f7682140a005edebc5`: Core workflow **success**; full build workflow **success** (editor/Core, Python/runtime/backend lifecycle, geometry, release audit and packaging gates).
+## NEXT — C: heavyweight runtime ownership gate
+Make one authoritative local ownership gate serialize heavyweight GPU inference against conflicting runtime install/repair/remove work. Preserve local-first behavior and existing provider routing.
+**Auto-proceed:** YES.
 
-## COORDINATOR REVIEW REQUESTED
-The authorized D/E/F queue is complete and F explicitly has `Auto-proceed: NO`. Do not invent further Stage-D scope. Coordinator should review accumulated v1.0.27 scope, target-machine evidence availability, next objective ordering and release chunk/readiness.
+## NEXT — D: truthful cancellation/recovery
+For one production generation path, acknowledge cancellation only after owned work is actually stopped; persist terminal state and prove the next job starts cleanly after restart/recovery.
+**Auto-proceed:** NO — Coordinator review after D.
 
-Safe work while waiting: read-only validation/review only unless new Critical v1.0.26 reference-machine evidence preempts this boundary.
-
-## User evidence dependency
-Released v1.0.26 reference-machine acceptance remains P0: update/reopen → Repair AI Runtime → Generate 3D → resize invariance → compact workspace UX → Apply/save-reopen/edit-sculpt/cleanup/exact-STL, including storage/cancellation observations.
+## P0 preemption
+Any v1.0.26/v1.0.27 reference-machine failure in update, backend health, generation, viewport, persistence, storage, cancellation or Stage-C correctness immediately outranks B–D.
