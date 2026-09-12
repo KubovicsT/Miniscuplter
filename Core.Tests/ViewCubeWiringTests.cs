@@ -15,16 +15,17 @@ internal static class ViewCubeWiringTests
         string cube = File.ReadAllText(cubePath);
 
         Assert(installer.Contains("InstallViewCube();", StringComparison.Ordinal), "view cube is not composed");
-        Assert(cube.Contains("new SubViewport", StringComparison.Ordinal) &&
-               cube.Contains("new BoxMesh", StringComparison.Ordinal) &&
-               cube.Contains("OrientationCubePresentationCamera", StringComparison.Ordinal),
-            "orientation control is not a real rendered 3D cube");
-        Assert(cube.Contains("basis = _camera.GlobalTransform.Basis.Orthonormalized()", StringComparison.Ordinal),
-            "orientation cube does not mirror the authoritative viewport camera");
-        Assert(cube.Contains("ViewCubeGuiInput", StringComparison.Ordinal) &&
-               cube.Contains("TryHitOrientationCube", StringComparison.Ordinal) &&
-               cube.Contains("axes >= 3 ? \"Corner\" : axes == 2 ? \"Edge\"", StringComparison.Ordinal),
-            "orientation cube does not support face/edge/corner interaction");
+        Assert(cube.Contains("sealed partial class ViewAxisGizmo", StringComparison.Ordinal) &&
+               cube.Contains("DrawArc(center, ring", StringComparison.Ordinal) &&
+               cube.Contains("Text = \"X\"", StringComparison.Ordinal) &&
+               cube.Contains("Text = \"Y\"", StringComparison.Ordinal) &&
+               cube.Contains("Text = \"Z\"", StringComparison.Ordinal) &&
+               !cube.Contains("new BoxMesh", StringComparison.Ordinal),
+            "orientation control is not the requested circular XYZ gizmo");
+        Assert(cube.Contains("_viewAxisGizmo.SetViewBasis(_camera.GlobalTransform.Basis)", StringComparison.Ordinal),
+            "orientation gizmo does not mirror the authoritative viewport camera");
+        Assert(cube.Contains("_viewAxisGizmo.AxisClicked += SnapViewAxis", StringComparison.Ordinal),
+            "orientation gizmo axis endpoints do not own view snapping");
         Assert(cube.Contains("host.GuiInput += ViewCubeObserveViewportInput", StringComparison.Ordinal),
             "selected-object orbit pivot observer missing");
         Assert(cube.Contains("FocusCameraOnSelectionPreservingPosition", StringComparison.Ordinal),
