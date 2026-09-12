@@ -1,0 +1,29 @@
+name: validated-patch-request
+on:
+  push:
+    branches: [patch-control]
+    paths: ['patch-requests/*.json']
+permissions:
+  contents: write
+concurrency:
+  group: miniscuplter-validated-patch
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: request
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- 'patch-requests/*.json')
+          [ "${#files[@]}" -eq 1 ]
+          echo "path=${files[0]}" >> "$GITHUB_OUTPUT"
+      - shell: bash
+        run: python3 patch-tools/apply_patch_request.py "${{ steps.request.outputs.path }}"
