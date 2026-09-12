@@ -5,41 +5,38 @@
 - writable: v1.0.30
 - release_freeze: false
 - publication_active: false
-- branch_head_at_reconciliation: 6d3b6360b14cffb88eecb00a05835bb053b4a9b7
-- branch_bootstrap: required — v1.0.30 legitimately branches from the published v1.0.29 candidate and still carries v1.0.29 identity until Objective A completes
+- exact_head: 9aa6898aa69cc0deb4bb9e1f2afe0368d13931cd
+- branch_bootstrap: complete
 - execution_hold: none
 
 ## Current objective
-### A — v1.0.30 semantic-version bootstrap and exact-head baseline
-- state: READY
-- outcome: establish coherent 1.0.30 identity across editor/backend/release/packaging surfaces and prove the new writable branch with exact-head validation
-- architectural constraints: preserve published v1.0.29 immutably; no feature work on the released branch; keep Core/Godot/Python ownership boundaries unchanged
-- dependencies: published v1.0.29 and legitimate v1.0.30 forward branch
-- acceptance: all intended version surfaces identify as 1.0.30 and strongest relevant exact-head CI is green
-- stop/preemption: any contradictory release/branch state, failed baseline gate, or new P0 reference-machine evidence
-- continuation: automatic to B
-
-## Next
 ### B — generation-result commit and recovery integrity
-- outcome: review and harden the post-inference path so a successful generation result is committed transactionally to durable project state/history and cannot be applied after stale/cancelled/replaced ownership
-- dependencies: A
-- acceptance: focused regressions cover success, stale/late result rejection, save/reload continuity and failure recovery without duplicate authority
-- preemption: new P0 user evidence or data-loss/persistence defect
+- state: READY
+- outcome: make successful generation-result commit transactional and preserve stale/cancelled/replaced-result rejection
+- dependencies: Objective A complete
+- acceptance: focused success/stale/save-reload/recovery regressions and relevant exact-head validation green
 - continuation: automatic to C
 
+## Next
 ### C — viewport/state authority convergence audit and targeted cleanup
-- outcome: inspect the live 3D workflow for duplicate render/world/selection ownership, obsolete compatibility paths and hidden coupling; remove only safely migrated redundancy that materially improves correctness or acceptance
+- state: blocked by B
+- outcome: remove only proven duplicate or obsolete ownership along the live 3D/viewport path while preserving migration safety
 - dependencies: B
-- acceptance: one authoritative path per audited responsibility, migration safety preserved, targeted regressions plus exact-head validation green
-- preemption: reference-machine viewport evidence may redirect this objective to the reproduced defect
+- acceptance: one authoritative path per audited responsibility with targeted and exact-head validation green
 - continuation: automatic to D
 
 ### D — v1.0.30 integrated checkpoint
-- outcome: integrate A–C, run strongest Core/.NET, Python/runtime/job, geometry, persistence, release-audit and packaging validation, and leave a coherent release-review checkpoint
-- dependencies: A–C
-- acceptance: exact-head integrated gates green; canonical state and issue evidence reconciled; no known release blocker introduced
-- preemption: any unresolved release blocker or contradictory reference-machine evidence
+- state: blocked by B-C
+- outcome: integrated validation and canonical-state reconciliation for Coordinator release review
+- dependencies: A-C
+- acceptance: integrated gates green with no known release blocker
 - continuation: coordinator_review_required
 
+## Completed objectives
+### A — v1.0.30 semantic-version bootstrap and exact-head baseline
+- state: COMPLETE
+- evidence: root VERSION and generated version surfaces synchronized to 1.0.30 at 9aa6898aa69cc0deb4bb9e1f2afe0368d13931cd
+- validation: exact-head build completed successfully
+
 ## Recently completed
-- v1.0.29 Objectives A–D completed and released from 6d3b6360b14cffb88eecb00a05835bb053b4a9b7 after independent release-control validation, Windows build, installer smoke-install and publication.
+- v1.0.29 Objectives A-D completed and released from 6d3b6360b14cffb88eecb00a05835bb053b4a9b7.
