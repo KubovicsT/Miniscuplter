@@ -15,6 +15,7 @@ public sealed class ProjectSession
     readonly Stack<ProjectTransaction> _undo = new();
     readonly Stack<ProjectTransaction> _redo = new();
     readonly int _historyLimit;
+    long _revisionClock;
 
     public ProjectState Current { get; private set; }
     public long SavedRevisionNumber { get; private set; }
@@ -29,6 +30,7 @@ public sealed class ProjectSession
         Current = initial ?? throw new ArgumentNullException(nameof(initial));
         Current.Validate();
         _historyLimit = Math.Clamp(historyLimit, 1, 1000);
+        _revisionClock = Current.RevisionNumber;
         SavedRevisionNumber = Current.RevisionNumber;
     }
 
@@ -38,7 +40,12 @@ public sealed class ProjectSession
         var before = Current;
         var after = mutation(before) ?? throw new InvalidOperationException("Project command returned null state.");
         if (after.ProjectId != before.ProjectId) throw new InvalidOperationException("A project command cannot replace project identity.");
-        after = after.WithRevisionNumber(before.RevisionNumber + 1);
+
+        // Revision numbers are durable state identities, not an undo-stack cursor. After undo,
+        // a new branch must never reuse a previously observed revision number because that can
+        // make a divergent state compare equal to the saved revision and appear clean.
+        _revisionClock = checked(_revisionClock + 1);
+        after = after.WithRevisionNumber(_revisionClock);
         after.Validate();
 
         var transaction = new ProjectTransaction(
@@ -129,6 +136,7 @@ public sealed class ProjectSession
         Current = state;
         _undo.Clear();
         _redo.Clear();
+        _revisionClock = state.RevisionNumber;
         MarkSaved();
     }
 
