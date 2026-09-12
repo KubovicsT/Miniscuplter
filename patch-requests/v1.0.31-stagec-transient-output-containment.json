@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.31",
+  "expected_head_sha": "cf8baddf47afb731263f2757d85d3fc4a5cb1777",
+  "target_path": "Scripts/Main.V1020StageCBridge.cs",
+  "expected_blob_sha": "d75326176fc3755833925965ffe016f7159f95b8",
+  "commit_message": "stagec: contain transient generation output",
+  "patch": "diff --git a/Scripts/Main.V1020StageCBridge.cs b/Scripts/Main.V1020StageCBridge.cs\n--- a/Scripts/Main.V1020StageCBridge.cs\n+++ b/Scripts/Main.V1020StageCBridge.cs\n@@ -154,7 +154,7 @@\n             return;\n         }\n \n-        string output = AppDataRoot.Resolve($\"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl\");\n+        string output = AppDataRoot.Resolve(Path.Combine(\"Temp\", \"StageC\", $\"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl\"));\n         string prompt = _prompt?.Text.Trim() ?? \"\";\n         _v1093DBusy = true;\n         _v1093DStarted = DateTime.UtcNow;\n@@ -258,6 +258,7 @@\n         }\n         finally\n         {\n+            try { if (File.Exists(output)) File.Delete(output); } catch { }\n             _v1020GenerationBinding = null;\n             _v1093DBusy = false;\n             SetV1093DBusy(false);\n"
+}
