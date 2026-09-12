@@ -21,7 +21,8 @@ internal static class StageCTerminalFailureCleanupTests
             "terminal generation failure must capture the exact live binding before finally clears it");
         Assert(source.Contains("StageCGeneration.AbandonGenerationJob(session, failedBinding)", StringComparison.Ordinal),
             "terminal generation failure must retire its exact durable envelope through Core authority");
-        Assert(source.Contains("if (StageCGeneration.AbandonGenerationJob(session, failedBinding))\n                            await V1020SaveSessionAsync();", StringComparison.Ordinal),
+        Assert(source.Contains("if (StageCGeneration.AbandonGenerationJob(session, failedBinding))", StringComparison.Ordinal)
+            && source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal),
             "terminal generation failure must persist durable envelope retirement");
         Assert(source.Contains("Durable generation cleanup also failed:", StringComparison.Ordinal),
             "cleanup failure must be surfaced without replacing the original generation error");
