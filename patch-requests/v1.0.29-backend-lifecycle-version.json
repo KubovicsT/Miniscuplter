@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.29",
+  "expected_head_sha": "138b0128ed1225f65799e86c2fa8ccf3be26e4c0",
+  "target_path": "tools/backend_lifecycle_tests.py",
+  "expected_blob_sha": "f9900814a9cb27b3e615599dc9ad39797ece11f3",
+  "commit_message": "bootstrap: update backend lifecycle identity to 1.0.29",
+  "patch": "diff --git a/tools/backend_lifecycle_tests.py b/tools/backend_lifecycle_tests.py\n--- a/tools/backend_lifecycle_tests.py\n+++ b/tools/backend_lifecycle_tests.py\n@@ -11,7 +11,7 @@ from pathlib import Path\n ROOT = Path(__file__).resolve().parents[1]\n BACKEND = ROOT / \"ai_backend\"\n SERVER = BACKEND / \"serve.py\"\n-EXPECTED_VERSION = \"1.0.28\"\n+EXPECTED_VERSION = \"1.0.29\"\n \n \n def free_port() -> int:\n"
+}
