@@ -51,7 +51,7 @@ internal static class StageCGenerationTests
 
         StageCGeneration.AcceptBaseline(session, firstImage.Id);
         Assert(StageCGeneration.AcceptedBaseline(session.Current) == firstImage.Id, "accepted baseline was not stored as a stable image revision");
-        var staleJob = StageCGeneration.BeginImageToMesh(session.Current);
+        var staleJob = StageCGeneration.BeginImageToMesh(session);
         Assert(staleJob.ProjectId == session.Current.ProjectId, "generation job did not capture project identity");
         Assert(staleJob.InputImageRevisionId == firstImage.Id, "generation job did not capture immutable baseline revision");
         Assert(staleJob.InputProjectRevisionNumber == session.Current.RevisionNumber, "generation job did not capture project revision number");
@@ -63,7 +63,7 @@ internal static class StageCGenerationTests
         Assert(!session.Current.Objects.ContainsKey(staleJob.OutputObjectId), "stale generation result silently created/replaced an active object");
         Assert(StageCGeneration.ReadCandidates(session.Current).Single(x => x.Id == staleCandidate.Id).ConflictReason != null, "stale candidate did not retain conflict reason");
 
-        var currentJob = StageCGeneration.BeginImageToMesh(session.Current);
+        var currentJob = StageCGeneration.BeginImageToMesh(session);
         var generatedMesh = await store.CreateMeshRevisionAsync(projectPath, currentJob.OutputObjectId, Tetra(1.25f), "unit-test:generated");
         var ready = StageCGeneration.RegisterResult(session, currentJob, generatedMesh, "sf3d", "unit-test:ready-result");
         Assert(ready.Status == CandidateStatus.Ready, "current baseline generation should be ready for review");
