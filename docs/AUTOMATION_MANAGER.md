@@ -48,6 +48,7 @@ Last manager review: 2026-09-12 13:04 Europe/Budapest
 - Narrow Coordinator Dev-resume authority: HELPED and correctly refuses ambiguous/manual pauses.
 - AMP-007B degraded mode: HELPED.
 - AMP-007C/D/E neutral small-state persistence: HELPED materially.
+- Validated `patch-control` large-file editing: HELPED in live v1.0.29 acceptance tests.
 
 ## Verification focus
 1. Resolve or safely redesign the two large-file v1.0.29 identity surfaces without bypassing connector safety.
