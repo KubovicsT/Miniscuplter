@@ -29,18 +29,24 @@ internal static class WorkspaceAcceptanceTests
         Assert(console.Contains("CtrlPressed", StringComparison.Ordinal) &&
                console.Contains("NavigateAiCommandHistory", StringComparison.Ordinal),
             "AI command keyboard history navigation missing");
+        Assert(console.Contains("Control.LayoutPreset.CenterBottom", StringComparison.Ordinal) &&
+               console.Contains("var actionRow = controls;", StringComparison.Ordinal),
+            "AI command console is not bottom-centered with vertical contextual actions");
         Assert(console.Contains("DispatchAiConsoleActionAsync", StringComparison.Ordinal) &&
                console.Contains("V1020Generate3DAsync", StringComparison.Ordinal) &&
                !console.Contains("new AIClient", StringComparison.Ordinal),
             "AI console bypasses or duplicates authoritative action dispatch");
 
-        Assert(cube.Contains("new SubViewport", StringComparison.Ordinal) &&
-               cube.Contains("new BoxMesh", StringComparison.Ordinal) &&
-               cube.Contains("TryHitOrientationCube", StringComparison.Ordinal),
-            "orientation selector is not an interactive rendered cube");
-        Assert(cube.Contains("basis = _camera.GlobalTransform.Basis.Orthonormalized()", StringComparison.Ordinal) &&
+        Assert(cube.Contains("sealed partial class ViewAxisGizmo", StringComparison.Ordinal) &&
+               cube.Contains("DrawArc(center, ring", StringComparison.Ordinal) &&
+               cube.Contains("Text = \"X\"", StringComparison.Ordinal) &&
+               cube.Contains("Text = \"Y\"", StringComparison.Ordinal) &&
+               cube.Contains("Text = \"Z\"", StringComparison.Ordinal) &&
+               !cube.Contains("new BoxMesh", StringComparison.Ordinal),
+            "orientation selector must remain a circular XYZ gizmo without a cube");
+        Assert(cube.Contains("_viewAxisGizmo.SetViewBasis(_camera.GlobalTransform.Basis)", StringComparison.Ordinal) &&
                cube.Contains("UpdateCamera();", StringComparison.Ordinal),
-            "orientation cube is not synchronized from the authoritative viewport camera");
+            "orientation XYZ gizmo is not synchronized from the authoritative viewport camera");
 
         Assert(tools.Contains("⌖", StringComparison.Ordinal) &&
                tools.Contains("↔", StringComparison.Ordinal) &&
@@ -56,6 +62,10 @@ internal static class WorkspaceAcceptanceTests
                density.Contains("Text = \"ⓘ\"", StringComparison.Ordinal) &&
                density.Contains("TooltipText = text", StringComparison.Ordinal),
             "workflow explanatory prose is not moved behind compact info hover help");
+        string telemetry = File.ReadAllText(Path.Combine(root, "Scripts", "Main.ResourceTelemetry.cs"));
+        Assert(telemetry.Contains("Control.LayoutPreset.BottomLeft", StringComparison.Ordinal) &&
+               telemetry.Contains("Columns = 2", StringComparison.Ordinal),
+            "resource telemetry is not a compact 2x2 bottom-left viewport overlay");
 
         Assert(installer.IndexOf("InstallViewCube();", StringComparison.Ordinal) <
                installer.IndexOf("InstallWorkspaceDensity();", StringComparison.Ordinal),
