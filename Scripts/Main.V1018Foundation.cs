@@ -37,6 +37,7 @@ public partial class Main
 
         if (!_v1018ViewportInstalled) return;
 
+        V1027ReconcileStableViewportSelection();
         RemoveLegacyViewportSurface();
         if (!_v1019ViewportPipelineInstalled)
             V1017SyncViewport();
@@ -220,10 +221,10 @@ public partial class Main
     void V1018SelectAt(Vector2 screenPosition)
     {
         if (!V1018RaycastScene(screenPosition, out var selected)) return;
-        Select(selected);
+        V1027SelectStableViewportHit(selected);
         RebuildSceneList();
         V1017UpdateGizmo();
-        SetStatus($"Selected: {selected.Name}");
+        SetStatus($"Selected: {(_selected?.Name ?? selected.Name)}");
     }
 
     bool V1018RaycastScene(Vector2 screenPosition, out MeshInstance3D selected)
