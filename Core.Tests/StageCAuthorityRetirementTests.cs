@@ -72,6 +72,27 @@ internal static class StageCAuthorityRetirementTests
             "mapped scale commands must not regress to scene-observed transform persistence");
 
         Assert(
+            editing.Contains("HookV1020GroundButton(\"Place selected on Y=0\")", StringComparison.Ordinal) &&
+            editing.Contains("button.Pressed -= CenterOnBuildPlane;", StringComparison.Ordinal),
+            "mapped ground placement must retire the legacy scene-mutating handler");
+        Assert(
+            editing.Contains("V1020CommitGroundCommandAsync(objectId, projectObject.ActiveMeshRevisionId, projectObject.Transform)", StringComparison.Ordinal),
+            "ground placement must capture stable object/revision/transform identity before asynchronous commit");
+        Assert(
+            editing.Contains("current.ActiveMeshRevisionId != expectedRevisionId || current.Transform != expectedTransform", StringComparison.Ordinal) &&
+            editing.Contains("MeshBinaryCodec.Read(asset)", StringComparison.Ordinal) &&
+            editing.Contains("V1020GroundedTransform(expectedTransform, mesh, 0f)", StringComparison.Ordinal),
+            "ground placement must derive from the exact durable transform and immutable active mesh revision");
+        Assert(
+            editing.Contains("StageCEditing.SetTransformIfCurrent(", StringComparison.Ordinal) &&
+            !editing.Contains("HookV1020TransformButton(\"Place selected on Y=0\"", StringComparison.Ordinal) &&
+            !editing.Contains("V1020CommitSelectedTransformAsync", StringComparison.Ordinal),
+            "ground placement must not regress to scene-observed durable persistence");
+        Assert(
+            editing.Contains("Stage-C ground placement failed safely; restored durable transform", StringComparison.Ordinal),
+            "ground placement failure must restore Godot presentation from Core state");
+
+        Assert(
             editing.Contains("_v1020TransformGestureDurableStart = projectObject.Transform;", StringComparison.Ordinal) &&
             editing.Contains("_v1020TransformGestureSceneStart = V1020TransformState(_selected);", StringComparison.Ordinal),
             "viewport transform gestures must capture durable Core state and presentation start state at gesture start");
