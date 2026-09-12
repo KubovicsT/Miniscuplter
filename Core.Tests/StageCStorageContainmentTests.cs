@@ -25,6 +25,8 @@ internal static class StageCStorageContainmentTests
             "backend temporary files must inherit the contained Miniscuplter Temp directory");
         Assert(bridge.Contains("Path.Combine(\"Temp\", \"StageC\"", StringComparison.Ordinal),
             "Stage-C generation output must be written under the configured temporary root");
+        Assert(!bridge.Contains("AppDataRoot.Resolve($\"ai_part_", StringComparison.Ordinal),
+            "Stage-C generation must not leave transient mesh output at the data-root top level");
         Assert(bridge.Contains("if (File.Exists(output)) File.Delete(output)", StringComparison.Ordinal),
             "Stage-C transient generation output must be cleaned after completion or failure");
         Assert(client.Contains("returnedPath.Equals(expectedPath, pathComparison)", StringComparison.Ordinal),
