@@ -3,13 +3,13 @@
 This file is the authoritative current-state ledger for active, release-relevant, or user-verification-pending issues. Historical issue narratives remain in `docs/ISSUES.md`, which is legacy/read-only context.
 
 ## MS-020 — AI job/runtime ownership
-- severity: Critical for current v1.0.28 workflow
+- severity: Critical generation/runtime correctness
 - state: FIXED - NEEDS USER VERIFICATION
 - priority: P0
 - latest_reference_machine_evidence: released v1.0.27 Generate 3D failed because heavyweight generation ownership conflicted with model/runtime release lifecycle
-- current_implementation_state: Generate 3D retains the active job id and authorizes only that owner for preparation/fallback/cleanup model release; focused ownership regression and exact-head CI are green
-- desired_state: one authoritative heavyweight runtime owner through active 2D-to-3D generation; no unload/release conflict with the active job
-- verification_state: GTX 1080 RELEASED-BUILD GENERATE 3D RETEST REQUIRED
+- current_implementation_state: v1.0.29 persists a stable generation job/project/input-revision/output-object envelope before submission, verifies returned identity, prevents stale/obsolete results from silently applying, preserves envelope identity across save/reload, transactionally retires cancelled envelopes, rejects late cancelled results, gives retries fresh identities, and retains the existing backend hard-cancel/restart health gate before replacement heavyweight work; focused regressions and exact-head integrated CI are green
+- desired_state: one authoritative heavyweight runtime owner through active 2D-to-3D generation; no unload/release conflict with the active job; cancelled/stale work cannot overlap or apply against replacement work
+- verification_state: GTX 1080 RELEASED-BUILD GENERATE 3D + CANCEL/RETRY RETEST REQUIRED
 
 ## MS-031 — accepted-baseline persistence across reopen
 - severity: Critical persistence/state-restoration defect
