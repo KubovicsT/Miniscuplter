@@ -1,58 +1,53 @@
 # Miniscuplter Automation Manager
 
-> Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/` and legacy reliability/history files.
+> Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/` and Git history.
 
 Last manager review: 2026-09-12
 
 ## Role model
-- User / PROJECT_CHARTER owns product intent and difficult-to-reverse product decisions.
-- Coordinator owns architecture, strategy, priority, release readiness and publication.
-- Dev owns implementation, validation, CURRENT_EXECUTION_STATE updates and release-candidate preparation; Dev never publishes.
-- Automation Manager owns process/scheduler/GitHub operational reliability and bounded process-infrastructure repair.
+- User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
+- Coordinator owns architecture, strategy, issue priority/critical path, release readiness/chunking/publication.
+- Dev owns implementation, validation, current execution-state updates and release-candidate preparation; Dev never publishes.
+- Automation Manager owns scheduler/process/GitHub operational reliability and bounded process-infrastructure repair.
 - Daily Report is reporting-only.
 
 ## Active automations
-- `Minisculpter Dev` — enabled, hourly on whole hours.
+- `Minisculpter Dev` — currently disabled; hourly schedule preserved.
 - `Minisculpter Coordination` — enabled, every 3 hours at :30.
 - `Daily Minisculpter report` — enabled, daily 22:45 Europe/Budapest.
 - `Minisculpter Automation` — enabled, twice daily.
-- Older duplicate Dev/Coordinator/Daily/Manager tasks remain disabled.
+- Legacy duplicate tasks remain disabled.
 
-## Authoritative persistence model
-- `docs/CURRENT_EXECUTION_STATE.md` — current Coordinator↔Dev execution baton.
-- `docs/TECHNICAL_DIRECTION_STATE.md` — Coordinator-owned medium/long-horizon strategy state.
-- `docs/CROSS_AGENT_CONTEXT.md` — material user/cross-agent/process evidence bridge.
-- `docs/HANDOFF.md` and `docs/TECHNICAL_ROADMAP.md` — legacy/read-only context only.
-- Behavioral continuation/release/safety rules live in automation prompts, not repository state files.
+## Canonical current-state architecture
+- `CURRENT_EXECUTION_STATE.md` — execution baton.
+- `TECHNICAL_DIRECTION_STATE.md` — Coordinator strategy state.
+- `ISSUE_STATE.md` — active/release-relevant/user-verification issue state.
+- `CROSS_AGENT_CONTEXT.md` — material user/cross-agent/process evidence.
+- `HANDOFF.md`, `TECHNICAL_ROADMAP.md`, `ISSUES.md` — legacy/read-only context.
+- `PROJECT_STATUS.md` — secondary dashboard only.
 
 ## Current repository / release truth
 - Stable: `v1.0.27` at `7d40d06cb4084403db3193ec77ab77b71baa24e2`.
-- Writable: `v1.0.28`; no release freeze/publication active.
-- Current execution order: bootstrap → P0 MS-020 generation runtime ownership → P0 MS-031 accepted-baseline persistence → MS-009 grid → MS-026/MS-027 workspace corrections → integrated validation/release review.
-- `CURRENT_EXECUTION_STATE.md` was successfully reconciled by Coordinator after migration.
-- `TECHNICAL_DIRECTION_STATE.md` creation and subsequent in-place replacement both succeeded; the old instruction-heavy TECHNICAL_ROADMAP path is no longer required for current strategy persistence.
+- Writable: `v1.0.28`; no release freeze/publication.
+- Current order: bootstrap → P0 MS-020 → P0 MS-031 → MS-009 → MS-026/MS-027 → integrated Coordinator review.
+- Bootstrap remains incomplete while `ai_backend/app.py` and `tools/release_audit.py` still identify as 1.0.27.
 
-## Reliability policy / outcomes
-- **AMP-006:** HARMFUL / RETIRED.
-- **Wait-before-defer:** HELPED.
-- **GitHub connector-first routing:** HELPED.
-- **Narrow Coordinator Dev-resume authority:** HELPED.
-- **AMP-007B degraded mode:** HELPED.
-- **AMP-007C safety-block avoidance:** HELPED by preventing retry loops and identifying instruction-heavy control files as the rejected mutation shape.
-- **AMP-007D persistence discipline:** HELPED.
-- **AMP-007E small-file architecture:** HELPED.
-- **CURRENT_EXECUTION_STATE migration:** HELPED; Coordinator successfully updates the new baton.
-- **TECHNICAL_DIRECTION_STATE migration:** VERIFIED WRITABLE; creation and ordinary replacement both succeeded.
+## Current process state
+- Neutral-state migration removed HANDOFF, TECHNICAL_ROADMAP and monolithic ISSUES from the live write path.
+- CURRENT_EXECUTION_STATE authority-header reconciliation succeeded at `ef074abe...`.
+- ISSUE_STATE was created at `0a898202...` and carries MS-020 released-build evidence plus MS-031.
+- Dev became disabled at about 10:51:37 Europe/Budapest while its last_run_time remained about 05:59:12. This was not a Dev self-pause. Task control exposes no actor/origin, so a manual/user pause cannot be excluded; do not auto-resume without explicit authorization or trustworthy provenance.
 
-## Open process risks
-- Instruction-heavy repository documents can trigger connector safety rejection even when the same factual content is legitimate project state.
-- Neutral factual state files should remain neutral; do not let them drift back into agent-instruction documents.
-- PROJECT_STATUS / ISSUES may temporarily lag during transitions; owning roles should reconcile only when their distinct canonical truth materially changes.
+## Reliability outcomes
+- AMP-006 global lease: HARMFUL / RETIRED.
+- Connector-first routing: HELPED.
+- Wait-before-defer: HELPED.
+- Narrow Coordinator Dev-resume authority: HELPED and correctly refuses ambiguous/manual pauses.
+- AMP-007B degraded mode: HELPED.
+- AMP-007C/D/E neutral small-state persistence: HELPED materially.
 
 ## Verification focus
-1. Dev reads CURRENT_EXECUTION_STATE + TECHNICAL_DIRECTION_STATE and advances the P0 queue without consulting legacy HANDOFF/ROADMAP as current truth.
-2. Coordinator successfully performs future strategy updates through TECHNICAL_DIRECTION_STATE.
-3. Daily reports from current state files rather than stale legacy planning files.
-4. No active automation regresses into instruction-heavy repository control documents.
-
-Historical small-file adoption record: `docs/automation-manager-log/2026-09-12-small-file-adoption.md`.
+1. Confirm Coordinator/Dev can update CURRENT_EXECUTION_STATE, TECHNICAL_DIRECTION_STATE and ISSUE_STATE without recurring safety blocks.
+2. Preserve manual-pause safety; do not auto-resume ambiguous Dev disablement.
+3. Once explicitly resumed, Dev begins with bootstrap then MS-020/MS-031 before grid/UI.
+4. Keep PROJECT_STATUS secondary so stale dashboard wording cannot override authoritative state.
