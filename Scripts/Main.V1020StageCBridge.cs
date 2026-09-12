@@ -203,6 +203,7 @@ public partial class Main
             try
             {
                 var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session was lost.");
+                StageCGeneration.ValidateResultEnvelope(session.Current, binding);
                 MeshData data = V1013MeshData(mesh);
                 var revision = await _v1020StageCStore.CreateMeshRevisionAsync(
                     _v1020StageCProjectPath, binding.OutputObjectId, data, $"image-to-3d:{actualProvider}");
