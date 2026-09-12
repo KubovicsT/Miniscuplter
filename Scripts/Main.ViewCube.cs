@@ -20,28 +20,24 @@ public partial class Main
             MouseFilter = MouseFilterEnum.Stop;
             Resized += LayoutPoints;
 
-            AddPoint(Vector3.Right, "X", "Right view (+X)");
-            AddPoint(Vector3.Left, "•", "Left view (-X)");
-            AddPoint(Vector3.Up, "Y", "Top view (+Y)");
-            AddPoint(Vector3.Down, "•", "Bottom view (-Y)");
-            AddPoint(Vector3.Back, "Z", "Front view (+Z)");
-            AddPoint(Vector3.Forward, "•", "Back view (-Z)");
+            AddPoint(Vector3.Right, new Button { Text = "X" }, "Right view (+X)");
+            AddPoint(Vector3.Left, new Button { Text = "•" }, "Left view (-X)");
+            AddPoint(Vector3.Up, new Button { Text = "Y" }, "Top view (+Y)");
+            AddPoint(Vector3.Down, new Button { Text = "•" }, "Bottom view (-Y)");
+            AddPoint(Vector3.Back, new Button { Text = "Z" }, "Front view (+Z)");
+            AddPoint(Vector3.Forward, new Button { Text = "•" }, "Back view (-Z)");
         }
 
-        void AddPoint(Vector3 axis, string label, string tooltip)
+        void AddPoint(Vector3 axis, Button button, string tooltip)
         {
-            var button = new Button
-            {
-                Text = label,
-                TooltipText = tooltip,
-                Flat = true,
-                FocusMode = FocusModeEnum.None,
-                CustomMinimumSize = new Vector2(28, 28),
-                MouseFilter = MouseFilterEnum.Stop
-            };
+            button.TooltipText = tooltip;
+            button.Flat = true;
+            button.FocusMode = FocusModeEnum.None;
+            button.CustomMinimumSize = new Vector2(28, 28);
+            button.MouseFilter = MouseFilterEnum.Stop;
             button.Pressed += () => AxisClicked?.Invoke(axis, AxisName(axis));
             AddChild(button);
-            _points.Add((button, axis, label));
+            _points.Add((button, axis, button.Text));
         }
 
         public void SetViewBasis(Basis basis)
