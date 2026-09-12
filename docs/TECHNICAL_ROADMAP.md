@@ -1,72 +1,49 @@
 # Miniscuplter Technical Roadmap
 
-> Authoritative end-to-end technical sequencing. PROJECT_CHARTER / DECISIONS own product truth; HANDOFF owns the immediate Dev baton.
+> Authoritative end-to-end sequencing. HANDOFF owns immediate execution state.
 
-Last coordinator review: 2026-09-12
-Latest stable: `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8`
-Writable development branch: `v1.0.27`
+Latest stable: `v1.0.27` at `7d40d06cb4084403db3193ec77ab77b71baa24e2`
+Forward branch: `v1.0.28` (bootstrap-only until identity + exact-head CI are green)
 Acceptance-weighted completion: **approximately 64%**
 
 ## Whole-system direction
+Preserve the selective-refactor architecture: Core owns durable project/object/revision/history state; Godot owns presentation/input; Python owns inference/geometry; launcher/updater owns runtime setup and delivery safety. Continue retiring duplicate authority through bounded production seams, not another broad rewrite.
 
-Preserve the selective-refactor architecture:
-- Core owns durable project/object/revision/history state.
-- Godot owns presentation, viewport/input and live interaction.
-- Python owns inference and geometry execution.
-- Launcher/updater owns runtime setup and delivery safety.
-
-The main architectural risk remains duplicate/legacy authority at subsystem seams. Continue retiring those seams through bounded production paths; do not reopen a broad rewrite.
-
-## Product critical path
-
-Released `v1.0.26` reference-machine acceptance remains P0 and outranks fallback development work:
-1. update/reopen behavior;
+## P0 acceptance path
+Released-build reference-machine evidence remains the highest-value input and preempts fallback engineering:
+1. update/reopen;
 2. Repair AI Runtime health;
 3. Generate 3D through provider resolution/inference;
 4. viewport resize invariance;
 5. compact workspace UX;
-6. candidate Apply → save/reopen → edit/sculpt → cleanup → exact STL export;
-7. storage containment and cancellation/recovery observations.
+6. Apply → save/reopen → transform/sculpt → cleanup → exact STL export;
+7. storage containment and cancellation/recovery.
 
-Any reproduced Critical issue from this sequence immediately preempts forward migration.
+CI cannot resolve renderer/GPU/runtime acceptance claims.
 
-## v1.0.27 accepted foundation
+## v1.0.27 release decision
+The completed v1.0.27 tranche is coherent and release-sized: mapped ground-placement Core authority; stable-ID viewport picking; revision-bound sculpt commits; durable protected-selection binding/invalidation; and dependent-state undo/history restoration. Exact candidate `7d40d06cb4084403db3193ec77ab77b71baa24e2` passed exact-SHA C#/Core, Python/runtime, geometry, release-audit, real Godot Windows export, installer smoke-install and immutable publication gates. v1.0.27 is published and immutable.
 
-The first three forward objectives are complete and validated:
-- semantic/version bootstrap is coherent at 1.0.27;
-- mapped ground placement now commits through durable Core transform authority with stale-state protection;
-- mapped viewport picking now binds stable `ObjectId + MeshRevisionId` before presentation selection.
+## v1.0.28 sequencing
+### A — forward-version bootstrap
+Complete 1.0.28 identity on every audited surface and restore exact-head green CI before product work. Current known stale surfaces are `ai_backend/app.py` and `tools/release_audit.py`.
 
-Exact engineering checkpoint `3d63204c368ca6b6564b7e1b74868f3636183668` passed the relevant Core/editor/runtime/release-audit/package validation. Current docs HEAD remains CI-green.
+### B — durable local job envelope (MS-020)
+Introduce one canonical persisted generation-job record with stable job ID, immutable project/object/revision input context, stage/state and contained artifacts. Recover truthful terminal/incomplete state after backend restart. Keep scope local and provider-neutral.
 
-## Current v1.0.27 sequence
+### C — heavyweight runtime ownership
+Establish one authoritative gate for heavyweight GPU inference versus conflicting runtime install/repair/remove operations. Do not duplicate provider routing or create a second scheduler.
 
-### D — revision-bound sculpt/edit seam
-Move one real sculpt/edit path onto exact object + active mesh-revision identity. Stale identity must fail closed; successful edits advance immutable revision/history state transactionally and project committed Core state back into Godot.
+### D — truthful cancellation/recovery
+For one production generation path, cancellation is acknowledged only after owned work is actually stopped; persist terminal state and prove a subsequent job starts cleanly after restart/recovery.
 
-### E — revision-dependent selection/protected-region invalidation
-Bind one production revision-dependent selection or protected-region path to Core `SelectionBinding` semantics. Topology/revision changes must explicitly transfer or invalidate it; stale indices may never silently survive.
+A→B→C→D may auto-proceed when acceptance conditions are met and no P0 evidence preempts. Coordinator review is required after D.
 
-### F — transactional Stage-D edit-history closure
-Prove one user-visible select → transform/sculpt → undo/redo → save/reopen sequence restores complete dependent state: stable object identity, active mesh revision, transform and revision-bound selection/dependency state.
-
-D and E may auto-proceed when acceptance gates are met and no P0 evidence preempts them. F ends with Coordinator review before further Stage-D expansion.
-
-## Release strategy
-
-`v1.0.27` remains **ACCUMULATING**, not frozen. Ground-placement plus viewport-picking authority alone are too small a release chunk immediately after v1.0.26. Reassess release size/readiness after D/E/F or earlier if target-machine evidence materially changes scope.
-
-Do not create a speculative v1.0.28 branch. Only a real Coordinator-owned release transition after exact-head preflight may freeze v1.0.27 and establish the next forward branch.
+## Priority rationale
+Stage-D object/revision/selection/history seams have now reached a coherent checkpoint. With no new target-machine evidence available, the next bounded architectural risk worth reducing is MS-020 job lifetime/resource ownership because it directly affects cancellation, crash recovery, stale work and reference-machine reliability. This is not permission for provider expansion or a generalized distributed scheduler.
 
 ## Explicit non-priorities
-
-Until v1.0.26 acceptance is consumed, do not broaden into:
-- new provider families or generalized Job Broker work;
-- broad Rig/Pose or kitbash work;
-- scene-tree/resource-graph redesign;
-- full sculpt-system rewrite;
-- unrelated UI breadth.
+Do not expand provider families, broad Rig/Pose/kitbash, scene-tree redesign, full sculpt rewrite, unrelated UI breadth, or speculative cloud services. Preserve local-first operation and contained storage.
 
 ## User dependency
-
-No product decision is required. Highest-value input is real GTX 1080 / 16 GB reference-machine evidence from the ordered v1.0.26 acceptance flow above.
+No product decision is required. Real GTX 1080 / 16 GB testing of released v1.0.27 is the highest-value input and may immediately reorder v1.0.28 work.
