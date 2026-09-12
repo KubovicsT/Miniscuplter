@@ -2,7 +2,7 @@
 
 > Current process/automation state. Historical checkpoints live in `docs/automation-manager-log/` and Git history.
 
-Last manager review: 2026-09-12 13:04 Europe/Budapest
+Last manager review: 2026-09-12 14:27 Europe/Budapest
 
 ## Role model
 - User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
@@ -12,11 +12,12 @@ Last manager review: 2026-09-12 13:04 Europe/Budapest
 - Daily Report is reporting-only.
 
 ## Active automations
-- `Minisculpter Dev` — currently disabled by explicit user/manual pause; hourly schedule preserved.
+- `Minisculpter Dev` — enabled; current execution state records that the user explicitly resumed Dev. Last recorded run began about 14:24 Europe/Budapest.
 - `Minisculpter Coordination` — enabled, every 3 hours at :30.
 - `Daily Minisculpter report` — enabled, daily 22:45 Europe/Budapest.
 - `Minisculpter Automation` — enabled, twice daily.
 - Legacy duplicate tasks remain disabled.
+- All four authoritative prompts support exact `Run task` as the manual-run alias and require retrieval of the latest saved task definition before execution.
 
 ## Canonical current-state architecture
 - `CURRENT_EXECUTION_STATE.md` — execution baton.
@@ -29,29 +30,30 @@ Last manager review: 2026-09-12 13:04 Europe/Budapest
 ## Current repository / release truth
 - Stable: `v1.0.28` at `6ed31b98fe426e0ca0184530a279abce43b7031f`.
 - Writable: `v1.0.29`; no release freeze/publication.
-- Current v1.0.29 objective: semantic-version bootstrap.
-- Previously blocked backend, release-audit and backend-lifecycle identity surfaces now identify as 1.0.29 through validated patch-control commits.
-- Exact-head build validation at `f83d9fd0e17b83c345a52a79f057bdd5632bf304` is green for .NET, Python/runtime, backend lifecycle, packaging/hash and installer-definition compilation.
+- Branch HEAD before this Manager record: `fb59325b62a834d3a91e04043eb98491329918ed`.
+- CURRENT objective D is COMPLETE — COORDINATOR REVIEW REQUESTED.
+- Objectives A–C are complete: semantic bootstrap, durable generation job envelope, and cancellation/recovery closure.
+- Validated application head `7b96524ae90fd7ecf237201121de2eaee0ff022f` passed integrated .NET/Core, Python/runtime/job, backend lifecycle, geometry, release-audit and packaging checks.
+- Latest branch-head build/core workflows are green.
 
 ## Current process state
-- Neutral-state migration removed HANDOFF, TECHNICAL_ROADMAP and monolithic ISSUES from the live write path.
-- CURRENT_EXECUTION_STATE authority-header reconciliation succeeded at `ef074abe...`.
-- ISSUE_STATE was created at `0a898202...` and carries MS-020 released-build evidence plus MS-031.
-- `patch-control` now provides exact-HEAD/exact-blob validated one-file unified-diff application for large existing text files on writable semantic-version branches, followed by explicit exact-head `build.yml` dispatch.
-- Live acceptance repaired the two original blocked identity writes plus the stale backend-lifecycle test identity without whole-file replacement; the earlier transient `ai_backend/app.py` truncation remains fully repaired.
-- User clarified pause provenance: Dev self-paused, user resumed it, then user manually paused it again. The present disabled state is an explicit user pause.
+- `patch-control` is operational and was used repeatedly for Stage-C large-file edits. Two malformed requests failed closed and were followed by corrected successful requests; no target corruption occurred.
+- Release-control has no active v1.0.29 publication request.
+- CURRENT_EXECUTION_STATE is current. TECHNICAL_DIRECTION_STATE and PROJECT_STATUS still lag behind the completed A–C work and should be reconciled by the Coordinator review before further queue advancement.
+- No active conflicting repository or release workflow was observed during this Manager review.
 
 ## Reliability outcomes
 - AMP-006 global lease: HARMFUL / RETIRED.
 - Connector-first routing: HELPED.
 - Wait-before-defer: HELPED.
-- Narrow Coordinator Dev-resume authority: HELPED and correctly refuses ambiguous/manual pauses.
+- Narrow Coordinator Dev-resume authority: HELPED.
 - AMP-007B degraded mode: HELPED.
 - AMP-007C/D/E neutral small-state persistence: HELPED materially.
-- Validated `patch-control` large-file editing: HELPED in live v1.0.29 acceptance tests.
+- Validated `patch-control` large-file editing: HELPED; fail-closed behavior also worked on malformed requests.
+- `Run task` latest-prompt manual alias: APPLIED; this Manager run successfully retrieved and executed the current saved definition.
 
 ## Verification focus
-1. Preserve patch-control fail-closed guards and use it only when ordinary whole-file writes are unsafe or blocked.
-2. Preserve the current explicit user pause until the user resumes Dev.
-3. Keep current neutral state files small and writable.
-4. Future automation replies start with AUTOMATION ISSUES and include LAST RUN time in Europe/Budapest.
+1. Coordinator reconciles TECHNICAL_DIRECTION_STATE / PROJECT_STATUS and decides v1.0.29 release-readiness/chunk or replenishes CURRENT before Dev advances.
+2. Preserve patch-control fail-closed guards and exact-head/blob discipline.
+3. Confirm Dev enablement remains intentional if future repository/task evidence becomes contradictory.
+4. Keep mutable current-state files small and writable.
