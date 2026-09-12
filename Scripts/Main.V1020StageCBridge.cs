@@ -157,7 +157,7 @@ public partial class Main
             return;
         }
 
-        string output = AppDataRoot.Resolve($"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl");
+        string output = AppDataRoot.Resolve(Path.Combine("Temp", "StageC", $"ai_part_{DateTime.Now:yyyyMMdd_HHmmss_fff}.stl"));
         string prompt = _prompt?.Text.Trim() ?? "";
         _v1093DBusy = true;
         _v1093DStarted = DateTime.UtcNow;
@@ -251,6 +251,7 @@ public partial class Main
         }
         finally
         {
+            try { if (File.Exists(output)) File.Delete(output); } catch { }
             _v1020GenerationBinding = null;
             _v1093DBusy = false;
             SetV1093DBusy(false);
