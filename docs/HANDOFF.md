@@ -7,7 +7,7 @@
 - Forward branch: `v1.0.28`, created from the exact v1.0.27 candidate.
 - `v1.0.28` is **BOOTSTRAP-ONLY**. Ordinary product work must not start yet.
 - Bootstrap checkpoint `3f6d791a1211f51ae10ca35b16435c53f725348d`: launcher, updater, editor assembly, installer, Windows export metadata, editor display and backend lifecycle expectation are 1.0.28. CI correctly fails semantic identity because **`ai_backend/app.py` and `tools/release_audit.py` still say 1.0.27**.
-- Dev scheduler is disabled; Coordinator did not change it.
+- Coordinator review is complete; this queue is valid for Dev resume under the narrow resume authority.
 
 ## CURRENT — A: complete v1.0.28 bootstrap
 **Outcome:** change only the two remaining stale release-identity surfaces to 1.0.28, then obtain green exact-head Core/build CI.
