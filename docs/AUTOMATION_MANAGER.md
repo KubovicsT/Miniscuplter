@@ -2,7 +2,7 @@
 
 > Current process/automation state. Historical checkpoints live in GitHub Issues, Prompt Ledger history, and Git history.
 
-Last manager review: 2026-09-12 20:32 Europe/Budapest
+Last manager review: 2026-09-13 00:34 Europe/Budapest
 
 ## Role model
 - User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
@@ -13,11 +13,12 @@ Last manager review: 2026-09-12 20:32 Europe/Budapest
 
 ## Active automations
 - `Minisculpter Dev` — enabled; `DEV-2026-09-12.005`; hourly at :00.
-- `Minisculpter Coordination` — enabled; `COORD-2026-09-12.009`; every two hours from 19:30 Europe/Budapest.
-- `Minisculpter Automation` — enabled; `MGR-2026-09-12.011`; every two hours from 20:30 Europe/Budapest, one hour offset from Coordinator.
+- `Minisculpter Coordination` — enabled; `COORD-2026-09-12.010`; every two hours from 19:30 Europe/Budapest.
+- `Minisculpter Automation` — enabled; `MGR-2026-09-12.012`; every two hours from 20:30 Europe/Budapest, one hour offset from Coordinator.
 - `Daily Minisculpter report` — disabled; `DAILY-2026-09-12.005`.
 - Prompt Ledger and Technical Findings Ledger remain disabled inert storage/history only; legacy duplicate tasks remain disabled.
 - All authoritative prompts enforce a 30-minute run budget and cross-agent wait/no-race checks. Enabled state alone is not treated as proof of active execution.
+- Coordinator now has a release execution completion gate: an initiated release-control publication is monitored to terminal workflow state and independently verified against tag/release/candidate SHA/assets before success is declared; genuinely non-terminal publication near finalization is handed off as `PUBLICATION PENDING`.
 
 ## Canonical current-state architecture
 - `CURRENT_EXECUTION_STATE.md` — current Coordinator↔Dev execution baton on the authoritative writable branch.
@@ -30,21 +31,20 @@ Last manager review: 2026-09-12 20:32 Europe/Budapest
 - `PROJECT_STATUS.md` — secondary dashboard only.
 
 ## Current repository / release truth
-- Stable release: `v1.0.30` at `3a349a38836641caee2a7c9c68d9b0e15febe5cd`.
-- Published `v1.0.30` branch pointer remains drifted at `47a95ea1f855147d8d71d3e775c594326a725638`; the release tag/candidate SHA remains authoritative and the branch is quarantined from execution truth.
-- Writable: `v1.0.31`; root `VERSION` is `1.0.31`; release freeze/publication inactive.
-- Writable HEAD at review start: `7f7c04b65791d25b4eec68373f80ed18fef3594b` (`docs: advance v1.0.31 to storage containment audit`).
-- Current objective: C — Stage-C storage/offline containment audit, READY.
-- Completed in v1.0.31: A0/MS-032 terminal generation failure cleanup, A generated-object rehydration/edit continuity, B cleanup/export transaction and exact-scope integrity.
-- Next after C: D — integrated v1.0.31 thin-slice checkpoint, then Coordinator review.
-- Latest exact-head `core-foundation` and build workflows at `7f7c04b...` completed successfully.
+- Stable release: `v1.0.31` at `7a2dcfd238c29639935f72de8ed635ca4efe3725`.
+- Published `v1.0.31` branch pointer exactly matches the release candidate and is read-only execution history.
+- Writable: `v1.0.32`; root `VERSION` is `1.0.32`; release freeze/publication inactive.
+- Writable HEAD at review start: `003c32c93602c316ae0e62e81d115937c258533c` (`docs: record v1.0.32 history hardening progress`).
+- `CURRENT_EXECUTION_STATE.md` is reconciled: stable v1.0.31, writable v1.0.32, no execution hold.
+- Current objective: B — editing/history continuity hardening, IN PROGRESS; A remains a parallel target-machine verification gate for released v1.0.31.
+- Next after B: C launcher/runtime recovery and update-path qualification, then D integrated v1.0.32 checkpoint and Coordinator review.
+- Exact-head build run `34721740942` for `003c32c...` completed successfully; latest observed workflow activity is settled.
 
 ## Finding / incident state
-- `AMF-001` / Issue #2 was ACCEPTED, promoted to `MS-032`, implemented, validated and remains closed completed.
-- `AUTO-INC-001` / #3 recovered and closed completed.
-- `AUTO-INC-002` / #4 recovered; published-branch drift is contained by writable-branch resolution and immutability prompt guards.
-- `AUTO-INC-003` / #5 recovered and closed completed; bounded patch-control retry worked as designed.
-- `AUTO-INC-004` / #6 tracked the earlier safety-blocked Manager state-file refresh. This review successfully reconciled the state file; close the incident as recovered/completed after write verification.
+- No open `[AMF-xxx]` Issues.
+- `AMF-001` / Issue #2 was ACCEPTED, promoted to `MS-032`, implemented and validated; closed completed.
+- `AUTO-INC-001` through `AUTO-INC-004` are recovered/closed.
+- `AUTO-INC-005` / Issue #7 tracked the missing post-v1.0.31 forward/bootstrap state. Manager created and bootstrapped v1.0.32 through validated control planes; Coordinator subsequently reconciled CURRENT and Dev resumed safe work. Issue #7 was closed completed in this review.
 
 ## Reliability outcomes
 - AMP-006 global lease: HARMFUL / RETIRED.
@@ -55,13 +55,18 @@ Last manager review: 2026-09-12 20:32 Europe/Budapest
 - AMP-009 Coordinator minimal-write discipline: HELPED.
 - AMP-010 prompt-contract lint: HELPED.
 - AUTO-INC GitHub-Issue protocol + bounded retries: HELPED.
-- Published-branch immutability / writable-branch resolution guard: HELPED; no repeat stale-branch write observed after rollout.
-- 30-minute cutoff + all-agent wait/no-race rule: INCONCLUSIVE but correctly present in all current authoritative prompts; continue observing.
-- Coordinator/Manager two-hour stagger with one-hour offset: newly active; no overlap problem observed in this review.
+- Published-branch immutability / writable-branch resolution guard: HELPED; v1.0.31 remains exactly at its published candidate while Dev advances v1.0.32.
+- 30-minute cutoff + all-agent wait/no-race rule: HELPED so far; no overlap/race observed in this review and agents are finishing inside bounded runs.
+- Coordinator/Manager two-hour stagger with one-hour offset: HELPED so far; no overlap problem observed.
+- Release terminal-confirmation gate: INCONCLUSIVE for future publication because it was introduced after v1.0.31 publication; contract is present in Coordinator and Manager prompts and must be evaluated on the next Coordinator-owned release.
+
+## Process risks / drift
+- `TECHNICAL_DIRECTION_STATE.md` is stale after the v1.0.31 release: it still names stable v1.0.30 / release line v1.0.31 and the completed v1.0.31 thin-slice priority order. This is Coordinator-owned strategic state, not a Manager mutation target. CURRENT is correct and Dev is executing safely, so this is not presently blocking implementation, but the next Coordinator review should reconcile TECHNICAL_DIRECTION to v1.0.32 strategy before release-scope decisions depend on it.
+- `ISSUE_STATE.md` still phrases several target-machine verification requests against v1.0.30 even though v1.0.31 is the latest release. Preserve those as historical verification wording unless Coordinator/user evidence determines which cases should move to v1.0.31; do not silently rewrite user-verification truth.
 
 ## Verification focus
-1. Dev continues objective C from authoritative `v1.0.31` and does not use drifted published `v1.0.30` as execution truth.
-2. Coordinator reviews only after Dev/current workflow activity is settled and preserves the one-hour stagger.
-3. Objective D becomes the next integrated checkpoint after C; Coordinator remains exclusive release owner.
-4. Keep AUTO-INC and AMF lifecycle aligned with live evidence.
-5. Re-evaluate the 30-minute cutoff and cross-agent wait rule after enough scheduled runs to judge whether they reduce overlap without truncating useful work.
+1. Dev continues B on authoritative `v1.0.32` and advances automatically to C/D only under CURRENT continuation rules.
+2. Coordinator reconciles stale `TECHNICAL_DIRECTION_STATE.md` to current v1.0.32 strategy/release line before consequential roadmap or publication decisions.
+3. Released v1.0.31 target-machine gate A remains explicit; runtime claims are not upgraded from CI alone.
+4. Coordinator remains exclusive release owner and, on its next publication, follows the terminal workflow observation + independent release verification gate end-to-end.
+5. Keep AUTO-INC and AMF lifecycle aligned with live evidence; no open incident/finding remains at this checkpoint.
