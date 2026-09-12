@@ -71,3 +71,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Action / interpretation:** Removed AMP-006 lease behavior from all active Coordinator, Dev, Manager and Daily prompts. Scheduled tasks now use only a lightweight visible-activity/no-race check; manual overlap prevention is user-managed. Historical automation-lock files are no longer prerequisites or authoritative runtime state.
 - **Canonical docs touched:** active automation prompts; CROSS_AGENT_CONTEXT. AMP-006 should be treated as HARMFUL / RETIRED.
 - **Follow-up owner:** Automation Manager should verify that the no-lease/manual-pause model reduces process failures without producing real overlap incidents.
+
+### 2026-09-12 02:02 Europe/Budapest — Project Coordinator — CROSS-AGENT HANDOFF FACT
+- **User input / event:** User ran the current Coordinator task under the no-lease model with Dev paused and Coordinator as exclusive release owner.
+- **Evidence / scope:** v1.0.26 authoritative HEAD `a41e0419ba40fd1118775e8f516b1a31145f18d8` had green exact-head Core/build CI and coherent 1.0.26 release identity. No prior v1.0.26 request existed. The older v1.0.27 branch at `30f42c5...` predated a legitimate release transition and still carried 1.0.26 identity.
+- **Action / interpretation:** Coordinator submitted one exact-SHA v1.0.26 release request, freezing v1.0.26. The earlier v1.0.27 was reconciled by fast-forwarding it to the actual frozen candidate and bootstrapping semantic identity to 1.0.27. v1.0.27 is now the authoritative writable branch. Dev remains paused; Coordinator did not modify automation state.
+- **Canonical docs touched:** TECHNICAL_ROADMAP, COORDINATOR_LOG, PROJECT_STATUS, HANDOFF and ISSUES on v1.0.27.
+- **Follow-up owner:** Coordinator monitors v1.0.26 release-control to publication/failure classification. User performs GTX 1080 acceptance after publication. Dev, when explicitly resumed, starts with v1.0.27 bootstrap validation and follows HANDOFF.
+
