@@ -8,23 +8,18 @@ Last reconciled: 2026-09-12
 - Stable: `v1.0.27` @ `7d40d06cb4084403db3193ec77ab77b71baa24e2`
 - Writable: `v1.0.28`; no release freeze/publication
 - Acceptance-weighted completion: approximately **64%**
-- Bootstrap remains incomplete while `ai_backend/app.py` and `tools/release_audit.py` still identify as 1.0.27.
+- v1.0.28 bootstrap and the authorized A–E implementation queue are complete; Coordinator review is required at the integrated checkpoint.
 
-## Released-build acceptance blockers
-- **MS-020 P0:** v1.0.27 Generate 3D fails from heavyweight runtime-ownership/lifecycle conflict.
-- **MS-031 P0:** accepted 2D baseline image survives reopen, but accepted state/generation eligibility does not.
-- **MS-009 Critical:** viewport grid is absent on released v1.0.27.
-- **MS-026/MS-027:** viewport tool buttons are accepted; console/telemetry/orientation composition still requires the specified corrections.
-- **MS-029:** v1.0.25→v1.0.27 launcher-close observation still requires verification on an update initiated by installed v1.0.27.
+## Released-build verification pending
+- **MS-020:** fixed in code; GTX 1080 Generate 3D retest required.
+- **MS-031:** fixed in code with reopen regression; released-build save/close/reopen retest required.
+- **MS-009:** fixed in code with two-sided grid regression; GTX 1080 grid/resize retest required.
+- **MS-026/MS-027:** requested workspace composition implemented; target-machine UX retest required.
+- **MS-029:** updater behavior still needs a transition initiated from installed v1.0.27.
 - **MS-030:** packaged backend-health fix remains NEEDS USER VERIFICATION.
 
-## Current critical path
-1. finish v1.0.28 semantic-version bootstrap and exact-head validation;
-2. fix P0 MS-020 Generate 3D runtime ownership;
-3. fix P0 MS-031 accepted-baseline persistence;
-4. restore MS-009 viewport grid;
-5. apply MS-026/MS-027 workspace corrections;
-6. integrated validation and Coordinator release review.
+## Current checkpoint
+Integrated v1.0.28 application checkpoint: `4b6ea637ca572b7e7983bfbba051635e21a5b40c`. Exact-checkpoint Core and full build CI are green, including semantic identity, C#/.NET, Python/runtime/job tests, workspace regressions, geometry, backend lifecycle, release audit, portable packaging/hash and installer-definition compilation.
 
 ## User dependency
-No product decision is currently required. After a corrected release, verify baseline persistence, Generate 3D, grid behavior, workspace composition, backend health and the first updater transition initiated from v1.0.27.
+No product decision is required. After Coordinator release review and a corrected release, verify accepted-baseline reopen state, Generate 3D, grid/resize behavior, workspace composition, backend health and the updater transition from v1.0.27.
