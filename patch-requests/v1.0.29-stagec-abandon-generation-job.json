@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.29",
+  "expected_head_sha": "7579a8dfb2c9950b7696cf77068910d424f6d63c",
+  "target_path": "Core/StageCGeneration.cs",
+  "expected_blob_sha": "6cd5cd5757400c63883a01a7f9adff27886a76b4",
+  "commit_message": "core: abandon cancelled generation envelope transactionally",
+  "patch": "diff --git a/Core/StageCGeneration.cs b/Core/StageCGeneration.cs\n--- a/Core/StageCGeneration.cs\n+++ b/Core/StageCGeneration.cs\n@@ -170,6 +170,27 @@ public static class StageCGeneration\n         return result;\n     }\n \n+    public static bool AbandonGenerationJob(ProjectSession session, GenerationJobBinding binding)\n+    {\n+        ArgumentNullException.ThrowIfNull(session);\n+        if (binding.JobId.Value == Guid.Empty || binding.ProjectId.Value == Guid.Empty || binding.OutputObjectId.Value == Guid.Empty)\n+            throw new ArgumentException(\"Generation binding contains an empty identity.\", nameof(binding));\n+        if (session.Current.ProjectId != binding.ProjectId)\n+            throw new InvalidOperationException(\"Generation job belongs to a different project.\");\n+\n+        var jobs = ReadGenerationJobs(session.Current).ToList();\n+        int jobIndex = jobs.FindIndex(x => x.JobId == binding.JobId);\n+        if (jobIndex < 0) return false;\n+        if (jobs[jobIndex] != binding)\n+            throw new InvalidOperationException(\"Generation job identity does not match its durable envelope.\");\n+\n+        jobs.RemoveAt(jobIndex);\n+        session.Execute(\n+            \"Abandon 3D generation job\",\n+            state => state.WithMetadata(JobsKey, SerializeJobs(jobs)),\n+            binding.OutputObjectId);\n+        return true;\n+    }\n+\n     public static ImageToMeshCandidateState RegisterResult(\n         ProjectSession session,\n         GenerationJobBinding binding,\n"
+}
