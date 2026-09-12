@@ -6,9 +6,9 @@ Last updated: 2026-09-12
 
 ## Repository / release state
 
-- **Latest published stable at handoff time:** `v1.0.25` at `a7fc4bcf5f771c18060e5aee7c98026131731c2a`.
+- **Latest published stable:** `v1.0.26` at `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
 - **Frozen source:** `v1.0.26` at exact candidate `a41e0419ba40fd1118775e8f516b1a31145f18d8`.
-- **v1.0.26 release-control request:** submitted on `release-control`; autonomous release workflow is running.
+- **v1.0.26 release-control:** completed successfully. Tag, GitHub Release, exact target SHA, ZIP/hash and installer assets were verified.
 - **Current writable development branch:** `v1.0.27`.
 - **Forward-branch reconciliation:** the earlier premature/orphan v1.0.27 was fast-forwarded to the actual frozen v1.0.26 candidate as part of the real release transition.
 - **v1.0.27 identity:** mechanically bootstrapped to 1.0.27 across launcher, updater/editor assembly, installer, Windows export metadata, backend API, editor display and release audit.
