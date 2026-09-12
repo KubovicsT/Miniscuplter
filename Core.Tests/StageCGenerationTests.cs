@@ -68,6 +68,21 @@ internal static class StageCGenerationTests
         Assert(!session.Current.Objects.ContainsKey(staleJob.OutputObjectId), "stale generation result silently created/replaced an active object");
         Assert(StageCGeneration.ReadCandidates(session.Current).Single(x => x.Id == staleCandidate.Id).ConflictReason != null, "stale candidate did not retain conflict reason");
 
+        var cancelledJob = StageCGeneration.BeginImageToMesh(session);
+        Assert(StageCGeneration.AbandonGenerationJob(session, cancelledJob), "cancelled generation job envelope was not retired");
+        Assert(!StageCGeneration.ReadGenerationJobs(session.Current).Any(x => x.JobId == cancelledJob.JobId), "cancelled generation job remained durably active");
+        var cancelledMesh = await store.CreateMeshRevisionAsync(projectPath, cancelledJob.OutputObjectId, Tetra(.9f), "unit-test:cancelled-generated");
+        bool cancelledResultRejected = false;
+        try { _ = StageCGeneration.RegisterResult(session, cancelledJob, cancelledMesh, "sf3d", "unit-test:cancelled-result"); }
+        catch (InvalidOperationException) { cancelledResultRejected = true; }
+        Assert(cancelledResultRejected, "late result from cancelled generation job was accepted");
+        Assert(!session.Current.Objects.ContainsKey(cancelledJob.OutputObjectId), "late cancelled generation result altered active project objects");
+
+        var replacementJob = StageCGeneration.BeginImageToMesh(session);
+        Assert(replacementJob.JobId != cancelledJob.JobId, "replacement generation reused cancelled job identity");
+        Assert(replacementJob.OutputObjectId != cancelledJob.OutputObjectId, "replacement generation reused cancelled output object identity");
+        Assert(StageCGeneration.AbandonGenerationJob(session, replacementJob), "replacement test envelope could not be retired");
+
         var currentJob = StageCGeneration.BeginImageToMesh(session);
         var generatedMesh = await store.CreateMeshRevisionAsync(projectPath, currentJob.OutputObjectId, Tetra(1.25f), "unit-test:generated");
         var ready = StageCGeneration.RegisterResult(session, currentJob, generatedMesh, "sf3d", "unit-test:ready-result");
