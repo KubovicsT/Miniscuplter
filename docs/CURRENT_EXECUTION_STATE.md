@@ -1,50 +1,43 @@
 # Miniscuplter Current Execution State
 
 ## Release state
-- stable: v1.0.30 @ 3a349a38836641caee2a7c9c68d9b0e15febe5cd
-- writable: v1.0.31
+- stable: v1.0.31 @ 7a2dcfd238c29639935f72de8ed635ca4efe3725
+- writable: v1.0.32
 - release_freeze: false
 - publication_active: false
-- branch_bootstrap: complete; VERSION 1.0.31; bootstrap validation green
-- execution_hold: coordinator_review_required
+- branch_bootstrap: complete; VERSION 1.0.32
+- execution_hold: none
 
 ## Current objective
-### D — v1.0.31 integrated thin-slice checkpoint
-- state: COMPLETE - COORDINATOR REVIEW REQUIRED
-- outcome: A0-C are integrated; Stage-C generation/output containment is fail-closed and the strongest relevant integrated validation is green
-- checkpoint_sha: `bd34c98417d9ab3cca04bc1459b2cfcd7dc3fd8a`
-- validation: exact-checkpoint build run 34713036113 completed successfully across .NET/Core, Python/runtime/job, backend lifecycle, geometry, release audit and packaging
-- continuation: coordinator_review_required
+### A — released Stage-C end-to-end target-machine qualification
+- state: READY
+- outcome: exercise the released v1.0.31 2D→3D path on the reference Windows/GTX 1080 machine and convert any reproducible runtime failure into precise issue evidence while continuing independently testable engineering work
+- constraints: preserve Core durable-state authority, Godot presentation/input authority and Python inference/geometry authority; do not mark runtime/user-observed issues verified from CI alone
+- acceptance: Generate 3D succeeds through packaged backend/provider/inference; cancel/retry cannot overlap or apply stale work; save/close/reopen restores accepted baseline and generated-object identity/edit eligibility; observed failures are recorded with exact stage/evidence
+- preemption: any reproduced Critical/High release-path regression preempts B
+- continuation: automatic to B when no release-blocking regression remains; user verification may remain pending while B proceeds where independent
 
 ## Next
-### Coordinator review — v1.0.31 checkpoint
-- state: REQUIRED
-- outcome: review the integrated checkpoint, issue/user-verification state and release scope; decide release readiness or the next ordered Dev objectives
-- dependency: D complete
+### B — editing/history continuity hardening
+- state: blocked by A engineering gate or independent user-verification wait
+- outcome: strengthen durable object/revision selection, basic-edit and cleanup history continuity across reopen/undo-redo without duplicate state authority
+- dependencies: v1.0.31 Stage-C rehydration/transaction foundations
+- acceptance: focused persistence/history/edit-continuity regressions plus relevant exact-head validation green
+- continuation: automatic to C
 
-## Completed objectives
-### C — Stage-C storage/offline containment audit
-- state: COMPLETE
-- outcome: transient generation meshes are contained beneath the configured Temp/StageC root and cleaned; backend-returned output is accepted only when it is the exact requested path; installed Hunyuan assets remain locally resolved for offline inference
-- evidence: `2f07d1572b0a01af151f1eb5c6c8a7a2b5fe6fa6` contains and cleans transient Stage-C output, `a8f77f81cdbd14d103e59fe39a88371a14e5da2c` rejects redirected backend output paths, `e5f90b396323bd595713611e975b40653340663c` adds focused containment/offline regression coverage, and `bd34c98417d9ab3cca04bc1459b2cfcd7dc3fd8a` strengthens the legacy-top-level-output guard
-- validation: exact-checkpoint build run 34713036113 completed successfully
+### C — launcher/runtime recovery and update-path qualification
+- state: blocked by B
+- outcome: harden packaged Runtime Repair/backend health and updater handoff/rollback around the now-stable Stage-C workflow
+- acceptance: focused repair/update regressions and relevant packaging/release-audit validation green; target-machine verification remains explicit where required
+- continuation: automatic to D
 
-### B — cleanup/export transaction and exact-scope integrity
-- state: COMPLETE
-- outcome: transactional cleanup/history with export bound to the intended durable object/revision; STL remains interchange only
-- evidence: `09a552d4b3eaf39bd2868fce6ce0365ff069ff85` adds focused cleanup/history/export-scope regressions, `aff482831f537a09d873773f7f909b57e3534dfa` executes the new suite, and `e88c180b6422a69d3b2a6c3b622a901c3cec1984` corrects its transaction-identity assertion
-- validation: exact-head build run 34707011460 at `e88c180b6422a69d3b2a6c3b622a901c3cec1984` completed successfully
-
-### A — generated-object rehydration and edit continuity
-- state: COMPLETE
-- outcome: applied generated objects restore from durable object/revision state on reopen, retain durable object identity, and rebind viewport selection/edit authority
-- evidence: `42b794213201267790de207830db91111ddd110c` implements durable generated-object rehydration, `62cebd8747b181bad503660982468826258e5a86` wires it into Stage-C restore, and `a06870983f7cc9e71ad90ea02044d760473001a1` adds focused wiring coverage
-- validation: subsequent exact-head build run 34707011460 completed successfully
-
-### A0 — MS-032 terminal generation failure cleanup
-- state: COMPLETE
-- evidence: `f6cf5fe72d80cea28352346e3a8d8378006da5c1` retires and persists the exact durable envelope on terminal non-cancelled generation failure; `e8e9bca875fc2395a34003d314aa8fb96e3fc6e4` supplies focused live-bridge regression coverage without async module-initializer work
-- validation: exact-head build run 34706360779 completed successfully across .NET/Core, Python/runtime/job, backend lifecycle, geometry, release audit and packaging
+### D — v1.0.32 integrated qualification checkpoint
+- state: blocked by C
+- outcome: integrate A-C and run strongest relevant Core/.NET, Python/runtime/job, geometry, persistence, release-audit and packaging validation
+- acceptance: exact-head integrated gates green; canonical issue/current state reconciled; no known release blocker introduced
+- continuation: coordinator_review_required
 
 ## Recently completed
-- v1.0.30 released from 3a349a38836641caee2a7c9c68d9b0e15febe5cd after exact-candidate Windows export, installer smoke-install and publication.
+- v1.0.31 released from 7a2dcfd238c29639935f72de8ed635ca4efe3725 after exact-candidate C#/Core, Python/runtime, geometry, release-audit, real Godot Windows export, ZIP/hash verification, installer creation and silent installer smoke-install.
+- v1.0.32 was created forward-only from the exact v1.0.31 release candidate and bootstrapped to VERSION 1.0.32 at 9857422222c685cc5b27b5c2763cf8b4070a111d.
+- v1.0.31 objectives A0-D completed terminal generation cleanup, generated-object rehydration/edit continuity, transactional cleanup/exact-revision export and Stage-C storage/offline containment.
