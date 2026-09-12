@@ -75,6 +75,26 @@ internal static class Program
             session.Redo();
             Assert(session.Current.Objects[objectId].Transform.Position == new Vec3(4, 5, 6), "redo did not restore full after state");
 
+            var branchingSession = new ProjectSession(state);
+            branchingSession.Execute("Saved branch", current => current.WithObject(current.Objects[objectId] with
+            {
+                Transform = new TransformState(new Vec3(1, 2, 3), Vec3.Zero, Vec3.One)
+            }), objectId);
+            branchingSession.MarkSaved();
+            long savedBranchRevision = branchingSession.SavedRevisionNumber;
+            branchingSession.Undo();
+            Assert(branchingSession.IsDirty, "undoing a saved transaction should make the project dirty");
+            branchingSession.Execute("Divergent branch", current => current.WithObject(current.Objects[objectId] with
+            {
+                Transform = new TransformState(new Vec3(7, 8, 9), Vec3.Zero, Vec3.One)
+            }), objectId);
+            Assert(branchingSession.Current.RevisionNumber > savedBranchRevision,
+                "a new edit after undo reused an already observed revision number");
+            Assert(branchingSession.IsDirty,
+                "a divergent edit after undo incorrectly compared equal to the saved revision");
+            Assert(!branchingSession.CanRedo,
+                "a divergent edit after undo should clear the abandoned redo branch");
+
             var second = await store.CreateMeshRevisionAsync(projectPath, objectId, Tetra(1.1f), "unit-test:second", first.Id);
             var third = await store.CreateMeshRevisionAsync(projectPath, objectId, Tetra(1.2f), "unit-test:third", second.Id);
             session.Execute("Add generated revisions", current => current.WithMeshRevision(second).WithMeshRevision(third), objectId);
