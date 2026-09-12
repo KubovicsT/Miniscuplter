@@ -58,6 +58,40 @@ internal static class StageCEditingTests
         session.Redo();
         Assert(session.Current.Objects[objectId].Transform == transformed, "transform redo did not restore complete state");
 
+        TransformState grounded = transformed with
+        {
+            Position = new Vec3(transformed.Position.X, 0f, transformed.Position.Z)
+        };
+        bool groundedChanged = StageCEditing.SetTransformIfCurrent(
+            session,
+            objectId,
+            generated.Id,
+            transformed,
+            grounded,
+            "ground");
+        Assert(groundedChanged, "conditional transform command reported no change");
+        Assert(session.Current.Objects[objectId].Transform == grounded,
+            "conditional transform did not become authoritative project state");
+        session.Undo();
+        Assert(session.Current.Objects[objectId].Transform == transformed,
+            "conditional transform undo did not restore the expected durable transform");
+
+        bool staleTransformRejected = false;
+        try
+        {
+            StageCEditing.SetTransformIfCurrent(
+                session,
+                objectId,
+                generated.Id,
+                TransformState.Identity,
+                grounded,
+                "stale ground");
+        }
+        catch (InvalidOperationException) { staleTransformRejected = true; }
+        Assert(staleTransformRejected, "conditional transform accepted a stale expected transform");
+        Assert(session.Current.Objects[objectId].Transform == transformed,
+            "stale conditional transform rejection changed durable state");
+
         MeshRevision sculpt = await store.CreateMeshRevisionAsync(
             projectPath, objectId, Tetra(1.15f), "stagec-edit:sculpt-stroke", generated.Id);
         StageCEditing.CommitMeshRevision(session, objectId, generated.Id, sculpt, "sculpt stroke");
@@ -66,6 +100,24 @@ internal static class StageCEditingTests
         Assert(session.Current.Objects[objectId].Transform == transformed, "sculpt commit changed object transform");
         Assert(StageCCleanup.ResolveExportRevision(session.Current, objectId, sculpt.Id).Id == sculpt.Id,
             "export scope did not advance to committed sculpt revision");
+
+        bool staleRevisionRejected = false;
+        try
+        {
+            StageCEditing.SetTransformIfCurrent(
+                session,
+                objectId,
+                generated.Id,
+                transformed,
+                grounded,
+                "stale revision ground");
+        }
+        catch (InvalidOperationException) { staleRevisionRejected = true; }
+        Assert(staleRevisionRejected, "conditional transform accepted a stale mesh revision");
+        Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == sculpt.Id,
+            "stale revision rejection changed active mesh identity");
+        Assert(session.Current.Objects[objectId].Transform == transformed,
+            "stale revision rejection changed durable transform");
 
         session.Undo();
         Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == generated.Id, "sculpt undo did not restore generated revision");
