@@ -59,7 +59,11 @@ public partial class Main
             _v1093DPanel.AddChild(row);
         }
 
-        _ = V1020RestoreStageCStateAsync();
+        // Restore durable Core acceptance only after all installer layers have composed.
+        // Running this mid-install can race later compatibility/presentation code and leave the
+        // persisted baseline visible but the acceptance/status controls reset.
+        CallDeferred(nameof(V1020RestoreStageCState));
+
     }
 
     static System.Collections.Generic.IEnumerable<Node> V1020Descendants(Node root)
@@ -327,6 +331,11 @@ public partial class Main
         await session.SaveRecoveringAsync(
             state => _v1020StageCStore.SaveAsync(state, _v1020StageCProjectPath),
             async () => (await _v1020StageCStore.LoadWithRecoveryAsync(_v1020StageCProjectPath)).State);
+    }
+
+    async void V1020RestoreStageCState()
+    {
+        await V1020RestoreStageCStateAsync();
     }
 
     async Task V1020RestoreStageCStateAsync()
