@@ -242,10 +242,28 @@ public partial class Main
         }
     }
 
-    void V1020CancelStageCGeneration()
+    async void V1020CancelStageCGeneration()
     {
         if (!_v1093DBusy) return;
+        var binding = _v1020GenerationBinding;
         SetStatus("Cancelling Stage-C 3D generation; the accepted baseline and any previously saved candidate remain intact.");
+        if (binding == null) return;
+
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                var session = _v1020StageCSession;
+                if (session != null && StageCGeneration.AbandonGenerationJob(session, binding))
+                    await V1020SaveSessionAsync();
+            }
+            finally { _v1020StageCGate.Release(); }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("3D generation cancellation is isolating backend work, but its durable job envelope could not be retired: " + ex.Message);
+        }
     }
 
     async void V1020ApplyCandidate()
