@@ -1,6 +1,6 @@
 # Miniscuplter Current Execution State
 
-> Authoritative current Coordinator↔Dev state. Strategy lives in TECHNICAL_ROADMAP; HANDOFF is legacy/read-only.
+> Authoritative current Coordinator↔Dev state. Strategy lives in TECHNICAL_DIRECTION_STATE; HANDOFF and TECHNICAL_ROADMAP are legacy/read-only.
 
 ## Release state
 - stable: `v1.0.27` @ `7d40d06cb4084403db3193ec77ab77b71baa24e2`
