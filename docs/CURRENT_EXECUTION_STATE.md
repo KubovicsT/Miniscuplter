@@ -1,27 +1,42 @@
 # Miniscuplter Current Execution State
 
-> Authoritative current Coordinator↔Dev state. Strategy lives in TECHNICAL_DIRECTION_STATE; HANDOFF and TECHNICAL_ROADMAP are legacy/read-only.
-
 ## Release state
-- stable: `v1.0.27` @ `7d40d06cb4084403db3193ec77ab77b71baa24e2`
-- writable: `v1.0.28`
+- stable: v1.0.28 @ 6ed31b98fe426e0ca0184530a279abce43b7031f
+- writable: v1.0.29
 - release_freeze: false
 - publication_active: false
-- exact_head: `4b6ea637ca572b7e7983bfbba051635e21a5b40c`
+- branch_bootstrap: pending
 
-## CURRENT — F: v1.0.28 integration checkpoint
-- status: COMPLETE — COORDINATOR REVIEW REQUESTED
-- outcome: A–E are implemented and integrated; strongest branch CI is green at exact HEAD
-- validation: Core foundation green; full build green including semantic identity, C#/.NET, Python/runtime/job tests, workspace regressions, geometry, backend lifecycle, release audit, portable package/hash and installer-definition compilation
-- acceptance/stop: met for automated checkpoint; released-build GTX 1080 verification still required for user-observed runtime/UI defects
+## Current objective
+- id: A
+- name: v1.0.29 semantic-version bootstrap
+- state: ready
+- outcome: move release identity from 1.0.28 to 1.0.29 and restore exact-head green validation
+- dependency: none
+- acceptance: semantic identity, Core, build and packaging gates green
+- continuation: automatic
+- preemption: any new v1.0.28 reference-machine blocker
+
+## Next objectives
+### B
+- name: durable generation job envelope
+- state: next
+- issue: MS-020
+- outcome: generation keeps stable job/revision identity through runtime ownership and stale-result handling
+- dependency: A
+- continuation: automatic
+
+### C
+- name: cancellation and recovery closure
+- state: next
+- issue: MS-020
+- outcome: cancellation/retry ends or isolates heavyweight work before replacement work begins
+- dependency: B
+- continuation: automatic
+
+### D
+- name: v1.0.29 integration checkpoint
+- state: next
+- outcome: strongest integrated validation complete and candidate ready for Coordinator review
+- dependency: A-C
 - continuation: coordinator_review_required
-
-## Completed queue
-- A: v1.0.28 semantic-version bootstrap complete
-- B / MS-020: Generate 3D model-release calls preserve the active heavyweight job owner
-- C / MS-031: accepted baseline is restored after UI composition on reopen with regression coverage
-- D / MS-009: viewport grid bars render two-sided with targeted regression coverage
-- E / MS-026, MS-027: bottom-center AI console, compact 2x2 telemetry and circular XYZ orientation control implemented; accepted viewport tools preserved
-
-## Next
-Coordinator owns release-readiness/chunk review. Dev must not invent additional scope until CURRENT_EXECUTION_STATE is replenished or release-state direction changes.
