@@ -38,6 +38,7 @@ public partial class Main
     void V1027ReconcileStableViewportSelection()
     {
         V1027EnsureRevisionBoundSculptObserver();
+        V1027ReconcileDurableSmartSelection();
 
         if (_v1027ViewportSelection is not { } binding || _v1020StageCSession == null)
             return;
@@ -46,7 +47,6 @@ public partial class Main
             _v1013ObjectIds.TryGetValue(_selected.GetInstanceId(), out ObjectId selectedObjectId) &&
             selectedObjectId != binding.ObjectId)
         {
-            // A different legacy selection path intentionally superseded this bounded viewport binding.
             _v1027ViewportSelection = null;
             return;
         }
@@ -60,11 +60,7 @@ public partial class Main
 
         ObjectSelectionRef rebound = StageCSelection.RebindWholeObject(state, binding);
         if (rebound.MeshRevisionId != binding.MeshRevisionId)
-        {
-            // Whole-object selection has no topology indices, so revision advancement may transfer
-            // explicitly. Component/region selections must define stricter invalidation rules.
             _v1027ViewportSelection = rebound;
-        }
 
         if (_selected == null || !GodotObject.IsInstanceValid(_selected))
         {
@@ -85,9 +81,6 @@ public partial class Main
         if (FindChild("ViewportHost", true, false) is not SubViewportContainer host)
             return;
 
-        // Keep the visible Godot tool first, then capture durable identity before the legacy
-        // Stage-C observer. Re-add the legacy observer last so this bounded seam can suppress
-        // only its sculpt commit while leaving transform persistence untouched.
         host.GuiInput -= V1020ObserveViewportEditingCommit;
         host.GuiInput += V1027ObserveRevisionBoundSculpt;
         host.GuiInput += V1020ObserveViewportEditingCommit;
@@ -116,8 +109,6 @@ public partial class Main
         if (_v1027SculptGestureSelection is not { } selection)
             return;
 
-        // The older observer runs after this handler. Disable only its sculpt commit so a stroke
-        // has one durable authority path and cannot create duplicate revisions/history entries.
         _v1020SculptGestureActive = false;
         ArrayMesh? undoMarker = _v1027SculptUndoMarker;
         _v1027SculptGestureSelection = null;
