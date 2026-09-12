@@ -11,7 +11,7 @@
 ## Reference-machine gate
 - state: FAILED / ACTIONABLE EVIDENCE CAPTURED
 - source: released v1.0.31 on Windows / GTX 1080, user screenshots and direct observations 2026-09-13
-- positive evidence: grid is visible; transform toolbar functions through axes; after app restart Hunyuan generation completed successfully in ~390 s and produced an identity-verified result; applying it created a scene object
+- positive evidence: grid is visible; transform toolbar functions through axes; after app restart Hunyuan generation completed successfully in ~390 s and produced an identity-verified result; applying it created a scene object; after closing and reopening the app with that generated 3D object present, the object was restored and remained selectable/transformable with viewport Move/Rotate tools, confirming generated-object rehydration/edit continuity on the reference machine
 - blocking evidence: cancel -> retry can strand backend health until app restart (MS-033); generated candidate is invisible until Apply (MS-036); generated mesh appears shell/back-side rendered (MS-037); generated placement/scale unsuitable (MS-039); Smart Select unavailable (MS-040)
 - UX evidence: telemetry and AI command layout still rejected (MS-026/MS-027); resize black gutters remain (MS-035); direct manipulation/rotation incomplete (MS-038); refinement controls require coherent redesign (MS-041)
 
