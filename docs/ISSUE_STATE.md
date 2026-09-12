@@ -2,6 +2,16 @@
 
 This file is the authoritative current-state ledger for active, release-relevant, or user-verification-pending issues. Historical issue narratives remain in `docs/ISSUES.md`, which is legacy/read-only context.
 
+## MS-032 — failed generation envelope retirement
+- severity: High generation/persistence correctness
+- state: ACTIVE
+- priority: P0 engineering preemption before v1.0.31 object-rehydration work
+- latest_evidence: `V1020Generate3DAsync` durably creates and saves a generation binding before submission; explicit cancellation retires and saves it with `StageCGeneration.AbandonGenerationJob`, while the general terminal exception path reports failure and clears only `_v1020GenerationBinding`
+- current_implementation_state: no durable retirement/save is present on the non-cancelled terminal failure path
+- desired_state: every terminal non-successful generation attempt retires only its exact durable envelope and persists that retirement without changing successful, conflict or explicit-cancellation semantics
+- verification_state: focused failure-path regression plus relevant exact-head CI required
+- source_finding: AMF-001 / GitHub Issue #2
+
 ## MS-020 — AI job/runtime ownership
 - severity: Critical generation/runtime correctness
 - state: FIXED - NEEDS USER VERIFICATION
