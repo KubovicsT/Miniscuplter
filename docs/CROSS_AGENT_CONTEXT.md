@@ -86,3 +86,9 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Canonical docs touched:** TECHNICAL_ROADMAP, COORDINATOR_LOG, PROJECT_STATUS, HANDOFF and ISSUES on v1.0.27.
 - **Follow-up owner:** User can begin v1.0.26 reference-machine acceptance. Dev remains paused until explicitly resumed.
 
+### 2026-09-12 02:11 Europe/Budapest — Project Coordinator — CROSS-AGENT HANDOFF FACT
+- **User input / event:** Post-release v1.0.27 bootstrap validation exposed one stale version expectation.
+- **Evidence / scope:** tools/backend_lifecycle_tests.py still expects backend version 1.0.26 while the v1.0.27 backend reports 1.0.27, so python-syntax times out despite the server starting.
+- **Action / interpretation:** Classify this as a mechanical forward-version bootstrap defect, not an MS-030 runtime regression. A direct Coordinator attempt to patch the code file was connector-blocked, so the repair is handed to Dev rather than retried blindly.
+- **Canonical docs touched:** HANDOFF, TECHNICAL_ROADMAP, PROJECT_STATUS and COORDINATOR_LOG.
+- **Follow-up owner:** Dev fixes the expected version when explicitly resumed; Automation Manager investigates only if the same minimal legitimate code write remains connector-blocked.
