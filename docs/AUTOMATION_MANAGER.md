@@ -482,3 +482,11 @@ Verification focus:
 - Agents repeat the wait/recheck loop for up to 30 minutes from first detection, then stop mutation and report the unresolved overlap if it still exists.
 - This replaces immediate defer behavior but does not resurrect AMP-006; no GitHub lease is used.
 - Verification focus: confirm future runs actually wait, refresh final state after the other agent exits, and avoid false-positive waiting on merely recent activity.
+
+
+### Dev gating-CI wait rule — 2026-09-12 02:22 Europe/Budapest
+- User clarified that when exact-head CI is part of the current objective acceptance condition, Dev should not end merely because the workflow is still running if real waiting is available.
+- Active Dev prompt now requires actual 30–60 second tool-backed waits and rechecks for up to 30 minutes on required gating CI.
+- On success Dev records acceptance and advances to the next authorized objective; on failure it inspects job/step/log and fixes or routes by ownership; after 30 minutes it may stop with the gate explicitly pending.
+- Dev should not wait on unrelated/non-gating CI when productive authorized work can safely continue.
+- Verification focus: future runs should not terminate at an acceptance boundary solely because exact-head gating CI is still in progress.
