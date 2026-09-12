@@ -10,19 +10,17 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - architecture_mode: selective refactor; bounded ownership convergence; no broad rewrite
 
 ## Current strategic objective
-- release_line: v1.0.28
-- objective: restore reliable end-to-end 2D-to-3D workflow and released-build acceptance before optional breadth
+- release_line: v1.0.29
+- objective: harden generation job lifetime and cancellation/recovery while v1.0.28 reference-machine acceptance proceeds
 - acceptance_weighted_completion: approximately 64 percent
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
 
 ## Priority order
-1. complete v1.0.28 semantic-version bootstrap and exact-head validation
-2. P0 MS-020 — Generate 3D heavyweight-runtime ownership correctness
-3. P0 MS-031 — accepted-baseline persistence/restoration across save/close/reopen
-4. MS-009 — visible stable non-occluding viewport grid
-5. MS-026/MS-027 — bounded workspace composition corrections
-6. integrated v1.0.28 validation and Coordinator release review
+1. complete v1.0.29 semantic-version bootstrap
+2. MS-020 — durable generation job/revision envelope
+3. MS-020 — cancellation and recovery closure
+4. integrated v1.0.29 validation and Coordinator review
 
 ## Strategic dependencies
 - product work depends on bootstrap completion
