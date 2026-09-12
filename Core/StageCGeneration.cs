@@ -167,6 +167,28 @@ public static class StageCGeneration
         return result;
     }
 
+    public static bool AbandonGenerationJob(ProjectSession session, GenerationJobBinding binding)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (binding.JobId.Value == Guid.Empty || binding.ProjectId.Value == Guid.Empty || binding.OutputObjectId.Value == Guid.Empty)
+            throw new ArgumentException("Generation binding contains an empty identity.", nameof(binding));
+        if (session.Current.ProjectId != binding.ProjectId)
+            throw new InvalidOperationException("Generation job belongs to a different project.");
+
+        var jobs = ReadGenerationJobs(session.Current).ToList();
+        int jobIndex = jobs.FindIndex(x => x.JobId == binding.JobId);
+        if (jobIndex < 0) return false;
+        if (jobs[jobIndex] != binding)
+            throw new InvalidOperationException("Generation job identity does not match its durable envelope.");
+
+        jobs.RemoveAt(jobIndex);
+        session.Execute(
+            "Abandon 3D generation job",
+            state => state.WithMetadata(JobsKey, SerializeJobs(jobs)),
+            binding.OutputObjectId);
+        return true;
+    }
+
     public static ImageToMeshCandidateState RegisterResult(
         ProjectSession session,
         GenerationJobBinding binding,
