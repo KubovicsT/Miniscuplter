@@ -4,12 +4,12 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ## MS-032 — failed generation envelope retirement
 - severity: High generation/persistence correctness
-- state: ACTIVE
-- priority: P0 engineering preemption before v1.0.31 object-rehydration work
-- latest_evidence: `V1020Generate3DAsync` durably creates and saves a generation binding before submission; explicit cancellation retires and saves it with `StageCGeneration.AbandonGenerationJob`, while the general terminal exception path reports failure and clears only `_v1020GenerationBinding`
-- current_implementation_state: no durable retirement/save is present on the non-cancelled terminal failure path
+- state: FIXED
+- priority: completed v1.0.31 P0 preemption
+- latest_evidence: terminal non-cancelled `V1020Generate3DAsync` failures now capture the exact live binding, retire it through `StageCGeneration.AbandonGenerationJob`, and persist the retirement before the in-memory binding is cleared; cleanup failure is surfaced alongside the original generation error rather than masking it
+- current_implementation_state: commit `f6cf5fe72d80cea28352346e3a8d8378006da5c1` added exact durable failure cleanup; `e8e9bca875fc2395a34003d314aa8fb96e3fc6e4` leaves focused live-bridge regression coverage without unsafe async module-initializer work
 - desired_state: every terminal non-successful generation attempt retires only its exact durable envelope and persists that retirement without changing successful, conflict or explicit-cancellation semantics
-- verification_state: focused failure-path regression plus relevant exact-head CI required
+- verification_state: exact-head build run 34706360779 green across .NET/Core, Python/runtime/job, backend lifecycle, geometry, release audit and packaging; existing Stage-C abandonment/save-reload regressions remain green
 - source_finding: AMF-001 / GitHub Issue #2
 
 ## MS-020 — AI job/runtime ownership
