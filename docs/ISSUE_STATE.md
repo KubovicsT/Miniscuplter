@@ -80,7 +80,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 - state: FIXED - NEEDS USER VERIFICATION
 - priority: P0
 - current_implementation_state: accepted-baseline restoration runs after UI composition on reopen; targeted save/reopen regression and CI green
-- verification_state: explicit v1.0.31 save/close/reopen baseline eligibility result not yet reported
+- verification_state: v1.0.31 generated-object rehydration/edit continuity is now reference-machine verified (generated 3D object survives app close/reopen and remains transform-editable); explicit accepted-baseline restoration and immediate Generate 3D eligibility after reopen are still not separately confirmed
 
 ### MS-009 — viewport grid/render ownership
 - severity: Critical
@@ -121,6 +121,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 ## Additional observed v1.0.31 state
 - starter-sphere UI remnant: 3D panel can report/select `Starter sphere` while no sphere is visible in viewport; fold into scene/selection-authority investigation unless it proves independently causal.
 - generated model itself successfully completed on GTX 1080 in about 390 s after app restart, using up to roughly 5.8 GB VRAM and high GPU utilization; this is positive provider/runtime evidence but does not close MS-033/MS-036/MS-037/MS-039.
+- generated-object persistence/rehydration is positive: with the generated model present, closing and reopening v1.0.31 restored the 3D object and its viewport transform tools continued to work; this confirms the generated-object identity/edit-continuity part of the Stage-C path on the reference machine.
 
 ## Historical ledger
 - legacy_source: docs/ISSUES.md
