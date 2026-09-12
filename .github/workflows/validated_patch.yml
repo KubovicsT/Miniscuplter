@@ -5,6 +5,7 @@ on:
     paths: ['patch-requests/*.json']
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: miniscuplter-validated-patch
   cancel-in-progress: false
@@ -25,5 +26,17 @@ jobs:
           mapfile -t files < <(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- 'patch-requests/*.json')
           [ "${#files[@]}" -eq 1 ]
           echo "path=${files[0]}" >> "$GITHUB_OUTPUT"
-      - shell: bash
+      - name: Apply validated patch
+        shell: bash
         run: python3 patch-tools/apply_patch_request.py "${{ steps.request.outputs.path }}"
+
+      - name: Dispatch target-branch validation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          request="${{ steps.request.outputs.path }}"
+          branch="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["target_branch"])' "$request")"
+          gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
+          echo "Dispatched build.yml validation for $branch."
