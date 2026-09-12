@@ -49,8 +49,20 @@ public static class StageCGeneration
 {
     const string BaselineKey = "stagec.acceptedBaselineImageRevisionId";
     const string CandidatesKey = "stagec.imageToMeshCandidates.v1";
+    const string JobsKey = "stagec.generationJobs.v1";
     const int MaxCandidates = 2048;
+    const int MaxJobs = 256;
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    sealed class JobDto
+    {
+        public string JobId { get; set; } = "";
+        public string ProjectId { get; set; } = "";
+        public long InputProjectRevisionNumber { get; set; }
+        public string InputImageRevisionId { get; set; } = "";
+        public string OutputObjectId { get; set; } = "";
+        public DateTimeOffset CreatedUtc { get; set; }
+    }
 
     sealed class CandidateDto
     {
@@ -92,18 +104,67 @@ public static class StageCGeneration
             state => state.WithMetadata(BaselineKey, imageRevisionId.ToString()));
     }
 
-    public static GenerationJobBinding BeginImageToMesh(ProjectState state)
+    public static GenerationJobBinding BeginImageToMesh(ProjectSession session)
     {
-        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(session);
+        ProjectState state = session.Current;
         RevisionId baseline = AcceptedBaseline(state)
             ?? throw new InvalidOperationException("Accept a 2D baseline before starting 3D generation.");
-        return new GenerationJobBinding(
+        var binding = new GenerationJobBinding(
             GenerationJobId.New(),
             state.ProjectId,
             state.RevisionNumber,
             baseline,
             ObjectId.New(),
             DateTimeOffset.UtcNow);
+
+        var jobs = ReadGenerationJobs(state).ToList();
+        if (jobs.Count >= MaxJobs)
+            throw new InvalidOperationException($"Project already contains the Stage-C generation-job safety limit of {MaxJobs} entries.");
+        jobs.Add(binding);
+        session.Execute(
+            "Begin durable 3D generation job",
+            current => current.WithMetadata(JobsKey, SerializeJobs(jobs)),
+            binding.OutputObjectId);
+        return binding;
+    }
+
+    public static IReadOnlyList<GenerationJobBinding> ReadGenerationJobs(ProjectState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (!state.Metadata.TryGetValue(JobsKey, out string? json) || string.IsNullOrWhiteSpace(json))
+            return Array.Empty<GenerationJobBinding>();
+        List<JobDto>? rows;
+        try { rows = JsonSerializer.Deserialize<List<JobDto>>(json, JsonOptions); }
+        catch (JsonException ex) { throw new InvalidDataException("Stage-C generation-job metadata is invalid JSON.", ex); }
+        if (rows == null || rows.Count > MaxJobs)
+            throw new InvalidDataException("Stage-C generation-job metadata exceeds its safe collection limit or is null.");
+
+        var result = new List<GenerationJobBinding>(rows.Count);
+        var ids = new HashSet<GenerationJobId>();
+        foreach (var row in rows)
+        {
+            try
+            {
+                var binding = new GenerationJobBinding(
+                    GenerationJobId.Parse(row.JobId),
+                    ProjectId.Parse(row.ProjectId),
+                    row.InputProjectRevisionNumber,
+                    RevisionId.Parse(row.InputImageRevisionId),
+                    ObjectId.Parse(row.OutputObjectId),
+                    row.CreatedUtc);
+                ValidateJob(state, binding);
+                if (!ids.Add(binding.JobId))
+                    throw new InvalidDataException($"Duplicate Stage-C generation job identity {binding.JobId}.");
+                result.Add(binding);
+            }
+            catch (InvalidDataException) { throw; }
+            catch (Exception ex) when (ex is FormatException or ArgumentException)
+            {
+                throw new InvalidDataException("Stage-C generation-job metadata contains an invalid identity.", ex);
+            }
+        }
+        return result;
     }
 
     public static ImageToMeshCandidateState RegisterResult(
@@ -118,6 +179,12 @@ public static class StageCGeneration
             throw new ArgumentException("Generation binding contains an empty identity.", nameof(binding));
         if (session.Current.ProjectId != binding.ProjectId)
             throw new InvalidOperationException("Generation result belongs to a different project.");
+        var jobs = ReadGenerationJobs(session.Current).ToList();
+        int jobIndex = jobs.FindIndex(x => x.JobId == binding.JobId);
+        if (jobIndex < 0)
+            throw new InvalidOperationException("Generation result has no matching durable job envelope.");
+        if (jobs[jobIndex] != binding)
+            throw new InvalidOperationException("Generation result identity does not match its durable job envelope.");
         if (!session.Current.ImageRevisions.ContainsKey(binding.InputImageRevisionId))
             throw new InvalidOperationException("Generation input image revision no longer exists in this project.");
         if (outputRevision.ObjectId != binding.OutputObjectId)
@@ -130,7 +197,15 @@ public static class StageCGeneration
         string providerName = string.IsNullOrWhiteSpace(provider) ? "unknown" : provider.Trim();
         string provenanceValue = string.IsNullOrWhiteSpace(provenance) ? "image-to-3d" : provenance.Trim();
         RevisionId? currentBaseline = AcceptedBaseline(session.Current);
-        bool stale = currentBaseline != binding.InputImageRevisionId;
+        long expectedReturnRevision = binding.InputProjectRevisionNumber + 1;
+        bool baselineAdvanced = currentBaseline != binding.InputImageRevisionId;
+        bool projectAdvanced = session.Current.RevisionNumber != expectedReturnRevision;
+        bool stale = baselineAdvanced || projectAdvanced;
+        string? staleReason = baselineAdvanced
+            ? $"Accepted 2D baseline advanced from {binding.InputImageRevisionId} to {currentBaseline?.ToString() ?? "none"} while generation was running."
+            : projectAdvanced
+                ? $"Project revision advanced from generation envelope revision {expectedReturnRevision} to {session.Current.RevisionNumber} while generation was running."
+                : null;
         var candidate = new ImageToMeshCandidateState(
             CandidateId.New(),
             binding.JobId,
@@ -141,15 +216,19 @@ public static class StageCGeneration
             providerName,
             provenanceValue,
             DateTimeOffset.UtcNow,
-            stale ? $"Accepted 2D baseline advanced from {binding.InputImageRevisionId} to {currentBaseline?.ToString() ?? "none"} while generation was running." : null);
+            staleReason);
 
         var candidates = ReadCandidates(session.Current).ToList();
         if (candidates.Count >= MaxCandidates)
             throw new InvalidOperationException($"Project already contains the Stage-C candidate safety limit of {MaxCandidates} entries.");
         candidates.Add(candidate);
+        jobs.RemoveAt(jobIndex);
         session.Execute(
             stale ? "Preserve stale 3D generation as conflict" : "Register generated 3D candidate",
-            state => state.WithMeshRevision(outputRevision).WithMetadata(CandidatesKey, SerializeCandidates(candidates)),
+            state => state
+                .WithMeshRevision(outputRevision)
+                .WithMetadata(CandidatesKey, SerializeCandidates(candidates))
+                .WithMetadata(JobsKey, SerializeJobs(jobs)),
             binding.OutputObjectId);
         return candidate;
     }
@@ -297,6 +376,34 @@ public static class StageCGeneration
             cursor = parent;
         }
         return false;
+    }
+
+    static void ValidateJob(ProjectState state, GenerationJobBinding binding)
+    {
+        if (binding.JobId.Value == Guid.Empty || binding.ProjectId.Value == Guid.Empty || binding.OutputObjectId.Value == Guid.Empty)
+            throw new InvalidDataException("Stage-C generation job contains an empty identity.");
+        if (binding.ProjectId != state.ProjectId)
+            throw new InvalidDataException($"Stage-C generation job {binding.JobId} belongs to a different project.");
+        if (binding.InputProjectRevisionNumber < 0 || binding.InputProjectRevisionNumber > state.RevisionNumber)
+            throw new InvalidDataException($"Stage-C generation job {binding.JobId} contains an invalid input project revision.");
+        if (!state.ImageRevisions.ContainsKey(binding.InputImageRevisionId))
+            throw new InvalidDataException($"Stage-C generation job {binding.JobId} references missing image revision {binding.InputImageRevisionId}.");
+        if (binding.CreatedUtc == default)
+            throw new InvalidDataException($"Stage-C generation job {binding.JobId} has no creation time.");
+    }
+
+    static string SerializeJobs(IEnumerable<GenerationJobBinding> values)
+    {
+        var rows = values.Select(x => new JobDto
+        {
+            JobId = x.JobId.ToString(),
+            ProjectId = x.ProjectId.ToString(),
+            InputProjectRevisionNumber = x.InputProjectRevisionNumber,
+            InputImageRevisionId = x.InputImageRevisionId.ToString(),
+            OutputObjectId = x.OutputObjectId.ToString(),
+            CreatedUtc = x.CreatedUtc
+        }).ToList();
+        return JsonSerializer.Serialize(rows, JsonOptions);
     }
 
     static string SerializeCandidates(IEnumerable<ImageToMeshCandidateState> values)
