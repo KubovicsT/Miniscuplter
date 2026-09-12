@@ -1,0 +1,62 @@
+name: forward-branch
+
+on:
+  push:
+    branches: [release-control]
+    paths:
+      - 'forward-branch-requests/*.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: miniscuplter-forward-branch
+  cancel-in-progress: false
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create validated forward branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- 'forward-branch-requests/*.json')
+          [ "${#files[@]}" -eq 1 ]
+          req="${files[0]}"
+
+          source="$(jq -er '.source_version' "$req")"
+          target="$(jq -er '.target_version' "$req")"
+          sha="$(jq -er '.source_sha' "$req" | tr '[:upper:]' '[:lower:]')"
+
+          [[ "$source" =~ ^v1\.[0-9]+\.[0-9]+$ ]]
+          [[ "$target" =~ ^v1\.[0-9]+\.[0-9]+$ ]]
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest")"
+          [ "$(jq -r '.tag_name' <<<"$latest")" = "$source" ]
+          [ "$(jq -r '.target_commitish' <<<"$latest" | tr '[:upper:]' '[:lower:]')" = "$sha" ]
+
+          IFS=. read -r _ smin spat <<<"${source#v}"
+          IFS=. read -r _ tmin tpat <<<"${target#v}"
+          if (( tmin < smin || (tmin == smin && tpat <= spat) )); then
+            echo "target must be newer" >&2
+            exit 1
+          fi
+
+          tag_sha="$(git ls-remote --tags origin "refs/tags/$source" | awk '{print $1}')"
+          [ "$tag_sha" = "$sha" ]
+          ! git ls-remote --exit-code --heads origin "refs/heads/$target" >/dev/null 2>&1
+          ! git ls-remote --exit-code --tags origin "refs/tags/$target" >/dev/null 2>&1
+
+          git fetch origin "$sha"
+          [ "$(git rev-parse FETCH_HEAD)" = "$sha" ]
+          git push origin "$sha:refs/heads/$target"
