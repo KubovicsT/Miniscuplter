@@ -3,47 +3,47 @@
 > Authoritative end-to-end sequencing. HANDOFF owns immediate execution state.
 
 Latest stable: `v1.0.27` at `7d40d06cb4084403db3193ec77ab77b71baa24e2`
-Forward branch: `v1.0.28` (bootstrap-only until identity + exact-head CI are green)
+Writable branch: `v1.0.28` (bootstrap first)
 Acceptance-weighted completion: **approximately 64%**
 
 ## Whole-system direction
-Preserve the selective-refactor architecture: Core owns durable project/object/revision/history state; Godot owns presentation/input; Python owns inference/geometry; launcher/updater owns runtime setup and delivery safety. Continue retiring duplicate authority through bounded production seams, not another broad rewrite.
+Preserve the selective-refactor architecture: Core owns durable project/object/revision/history state; Godot owns presentation/input; Python owns inference/geometry; launcher/updater owns runtime setup and delivery safety. Retire duplicate authority through bounded production seams, not a broad rewrite.
 
-## P0 acceptance path
-Released-build reference-machine evidence remains the highest-value input and preempts fallback engineering:
-1. update/reopen;
-2. Repair AI Runtime health;
-3. Generate 3D through provider resolution/inference;
-4. viewport resize invariance;
-5. compact workspace UX;
-6. Apply → save/reopen → transform/sculpt → cleanup → exact STL export;
-7. storage containment and cancellation/recovery.
+## Current P0 reference-machine evidence
+Released v1.0.27 testing on the Windows / GTX 1080 reference machine materially changes priority:
+- **MS-009:** the 3D grid is absent again in the released viewport. This is a critical renderer/workspace acceptance failure and outranks fallback infrastructure.
+- **MS-027:** the multi-line AI console works, but its composition is rejected: it must move to the bottom center between scene tree and right panel, not span the app; contextual buttons belong in a vertical stack on its right.
+- **MS-026/MS-027:** resource telemetry is visible, but should be compactly tiled 2×2 in the bottom-left.
+- **MS-027:** the cube orientation control is rejected. Replace it with a Blender-style circular XYZ orientation gizmo; no cube body is required. Current viewport tool buttons are accepted.
+- **MS-029:** v1.0.25→v1.0.27 left the launcher closed. Because the transition was initiated by the immutable v1.0.25 updater, this matches the documented one-transition limitation and does not yet falsify the later fix. Verify on the next update initiated from v1.0.27.
 
-CI cannot resolve renderer/GPU/runtime acceptance claims.
+Reference-machine evidence outranks CI for renderer/UI/update-runtime acceptance.
 
-## v1.0.27 release decision
-The completed v1.0.27 tranche is coherent and release-sized: mapped ground-placement Core authority; stable-ID viewport picking; revision-bound sculpt commits; durable protected-selection binding/invalidation; and dependent-state undo/history restoration. Exact candidate `7d40d06cb4084403db3193ec77ab77b71baa24e2` passed exact-SHA C#/Core, Python/runtime, geometry, release-audit, real Godot Windows export, installer smoke-install and immutable publication gates. v1.0.27 is published and immutable.
+## v1.0.28 critical path
+### A — finish forward-version bootstrap
+Change only the remaining stale 1.0.27 identities in `ai_backend/app.py` and `tools/release_audit.py`; obtain green exact-head Core/build CI before ordinary product work.
 
-## v1.0.28 sequencing
-### A — forward-version bootstrap
-Complete 1.0.28 identity on every audited surface and restore exact-head green CI before product work. Current known stale surfaces are `ai_backend/app.py` and `tools/release_audit.py`.
+### B — restore authoritative viewport grid (MS-009)
+Find the actual renderer/grid ownership seam responsible for the released v1.0.27 disappearance. Restore a neutral visible non-occluding grid at launch and across resize while preserving native viewport sizing. Do not add another timer, blind delayed repaint, or duplicate world owner.
 
-### B — durable local job envelope (MS-020)
-Introduce one canonical persisted generation-job record with stable job ID, immutable project/object/revision input context, stage/state and contained artifacts. Recover truthful terminal/incomplete state after backend restart. Keep scope local and provider-neutral.
+### C — correct compact workspace composition (MS-026/MS-027)
+Keep the accepted direct viewport tool buttons. Recompose, without duplicating command/state authority:
+- bottom-center multi-line command console confined between left scene tree and right properties/workflow panel;
+- contextual command buttons vertically stacked immediately to its right;
+- 2×2 compact resource telemetry at bottom-left;
+- Blender-style circular XYZ orientation gizmo instead of the cube;
+- durable layout preferences and viewport dominance preserved.
 
-### C — heavyweight runtime ownership
-Establish one authoritative gate for heavyweight GPU inference versus conflicting runtime install/repair/remove operations. Do not duplicate provider routing or create a second scheduler.
+### D — integration / release checkpoint
+Run the strongest Core/C#/Python/runtime/geometry/release-audit/packaging gates and stop for Coordinator release review. User-observed renderer/UI items remain **FIXED - NEEDS USER VERIFICATION** until a released/reference-machine retest.
 
-### D — truthful cancellation/recovery
-For one production generation path, cancellation is acknowledged only after owned work is actually stopped; persist terminal state and prove a subsequent job starts cleanly after restart/recovery.
+A→B→C may auto-proceed; D requires Coordinator review.
 
-A→B→C→D may auto-proceed when acceptance conditions are met and no P0 evidence preempts. Coordinator review is required after D.
-
-## Priority rationale
-Stage-D object/revision/selection/history seams have now reached a coherent checkpoint. With no new target-machine evidence available, the next bounded architectural risk worth reducing is MS-020 job lifetime/resource ownership because it directly affects cancellation, crash recovery, stale work and reference-machine reliability. This is not permission for provider expansion or a generalized distributed scheduler.
+## Deferred fallback engineering
+MS-020 durable job envelope → heavyweight runtime ownership → truthful cancellation/recovery remains architecturally valid, but is deferred behind the concrete v1.0.27 P0 acceptance failures above. Resume only after the current product-facing regressions are contained or Coordinator explicitly reorders.
 
 ## Explicit non-priorities
-Do not expand provider families, broad Rig/Pose/kitbash, scene-tree redesign, full sculpt rewrite, unrelated UI breadth, or speculative cloud services. Preserve local-first operation and contained storage.
+No provider-family expansion, broad Rig/Pose/kitbash work, scene-state rewrite, full sculpt rewrite, speculative cloud services, or generalized scheduler while P0 viewport/workspace acceptance is open.
 
 ## User dependency
-No product decision is required. Real GTX 1080 / 16 GB testing of released v1.0.27 is the highest-value input and may immediately reorder v1.0.28 work.
+No new product decision is required: the user has supplied the target UX. After a corrected v1.0.28 release, retest grid visibility across launch/resize, the bottom workspace composition/orientation gizmo, and whether the launcher remains open on an update initiated by v1.0.27.
