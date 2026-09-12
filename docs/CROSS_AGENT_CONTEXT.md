@@ -92,3 +92,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Action / interpretation:** Classify this as a mechanical forward-version bootstrap defect, not an MS-030 runtime regression. A direct Coordinator attempt to patch the code file was connector-blocked, so the repair is handed to Dev rather than retried blindly.
 - **Canonical docs touched:** HANDOFF, TECHNICAL_ROADMAP, PROJECT_STATUS and COORDINATOR_LOG.
 - **Follow-up owner:** Dev fixes the expected version when explicitly resumed; Automation Manager investigates only if the same minimal legitimate code write remains connector-blocked.
+
+
+### 2026-09-12 02:14 Europe/Budapest — Automation Manager — USER PROCESS CLARIFICATION
+- **User input / event:** User confirmed that real in-run waiting is possible and directed all agents to use it when waiting for another agent to finish, instead of immediately deferring.
+- **Evidence / scope:** The successful Coordinator run visibly used an actual 30-second wait/recheck while release-control was active and then continued safely.
+- **Action / interpretation:** Updated all active Coordinator, Dev, Manager and Daily prompts with a no-lease wait-before-defer rule: when a clearly conflicting mutating run is visible, use a real 30–60 second tool-backed delay, refresh state, and repeat for up to 30 minutes before giving up.
+- **Canonical docs touched:** CROSS_AGENT_CONTEXT; active automation prompts; AUTOMATION_MANAGER to record durable process policy.
+- **Follow-up owner:** Automation Manager should verify future runs actually wait/recheck rather than merely claiming to wait, and that the behavior does not create unnecessary delays.
