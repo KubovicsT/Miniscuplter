@@ -5,21 +5,24 @@
 Last reconciled: 2026-09-12
 
 ## Current state
-- Stable: `v1.0.27` @ `7d40d06cb4084403db3193ec77ab77b71baa24e2`
-- Writable: `v1.0.28`; no release freeze/publication
+- Stable: `v1.0.28` @ `6ed31b98fe426e0ca0184530a279abce43b7031f`
+- Writable: `v1.0.29`; not frozen
 - Acceptance-weighted completion: approximately **64%**
-- v1.0.28 bootstrap and the authorized A–E implementation queue are complete; Coordinator review is required at the integrated checkpoint.
+- v1.0.28 was published after full release-control validation, Windows export, installer smoke test and immutable exact-SHA publication.
+- v1.0.29 is in mechanical semantic-version bootstrap; application identity still needs the 1.0.28→1.0.29 bump before ordinary work.
 
-## Released-build verification pending
-- **MS-020:** fixed in code; GTX 1080 Generate 3D retest required.
-- **MS-031:** fixed in code with reopen regression; released-build save/close/reopen retest required.
-- **MS-009:** fixed in code with two-sided grid regression; GTX 1080 grid/resize retest required.
-- **MS-026/MS-027:** requested workspace composition implemented; target-machine UX retest required.
-- **MS-029:** updater behavior still needs a transition initiated from installed v1.0.27.
-- **MS-030:** packaged backend-health fix remains NEEDS USER VERIFICATION.
+## v1.0.28 user verification pending
+- MS-020 Generate 3D ownership fix
+- MS-031 accepted-baseline reopen persistence
+- MS-009 viewport grid/resize behavior
+- MS-026/MS-027 requested workspace composition
+- MS-029 launcher behavior on the v1.0.27→v1.0.28 update
+- MS-030 packaged backend health after Runtime Repair
 
-## Current checkpoint
-Integrated v1.0.28 application checkpoint: `4b6ea637ca572b7e7983bfbba051635e21a5b40c`. Exact-checkpoint Core and full build CI are green, including semantic identity, C#/.NET, Python/runtime/job tests, workspace regressions, geometry, backend lifecycle, release audit, portable packaging/hash and installer-definition compilation.
+## v1.0.29 direction
+1. finish semantic-version bootstrap and exact-head validation;
+2. harden durable generation job/revision identity;
+3. close cancellation/recovery lifecycle behavior;
+4. integrated validation and Coordinator review.
 
-## User dependency
-No product decision is required. After Coordinator release review and a corrected release, verify accepted-baseline reopen state, Generate 3D, grid/resize behavior, workspace composition, backend health and the updater transition from v1.0.27.
+Any new v1.0.28 reference-machine regression preempts v1.0.29 reliability hardening.
