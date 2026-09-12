@@ -51,7 +51,7 @@ Last manager review: 2026-09-12 13:04 Europe/Budapest
 - Validated `patch-control` large-file editing: HELPED in live v1.0.29 acceptance tests.
 
 ## Verification focus
-1. Resolve or safely redesign the two large-file v1.0.29 identity surfaces without bypassing connector safety.
+1. Verify exact-head v1.0.29 validation after the patch-control bootstrap repairs.
 2. Preserve the current explicit user pause until the user resumes Dev.
 3. Keep current neutral state files small and writable.
 4. Future automation replies start with AUTOMATION ISSUES and include LAST RUN time in Europe/Budapest.
