@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.31",
+  "expected_head_sha": "2f07d1572b0a01af151f1eb5c6c8a7a2b5fe6fa6",
+  "target_path": "Scripts/AIClient.cs",
+  "expected_blob_sha": "94a40d7a6b4983ea6914e043472f208fa6790a10",
+  "commit_message": "stagec: validate backend output path",
+  "patch": "diff --git a/Scripts/AIClient.cs b/Scripts/AIClient.cs\n--- a/Scripts/AIClient.cs\n+++ b/Scripts/AIClient.cs\n@@ -151,7 +151,13 @@\n         using var doc = JsonDocument.Parse(body);\n         var root = doc.RootElement;\n         string path = root.GetProperty(\"path\").GetString() ?? throw new InvalidOperationException(\"Backend returned no file path.\");\n-        if (!File.Exists(path)) throw new InvalidOperationException($\"Backend reported success but output file does not exist: {path}\");\n+        string expectedPath = Path.GetFullPath(outputPath);\n+        string returnedPath = Path.GetFullPath(path);\n+        StringComparison pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;\n+        if (!returnedPath.Equals(expectedPath, pathComparison))\n+            throw new InvalidOperationException($\"Backend returned an unexpected Stage-C output path. Expected {expectedPath}; received {returnedPath}.\");\n+        path = returnedPath;\n+        if (!File.Exists(path)) throw new InvalidOperationException($\"Backend reported success but output file does not exist: {path}\");\n         if (new FileInfo(path).Length == 0) throw new InvalidOperationException($\"Backend reported success but output file is empty: {path}\");\n         string actualProvider = root.TryGetProperty(\"provider\", out var providerNode) ? providerNode.GetString() ?? provider : provider;\n         if (!root.TryGetProperty(\"context\", out var contextNode) || contextNode.ValueKind != JsonValueKind.Object)\n"
+}
