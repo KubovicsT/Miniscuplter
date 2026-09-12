@@ -100,3 +100,11 @@ Preserve chronology and failed attempts. Never rewrite an earlier entry to hide 
 - **Action / interpretation:** Updated all active Coordinator, Dev, Manager and Daily prompts with a no-lease wait-before-defer rule: when a clearly conflicting mutating run is visible, use a real 30–60 second tool-backed delay, refresh state, and repeat for up to 30 minutes before giving up.
 - **Canonical docs touched:** CROSS_AGENT_CONTEXT; active automation prompts; AUTOMATION_MANAGER to record durable process policy.
 - **Follow-up owner:** Automation Manager should verify future runs actually wait/recheck rather than merely claiming to wait, and that the behavior does not create unnecessary delays.
+
+
+### 2026-09-12 10:05 Europe/Budapest — Project Coordinator — USER TEST EVIDENCE / UX DIRECTION
+- **User input / event:** Reference-machine update from v1.0.25 to released v1.0.27 completed but launcher stayed closed; screenshots show the 3D grid absent, the AI console now multi-line but still top/full-width, resource graphs as a wide horizontal band, and a cube-in-square orientation control. User accepts the compact viewport tool buttons.
+- **Evidence / scope:** Windows / GTX 1080 released-build evidence. User requires the console at bottom center only between scene tree and right panel with vertical action buttons on its right; resource graphs tiled 2×2 bottom-left; Blender-style circular XYZ orientation gizmo with no cube body.
+- **Action / interpretation:** MS-009 is reopened as active P0. MS-026/MS-027 are reprioritized for bounded v1.0.28 composition corrections; MS-020 fallback work is deferred. The launcher observation remains consistent with MS-029's immutable v1.0.25-updater transition limitation and must be verified on the next update initiated from v1.0.27.
+- **Canonical docs touched:** HANDOFF, TECHNICAL_ROADMAP, PROJECT_STATUS, ISSUES, CROSS_AGENT_CONTEXT.
+- **Follow-up owner:** Dev finishes v1.0.28 bootstrap, fixes MS-009, then applies the exact workspace changes and stops at an integrated Coordinator-review checkpoint. User retests the corrected release and the next fixed-updater transition.
