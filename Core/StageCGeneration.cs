@@ -189,6 +189,26 @@ public static class StageCGeneration
         return true;
     }
 
+    public static void ValidateResultEnvelope(ProjectState state, GenerationJobBinding binding)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (binding.JobId.Value == Guid.Empty || binding.ProjectId.Value == Guid.Empty || binding.OutputObjectId.Value == Guid.Empty)
+            throw new ArgumentException("Generation binding contains an empty identity.", nameof(binding));
+        if (state.ProjectId != binding.ProjectId)
+            throw new InvalidOperationException("Generation result belongs to a different project.");
+
+        var jobs = ReadGenerationJobs(state);
+        var durableBinding = jobs.FirstOrDefault(x => x.JobId == binding.JobId);
+        if (durableBinding == null)
+            throw new InvalidOperationException("Generation result has no matching durable job envelope.");
+        if (durableBinding != binding)
+            throw new InvalidOperationException("Generation result identity does not match its durable job envelope.");
+        if (!state.ImageRevisions.ContainsKey(binding.InputImageRevisionId))
+            throw new InvalidOperationException("Generation input image revision no longer exists in this project.");
+        if (state.Objects.ContainsKey(binding.OutputObjectId))
+            throw new InvalidOperationException("Generation output object identity is already in use.");
+    }
+
     public static ImageToMeshCandidateState RegisterResult(
         ProjectSession session,
         GenerationJobBinding binding,
@@ -197,24 +217,13 @@ public static class StageCGeneration
         string provenance)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (binding.JobId.Value == Guid.Empty || binding.ProjectId.Value == Guid.Empty || binding.OutputObjectId.Value == Guid.Empty)
-            throw new ArgumentException("Generation binding contains an empty identity.", nameof(binding));
-        if (session.Current.ProjectId != binding.ProjectId)
-            throw new InvalidOperationException("Generation result belongs to a different project.");
+        ValidateResultEnvelope(session.Current, binding);
         var jobs = ReadGenerationJobs(session.Current).ToList();
         int jobIndex = jobs.FindIndex(x => x.JobId == binding.JobId);
-        if (jobIndex < 0)
-            throw new InvalidOperationException("Generation result has no matching durable job envelope.");
-        if (jobs[jobIndex] != binding)
-            throw new InvalidOperationException("Generation result identity does not match its durable job envelope.");
-        if (!session.Current.ImageRevisions.ContainsKey(binding.InputImageRevisionId))
-            throw new InvalidOperationException("Generation input image revision no longer exists in this project.");
         if (outputRevision.ObjectId != binding.OutputObjectId)
             throw new InvalidOperationException("Generated mesh revision is owned by a different object identity than the job binding.");
         if (session.Current.MeshRevisions.ContainsKey(outputRevision.Id))
             throw new InvalidOperationException("Generated mesh revision is already registered in this project.");
-        if (session.Current.Objects.ContainsKey(binding.OutputObjectId))
-            throw new InvalidOperationException("Generation output object identity is already in use.");
 
         string providerName = string.IsNullOrWhiteSpace(provider) ? "unknown" : provider.Trim();
         string provenanceValue = string.IsNullOrWhiteSpace(provenance) ? "image-to-3d" : provenance.Trim();
