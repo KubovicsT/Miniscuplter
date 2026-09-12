@@ -1,1 +1,6 @@
-{"version":"1.0.30","target_branch":"v1.0.30","expected_head_sha":"3c829544c6b64550ed91b6932e181e7020238e5a"}
+{
+  "version": "1.0.30",
+  "target_branch": "v1.0.30",
+  "expected_head_sha": "3c829544c6b64550ed91b6932e181e7020238e5a",
+  "schema": 1
+}
