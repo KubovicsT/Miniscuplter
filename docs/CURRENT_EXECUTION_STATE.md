@@ -5,44 +5,46 @@
 - writable: v1.0.29
 - release_freeze: false
 - publication_active: false
-- exact_head: 6820c8dbea118c0e12645d723c326fc60b4e2824
-- branch_bootstrap: partial — blocked on two large-file identity writes
+- exact_head: 4c0d936ba855fa521f5c38a9c6d837e66ee6c1f5
+- branch_bootstrap: complete
+- execution_hold: authoritative Dev task is explicitly user-paused; do not auto-resume
 
 ## Current objective
-- id: A
-- name: v1.0.29 semantic-version bootstrap
-- state: IN PROGRESS — TOOLING BLOCKED
-- completed_identity_surfaces: editor assembly, launcher, updater, installer, Windows export metadata, editor displayed version
-- remaining_identity_surfaces: ai_backend/app.py APP_VERSION; tools/release_audit.py EXPECTED
-- validation: Core foundation green; .NET build green; portable packaging/hash/installer-definition green; Python/runtime chain stopped at semantic-version identity gate because the two remaining surfaces still identify as 1.0.28
-- tooling_evidence: full-file write to ai_backend/app.py was safety-blocked after an earlier ranged-read replacement transiently truncated the file; the exact original blob was restored immediately by a forward repair commit and current backend content is intact. Direct ref rollback was safety-blocked. Do not retry the same unsafe large-file write path or bypass safety checks.
-- infrastructure_handoff: AUTOMATION/RELEASE INFRA REVIEW REQUESTED
-- outcome: move release identity from 1.0.28 to 1.0.29 and restore exact-head green validation
-- dependency: none
-- acceptance: semantic identity, Core, build and packaging gates green
-- continuation: automatic once the two blocked identity writes are safely available
-- preemption: any new v1.0.28 reference-machine blocker
-
-## Next objectives
-### B
+- id: B
 - name: durable generation job envelope
-- state: blocked by A
+- state: READY — EXECUTION PAUSED BY USER
 - issue: MS-020
 - outcome: generation keeps stable job/revision identity through runtime ownership and stale-result handling
-- dependency: A
-- continuation: automatic
+- architectural_constraints: preserve Core durable-state authority, Godot presentation/input authority, Python inference/geometry authority, stable IDs/immutable revisions, transactional history, local-first behavior and migration-before-removal discipline
+- dependency: A complete
+- acceptance: stable job/revision identity is maintained through generation ownership, stale-result handling cannot apply obsolete work, focused ownership regressions pass, and strongest relevant exact-head validation is green
+- stop_condition: objective accepted or a new P0 correctness/data-loss/runtime blocker invalidates the plan
+- continuation: automatic when Dev is user-resumed
+- preemption: new released-build correctness, persistence, data-safety or runtime blocker
 
+## Completed objective
+### A — v1.0.29 semantic-version bootstrap
+- state: COMPLETE
+- evidence: ai_backend/app.py APP_VERSION and tools/release_audit.py EXPECTED identify as 1.0.29; validated patch-control also repaired the stale backend-lifecycle test identity
+- validation: exact-head core-foundation and build workflows at 4c0d936ba855fa521f5c38a9c6d837e66ee6c1f5 completed successfully
+- process_note: the prior whole-file safety blocker is resolved by validated patch-control; the transient ai_backend/app.py truncation remains repaired
+
+## Next objectives
 ### C
 - name: cancellation and recovery closure
 - state: blocked by B
 - issue: MS-020
 - outcome: cancellation/retry ends or isolates heavyweight work before replacement work begins
 - dependency: B
+- acceptance: cancellation/retry cannot overlap incompatible heavyweight ownership; stale work is isolated; relevant regression and exact-head validation are green
 - continuation: automatic
+- preemption: same as B
 
 ### D
 - name: v1.0.29 integration checkpoint
-- state: blocked by A-C
+- state: blocked by B-C
 - outcome: strongest integrated validation complete and candidate ready for Coordinator review
-- dependency: A-C
+- dependency: B-C
+- acceptance: integrated Core/.NET/Python/runtime/geometry/release-audit/packaging checks are green, canonical state is reconciled, and no known release blocker remains
 - continuation: coordinator_review_required
+- preemption: any unresolved release blocker or contradictory reference-machine evidence
