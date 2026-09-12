@@ -139,3 +139,18 @@ Selective refactor remains correct. The immediate product critical path after pu
 ### Queue
 HANDOFF now carries three substantial objectives: v1.0.27 bootstrap validation, bounded ground-placement authority, and one bounded stable-ID selection/picking seam. Queue depth is intentionally limited because imminent v1.0.26 target-machine evidence can legitimately change Stage-D priority.
 
+## 2026-09-12 — v1.0.26 publication completed
+
+Autonomous release-control completed successfully for exact frozen candidate `a41e0419ba40fd1118775e8f516b1a31145f18d8`. The workflow passed exact-SHA validation, real Godot 4.7.2 Windows export, versioned output verification, silent installer smoke-install, asset staging/upload, immutable tag creation and GitHub Release publication. Latest stable is now v1.0.26.
+
+Verified published assets:
+- `Miniscuplter-Setup-1.0.26.exe`
+- `Miniscuplter-win-x64.zip`
+- `Miniscuplter-win-x64.zip.sha256`
+
+The reconciled v1.0.27 forward branch is now authoritative and writable. Its first exact-head build exposed one mechanical bootstrap defect: `tools/backend_lifecycle_tests.py` still expects backend version 1.0.26. The backend starts as 1.0.27, so the test never accepts the otherwise healthy response and times out. This is a version-identity bootstrap defect, not evidence that MS-030 regressed.
+
+Coordinator attempted the minimal one-line test expectation correction, but that code-file write was blocked by the GitHub connector safety layer. Per role boundaries, the repair is left in HANDOFF as Objective A rather than repeatedly hammering connector writes. Dev remains paused; Coordinator did not modify automation state.
+
+Release success moves the product critical path to reference-machine acceptance of v1.0.26. Any reproduced Critical backend/viewport/update/persistence issue preempts v1.0.27 migration work.
+
