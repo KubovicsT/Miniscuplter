@@ -71,6 +71,10 @@ internal static class StageCGenerationTests
         var cancelledJob = StageCGeneration.BeginImageToMesh(session);
         Assert(StageCGeneration.AbandonGenerationJob(session, cancelledJob), "cancelled generation job envelope was not retired");
         Assert(!StageCGeneration.ReadGenerationJobs(session.Current).Any(x => x.JobId == cancelledJob.JobId), "cancelled generation job remained durably active");
+        bool cancelledPreflightRejected = false;
+        try { StageCGeneration.ValidateResultEnvelope(session.Current, cancelledJob); }
+        catch (InvalidOperationException) { cancelledPreflightRejected = true; }
+        Assert(cancelledPreflightRejected, "cancelled result envelope passed pre-materialization validation");
         var cancelledMesh = await store.CreateMeshRevisionAsync(projectPath, cancelledJob.OutputObjectId, Tetra(.9f), "unit-test:cancelled-generated");
         bool cancelledResultRejected = false;
         try { _ = StageCGeneration.RegisterResult(session, cancelledJob, cancelledMesh, "sf3d", "unit-test:cancelled-result"); }
