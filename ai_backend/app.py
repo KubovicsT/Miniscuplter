@@ -320,7 +320,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
     req.output_path = _safe_output_path(req.output_path, (".stl",))
     stage_c_context = _stage_c_context(req, x_miniscupter_job_id)
     transport_job_id = stage_c_context.get("generation_job_id") or x_miniscupter_job_id
-    begin_job("3d-generate", transport_job_id, stage_c_context)
+    job_id = begin_job("3d-generate", transport_job_id, stage_c_context)
     image = req.image_path
     output = req.output_path
     provider = None
@@ -329,7 +329,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
         d = choose_3d_provider(req.role, req.provider)
         provider = d.provider
         report_job("preparing_runtime", "Releasing other models and reserving resources for 3D reconstruction.", 10, provider)
-        release_all_models()
+        release_all_models(allow_owner_id=job_id)
         try:
             report_job("loading_model", f"Preparing {provider} model weights and runtime.", 18, provider)
             path = _generate_shape(provider, req, image, output)
@@ -338,7 +338,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
         except Exception as primary:
             if (req.provider or "auto").lower() != "auto" or not d.fallback or d.fallback == d.provider:
                 raise
-            release_all_models()
+            release_all_models(allow_owner_id=job_id)
             provider = d.fallback
             report_job("loading_model", f"Primary provider failed ({primary}). Preparing automatic fallback {provider}.", 20, provider)
             try:
@@ -351,7 +351,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
         report_job("validating_output", "3D provider returned; verifying the generated mesh file.", 96, provider)
         path = _provider_output(path, output, (".stl",))
         report_job("cleanup", "Releasing 3D model resources before returning control to the editor.", 99, provider)
-        release_all_models()
+        release_all_models(allow_owner_id=job_id)
         complete_job("Generated mesh saved and verified.", provider)
         result = {"path": path, "provider": provider, "routing_reason": reason, "role": req.role, "quality": req.quality, "context": stage_c_context}
         if fallback_from:
@@ -359,7 +359,7 @@ def generate_3d(req: Generate3DRequest, x_miniscupter_job_id: Optional[str] = He
         return result
     except Exception as e:
         fail_job(f"3D provider failed: {e}")
-        release_all_models()
+        release_all_models(allow_owner_id=job_id)
         raise HTTPException(502, f"3D provider failed: {e}") from e
     finally:
         bind_job(None)
