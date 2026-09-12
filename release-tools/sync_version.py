@@ -39,10 +39,11 @@ SURFACES = {
 }
 
 
-def transform(path: Path, version: str) -> tuple[str, str]:
+def transform(rel: str, version: str) -> tuple[str, str]:
+    path = ROOT / rel
     before = path.read_text(encoding="utf-8")
     after = before
-    for pattern, replacement in SURFACES[path.as_posix()]:
+    for pattern, replacement in SURFACES[rel]:
         after, count = re.subn(pattern, replacement(version), after, count=1)
         if count != 1:
             raise RuntimeError(f"{path}: expected exactly one match for {pattern!r}, got {count}")
@@ -71,7 +72,7 @@ def main() -> int:
         path = ROOT / rel
         if not path.is_file():
             raise RuntimeError(f"missing version surface: {rel}")
-        before, after = transform(path, version)
+        before, after = transform(rel, version)
         if before != after:
             stale.append(rel)
             if not args.check:
