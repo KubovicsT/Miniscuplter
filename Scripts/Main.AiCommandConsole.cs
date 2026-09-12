@@ -25,8 +25,7 @@ public partial class Main
     public void InstallAiCommandConsole()
     {
         if (_aiCommandInput != null) return;
-        var toolbar = _v1011Toolbar;
-        if (toolbar?.GetParent() is not VBoxContainer root) return;
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
 
         var panel = new VBoxContainer
         {
@@ -34,6 +33,13 @@ public partial class Main
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
         panel.AddThemeConstantOverride("separation", 3);
+        panel.MouseFilter = Control.MouseFilterEnum.Stop;
+        panel.ZIndex = 24;
+        panel.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
+        panel.OffsetLeft = -340;
+        panel.OffsetRight = 340;
+        panel.OffsetTop = -220;
+        panel.OffsetBottom = -12;
 
         var commandRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         var input = new TextEdit
@@ -59,7 +65,7 @@ public partial class Main
         commandRow.AddChild(controls);
         panel.AddChild(commandRow);
 
-        var actionRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin };
+        var actionRow = controls;
         AddAiConsoleButton(actionRow, "2D Concept", AiConsoleAction.GenerateConcept,
             "Generate a 2D concept from the command text using the existing local concept-generation path.");
         AddAiConsoleButton(actionRow, "Edit Region", AiConsoleAction.EditSelectedRegion,
@@ -70,8 +76,6 @@ public partial class Main
             "Generate 3D from the durable accepted baseline through the Stage-C candidate path.");
         AddAiConsoleButton(actionRow, "3D Detail", AiConsoleAction.Detail3DPreview,
             "Generate the existing non-destructive selected-detail 3D preview.");
-        panel.AddChild(actionRow);
-
         _aiCommandHistoryScroll = new ScrollContainer
         {
             Name = "AI Command History",
@@ -84,8 +88,7 @@ public partial class Main
         _aiCommandHistoryScroll.AddChild(_aiCommandHistoryList);
         panel.AddChild(_aiCommandHistoryScroll);
 
-        root.AddChild(panel);
-        root.MoveChild(panel, Math.Min(toolbar.GetIndex() + 1, root.GetChildCount() - 1));
+        host.AddChild(panel);
         _aiCommandInput = input;
 
         input.GuiInput += OnAiCommandInput;
