@@ -20,7 +20,7 @@ from detail_pipeline import detail_2d, detail_3d, apply_detail
 from storage import DEFAULT_IMAGE_SUFFIXES, DEFAULT_MESH_SUFFIXES, validate_input_path, validate_output_directory, validate_output_path
 from job_progress import begin as begin_job, bind as bind_job, report as report_job, complete as complete_job, fail as fail_job, current as current_job, get as get_job, get_events as get_job_events, request_cancel as request_job_cancel
 
-APP_VERSION = "1.0.27"
+APP_VERSION = "1.0.28"
 app = FastAPI(title="Miniscuplter AI Backend", version=APP_VERSION)
 app.include_router(geometry_router)
 app.include_router(rig_router)
