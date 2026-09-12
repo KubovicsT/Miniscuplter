@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.31",
+  "expected_head_sha": "42b794213201267790de207830db91111ddd110c",
+  "target_path": "Scripts/Main.V1020StageCBridge.cs",
+  "expected_blob_sha": "66b8ece4dfeab9241badb6e193e65d956e35653d",
+  "commit_message": "feat: restore applied generated objects on reopen",
+  "patch": "diff --git a/Scripts/Main.V1020StageCBridge.cs b/Scripts/Main.V1020StageCBridge.cs\n--- a/Scripts/Main.V1020StageCBridge.cs\n+++ b/Scripts/Main.V1020StageCBridge.cs\n@@ -405,6 +405,8 @@\n                     }\n                 }\n \n+                V1031RestoreAppliedStageCObjects(session);\n+\n                 _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current)\n                     .Where(x => x.Status is CandidateStatus.Ready or CandidateStatus.Conflict)\n                     .OrderByDescending(x => x.CreatedUtc)\n"
+}
