@@ -1,6 +1,8 @@
 # Miniscuplter Technical Direction State
 
-This file is the authoritative medium/long-horizon technical-direction state owned by the Project Coordinator. It stores project strategy facts only; behavioral rules remain in automation prompts. `docs/TECHNICAL_ROADMAP.md` is legacy/read-only context.\n\n- last_reconciled: 2026-09-12
+This file is the authoritative medium/long-horizon technical-direction state owned by the Project Coordinator. It stores project strategy facts only; behavioral rules remain in automation prompts. `docs/TECHNICAL_ROADMAP.md` is legacy/read-only context.
+
+- last_reconciled: 2026-09-12
 
 ## Architecture ownership
 - durable_project_state: Core
@@ -10,22 +12,24 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - architecture_mode: selective refactor; bounded ownership convergence; no broad rewrite
 
 ## Current strategic objective
-- release_line: v1.0.29
-- objective: harden generation job lifetime and cancellation/recovery while v1.0.28 reference-machine acceptance proceeds
-- acceptance_weighted_completion: approximately 64 percent
+- stable_release: v1.0.29
+- release_line: v1.0.30
+- objective: convert the now-durable generation-job lifetime into a fully transactional generation-result workflow, then remove only proven duplicate authority along the 3D/viewport path
+- acceptance_weighted_completion: approximately 66 percent
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
 
 ## Priority order
-1. complete v1.0.29 semantic-version bootstrap
-2. MS-020 — durable generation job/revision envelope
-3. MS-020 — cancellation and recovery closure
-4. integrated v1.0.29 validation and Coordinator review
+1. establish coherent v1.0.30 semantic identity and exact-head baseline
+2. harden generation-result commit, stale-result rejection, recovery and save/reload continuity
+3. audit viewport/state ownership convergence and remove safely migrated redundancy where it affects correctness
+4. integrated v1.0.30 validation and Coordinator review
 
 ## Strategic dependencies
-- product work depends on bootstrap completion
-- viewport acceptance follows generation and persistence correctness
-- workspace composition follows viewport correctness
+- product work on v1.0.30 depends on semantic bootstrap completion
+- generation-result durability follows the v1.0.29 job-envelope/cancellation foundation
+- viewport/state cleanup follows generation/persistence correctness and must preserve migration-before-removal
+- reference-machine evidence may preempt planned cleanup when it reproduces a P0 defect
 - release review follows integrated validation and canonical-state reconciliation
 
 ## Current deferred work
@@ -54,3 +58,4 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - Dev prepares release-worthy checkpoints but never publishes
 - only actual release-control initiation freezes the source version branch
 - published releases/tags are immutable
+- v1.0.29 is published and frozen; v1.0.30 is the legitimate writable successor branch
