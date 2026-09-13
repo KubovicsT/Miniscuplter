@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "69788871b7f68d6ad14f705e22e9bdb987901d54",
+  "target_path": "docs/ISSUE_STATE.md",
+  "expected_blob_sha": "202fc6865addf094b81036ad0068103e2062a31d",
+  "commit_message": "docs: mark MS-038 fixed pending verification",
+  "patch": "--- a/docs/ISSUE_STATE.md\n+++ b/docs/ISSUE_STATE.md\n@@ -40,1 +40,1 @@\n-- state: REPRODUCED ON RELEASED v1.0.31\n+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION\n"
+}
