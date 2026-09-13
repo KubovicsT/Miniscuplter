@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "273b153668e42f5b62b5a7b79eca1061207315fa",
+  "target_path": "Core/ProjectStore.cs",
+  "expected_blob_sha": "3e6c99644e5e07d28403c0593c718ce60b3279d6",
+  "commit_message": "core: serialize attachment revision bindings",
+  "patch": "--- a/Core/ProjectStore.cs\n+++ b/Core/ProjectStore.cs\n@@ -410 +410,3 @@\n-            Scale = [x.LocalTransform.Scale.X, x.LocalTransform.Scale.Y, x.LocalTransform.Scale.Z], CreatedUtc = x.CreatedUtc\n+            Scale = [x.LocalTransform.Scale.X, x.LocalTransform.Scale.Y, x.LocalTransform.Scale.Z], CreatedUtc = x.CreatedUtc,\n+            ParentMeshRevisionId = x.ParentMeshRevisionId?.ToString(), ChildMeshRevisionId = x.ChildMeshRevisionId?.ToString(),\n+            BindingStatus = x.BindingStatus.ToString()\n"
+}
