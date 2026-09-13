@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "1ee9d6793ad3709218a104f7b938a5c1aff0f718",
+  "target_path": "Core/ProjectModels.cs",
+  "expected_blob_sha": "ba896a81cc407f1ef848fb029a4bce58b12e17f9",
+  "commit_message": "core: make attachment binding validation definite",
+  "patch": "--- a/Core/ProjectModels.cs\n+++ b/Core/ProjectModels.cs\n@@ -346,13 +346,12 @@\n-            bool hasParentRevision = attachment.ParentMeshRevisionId is { } parentRevisionId;\n-            bool hasChildRevision = attachment.ChildMeshRevisionId is { } childRevisionId;\n-            if (hasParentRevision != hasChildRevision)\n-                throw new InvalidDataException($\"Attachment {attachment.Id} must bind both parent and child mesh revisions or neither.\");\n-            if (!hasParentRevision)\n+            if (attachment.ParentMeshRevisionId is not { } parentRevisionId ||\n+                attachment.ChildMeshRevisionId is not { } childRevisionId)\n             {\n+                if (attachment.ParentMeshRevisionId is not null || attachment.ChildMeshRevisionId is not null)\n+                    throw new InvalidDataException($\"Attachment {attachment.Id} must bind both parent and child mesh revisions or neither.\");\n                 if (attachment.BindingStatus != AttachmentBindingStatus.Stale)\n                     throw new InvalidDataException($\"Unbound attachment {attachment.Id} must be stale.\");\n                 continue;\n             }\n             if (!_meshRevisions.TryGetValue(parentRevisionId, out var parentRevision) || parentRevision.ObjectId != attachment.ParentObjectId ||\n                 !_meshRevisions.TryGetValue(childRevisionId, out var childRevision) || childRevision.ObjectId != attachment.ChildObjectId)\n                 throw new InvalidDataException($\"Attachment {attachment.Id} revision bindings do not belong to the referenced objects.\");\n"
+}
