@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "67b144c5c661be137657cd861de7f40692b20045",
+  "target_path": "Scripts/Main.V1019ViewportPipeline.cs",
+  "expected_blob_sha": "47bdc92f1ef97e75e1dc96dd9d116f1f6a8b7617",
+  "commit_message": "viewport: improve neutral surface readability",
+  "patch": "diff --git a/Scripts/Main.V1019ViewportPipeline.cs b/Scripts/Main.V1019ViewportPipeline.cs\n--- a/Scripts/Main.V1019ViewportPipeline.cs\n+++ b/Scripts/Main.V1019ViewportPipeline.cs\n@@ -154,2 +154,2 @@\n-                ? new Color(.66f, .66f, .66f)\n-                : new Color(.55f, .55f, .55f);\n+                ? new Color(.72f, .72f, .72f)\n+                : new Color(.62f, .62f, .62f);\n@@ -156 +156 @@\n-            material.Roughness = .68f;\n+            material.Roughness = .72f;\n@@ -158 +158 @@\n-            material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;\n+            material.CullMode = BaseMaterial3D.CullModeEnum.Back;\n@@ -195,2 +195,2 @@\n-        env.AmbientLightColor = new Color(.78f, .78f, .78f);\n-        env.AmbientLightEnergy = .72f;\n+        env.AmbientLightColor = new Color(.72f, .74f, .78f);\n+        env.AmbientLightEnergy = .48f;\n@@ -208 +208 @@\n-        key.LightEnergy = 1.05f;\n+        key.LightEnergy = 1.55f;\n@@ -223 +223 @@\n-        fill.LightEnergy = 1.35f;\n+        fill.LightEnergy = .75f;\n"
+}
