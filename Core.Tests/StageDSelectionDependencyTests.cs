@@ -8,6 +8,7 @@ internal static class StageDSelectionDependencyTests
     {
         ValidateDurableSelectionBridge();
         ValidateCandidateDependencyTransactions();
+        ValidatePersistenceAndRevisionAdvanceAsync().GetAwaiter().GetResult();
     }
 
     static void ValidateDurableSelectionBridge()
@@ -90,6 +91,79 @@ internal static class StageDSelectionDependencyTests
         Assert(!repeatedConflict.Applied && repeatedConflict.Conflict &&
                invalidSession.Current.RevisionNumber == conflictedRevision,
             "already-conflicted candidate was reprocessed or mutated again");
+    }
+
+    static async Task ValidatePersistenceAndRevisionAdvanceAsync()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "MiniscuplterStageDSelectionDependencyTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string projectPath = Path.Combine(root, "dependency-roundtrip" + ProjectStore.ProjectExtension);
+            var store = new ProjectStore();
+            var objectId = ObjectId.New();
+            var candidateId = CandidateId.New();
+            var selectionId = SelectionId.New();
+            var mesh = new MeshData(
+                new float[] { 0, 0, 0, 1, 0, 0, 0, 1, 0 },
+                new int[] { 0, 1, 2 });
+
+            MeshRevision input = await store.CreateMeshRevisionAsync(projectPath, objectId, mesh, "dependency-roundtrip-input");
+            MeshRevision output = await store.CreateMeshRevisionAsync(projectPath, objectId, mesh, "dependency-roundtrip-output", input.Id);
+            var layout = ProjectLayout.FromManifest(projectPath);
+            string selectionRelativePath = $"data/{selectionId}.json";
+            string selectionPath = ProjectStore.ResolveAsset(layout, selectionRelativePath);
+            await File.WriteAllTextAsync(selectionPath, "{\"indices\":[0,1,2]}");
+
+            var selection = new SelectionBinding(
+                selectionId, objectId, input.Id, "protected-region", selectionRelativePath, DateTimeOffset.UtcNow);
+            var candidate = new CandidateRecord(
+                candidateId, objectId, input.Id, output.Id, "refinement", CandidateStatus.Ready,
+                "dependency-roundtrip", DateTimeOffset.UtcNow);
+            var state = new ProjectState(
+                ProjectId.New(),
+                "dependency-roundtrip",
+                objects: new[] { new ProjectObject(objectId, "Dependency Roundtrip", input.Id, TransformState.Identity) },
+                meshRevisions: new[] { input, output },
+                selections: new[] { selection },
+                candidates: new[] { candidate });
+
+            await store.SaveAsync(state, projectPath);
+            ProjectState reopened = await store.LoadAsync(projectPath);
+            Assert(reopened.Objects[objectId].ActiveMeshRevisionId == input.Id,
+                "save/reopen changed the active input revision before candidate application");
+            Assert(reopened.Selections.TryGetValue(selectionId, out SelectionBinding? reopenedSelection) && reopenedSelection == selection,
+                "save/reopen did not preserve the exact protected-region selection binding");
+            Assert(reopened.Candidates.TryGetValue(candidateId, out CandidateRecord? reopenedCandidate) &&
+                   reopenedCandidate.InputRevisionId == input.Id && reopenedCandidate.OutputRevisionId == output.Id &&
+                   reopenedCandidate.Status == CandidateStatus.Ready,
+                "save/reopen did not preserve the exact candidate dependency binding");
+            Assert(StageCSelection.IsCurrent(reopened, reopenedSelection!),
+                "reopened protected-region selection was not current on its bound input revision");
+
+            var session = new ProjectSession(reopened);
+            var result = session.ApplyCandidate(candidateId);
+            Assert(result.Applied && !result.Conflict,
+                "reopened candidate could not apply against its exact persisted input revision");
+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == output.Id,
+                "candidate application did not advance the reopened object to its output revision");
+            Assert(!StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),
+                "revision advancement did not make the persisted protected-region selection stale");
+
+            await store.SaveAsync(session.Current, projectPath);
+            ProjectState advanced = await store.LoadAsync(projectPath);
+            Assert(advanced.Objects[objectId].ActiveMeshRevisionId == output.Id &&
+                   advanced.Candidates[candidateId].Status == CandidateStatus.Applied,
+                "save/reopen lost the applied candidate or advanced object revision");
+            Assert(advanced.Selections.ContainsKey(selectionId) &&
+                   advanced.Selections[selectionId].MeshRevisionId == input.Id &&
+                   !StageCSelection.IsCurrent(advanced, advanced.Selections[selectionId]),
+                "save/reopen did not preserve the stale protected-region dependency after revision advancement");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
     }
 
     static CandidateFixture CreateCandidateFixture(bool outputDescendsFromInput, bool activeOnInput)
