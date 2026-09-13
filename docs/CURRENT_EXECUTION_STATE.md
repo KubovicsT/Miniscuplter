@@ -29,22 +29,20 @@
 ### G — continue independent v1.0.33 foundation work
 - state: ACTIVE
 - outcome: advance safe work that does not depend on the pending v1.0.32 runtime verification
-- current: revision-bound candidate/selection persistence foundations and UI-neutral Core attachment transaction authority are implemented; exact-head Core and full build/package validation are green
-- completed_this_slice: save/reopen preserves exact candidate and protected-region revision bindings and keeps prior protected-region bindings explicitly stale after candidate revision advance; the guarded schema-2 patch-control new-text-file route was exercised successfully and AUTO-INC-009 was closed; Core now owns stable attachment create/update/remove transactions with stale-update/removal rejection, self-attachment rejection, undo/redo, durable save/reopen, and an explicit state removal primitive; no user-facing Kitbash interaction was chosen or changed
+- current: attachment revision authority is implemented and validated; continue revision-safe Refinement candidate/dependency foundations without choosing user-facing interaction design
+- completed_this_slice: Core attachments now bind exact parent/child mesh revisions at creation, derive stale/non-authoritative state when either active revision advances, support explicit transactional rebind to current revisions, reject stale updates, retain stale records for recovery/removal, and preserve exact binding/status state through save/reopen and undo/redo. Focused regression coverage is wired into the normal Core suite; exact-head Core, Python/runtime, release-audit and full packaging validation are green.
 - attachment_revision_contract:
   1. every durable attachment binds the exact active parent mesh revision and exact active child mesh revision present when the attachment is created or explicitly rebound
-  2. if either bound object advances to a different active mesh revision, the attachment must not silently transfer or continue driving authoritative placement; preserve the durable record as stale/incompatible state until an explicit transaction resolves it
-  3. automatic transfer is allowed only when Core has explicit compatibility evidence for the advancing operation, at minimum an unchanged topology signature plus a still-valid socket/mount contract; transfer must be a transaction that updates the bound revision identity rather than implicit presentation behavior
-  4. topology-changing or unknown-compatibility edits default to invalidation/stale state, never silent deletion; this preserves recovery/history and prevents plausible-looking but semantically wrong Kitbash placement
-  5. Godot may visualize stale attachments and request rebind/remove, but cannot invent durable transfer semantics; Core remains the sole authority for current/stale/rebound attachment state
+  2. if either bound object advances to a different active mesh revision, the attachment does not silently transfer or continue driving authoritative placement; the durable binding resolves stale until an explicit Core transaction resolves it
+  3. automatic transfer remains disallowed without explicit compatibility evidence; no automatic transfer path was introduced
+  4. topology-changing or unknown-compatibility edits therefore default to stale/non-authoritative state rather than silent deletion or transfer
+  5. Godot may visualize stale attachments and request rebind/remove, but Core remains the sole durable authority for current/stale/rebound semantics
 - next:
-  1. implement the attachment revision contract above, including explicit parent/child revision bindings and current/stale/rebound semantics
-  2. add revision-advance, undo/redo and save/reopen coverage proving stale attachments remain durable but non-authoritative, and compatible explicit rebind/transfer restores current state transactionally
-  3. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including explicit discard/conflict behavior and dependency preservation/invalidation coverage
-  4. then converge the remaining legacy Godot attachment DTO/display-name ownership onto the Core attachment authority without changing the user-facing Kitbash workflow
-  5. stop before irreversible or user-owned Refinement/Kitbash UI decisions
-- acceptance: no revision-dependent attachment, selection or refinement dependency can silently survive an incompatible mesh revision change; save/reopen and undo/redo preserve the exact durable state; exact-head Core and full build/package validation remain green
-- process_blocker: none; AUTO-INC-009 is recovered and closed after successful live schema-2 creation plus exact-head green validation
+  1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including explicit discard/conflict behavior and dependency preservation/invalidation coverage
+  2. converge the remaining legacy Godot attachment DTO/display-name ownership onto the Core attachment authority without changing the user-facing Kitbash workflow
+  3. stop before irreversible or user-owned Refinement/Kitbash UI decisions
+- acceptance: no revision-dependent attachment, selection or refinement dependency can silently survive an incompatible mesh revision change; save/reopen and undo/redo preserve exact durable state; exact-head Core and full build/package validation remain green
+- process_blocker: none; the prior patch-control request-formatting failures were narrowed to malformed diff metadata and recovered with validated small patches
 - preemption: any reproduced v1.0.32 P0/P1 regression becomes the next implementation priority after Coordinator reconciliation
 - stop: strategic/user authority is required; no independent authorized work remains; a real release freeze starts; or continuing would compound a severe regression/data-loss/safety risk
 - continuation: Dev continues automatically through valid independent work; Coordinator replenishes the queue without waiting for ordinary user runtime availability
