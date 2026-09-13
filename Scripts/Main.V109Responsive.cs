@@ -11,6 +11,7 @@ public partial class Main
     SubViewportContainer? _v109ResponsiveHost;
     SubViewport? _v109ResponsiveSubViewport;
     TabContainer? _v109ResponsiveTabs;
+    VBoxContainer? _v109ResponsiveRoot;
 
     public void InstallV109ResponsiveLayout()
     {
@@ -18,10 +19,17 @@ public partial class Main
         _v109ResponsiveSubViewport = FindChild("Viewport", true, false) as SubViewport;
         _v109ResponsiveSplit = _v109ResponsiveHost?.GetParent() as HSplitContainer;
         _v109ResponsiveTabs = _v109ResponsiveSplit?.GetChildren().OfType<TabContainer>().FirstOrDefault();
+        _v109ResponsiveRoot = _v109ResponsiveSplit?.GetParent()?.GetParent() as VBoxContainer;
+
+        if (_v109ResponsiveRoot != null)
+        {
+            GetViewport().SizeChanged += SyncV109RootToViewport;
+            SyncV109RootToViewport();
+        }
 
         if (_v109ResponsiveTabs != null)
         {
-            _v109ResponsiveTabs.CustomMinimumSize = new Vector2(300, 0);
+            _v109ResponsiveTabs.CustomMinimumSize = new Vector2(330, 0);
             _v109ResponsiveTabs.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             _v109ResponsiveTabs.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
             WrapV109MainTabsForScrolling(_v109ResponsiveTabs);
@@ -51,6 +59,17 @@ public partial class Main
 
         SyncV109ResponsiveSplit();
         QueueV109ViewportResize();
+    }
+
+    void SyncV109RootToViewport()
+    {
+        if (_v109ResponsiveRoot == null) return;
+        Vector2 size = GetViewport().GetVisibleRect().Size;
+        if (size.X <= 1 || size.Y <= 1) return;
+
+        _v109ResponsiveRoot.Position = Vector2.Zero;
+        _v109ResponsiveRoot.Size = size;
+        SyncV109ResponsiveSplit();
     }
 
     void WrapV109MainTabsForScrolling(TabContainer tabs)
@@ -97,7 +116,7 @@ public partial class Main
         float width = _v109ResponsiveSplit.Size.X;
         if (width <= 1) return;
 
-        float sidebar = Math.Clamp(width * 0.27f, 300f, 420f);
+        const float sidebar = 330f;
         int maxViewport = Math.Max(1, (int)Math.Floor(width - _v109ResponsiveTabs.CustomMinimumSize.X));
         int desiredViewport = Math.Max(1, (int)Math.Round(width - sidebar));
         _v109ResponsiveSplit.SplitOffset = Math.Min(desiredViewport, maxViewport);
