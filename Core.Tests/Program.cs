@@ -131,10 +131,21 @@ internal static class Program
             var candidate = new CandidateRecord(CandidateId.New(), objectId, first.Id, third.Id, "ai-shape", CandidateStatus.Ready, "unit-test", DateTimeOffset.UtcNow);
             session.Execute("Add candidate", current => current.WithCandidate(candidate), objectId);
             session.Execute("Advance object independently", current => current.WithObject(current.Objects[objectId] with { ActiveMeshRevisionId = second.Id }), objectId);
+            Assert(session.Current.Candidates[candidate.Id].Status == CandidateStatus.Conflict, "revision advance did not immediately invalidate the ready candidate");
+            session.Undo();
+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == first.Id && session.Current.Candidates[candidate.Id].Status == CandidateStatus.Ready,
+                "undo did not restore the candidate dependency and bound input revision exactly");
+            session.Redo();
+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == second.Id && session.Current.Candidates[candidate.Id].Status == CandidateStatus.Conflict,
+                "redo did not restore the invalidated candidate state exactly");
             var result = session.ApplyCandidate(candidate.Id);
             Assert(!result.Applied && result.Conflict, "stale candidate should become a conflict");
             Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == second.Id, "stale candidate overwrote newer mesh revision");
             Assert(session.Current.Candidates[candidate.Id].Status == CandidateStatus.Conflict, "stale candidate was not preserved as conflict");
+            session.DiscardCandidate(candidate.Id);
+            Assert(session.Current.Candidates[candidate.Id].Status == CandidateStatus.Discarded, "conflicted candidate was not discarded transactionally");
+            session.Undo();
+            Assert(session.Current.Candidates[candidate.Id].Status == CandidateStatus.Conflict, "undo did not restore discarded candidate conflict state");
 
             await store.SaveAsync(session.Current, projectPath);
             Assert(File.Exists(projectPath), "project manifest was not saved");
