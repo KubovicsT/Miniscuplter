@@ -195,6 +195,7 @@ internal static class Program
             catch (InvalidDataException) { rejected = true; }
             Assert(rejected, "legacy path traversal was not rejected");
 
+            GeneratedObjectPlacementTests.Run();
             await StageCGenerationTests.RunAsync(root);
             await StageCEditingTests.RunAsync(root);
 
