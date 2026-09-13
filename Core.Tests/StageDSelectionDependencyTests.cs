@@ -8,7 +8,7 @@ internal static class StageDSelectionDependencyTests
     {
         ValidateDurableSelectionBridge();
         ValidateCandidateDependencyTransactions();
-        ValidatePersistenceAndRevisionAdvanceAsync().GetAwaiter().GetResult();
+        ValidatePersistenceAndRevisionAdvance();
     }
 
     static void ValidateDurableSelectionBridge()
@@ -93,7 +93,7 @@ internal static class StageDSelectionDependencyTests
             "already-conflicted candidate was reprocessed or mutated again");
     }
 
-    static async Task ValidatePersistenceAndRevisionAdvanceAsync()
+    static void ValidatePersistenceAndRevisionAdvance()
     {
         string root = Path.Combine(Path.GetTempPath(), "MiniscuplterStageDSelectionDependencyTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -108,12 +108,12 @@ internal static class StageDSelectionDependencyTests
                 new float[] { 0, 0, 0, 1, 0, 0, 0, 1, 0 },
                 new int[] { 0, 1, 2 });
 
-            MeshRevision input = await store.CreateMeshRevisionAsync(projectPath, objectId, mesh, "dependency-roundtrip-input");
-            MeshRevision output = await store.CreateMeshRevisionAsync(projectPath, objectId, mesh, "dependency-roundtrip-output", input.Id);
+            MeshRevision input = store.CreateMeshRevisionAsync(projectPath, objectId, mesh, "dependency-roundtrip-input").GetAwaiter().GetResult();
+            MeshRevision output = store.CreateMeshRevisionAsync(projectPath, objectId, mesh, "dependency-roundtrip-output", input.Id).GetAwaiter().GetResult();
             var layout = ProjectLayout.FromManifest(projectPath);
             string selectionRelativePath = $"data/{selectionId}.json";
             string selectionPath = ProjectStore.ResolveAsset(layout, selectionRelativePath);
-            await File.WriteAllTextAsync(selectionPath, "{\"indices\":[0,1,2]}");
+            File.WriteAllText(selectionPath, "{\"indices\":[0,1,2]}");
 
             var selection = new SelectionBinding(
                 selectionId, objectId, input.Id, "protected-region", selectionRelativePath, DateTimeOffset.UtcNow);
@@ -128,8 +128,8 @@ internal static class StageDSelectionDependencyTests
                 selections: new[] { selection },
                 candidates: new[] { candidate });
 
-            await store.SaveAsync(state, projectPath);
-            ProjectState reopened = await store.LoadAsync(projectPath);
+            store.SaveAsync(state, projectPath).GetAwaiter().GetResult();
+            ProjectState reopened = store.LoadAsync(projectPath).GetAwaiter().GetResult();
             Assert(reopened.Objects[objectId].ActiveMeshRevisionId == input.Id,
                 "save/reopen changed the active input revision before candidate application");
             Assert(reopened.Selections.TryGetValue(selectionId, out SelectionBinding? reopenedSelection) && reopenedSelection == selection,
@@ -150,8 +150,8 @@ internal static class StageDSelectionDependencyTests
             Assert(!StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),
                 "revision advancement did not make the persisted protected-region selection stale");
 
-            await store.SaveAsync(session.Current, projectPath);
-            ProjectState advanced = await store.LoadAsync(projectPath);
+            store.SaveAsync(session.Current, projectPath).GetAwaiter().GetResult();
+            ProjectState advanced = store.LoadAsync(projectPath).GetAwaiter().GetResult();
             Assert(advanced.Objects[objectId].ActiveMeshRevisionId == output.Id &&
                    advanced.Candidates[candidateId].Status == CandidateStatus.Applied,
                 "save/reopen lost the applied candidate or advanced object revision");
