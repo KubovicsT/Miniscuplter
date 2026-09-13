@@ -198,6 +198,7 @@ internal static class Program
             GeneratedObjectPlacementTests.Run();
             await StageCGenerationTests.RunAsync(root);
             await StageCEditingTests.RunAsync(root);
+            await StageDAttachmentRevisionTests.RunAsync(root);
 
             Console.WriteLine("v1.0.20 canonical project-state, Stage-C generation and editing tests passed; core foundation tests passed");
         }
