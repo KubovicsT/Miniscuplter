@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "93f9af4ae9e1f7426b54d4ed86f7ee4ef9e84d85",
+  "target_path": "tools/release_audit.py",
+  "expected_blob_sha": "00d8ffa70209e859420324f1613ff21ad6a08f9f",
+  "commit_message": "test: accept transactional direct 3D insertion",
+  "patch": "diff --git a/tools/release_audit.py b/tools/release_audit.py\n--- a/tools/release_audit.py\n+++ b/tools/release_audit.py\n@@ -139,7 +139,7 @@ for token in (\n ):\n     require(token in stagec1020, f\"canonical Stage-C generation/apply authority missing: {token}\")\n-require('\"Review the candidate, then choose Apply 3D Candidate or Discard Candidate.\"' in stagec1020, \"3D result can bypass explicit candidate review/apply\")\n+require(\"bool autoApplied = false;\" in stagec1020 and \"if (autoApplied && _v1020PendingCandidate != null)\" in stagec1020 and 'StageCGeneration.ApplyCandidate(session, registeredCandidate.Id, $\"AI 3D — {actualProvider}\")' in stagec1020 and 'AddMeshObject(mesh, $\"AI 3D — {actualProvider}\")' in stagec1020, \"verified Stage-C result is not transactionally applied and inserted into the visible scene\")\n require('AddMeshObject(mesh, $\"AI 3D — {candidate.Provider}\")' in stagec1020, \"applied Stage-C candidate is not imported through the canonical Apply path\")\n require('\"mode\": \"auto\"' in performance and '\"vram_target_fraction\": 0.85' in performance, \"GPU performance policy defaults missing\")\n"
+}
