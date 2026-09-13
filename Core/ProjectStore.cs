@@ -435,7 +435,10 @@ public sealed class ProjectStore
             RigId.Parse(x.Id), ObjectId.Parse(x.ObjectId), RevisionId.Parse(x.RestMeshRevisionId), x.DataAssetPath, x.CreatedUtc)).ToArray();
         var attachments = manifest.Attachments.Select(x => new AttachmentRecord(
             AttachmentId.Parse(x.Id), ObjectId.Parse(x.ParentObjectId), ObjectId.Parse(x.ChildObjectId), x.Socket,
-            ParseTransform(x.Position, x.Rotation, x.Scale), x.CreatedUtc)).ToArray();
+            ParseTransform(x.Position, x.Rotation, x.Scale), x.CreatedUtc,
+            ParseRevision(x.ParentMeshRevisionId), ParseRevision(x.ChildMeshRevisionId),
+            Enum.TryParse<AttachmentBindingStatus>(x.BindingStatus, true, out var bindingStatus)
+                ? bindingStatus : AttachmentBindingStatus.Stale)).ToArray();
         var candidates = manifest.Candidates.Select(x => new CandidateRecord(
             CandidateId.Parse(x.Id), ObjectId.Parse(x.ObjectId), RevisionId.Parse(x.InputRevisionId), RevisionId.Parse(x.OutputRevisionId),
             x.Kind, Enum.TryParse<CandidateStatus>(x.Status, true, out var status) ? status : CandidateStatus.Failed,
