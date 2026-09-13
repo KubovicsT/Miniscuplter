@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "5a5342a812bd0893885c387ff3467187bb85601c",
+  "target_path": "Scripts/Main.V1018Foundation.cs",
+  "expected_blob_sha": "7c46242a6527d67ff324a999283b0a051fd2bb54",
+  "commit_message": "feat: wire direct viewport manipulation",
+  "patch": "--- a/Scripts/Main.V1018Foundation.cs\n+++ b/Scripts/Main.V1018Foundation.cs\n@@ -42,2 +42,3 @@\n             V1017SyncViewport();\n         V1017UpdateGizmo();\n+        V1032SyncDirectManipulation();\n@@ -162,2 +163,5 @@\n                             return;\n                         }\n+\n+                        if (V1032TryBeginDirectManipulation(button.Position))\n+                            return;\n@@ -183,2 +187,3 @@\n                     _v1018Dragging = false;\n+                    V1032ResetDirectManipulation();\n                     _v1018HandleAxis = Vector3.Zero;\n@@ -212,1 +217,4 @@\n-            ApplyV1018Transform(delta);\n+            if (_v1032DirectMoveDragging)\n+                V1032ApplyDirectMove(motion.Position);\n+            else\n+                ApplyV1018Transform(delta);\n@@ -322,2 +330,3 @@\n         _v1018Dragging = true;\n+        V1032ResetDirectManipulation();\n         _v1018HandleAxis = axis;\n"
+}
