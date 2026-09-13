@@ -80,6 +80,16 @@ def generate_shape(image_path: str, output_path: str, prompt: str = "", quality:
         out = Path(output_path).resolve()
         out.parent.mkdir(parents=True, exist_ok=True)
 
+        # Provider output is geometry authority, so repair triangle winding/normals before
+        # serialization rather than compensating in the viewport with two-sided rendering.
+        # trimesh-backed Hunyuan results expose fix_normals; multibody keeps disconnected
+        # components consistently outward-facing as well.
+        if hasattr(mesh, "fix_normals"):
+            try:
+                mesh.fix_normals(multibody=True)
+            except TypeError:
+                mesh.fix_normals()
+
         if hasattr(mesh, "export"):
             mesh.export(str(out))
         elif hasattr(mesh, "save"):
