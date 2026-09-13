@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "63330a090a847cc113285a0f35c21fa8c456d1cf",
+  "target_path": "Core/ProjectModels.cs",
+  "expected_blob_sha": "4231571e7ef64b7b4ea10d701f35907765b06cd1",
+  "commit_message": "core: add attachment revision fields",
+  "patch": "diff --git a/Core/ProjectModels.cs b/Core/ProjectModels.cs\n--- a/Core/ProjectModels.cs\n+++ b/Core/ProjectModels.cs\n@@ -43,6 +43,12 @@ public sealed record RigRecord(\n     string DataAssetPath,\n     DateTimeOffset CreatedUtc);\n \n+public enum AttachmentStatus\n+{\n+    Current,\n+    Stale\n+}\n+\n public sealed record AttachmentRecord(\n     AttachmentId Id,\n     ObjectId ParentObjectId,\n@@ -51,7 +57,10 @@ public sealed record AttachmentRecord(\n     ObjectId ChildObjectId,\n     string Socket,\n     TransformState LocalTransform,\n-    DateTimeOffset CreatedUtc);\n+    DateTimeOffset CreatedUtc,\n+    RevisionId? ParentMeshRevisionId = null,\n+    RevisionId? ChildMeshRevisionId = null,\n+    AttachmentStatus Status = AttachmentStatus.Current);\n"
+}
