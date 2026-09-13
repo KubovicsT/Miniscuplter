@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "438b6bacc3479259d88f7ce8f8bc4a0e90831b53",
+  "target_path": "Scripts/BackendLauncher.cs",
+  "expected_blob_sha": "c4d0ca308b974ba50d92ffb68a029c4a9b0b786f",
+  "commit_message": "fix: accept current backend version after cancellation restart",
+  "patch": "--- a/Scripts/BackendLauncher.cs\n+++ b/Scripts/BackendLauncher.cs\n@@ -171,6 +171,9 @@\n \n     async Task WaitForBackendReadyAsync(TimeSpan timeout)\n     {\n+        string expectedVersion = typeof(BackendLauncher).Assembly.GetName().Version?.ToString(3)\n+            ?? throw new InvalidOperationException(\"Could not resolve the packaged editor version for backend health validation.\");\n+\n         DateTime deadline = DateTime.UtcNow + timeout;\n         while (DateTime.UtcNow < deadline)\n         {\n@@ -186,7 +189,7 @@\n                     var root = doc.RootElement;\n                     string version = root.TryGetProperty(\"version\", out var versionNode) ? versionNode.GetString() ?? \"\" : \"\";\n                     string token = root.TryGetProperty(\"instance_token\", out var tokenNode) ? tokenNode.GetString() ?? \"\" : \"\";\n-                    if (version == \"1.0.26\" && !string.IsNullOrWhiteSpace(_instanceToken) && token == _instanceToken)\n+                    if (version == expectedVersion && !string.IsNullOrWhiteSpace(_instanceToken) && token == _instanceToken)\n                         return;\n                 }\n             }\n"
+}
