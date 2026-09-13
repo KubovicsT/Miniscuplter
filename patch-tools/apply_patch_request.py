@@ -68,8 +68,11 @@ def main() -> None:
         if not path.is_file() or path.is_symlink():
             raise RuntimeError("target must be an existing regular file")
 
-        run("git", "apply", "--check", patch_path)
-        run("git", "apply", patch_path)
+        # Exact HEAD + blob guards already bind the request to one immutable file version.
+        # Allow zero-context unified diffs so large-file edits do not depend on fragile
+        # surrounding-context matching while still requiring removed lines to match exactly.
+        run("git", "apply", "--unidiff-zero", "--check", patch_path)
+        run("git", "apply", "--unidiff-zero", patch_path)
 
         changed = run("git", "diff", "--name-only").splitlines()
         if changed != [target]:
