@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "8a33df8097053d9ed0e82c807e77833bc7e13bc5",
+  "target_path": "tools/release_audit.py",
+  "expected_blob_sha": "e7f0a5ad37c7375efd15a7341c404990deaa0b59",
+  "commit_message": "test: align Stage-C save audit with direct insertion",
+  "patch": "--- a/tools/release_audit.py\n+++ b/tools/release_audit.py\n@@ -133,1 +133,1 @@\n-    \"Saving immutable candidate revision\",\n+    \"Saving generated object…\",\n"
+}
