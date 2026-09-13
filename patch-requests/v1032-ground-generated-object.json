@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "47bd187240e044e6dbea25e31748b92eb727e426",
+  "target_path": "Scripts/Main.V1020StageCBridge.cs",
+  "expected_blob_sha": "0a356487008c8e737847795a5023f439d7d0106a",
+  "commit_message": "stage-c: ground generated objects at canonical scale",
+  "patch": "diff --git a/Scripts/Main.V1020StageCBridge.cs b/Scripts/Main.V1020StageCBridge.cs\n--- a/Scripts/Main.V1020StageCBridge.cs\n+++ b/Scripts/Main.V1020StageCBridge.cs\n@@ -218,6 +218,11 @@\n                     var applied = StageCGeneration.ApplyCandidate(session, registeredCandidate.Id, $\"AI 3D — {actualProvider}\");\n                     if (!applied.Applied)\n                         throw new InvalidOperationException(\"The verified 3D result could not be inserted into the project: \" + applied.Message);\n+                    TransformState initialTransform = GeneratedObjectPlacement.FitAndGround(data);\n+                    ProjectObject placedObject = session.Current.Objects[binding.OutputObjectId];\n+                    session.Execute(\"Place generated 3D object on workspace grid\",\n+                        state => state.WithObject(placedObject with { Transform = initialTransform }),\n+                        binding.OutputObjectId);\n                     _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current).First(x => x.Id == registeredCandidate.Id);\n                     autoApplied = true;\n                 }\n"
+}
