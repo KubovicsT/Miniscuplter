@@ -10,7 +10,10 @@ public partial class Main
 
     public void InstallV095AttachmentGuards()
     {
-        ReplaceV095Button("Snap Selected Object", SnapSelectedV095Object);
+        ReplaceV095Button("Snap Selected Object", SnapSelectedV1033Object);
+        ReplaceV095Button("Detach Selected", DetachSelectedV1033Object);
+        ReplaceV095Button("Apply Fine Tune", ApplyV1033AttachmentFineTune);
+        ReplaceV095Button("Reset Fine Tune", ResetV1033AttachmentFineTune);
         ReplaceV095Button("Refresh Attachments", RefreshV095Attachments);
         if (_v07FollowTimer != null)
         {
@@ -80,8 +83,10 @@ public partial class Main
         foreach (var a in _v07Attachments.ToList())
         {
             var part = _objects.FirstOrDefault(o => GodotObject.IsInstanceValid(o) && o.Name.ToString() == a.PartObjectName);
+            if (part == null) continue;
+            if (!V1033TryProjectAuthoritativeAttachment(a, part)) continue;
             var socket = _v07Sockets.FirstOrDefault(s => s.Id == a.SocketId);
-            if (part == null || socket == null) continue;
+            if (socket == null) continue;
             if (!TryGetV07SocketWorld(socket, out var p, out var n)) continue;
 
             var def = _v07Parts.FirstOrDefault(x => x.Id == a.LibraryId);
