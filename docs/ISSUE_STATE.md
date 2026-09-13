@@ -42,7 +42,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-038 — transform interaction incomplete
 - severity: Medium/High modeling UX
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P1
 - evidence: Select/Move/Rotate tools work through axis handles, but dragging the model itself does not perform expected constrained/direct move; rotate lacks a rotation-circle/ring interaction
 - desired_state: intuitive direct model drag where appropriate plus axis constraints; rotation exposes visible rotation rings/circles while retaining precise axis manipulation
