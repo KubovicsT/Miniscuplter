@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "92e654fce10c585eb22a260e96c394cb46e2e55f",
+  "target_path": "Scripts/Main.cs",
+  "expected_blob_sha": "105512dccb4fef99928ca54eefa83a173339ef33",
+  "commit_message": "fix: ground inserted meshes on the grid",
+  "patch": "--- a/Scripts/Main.cs\n+++ b/Scripts/Main.cs\n@@ -177,7 +177,10 @@\n     void AddMeshObject(ArrayMesh mesh, string name, Vector3 position = default)\n     {\n         if (_world == null) return;\n-        var obj = new MeshInstance3D { Mesh = mesh, Name = name, Position = position };\n+        Vector3 resolvedPosition = position;\n+        if (position == default)\n+            resolvedPosition.Y = -mesh.GetAabb().Position.Y;\n+        var obj = new MeshInstance3D { Mesh = mesh, Name = name, Position = resolvedPosition };\n         obj.MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.62f,0.64f,0.68f), Roughness = 0.82f };\n         _world.AddChild(obj); _objects.Add(obj); Select(obj); RebuildSceneList();\n     }\n"
+}
