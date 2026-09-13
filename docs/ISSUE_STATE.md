@@ -103,14 +103,18 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-026 — resource telemetry layout
 - severity: Medium product/observability
-- state: REOPENED UX
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - latest_reference_machine_evidence: v1.0.31 telemetry still overlays the viewport/AI-command region instead of occupying the requested bottom-left app-window area
+- current_implementation_state: v1.0.32 introduces one dedicated bottom workspace dock outside `ViewportHost`; telemetry is immediately reparented into its fixed 300-unit lower-left lane, while the command surface owns the expandable center lane and a 330-unit gutter preserves alignment with the fixed right rail. `WorkspaceAcceptanceTests` now rejects viewport-overlay ownership. Core-foundation run 34748891791 and full build/package run 34748891535 are green at exact head `ae8f24a6d460d182be5cd8332634b87d4bda9763`.
+- verification_state: packaged reference-machine workspace retest required; confirm telemetry stays in the lower-left application area and never covers the viewport or AI command surface during resize/maximize/restore
 - desired_state: telemetry lives in the lower-left application workspace area without covering viewport or command UI
 
 ### MS-027 — workspace composition
 - severity: High product/UX acceptance
-- state: REOPENED UX
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - latest_reference_machine_evidence: v1.0.31 AI command line remains an overlay and is too narrow; user requires a dedicated non-overlay area expanded across the available bottom-center width; telemetry placement also remains wrong
+- current_implementation_state: v1.0.32 moves the AI command console out of `ViewportHost` into the dedicated expandable bottom-center workspace lane, lays contextual actions horizontally to preserve useful prompt width, and composes telemetry separately at bottom-left. Regression coverage requires non-overlay command ownership and the bottom-dock telemetry/command/right-rail alignment contract. Core-foundation run 34748891791 and full build/package run 34748891535 are green at exact head `ae8f24a6d460d182be5cd8332634b87d4bda9763`.
+- verification_state: packaged reference-machine workspace retest required; confirm the command area spans the available bottom-center width, contextual actions/history remain usable, and neither command nor telemetry covers the viewport
 - desired_state: dedicated AI command area outside the main viewport, expanded across available bottom-center space; bottom-left telemetry outside viewport; contextual actions compose without overlap; accepted viewport tools and orientation control preserved
 
 ### MS-029 — updater leaves launcher closed
