@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "9910055df1e4512684d9382d630c615f0263e06b",
+  "target_path": "Core/ProjectStore.cs",
+  "expected_blob_sha": "f0de2fa74bfb6e966ec398101cb4831f3dbd0653",
+  "commit_message": "core: extend attachment persistence dto",
+  "patch": "--- a/Core/ProjectStore.cs\n+++ b/Core/ProjectStore.cs\n@@ -474 +474 @@\n-    sealed class AttachmentDto { public string Id { get; set; } = \"\"; public string ParentObjectId { get; set; } = \"\"; public string ChildObjectId { get; set; } = \"\"; public string Socket { get; set; } = \"\"; public float[] Position { get; set; } = [0,0,0]; public float[] Rotation { get; set; } = [0,0,0]; public float[] Scale { get; set; } = [1,1,1]; public DateTimeOffset CreatedUtc { get; set; } }\n+    sealed class AttachmentDto { public string Id { get; set; } = \"\"; public string ParentObjectId { get; set; } = \"\"; public string ChildObjectId { get; set; } = \"\"; public string Socket { get; set; } = \"\"; public float[] Position { get; set; } = [0,0,0]; public float[] Rotation { get; set; } = [0,0,0]; public float[] Scale { get; set; } = [1,1,1]; public DateTimeOffset CreatedUtc { get; set; } public string? ParentMeshRevisionId { get; set; } public string? ChildMeshRevisionId { get; set; } public string BindingStatus { get; set; } = \"Stale\"; }\n"
+}
