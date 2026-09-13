@@ -62,4 +62,19 @@ public partial class Main
         _workspaceCommandDock = command;
         return true;
     }
+
+    public void ReconcileWorkspaceBottomDock()
+    {
+        if (!EnsureWorkspaceBottomDock() || _workspaceTelemetryDock == null)
+            return;
+
+        if (FindChild("Resource Telemetry", true, false) is Control telemetry &&
+            telemetry.GetParent() != _workspaceTelemetryDock)
+        {
+            telemetry.Reparent(_workspaceTelemetryDock, false);
+            telemetry.ZIndex = 0;
+            telemetry.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            telemetry.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        }
+    }
 }
