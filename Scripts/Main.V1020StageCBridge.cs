@@ -219,6 +219,11 @@ public partial class Main
                     var applied = StageCGeneration.ApplyCandidate(session, registeredCandidate.Id, $"AI 3D — {actualProvider}");
                     if (!applied.Applied)
                         throw new InvalidOperationException("The verified 3D result could not be inserted into the project: " + applied.Message);
+                    TransformState initialTransform = GeneratedObjectPlacement.FitAndGround(data);
+                    ProjectObject placedObject = session.Current.Objects[binding.OutputObjectId];
+                    session.Execute("Place generated 3D object on workspace grid",
+                        state => state.WithObject(placedObject with { Transform = initialTransform }),
+                        binding.OutputObjectId);
                     _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current).First(x => x.Id == registeredCandidate.Id);
                     autoApplied = true;
                 }
