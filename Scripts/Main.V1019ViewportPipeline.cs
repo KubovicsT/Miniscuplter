@@ -207,11 +207,11 @@ public partial class Main
                 obj.MaterialOverride = material;
             }
             material.AlbedoColor = ReferenceEquals(obj, _selected)
-                ? new Color(.66f, .66f, .66f)
-                : new Color(.55f, .55f, .55f);
-            material.Roughness = .68f;
+                ? new Color(.72f, .72f, .72f)
+                : new Color(.62f, .62f, .62f);
+            material.Roughness = .72f;
             material.Metallic = 0f;
-            material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+            material.CullMode = BaseMaterial3D.CullModeEnum.Back;
         }
 
         if (_v109GridRoot == null || !GodotObject.IsInstanceValid(_v109GridRoot) ||
@@ -242,8 +242,8 @@ public partial class Main
         env.BackgroundMode = Godot.Environment.BGMode.Color;
         env.BackgroundColor = new Color(.115f, .115f, .115f);
         env.AmbientLightSource = Godot.Environment.AmbientSource.Color;
-        env.AmbientLightColor = new Color(.78f, .78f, .78f);
-        env.AmbientLightEnergy = .72f;
+        env.AmbientLightColor = new Color(.72f, .74f, .78f);
+        env.AmbientLightEnergy = .48f;
 
         var key = _world.GetChildren().OfType<DirectionalLight3D>().FirstOrDefault();
         if (key == null)
@@ -253,7 +253,7 @@ public partial class Main
         }
         key.RotationDegrees = new Vector3(-50f, -35f, 0f);
         key.LightColor = new Color(1f, .98f, .95f);
-        key.LightEnergy = 1.05f;
+        key.LightEnergy = 1.55f;
         key.ShadowEnabled = true;
 
         var fill = _world.GetChildren().OfType<OmniLight3D>().FirstOrDefault();
@@ -265,7 +265,7 @@ public partial class Main
         fill.Position = new Vector3(-55f, 75f, 70f);
         fill.OmniRange = 300f;
         fill.LightColor = new Color(.82f, .88f, 1f);
-        fill.LightEnergy = 1.35f;
+        fill.LightEnergy = .75f;
     }
 
     void V1019RebuildGrid()
