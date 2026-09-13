@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "3ab88cda45ad9e406bd7e05c56e3cbffabb717f9",
+  "target_path": "Core/ProjectModels.cs",
+  "expected_blob_sha": "4f814d394678f13ef1601c4071e335705f4f0966",
+  "commit_message": "core: add attachment removal state primitive",
+  "patch": "--- a/Core/ProjectModels.cs\n+++ b/Core/ProjectModels.cs\n@@ -180,6 +180,13 @@\n         return Copy(attachments: next.Values);\n     }\n \n+    public ProjectState WithoutAttachment(AttachmentId id)\n+    {\n+        var next = new Dictionary<AttachmentId, AttachmentRecord>(_attachments);\n+        next.Remove(id);\n+        return Copy(attachments: next.Values);\n+    }\n+\n     public ProjectState WithCandidate(CandidateRecord value)\n     {\n         var next = new Dictionary<CandidateId, CandidateRecord>(_candidates) { [value.Id] = value };\n"
+}
