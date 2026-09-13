@@ -343,12 +343,11 @@ public sealed class ProjectState
                 throw new InvalidDataException($"Attachment {attachment.Id} references a missing object.");
             if (string.IsNullOrWhiteSpace(attachment.Socket))
                 throw new InvalidDataException($"Attachment {attachment.Id} has no socket name.");
-            bool hasParentRevision = attachment.ParentMeshRevisionId is { } parentRevisionId;
-            bool hasChildRevision = attachment.ChildMeshRevisionId is { } childRevisionId;
-            if (hasParentRevision != hasChildRevision)
-                throw new InvalidDataException($"Attachment {attachment.Id} must bind both parent and child mesh revisions or neither.");
-            if (!hasParentRevision)
+            if (attachment.ParentMeshRevisionId is not { } parentRevisionId ||
+                attachment.ChildMeshRevisionId is not { } childRevisionId)
             {
+                if (attachment.ParentMeshRevisionId is not null || attachment.ChildMeshRevisionId is not null)
+                    throw new InvalidDataException($"Attachment {attachment.Id} must bind both parent and child mesh revisions or neither.");
                 if (attachment.BindingStatus != AttachmentBindingStatus.Stale)
                     throw new InvalidDataException($"Unbound attachment {attachment.Id} must be stale.");
                 continue;
