@@ -29,14 +29,14 @@
 ### G — continue independent v1.0.33 foundation work
 - state: ACTIVE
 - outcome: advance safe work that does not depend on the pending v1.0.32 runtime verification
-- current: revision-bound Refinement candidate/dependency persistence coverage is complete and exact-head Core/full build/package validation is green; next is UI-neutral Core attachment authority convergence
-- completed_this_slice: exact object/input-revision binding is enforced at apply time; candidate output must descend from the bound input; stale or invalid lineage is preserved as conflict; Ready candidates support transactional apply/discard with undo/redo coverage; Failed/Conflict candidates cannot silently apply; save/reopen preserves exact candidate and protected-region revision bindings; applying a candidate advances the object revision while the prior protected-region binding becomes explicitly stale rather than silently rebinding; applied-candidate state and that stale dependency survive a second save/reopen
+- current: revision-bound candidate/selection persistence foundations and UI-neutral Core attachment transaction authority are implemented; exact-head Core and full build/package validation are green
+- completed_this_slice: save/reopen preserves exact candidate and protected-region revision bindings and keeps prior protected-region bindings explicitly stale after candidate revision advance; the guarded schema-2 patch-control new-text-file route was exercised successfully and AUTO-INC-009 was closed; Core now owns stable attachment create/update/remove transactions with stale-update/removal rejection, self-attachment rejection, undo/redo, durable save/reopen, and an explicit state removal primitive; no user-facing Kitbash interaction was chosen or changed
 - next:
-  1. exercise the guarded patch-control schema-2 new-text-file path with the intended UI-neutral Core attachment authority source and validate the resulting exact target head
-  2. converge attachment create/update/remove semantics on stable Core AttachmentRecord/ObjectId identity and ProjectSession transactions without changing unresolved user-facing Kitbash UI
-  3. add save/reopen and revision-change attachment dependency coverage, preserving explicit transfer/invalidation semantics
+  1. define and implement the revision-dependency contract for attachments so topology/revision advance performs an explicit preserve/transfer/invalidate decision rather than silently retaining ambiguous attachment meaning
+  2. add save/reopen and revision-advance coverage for that attachment dependency contract
+  3. continue independent UI-neutral Refinement/Kitbash foundations only where Coordinator direction is already sufficient
   4. stop before irreversible or user-owned Refinement/Kitbash UI decisions
-- process_blocker: AUTO-INC-009 recovery is implemented in patch-control with an exact-HEAD guarded new-text-file operation; incident remains open until the first live schema-2 request succeeds. Existing-file development remains safe and should continue if that request is delayed or fails.
+- process_blocker: none; AUTO-INC-009 is recovered and closed after successful live schema-2 creation plus exact-head green validation
 - preemption: any reproduced v1.0.32 P0/P1 regression becomes the next implementation priority after Coordinator reconciliation
 - stop: strategic/user authority is required; no independent authorized work remains; a real release freeze starts; or continuing would compound a severe regression/data-loss/safety risk
 - continuation: Dev continues automatically through valid independent work; Coordinator replenishes the queue without waiting for ordinary user runtime availability
