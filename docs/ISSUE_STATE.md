@@ -15,9 +15,11 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-035 — resize leaves black exterior gutters and does not preserve panel layout
 - severity: High workspace/resize UX
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P1
-- evidence: screenshots show black rectangles at window edges after resize; side panels/layout do not behave as fixed-width rails with viewport absorbing size delta
+- evidence: screenshots show black rectangles at window edges after resize; side panels/layout do not behave as fixed-width rails with viewport absorbing size delta. Source audit found the programmatic top-level `VBoxContainer` was anchored under a non-Control `Node`, so it did not have a reliable client-area resize owner, while the right rail was also deliberately resized as 27% of available width.
+- current_implementation_state: v1.0.32 binds the top-level workspace root to `Viewport.SizeChanged` and the current visible client rect, keeps the right workspace rail at its intended 330-unit width, and lets the central viewport absorb horizontal size changes while preserving the v1.0.19 `SubViewportContainer.Stretch` render-size authority. `WorkspaceResizeContractTests` guards the client-area/root and fixed-rail contract. Core-foundation run 34747505948 and full build run 34747505866 are green at exact code/test head `c7507a6384f3fc4ebdbd32dee263507b7fb66027`.
+- verification_state: packaged reference-machine resize/maximize/restore retest required; confirm no black exterior gutters and that the right rail remains stable while the viewport absorbs size delta
 - desired_state: left/right panels retain intended sizes and the central viewport expands/contracts to consume available client area with no black gutters
 
 ### MS-036 — generated candidate is not reviewable before Apply
@@ -95,7 +97,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-009 — viewport grid/render ownership
 - severity: Critical
-- state: PARTIALLY VERIFIED / RESIZE REGRESSION; see MS-035
+- state: PARTIALLY VERIFIED / RESIZE FIX IN v1.0.32 NEEDS USER VERIFICATION; see MS-035
 - latest_reference_machine_evidence: v1.0.31 grid is visible, including with generated object, but resize still produces black exterior gutters
 - desired_state: visible neutral grid plus robust resize/client-area composition
 
