@@ -29,17 +29,18 @@
 ### G — continue independent v1.0.33 foundation work
 - state: ACTIVE
 - outcome: advance safe work that does not depend on the pending v1.0.32 runtime verification
-- current: attachment revision authority is implemented and validated; continue revision-safe Refinement candidate/dependency foundations without choosing user-facing interaction design
-- completed_this_slice: Core attachments now bind exact parent/child mesh revisions at creation, derive stale/non-authoritative state when either active revision advances, support explicit transactional rebind to current revisions, reject stale updates, retain stale records for recovery/removal, and preserve exact binding/status state through save/reopen and undo/redo. Focused regression coverage is wired into the normal Core suite; exact-head Core, Python/runtime, release-audit and full packaging validation are green.
+- current: Core-owned attachment authority now reaches the existing Kitbash snap/detach/fine-tune presentation path for mapped project objects; continue revision-safe Refinement candidate/dependency foundations without choosing user-facing interaction design
+- completed_this_slice: Core attachments bind exact parent/child mesh revisions, become stale/non-authoritative when either revision advances, support explicit transactional rebind, reject stale updates, preserve exact state through save/reopen and undo/redo, and now drive mapped Kitbash attachment actions through stable ObjectId/AttachmentRecord authority. The existing Kitbash UI remains unchanged; its legacy DTO is a presentation/compatibility projection for mapped objects rather than durable placement authority. Mapped stale attachments no longer continue driving placement from display-name DTO state. Unmigrated legacy objects retain the existing fallback until they acquire stable Core object identity. Exact-head Core, C#, Python/runtime, release-audit and full packaging validation are green.
 - attachment_revision_contract:
   1. every durable attachment binds the exact active parent mesh revision and exact active child mesh revision present when the attachment is created or explicitly rebound
   2. if either bound object advances to a different active mesh revision, the attachment does not silently transfer or continue driving authoritative placement; the durable binding resolves stale until an explicit Core transaction resolves it
   3. automatic transfer remains disallowed without explicit compatibility evidence; no automatic transfer path was introduced
   4. topology-changing or unknown-compatibility edits therefore default to stale/non-authoritative state rather than silent deletion or transfer
-  5. Godot may visualize stale attachments and request rebind/remove, but Core remains the sole durable authority for current/stale/rebound semantics
+  5. mapped Godot Kitbash actions resolve stable Core object identity and commit snap/detach/fine-tune through StageDAttachments; stale mapped attachments fail closed and do not keep following sockets from legacy display-name state
+  6. legacy DTO/display-name behavior remains only as a migration fallback for objects that are not yet represented by stable Core identity; no user-facing Kitbash workflow change was introduced
 - next:
   1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including explicit discard/conflict behavior and dependency preservation/invalidation coverage
-  2. converge the remaining legacy Godot attachment DTO/display-name ownership onto the Core attachment authority without changing the user-facing Kitbash workflow
+  2. close remaining UI-neutral migration gaps where revision-dependent selections, protected regions or candidates could still be interpreted from stale presentation state instead of Core identity/revision bindings
   3. stop before irreversible or user-owned Refinement/Kitbash UI decisions
 - acceptance: no revision-dependent attachment, selection or refinement dependency can silently survive an incompatible mesh revision change; save/reopen and undo/redo preserve exact durable state; exact-head Core and full build/package validation remain green
 - process_blocker: none; the prior patch-control request-formatting failures were narrowed to malformed diff metadata and recovered with validated small patches
