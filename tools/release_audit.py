@@ -130,7 +130,7 @@ for token in (
     "AiStageCGenerationContext",
     "Generate3DStageCAsync",
     "Validating generated STL",
-    "Saving immutable candidate revision",
+    "Saving generated object…",
     "StageCGeneration.RegisterResult",
     "Apply 3D Candidate",
     "StageCGeneration.ApplyCandidate",
