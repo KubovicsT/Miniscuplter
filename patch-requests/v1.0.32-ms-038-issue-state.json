@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "69788871b7f68d6ad14f705e22e9bdb987901d54",
+  "target_path": "docs/ISSUE_STATE.md",
+  "expected_blob_sha": "202fc6865addf094b81036ad0068103e2062a31d",
+  "commit_message": "docs: mark MS-038 fixed pending verification",
+  "patch": "--- a/docs/ISSUE_STATE.md\n+++ b/docs/ISSUE_STATE.md\n@@ -37,8 +37,10 @@\n ### MS-038 — transform interaction incomplete\n - severity: Medium/High modeling UX\n-- state: REPRODUCED ON RELEASED v1.0.31\n+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION\n - priority: P1\n - evidence: Select/Move/Rotate tools work through axis handles, but dragging the model itself does not perform expected constrained/direct move; rotate lacks a rotation-circle/ring interaction\n+- current_implementation_state: v1.0.32 preserves the existing precise axis-handle path, adds direct Move dragging of the picked model in a camera-facing view plane, and adds visible/hit-testable X/Y/Z rotation rings. Both direct and constrained gestures reuse the existing `_v1018Dragging` / Stage-C transform observer so Core remains the durable transform authority. Exact implementation head `69788871b7f68d6ad14f705e22e9bdb987901d54`; full build/package run `34750856469` is green.\n+- verification_state: packaged reference-machine retest required; confirm direct Move drag, axis-constrained Move/Scale, visible ring rotation, and save/reopen transform persistence all behave correctly\n - desired_state: intuitive direct model drag where appropriate plus axis constraints; rotation exposes visible rotation rings/circles while retaining precise axis manipulation\n"
+}
