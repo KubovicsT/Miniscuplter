@@ -41,6 +41,8 @@ public sealed class ProjectSession
         var after = mutation(before) ?? throw new InvalidOperationException("Project command returned null state.");
         if (after.ProjectId != before.ProjectId) throw new InvalidOperationException("A project command cannot replace project identity.");
 
+        after = InvalidateReadyCandidatesWhoseInputAdvanced(before, after);
+
         // Revision numbers are durable state identities, not an undo-stack cursor. After undo,
         // a new branch must never reuse a previously observed revision number because that can
         // make a divergent state compare equal to the saved revision and appear clean.
@@ -204,6 +206,27 @@ public sealed class ProjectSession
                 ConflictReason = reason
             }), candidate.ObjectId);
         return new CandidateApplyResult(false, true, message, Current);
+    }
+
+    static ProjectState InvalidateReadyCandidatesWhoseInputAdvanced(ProjectState before, ProjectState after)
+    {
+        ProjectState result = after;
+        foreach (var candidate in after.Candidates.Values)
+        {
+            if (candidate.Status != CandidateStatus.Ready ||
+                !before.Objects.TryGetValue(candidate.ObjectId, out var beforeObject) ||
+                !after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) ||
+                beforeObject.ActiveMeshRevisionId == afterObject.ActiveMeshRevisionId ||
+                afterObject.ActiveMeshRevisionId == candidate.InputRevisionId)
+                continue;
+
+            result = result.WithCandidate(candidate with
+            {
+                Status = CandidateStatus.Conflict,
+                ConflictReason = $"Object advanced from input revision {candidate.InputRevisionId} to {afterObject.ActiveMeshRevisionId}."
+            });
+        }
+        return result;
     }
 
     bool IsDescendantRevision(RevisionId outputRevisionId, RevisionId inputRevisionId, ObjectId objectId)
