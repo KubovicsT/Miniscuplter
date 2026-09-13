@@ -10,14 +10,16 @@ internal static class WorkspaceAcceptanceTests
         string cubePath = Path.Combine(root, "Scripts", "Main.ViewCube.cs");
         string toolsPath = Path.Combine(root, "Scripts", "Main.V1023ViewportToolStrip.cs");
         string densityPath = Path.Combine(root, "Scripts", "Main.WorkspaceDensity.cs");
+        string bottomDockPath = Path.Combine(root, "Scripts", "Main.WorkspaceBottomDock.cs");
         string installerPath = Path.Combine(root, "Scripts", "ExtrasInstaller.cs");
-        foreach (string path in new[] { consolePath, cubePath, toolsPath, densityPath, installerPath })
+        foreach (string path in new[] { consolePath, cubePath, toolsPath, densityPath, bottomDockPath, installerPath })
             if (!File.Exists(path)) throw new InvalidOperationException("TEST FAILED: workspace acceptance source missing: " + path);
 
         string console = File.ReadAllText(consolePath);
         string cube = File.ReadAllText(cubePath);
         string tools = File.ReadAllText(toolsPath);
         string density = File.ReadAllText(densityPath);
+        string bottomDock = File.ReadAllText(bottomDockPath);
         string installer = File.ReadAllText(installerPath);
 
         Assert(console.Contains("TextEdit? _aiCommandInput", StringComparison.Ordinal) &&
@@ -29,9 +31,10 @@ internal static class WorkspaceAcceptanceTests
         Assert(console.Contains("CtrlPressed", StringComparison.Ordinal) &&
                console.Contains("NavigateAiCommandHistory", StringComparison.Ordinal),
             "AI command keyboard history navigation missing");
-        Assert(console.Contains("Control.LayoutPreset.CenterBottom", StringComparison.Ordinal) &&
-               console.Contains("var actionRow = controls;", StringComparison.Ordinal),
-            "AI command console is not bottom-centered with vertical contextual actions");
+        Assert(console.Contains("_workspaceCommandDock.AddChild(panel)", StringComparison.Ordinal) &&
+               console.Contains("var actionRow = new HBoxContainer", StringComparison.Ordinal) &&
+               !console.Contains("Control.LayoutPreset.CenterBottom", StringComparison.Ordinal),
+            "AI command console is not a dedicated non-overlay bottom-center workspace surface");
         Assert(console.Contains("DispatchAiConsoleActionAsync", StringComparison.Ordinal) &&
                console.Contains("V1020Generate3DAsync", StringComparison.Ordinal) &&
                !console.Contains("new AIClient", StringComparison.Ordinal),
@@ -62,10 +65,16 @@ internal static class WorkspaceAcceptanceTests
                density.Contains("Text = \"ⓘ\"", StringComparison.Ordinal) &&
                density.Contains("TooltipText = text", StringComparison.Ordinal),
             "workflow explanatory prose is not moved behind compact info hover help");
+
         string telemetry = File.ReadAllText(Path.Combine(root, "Scripts", "Main.ResourceTelemetry.cs"));
-        Assert(telemetry.Contains("Control.LayoutPreset.BottomLeft", StringComparison.Ordinal) &&
-               telemetry.Contains("Columns = 2", StringComparison.Ordinal),
-            "resource telemetry is not a compact 2x2 bottom-left viewport overlay");
+        Assert(telemetry.Contains("Columns = 2", StringComparison.Ordinal),
+            "resource telemetry compact 2x2 presentation missing");
+        Assert(bottomDock.Contains("WorkspaceTelemetryDock", StringComparison.Ordinal) &&
+               bottomDock.Contains("WorkspaceCommandDock", StringComparison.Ordinal) &&
+               bottomDock.Contains("WorkspaceRightRailGutter", StringComparison.Ordinal) &&
+               bottomDock.Contains("telemetry.Reparent(_workspaceTelemetryDock, false)", StringComparison.Ordinal) &&
+               installer.Contains("ReconcileWorkspaceBottomDock();", StringComparison.Ordinal),
+            "telemetry/AI workspace surfaces are not composed outside the viewport with fixed right-rail alignment");
 
         Assert(installer.IndexOf("InstallViewCube();", StringComparison.Ordinal) <
                installer.IndexOf("InstallWorkspaceDensity();", StringComparison.Ordinal),
