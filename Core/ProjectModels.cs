@@ -55,13 +55,23 @@ public sealed record RigRecord(
     string DataAssetPath,
     DateTimeOffset CreatedUtc);
 
+public enum AttachmentBindingStatus
+{
+    Current,
+    Stale,
+    Rebound
+}
+
 public sealed record AttachmentRecord(
     AttachmentId Id,
     ObjectId ParentObjectId,
     ObjectId ChildObjectId,
     string Socket,
     TransformState LocalTransform,
-    DateTimeOffset CreatedUtc);
+    DateTimeOffset CreatedUtc,
+    RevisionId? ParentMeshRevisionId = null,
+    RevisionId? ChildMeshRevisionId = null,
+    AttachmentBindingStatus BindingStatus = AttachmentBindingStatus.Stale);
 
 public sealed record CandidateRecord(
     CandidateId Id,
@@ -329,10 +339,29 @@ public sealed class ProjectState
             attachment.LocalTransform.Validate();
             if (attachment.ParentObjectId == attachment.ChildObjectId)
                 throw new InvalidDataException($"Attachment {attachment.Id} cannot attach an object to itself.");
-            if (!_objects.ContainsKey(attachment.ParentObjectId) || !_objects.ContainsKey(attachment.ChildObjectId))
+            if (!_objects.TryGetValue(attachment.ParentObjectId, out var parentObject) ||
+                !_objects.TryGetValue(attachment.ChildObjectId, out var childObject))
                 throw new InvalidDataException($"Attachment {attachment.Id} references a missing object.");
             if (string.IsNullOrWhiteSpace(attachment.Socket))
                 throw new InvalidDataException($"Attachment {attachment.Id} has no socket name.");
+            bool hasParentRevision = attachment.ParentMeshRevisionId is { } parentRevisionId;
+            bool hasChildRevision = attachment.ChildMeshRevisionId is { } childRevisionId;
+            if (hasParentRevision != hasChildRevision)
+                throw new InvalidDataException($"Attachment {attachment.Id} must bind both parent and child mesh revisions or neither.");
+            if (!hasParentRevision)
+            {
+                if (attachment.BindingStatus != AttachmentBindingStatus.Stale)
+                    throw new InvalidDataException($"Unbound attachment {attachment.Id} must be stale.");
+                continue;
+            }
+            if (!_meshRevisions.TryGetValue(parentRevisionId, out var parentRevision) || parentRevision.ObjectId != attachment.ParentObjectId ||
+                !_meshRevisions.TryGetValue(childRevisionId, out var childRevision) || childRevision.ObjectId != attachment.ChildObjectId)
+                throw new InvalidDataException($"Attachment {attachment.Id} revision bindings do not belong to the referenced objects.");
+            if (attachment.BindingStatus is AttachmentBindingStatus.Current or AttachmentBindingStatus.Rebound)
+            {
+                if (parentObject.ActiveMeshRevisionId != parentRevisionId || childObject.ActiveMeshRevisionId != childRevisionId)
+                    throw new InvalidDataException($"Authoritative attachment {attachment.Id} is not bound to both active mesh revisions.");
+            }
         }
 
         foreach (var pair in _candidates)
