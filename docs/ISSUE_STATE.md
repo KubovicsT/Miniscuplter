@@ -56,9 +56,11 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-040 — Smart Select AI unavailable
 - severity: High feature regression
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P1
-- evidence: packaged UI repeatedly reports Smart Select AI `Not Found`; semantic selection does not work
+- evidence: packaged v1.0.31 UI repeatedly reports Smart Select AI `Not Found`; semantic selection does not work. Dev traced the failure to an editor/backend API contract mismatch: `AIClient.SemanticSelectAsync` posts to `/semantic-select`, while the packaged FastAPI app exposed only a legacy `/smart-select` endpoint.
+- current_implementation_state: v1.0.32 now exposes the mesh semantic-selection contract expected by the editor at `/semantic-select`, validates the mesh input through the normal contained-path guard, and forwards `input_path` + `query` to the existing local CLIPSeg/geometry-fallback selector. `SmartSelectContractTests` guards the route/request contract. Core-foundation run 34747264663 and full build run 34747264693 are green at exact code/test head `edf0376b55b3e5cf202dcf35544ee00d4efb35ed`.
+- verification_state: packaged reference-machine Smart Select retest required; confirm a semantic query no longer returns HTTP `Not Found` and produces a selection (CLIPSeg when installed, geometry fallback otherwise)
 - desired_state: packaged Smart Select dependency/status is correctly installed/resolved and semantic selection works, with graceful fallback that does not spam misleading errors
 
 ### MS-041 — 3D refinement workflow lacks coherent product surface
