@@ -6,9 +6,11 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-033 — cancel/retry can strand packaged AI backend
 - severity: Critical generation/runtime correctness
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P0 preemption
-- evidence: GTX 1080 packaged v1.0.31; Generate 3D -> cancel -> retry failed first as user-cancelled, then with local AI backend health-check failure; closing/restarting the app restored generation and a later generation completed in ~390 s. Coordinator code inspection on v1.0.32 shows V1020CancelStageCGeneration retires the durable Core job envelope but does not itself signal/await backend inference cancellation; this is a root-cause hypothesis, not yet proven.
+- evidence: GTX 1080 packaged v1.0.31; Generate 3D -> cancel -> retry failed first as user-cancelled, then with local AI backend health-check failure; closing/restarting the app restored generation and a later generation completed in ~390 s. Dev traced cancellation recovery through `AIClient` and the owned-backend restart path and found `BackendLauncher.WaitForBackendReadyAsync` still required stale health version `1.0.26`, so a successfully restarted v1.0.32 backend could be rejected for the full readiness timeout and poison the immediate retry path.
+- current_implementation_state: v1.0.32 editor-owned backend restart now derives expected health version from the packaged editor assembly while retaining isolated instance-token matching; regression guard added in `RuntimeRepairHealthProtocolTests`; core-foundation run 34727090127 and full build run 34727090071 are green at exact head `282d61e8e479058179fa3a903c5ba0d9962f5569`
+- verification_state: reference-machine cancel -> immediate retry retest still required on a packaged build containing the v1.0.32 fix
 - desired_state: cancel/retry leaves one healthy authoritative runtime owner and immediate retry works without app restart; cancellation must retire durable state and explicitly terminate/acknowledge the matching backend job before retry eligibility, with no stale job/backend lifecycle surviving cancellation
 
 ### MS-035 — resize leaves black exterior gutters and does not preserve panel layout
@@ -70,9 +72,10 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-020 — AI job/runtime ownership
 - severity: Critical generation/runtime correctness
-- state: REOPENED / PARTIAL REGRESSION; see MS-033
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION; see MS-033
 - priority: P0
 - latest_reference_machine_evidence: v1.0.31 can complete generation, but cancel -> retry can leave the packaged backend unhealthy until app restart
+- current_implementation_state: cancellation recovery remains single-owner and restart-gated; the stale editor-owned backend health-version gate causing the observed retry failure is fixed at v1.0.32 exact head `282d61e8e479058179fa3a903c5ba0d9962f5569`
 - desired_state: one authoritative heavyweight runtime owner; cancellation/retry isolation; no restart required
 
 ### MS-031 — accepted-baseline persistence across reopen
@@ -108,8 +111,8 @@ This file is the authoritative current-state ledger for active, release-relevant
 ### MS-030 — packaged backend health after Runtime Repair
 - severity: Critical
 - state: FIXED - NEEDS USER VERIFICATION / RELATED TO MS-033
-- current_implementation_state: v1.0.32 engineering checkpoint additionally derives repaired-backend expected health version from launcher assembly instead of stale hardcoded backend version
-- verification_state: reference-machine Runtime Repair -> Generate retest still required; cancellation lifecycle failure tracked separately in MS-033
+- current_implementation_state: v1.0.32 derives expected repaired-backend health version from launcher assembly and editor-owned cancellation-restart health version from the packaged editor assembly instead of stale hardcoded backend versions; isolated instance-token checks remain required
+- verification_state: reference-machine Runtime Repair -> Generate and cancel -> immediate retry retests still required
 
 ### MS-032 — failed generation envelope retirement
 - severity: High generation/persistence correctness
