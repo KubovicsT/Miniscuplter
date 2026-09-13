@@ -29,11 +29,13 @@
 ### G — continue independent v1.0.33 foundation work
 - state: ACTIVE
 - outcome: advance safe work that does not depend on the pending v1.0.32 runtime verification
-- current: UI-neutral attachment authority convergence
+- current: revision-bound Refinement candidate/dependency foundations while attachment new-file creation is temporarily process-blocked by AUTO-INC-009
 - next:
-  1. complete attachment authority convergence without changing unresolved user-facing interaction design
-  2. establish revision-bound Refinement candidate/dependency foundations that preserve Core identity, transaction and stale-result authority
-  3. stop before irreversible or user-owned Refinement/Kitbash UI decisions
+  1. establish exact object/input-revision binding, output lineage, stale/conflict handling, apply/discard and undo/redo semantics for Refinement candidates using existing writable source surfaces where practical
+  2. add save/reopen and revision-advance coverage for revision-dependent selections/protected regions and candidate dependencies
+  3. return to UI-neutral attachment authority convergence as soon as Automation Manager restores a safe new-file write path; do not create a second Godot durable authority as a workaround
+  4. stop before irreversible or user-owned Refinement/Kitbash UI decisions
+- process_blocker: AUTO-INC-009 affects the intended new attachment Core file path; Automation Manager owns recovery. It does not justify a global Dev pause while existing-file foundation work remains safe.
 - preemption: any reproduced v1.0.32 P0/P1 regression becomes the next implementation priority after Coordinator reconciliation
 - stop: strategic/user authority is required; no independent authorized work remains; a real release freeze starts; or continuing would compound a severe regression/data-loss/safety risk
 - continuation: Dev continues automatically through valid independent work; Coordinator replenishes the queue without waiting for ordinary user runtime availability
