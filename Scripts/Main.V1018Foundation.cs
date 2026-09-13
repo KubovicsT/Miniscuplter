@@ -42,6 +42,7 @@ public partial class Main
         if (!_v1019ViewportPipelineInstalled)
             V1017SyncViewport();
         V1017UpdateGizmo();
+        V1032SyncDirectManipulation();
         if (_v1018ToolStatus != null)
         {
             string selected = _selected == null ? "none" : _selected.Name.ToString();
@@ -163,6 +164,9 @@ public partial class Main
                             return;
                         }
 
+                        if (V1032TryBeginDirectManipulation(button.Position))
+                            return;
+
                         V1018SelectAt(button.Position);
                         return;
                     }
@@ -180,6 +184,7 @@ public partial class Main
                 {
                     _sculpting = false;
                     _v1018Dragging = false;
+                    V1032ResetDirectManipulation();
                     _v1018HandleAxis = Vector3.Zero;
                 }
 
@@ -210,7 +215,10 @@ public partial class Main
 
         if (_v1018Dragging)
         {
-            ApplyV1018Transform(delta);
+            if (_v1032DirectMoveDragging)
+                V1032ApplyDirectMove(motion.Position);
+            else
+                ApplyV1018Transform(delta);
             return;
         }
 
@@ -322,6 +330,7 @@ public partial class Main
     {
         if (_selected == null || !IsInstanceValid(_selected)) return;
         _v1018Dragging = true;
+        V1032ResetDirectManipulation();
         _v1018HandleAxis = axis;
         _v1018DragAmount = 0;
         _v1018DragStartPosition = _selected.Position;
