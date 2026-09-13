@@ -175,6 +175,9 @@ public partial class BackendLauncher : Node
 
     async Task WaitForBackendReadyAsync(TimeSpan timeout)
     {
+        string expectedVersion = typeof(BackendLauncher).Assembly.GetName().Version?.ToString(3)
+            ?? throw new InvalidOperationException("Could not resolve the packaged editor version for backend health validation.");
+
         DateTime deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
@@ -191,7 +194,7 @@ public partial class BackendLauncher : Node
                     var root = doc.RootElement;
                     string version = root.TryGetProperty("version", out var versionNode) ? versionNode.GetString() ?? "" : "";
                     string token = root.TryGetProperty("instance_token", out var tokenNode) ? tokenNode.GetString() ?? "" : "";
-                    if (version == "1.0.26" && !string.IsNullOrWhiteSpace(_instanceToken) && token == _instanceToken)
+                    if (version == expectedVersion && !string.IsNullOrWhiteSpace(_instanceToken) && token == _instanceToken)
                         return;
                 }
             }
