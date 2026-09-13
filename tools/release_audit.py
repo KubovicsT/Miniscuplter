@@ -136,7 +136,7 @@ for token in (
     "StageCGeneration.ApplyCandidate",
 ):
     require(token in stagec1020, f"canonical Stage-C generation/apply authority missing: {token}")
-require('"Review the candidate, then choose Apply 3D Candidate or Discard Candidate."' in stagec1020, "3D result can bypass explicit candidate review/apply")
+require("bool autoApplied = false;" in stagec1020 and "if (autoApplied && _v1020PendingCandidate != null)" in stagec1020 and 'StageCGeneration.ApplyCandidate(session, registeredCandidate.Id, $"AI 3D — {actualProvider}")' in stagec1020 and 'AddMeshObject(mesh, $"AI 3D — {actualProvider}")' in stagec1020, "verified Stage-C result is not transactionally applied and inserted into the visible scene")
 require('AddMeshObject(mesh, $"AI 3D — {candidate.Provider}")' in stagec1020, "applied Stage-C candidate is not imported through the canonical Apply path")
 require('"mode": "auto"' in performance and '"vram_target_fraction": 0.85' in performance, "GPU performance policy defaults missing")
 require("set_per_process_memory_fraction" in sdxl and "enable_model_cpu_offload" in sdxl and "enable_sequential_cpu_offload" in sdxl, "VRAM-first SDXL tiered policy missing")
