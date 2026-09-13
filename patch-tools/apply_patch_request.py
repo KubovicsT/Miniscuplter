@@ -152,6 +152,9 @@ def create_new_text_file(request: dict) -> None:
     if path.is_symlink() or not path.is_file():
         raise RuntimeError("created target must be a regular file")
 
+    # Intent-to-add makes the new file visible to ordinary git diff without staging
+    # the actual contents yet, so the same single-file/text/line-count guards apply.
+    run("git", "add", "--intent-to-add", "--", target)
     validate_result(target)
     recheck_head(branch, head)
     commit_and_push(branch, target, message, "FILE_CREATED")
