@@ -3,21 +3,21 @@
 ## Release state
 - stable: v1.0.31 @ 7a2dcfd238c29639935f72de8ed635ca4efe3725
 - writable: v1.0.32
-- release_freeze: false
-- publication_active: false
+- release_freeze: true
+- publication_active: true
 - branch_bootstrap: complete; VERSION 1.0.32
-- execution_hold: COORDINATOR REVIEW REQUIRED
+- execution_hold: RELEASE PUBLICATION IN PROGRESS
 
 ## Reference-machine gate
 - state: FAILED / ACTIONABLE EVIDENCE CAPTURED; v1.0.32 FIXES NEED USER VERIFICATION
 - source: released v1.0.31 on Windows / GTX 1080, user screenshots and direct observations 2026-09-13
 - positive evidence: grid is visible; transform toolbar functions through axes; accepted 2D baseline and generated 3D object both persist across reopen; after app restart Hunyuan generation completed successfully in ~390 s
 - v1.0.32 fixes awaiting user verification: MS-026/MS-027 dedicated non-overlay telemetry/AI command workspace; MS-033 cancel -> immediate retry; MS-035 client-area resize/fixed rail behavior; MS-036 automatic generated-object insertion without Apply; MS-037 exterior/winding plus neutral readable viewport shading; MS-038 direct Move interaction and visible rotation rings; MS-039 canonical Core-owned placement/scale with lowest point on grid; MS-040 Smart Select editor/backend semantic route contract
-- remaining engineering evidence: none in the authorized E1-E5 recovery queue; Coordinator review owns next scope/release decision
+- remaining engineering evidence: none in the authorized E1-E5 recovery queue; the qualified checkpoint is frozen for Coordinator-owned publication so the reference machine can verify the fixes
 
 ## Current objective
 ### E — v1.0.31 reference-machine P0/P1 regression recovery
-- state: E1 COMPLETE; E2 COMPLETE; E3 IMPLEMENTATION COMPLETE / NEEDS USER VERIFICATION; E4 IMPLEMENTATION COMPLETE / NEEDS USER VERIFICATION; E5 COMPLETE; COORDINATOR REVIEW REQUIRED
+- state: E1 COMPLETE; E2 COMPLETE; E3 IMPLEMENTATION COMPLETE / NEEDS USER VERIFICATION; E4 IMPLEMENTATION COMPLETE / NEEDS USER VERIFICATION; E5 COMPLETE; RELEASE CANDIDATE FROZEN
 - outcome: make the released-generation path immediately retryable, visible, correctly rendered and sensibly inserted, then restore the highest-impact workspace/selection usability failures without regressing durable Stage-C transaction/identity guarantees
 - completed:
   1. E1 P0 / MS-033: editor-owned backend restart health-version drift fixed at `282d61e8e479058179fa3a903c5ba0d9962f5569`; targeted and full validation green there. State is FIXED IN v1.0.32 - NEEDS USER VERIFICATION.
@@ -29,13 +29,13 @@
   7. E4 / MS-038 direct manipulation: existing precise axis handles remain authoritative for constrained Move/Rotate/Scale; Move now also supports direct model dragging in a camera-facing view plane, and Rotate exposes visible/hit-testable X/Y/Z rings. Direct and constrained interactions reuse the existing Stage-C transform gesture observer so Core remains the only durable transform authority. Implementation head `69788871b7f68d6ad14f705e22e9bdb987901d54`; full exact-head build/package run `34750856469` is green. State is FIXED IN v1.0.32 - NEEDS USER VERIFICATION.
   8. E5 integrated qualification: reconciled checkpoint `0602623d434db9546aec4e09a98e41325ec1dd43` passed exact-head core-foundation run `34751071049` and full build/package run `34751071058`, including C# build, Python/runtime/core logic, backend lifecycle, geometry, workspace regression, release audit and packaging. No additional candidate defect was found.
 - current:
-  9. COORDINATOR REVIEW REQUIRED: evaluate the qualified v1.0.32 checkpoint and decide next scope/release action. Dev must not publish or initiate release control.
+  9. RELEASE PUBLICATION IN PROGRESS: Coordinator approved the qualified v1.0.32 checkpoint as a meaningful testable increment and froze the branch for release-control publication. Dev must not mutate or publish this branch while publication is active.
 - queued:
-  10. MS-041 Refinement/Kitbash implementation remains deferred pending Coordinator/user-approved UI direction after this checkpoint.
+  10. After successful publication and forward/version bootstrap, reference-machine verification of the v1.0.32 fixes is the acceptance priority. MS-041 Refinement/Kitbash implementation remains deferred pending Coordinator/user-approved UI direction after verification.
 - constraints: Core remains durable-state authority, Godot presentation/input authority, Python inference/geometry authority; preserve local-first/storage containment, immutable revisions/stable IDs and stale-result rejection; do not solve shell rendering by blindly disabling correctness-oriented culling/normals checks; default viewport material/shading is presentation state, not durable geometry authority; keep user-facing scale represented by one canonical transform/physical-size model
 - acceptance: exact targeted regressions plus strongest relevant exact-head validation green; cancel/retry succeeds without restart; successful generation is inserted/visible without redundant Apply; rendered exterior faces are correct and surface details are legible with neutral gray shading against the viewport; inserted model rests on grid at intended scale; Smart Select resolves; resize has no black gutters; workspace controls do not overlap viewport; direct transform interaction is intuitive and rotation rings are visible
-- stop: Coordinator review now required; any architecture/product choice that would create new durable authority or irreversible Refinement/Kitbash UX contract requires Coordinator/user review
-- continuation: Dev stops queue advancement at this Coordinator-review hold
+- stop: release source is frozen until release-control reaches a terminal result; any architecture/product choice that would create new durable authority or irreversible Refinement/Kitbash UX contract requires Coordinator/user review
+- continuation: Coordinator owns publication monitoring and post-release forward/version bootstrap; Dev remains stopped until writable successor is established
 
 ## Deferred / user-owned design
 - MS-041: add dedicated Refinement and Kitbash areas after 3D; exact UI to be worked out with user after core generation/viewport correctness.
