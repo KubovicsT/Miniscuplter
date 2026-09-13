@@ -232,10 +232,24 @@ internal static class StageDSelectionDependencyTests
         try
         {
             string projectPath = Path.Combine(root, "attachments" + ProjectStore.ProjectExtension);
-            var persistSession = new ProjectSession(state);
+            var store = new ProjectStore();
+            var mesh = new MeshData(
+                new float[] { 0, 0, 0, 1, 0, 0, 0, 1, 0 },
+                new int[] { 0, 1, 2 });
+            MeshRevision durableParent = store.CreateMeshRevisionAsync(projectPath, parentId, mesh, "attachment-parent").GetAwaiter().GetResult();
+            MeshRevision durableChild = store.CreateMeshRevisionAsync(projectPath, childId, mesh, "attachment-child").GetAwaiter().GetResult();
+            var durableState = new ProjectState(
+                ProjectId.New(),
+                "attachment-persistence",
+                objects: new[]
+                {
+                    new ProjectObject(parentId, "Parent", durableParent.Id, TransformState.Identity),
+                    new ProjectObject(childId, "Child", durableChild.Id, TransformState.Identity)
+                },
+                meshRevisions: new[] { durableParent, durableChild });
+            var persistSession = new ProjectSession(durableState);
             AttachmentRecord persisted = StageDAttachments.Create(
                 persistSession, AttachmentId.New(), parentId, childId, "persisted", moved);
-            var store = new ProjectStore();
             store.SaveAsync(persistSession.Current, projectPath).GetAwaiter().GetResult();
             ProjectState reopened = store.LoadAsync(projectPath).GetAwaiter().GetResult();
             Assert(reopened.Attachments.TryGetValue(persisted.Id, out AttachmentRecord? reopenedAttachment) && reopenedAttachment == persisted,
