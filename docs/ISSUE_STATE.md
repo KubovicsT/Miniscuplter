@@ -22,16 +22,20 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-036 — generated candidate is not reviewable before Apply
 - severity: High generation UX/correctness visibility
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P0/P1
-- evidence: successful generation reports identity-verified candidate ready but viewport/scene do not display it until Apply; user cannot review the candidate as instructed
+- evidence: successful generation in v1.0.31 reports identity-verified candidate ready but viewport/scene do not display it until Apply; user cannot review the candidate as instructed
+- current_implementation_state: v1.0.32 preserves stale/conflict guards but automatically applies a non-conflicting identity-verified generation into canonical Core project state and immediately inserts the matching mesh presentation; the redundant Apply gate is no longer part of the normal successful generation path
+- verification_state: packaged reference-machine generation must confirm a successful result appears automatically in the scene without pressing Apply
 - desired_state: generation result is immediately visible and reviewable. User direction: remove the redundant Apply step and insert a successful generation directly; unsuitable results can be regenerated. Preserve transactional/stale-result guards while simplifying the UX.
 
 ### MS-037 — generated mesh renders with shell/back-side appearance
 - severity: High viewport/render correctness
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P1
-- evidence: applied generated knight appears visually inside-out/shell-like, as if non-user-facing/back surfaces dominate
+- evidence: applied generated knight in v1.0.31 appears visually inside-out/shell-like, as if non-user-facing/back surfaces dominate
+- current_implementation_state: v1.0.32 repairs generated mesh winding/normals before export and uses correctness-oriented back-face culling with neutral matte material plus stronger directional studio lighting instead of masking orientation problems with two-sided rendering; exact-head CI for the implementation is green
+- verification_state: packaged reference-machine visual retest required to confirm exterior faces and surface detail read correctly on GTX 1080
 - desired_state: normal/front-facing generated surface renders correctly from the active camera; diagnose normals/winding/material/culling rather than masking the symptom
 
 ### MS-038 — transform interaction incomplete
@@ -43,9 +47,11 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-039 — generated-object placement and scale are unsuitable
 - severity: High generation/modeling UX
-- state: REPRODUCED ON RELEASED v1.0.31
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
 - priority: P1
-- evidence: inserted model origin is placed at grid zero so geometry is roughly bisected by the grid; generated object is tiny and scale is not user-adjustable
+- evidence: inserted model in v1.0.31 has origin at grid zero so geometry is roughly bisected by the grid; generated object is tiny and scale is not user-adjustable
+- current_implementation_state: v1.0.32 computes one Core-owned initial transform from generated mesh bounds: uniform scaling targets a 100-unit largest dimension, X/Z bounds are centered around workspace origin, and minimum Y is translated to grid Y=0. The transform is persisted in canonical `ProjectObject.Transform`, so save/reopen/edit paths consume the same authority rather than a viewport-only offset. Targeted `GeneratedObjectPlacementTests` plus exact-head build run 34746648597 are green at `9353b21686fe34d7699b391c9469fd8643349e53`.
+- verification_state: packaged reference-machine generation must confirm sensible apparent size and lowest-point grid contact; user-adjustable pre-generation desired physical size remains a later product-surface enhancement rather than a second transform authority
 - desired_state: on insertion translate object so its lowest world-space point rests on the grid; expose user-facing grid scale and desired model height/size before generation so the inserted result starts near intended physical scale
 
 ### MS-040 — Smart Select AI unavailable
