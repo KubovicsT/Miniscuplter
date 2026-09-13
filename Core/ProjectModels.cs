@@ -187,6 +187,13 @@ public sealed class ProjectState
         return Copy(attachments: next.Values);
     }
 
+    public ProjectState WithoutAttachment(AttachmentId id)
+    {
+        var next = new Dictionary<AttachmentId, AttachmentRecord>(_attachments);
+        next.Remove(id);
+        return Copy(attachments: next.Values);
+    }
+
     public ProjectState WithCandidate(CandidateRecord value)
     {
         var next = new Dictionary<CandidateId, CandidateRecord>(_candidates) { [value.Id] = value };
