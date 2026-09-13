@@ -29,13 +29,13 @@
 ### G — continue independent v1.0.33 foundation work
 - state: ACTIVE
 - outcome: advance safe work that does not depend on the pending v1.0.32 runtime verification
-- current: revision-bound Refinement candidate transaction foundation implemented; exact-head Core validation is green and full build/package validation is pending
+- current: revision-bound Refinement candidate transaction foundation implemented; exact-head Core and full build/package validation are green
 - completed_this_slice: exact object/input-revision binding is enforced at apply time; candidate output must descend from the bound input; stale or invalid lineage is preserved as conflict; Ready candidates support transactional apply/discard with undo/redo coverage; Failed/Conflict candidates cannot silently apply
 - next:
-  1. after exact-head full validation is green, add save/reopen and revision-advance coverage for revision-dependent selections/protected regions and candidate dependencies
-  2. return to UI-neutral attachment authority convergence as soon as Automation Manager restores a safe new-file write path; do not create a second Godot durable authority as a workaround
+  1. add save/reopen and revision-advance coverage for revision-dependent selections/protected regions and candidate dependencies
+  2. return to UI-neutral attachment authority convergence using the guarded patch-control new-text-file path once its first live schema-2 request is validated; do not create a second Godot durable authority as a workaround
   3. stop before irreversible or user-owned Refinement/Kitbash UI decisions
-- process_blocker: AUTO-INC-009 affects the intended new attachment Core file path; Automation Manager owns recovery. It does not justify a global Dev pause while existing-file foundation work remains safe.
+- process_blocker: AUTO-INC-009 recovery is implemented in patch-control with an exact-HEAD guarded new-text-file operation; incident remains open until the first live schema-2 request succeeds. Existing-file development remains safe and should continue.
 - preemption: any reproduced v1.0.32 P0/P1 regression becomes the next implementation priority after Coordinator reconciliation
 - stop: strategic/user authority is required; no independent authorized work remains; a real release freeze starts; or continuing would compound a severe regression/data-loss/safety risk
 - continuation: Dev continues automatically through valid independent work; Coordinator replenishes the queue without waiting for ordinary user runtime availability
