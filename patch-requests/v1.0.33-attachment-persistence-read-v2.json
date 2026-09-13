@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "e9537d466d1529d7bd30343ca812defb3cfb57cc",
+  "target_path": "Core/ProjectStore.cs",
+  "expected_blob_sha": "3079eec91129d366e7d71f4c494952dce4da61b2",
+  "commit_message": "core: restore attachment revision bindings",
+  "patch": "--- a/Core/ProjectStore.cs\n+++ b/Core/ProjectStore.cs\n@@ -438 +438,4 @@\n-            ParseTransform(x.Position, x.Rotation, x.Scale), x.CreatedUtc)).ToArray();\n+            ParseTransform(x.Position, x.Rotation, x.Scale), x.CreatedUtc,\n+            ParseRevision(x.ParentMeshRevisionId), ParseRevision(x.ChildMeshRevisionId),\n+            Enum.TryParse<AttachmentBindingStatus>(x.BindingStatus, true, out var bindingStatus)\n+                ? bindingStatus : AttachmentBindingStatus.Stale)).ToArray();\n"
+}
