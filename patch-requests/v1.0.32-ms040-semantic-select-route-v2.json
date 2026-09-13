@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "948088d96bebcaee80be04deba4a4b38c12b4a8c",
+  "target_path": "ai_backend/app.py",
+  "expected_blob_sha": "a455327526633d11b5c23903a3fc4273eadd873a",
+  "commit_message": "fix: restore Smart Select semantic API contract",
+  "patch": "diff --git a/ai_backend/app.py b/ai_backend/app.py\n--- a/ai_backend/app.py\n+++ b/ai_backend/app.py\n@@ -109,0 +110,5 @@\n+\n+class SemanticSelectRequest(BaseModel):\n+    input_path: str = Field(min_length=1, max_length=4096)\n+    query: str = Field(min_length=1, max_length=8000)\n+\n@@ -394,0 +400,10 @@\n+@app.post(\"/semantic-select\")\n+def semantic_select_endpoint(req: SemanticSelectRequest):\n+    req.input_path = _safe_input_path(req.input_path, DEFAULT_MESH_SUFFIXES)\n+    try:\n+        return semantic_select(req.input_path, req.query)\n+    except Exception as e:\n+        raise HTTPException(502, f\"Semantic Select failed: {e}\") from e\n+\n+\n+\n"
+}
