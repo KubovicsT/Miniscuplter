@@ -25,21 +25,16 @@ public partial class Main
     public void InstallAiCommandConsole()
     {
         if (_aiCommandInput != null) return;
-        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
+        if (!EnsureWorkspaceBottomDock() || _workspaceCommandDock == null) return;
 
         var panel = new VBoxContainer
         {
             Name = "AI Command Console",
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
         };
         panel.AddThemeConstantOverride("separation", 3);
         panel.MouseFilter = Control.MouseFilterEnum.Stop;
-        panel.ZIndex = 24;
-        panel.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
-        panel.OffsetLeft = -340;
-        panel.OffsetRight = 340;
-        panel.OffsetTop = -220;
-        panel.OffsetBottom = -12;
 
         var commandRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         var input = new TextEdit
@@ -65,7 +60,8 @@ public partial class Main
         commandRow.AddChild(controls);
         panel.AddChild(commandRow);
 
-        var actionRow = controls;
+        var actionRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        actionRow.AddThemeConstantOverride("separation", 4);
         AddAiConsoleButton(actionRow, "2D Concept", AiConsoleAction.GenerateConcept,
             "Generate a 2D concept from the command text using the existing local concept-generation path.");
         AddAiConsoleButton(actionRow, "Edit Region", AiConsoleAction.EditSelectedRegion,
@@ -76,11 +72,14 @@ public partial class Main
             "Generate 3D from the durable accepted baseline through the Stage-C candidate path.");
         AddAiConsoleButton(actionRow, "3D Detail", AiConsoleAction.Detail3DPreview,
             "Generate the existing non-destructive selected-detail 3D preview.");
+        panel.AddChild(actionRow);
+
         _aiCommandHistoryScroll = new ScrollContainer
         {
             Name = "AI Command History",
             CustomMinimumSize = new Vector2(0, 52),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             TooltipText = "Recent AI commands. Use Ctrl+Up/Down or the arrow buttons to reuse them."
         };
@@ -88,7 +87,7 @@ public partial class Main
         _aiCommandHistoryScroll.AddChild(_aiCommandHistoryList);
         panel.AddChild(_aiCommandHistoryScroll);
 
-        host.AddChild(panel);
+        _workspaceCommandDock.AddChild(panel);
         _aiCommandInput = input;
 
         input.GuiInput += OnAiCommandInput;
