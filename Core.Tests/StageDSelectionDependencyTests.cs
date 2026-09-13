@@ -9,6 +9,7 @@ internal static class StageDSelectionDependencyTests
         ValidateDurableSelectionBridge();
         ValidateCandidateDependencyTransactions();
         ValidatePersistenceAndRevisionAdvance();
+        ValidateAttachmentTransactions();
     }
 
     static void ValidateDurableSelectionBridge()
@@ -159,6 +160,86 @@ internal static class StageDSelectionDependencyTests
                    advanced.Selections[selectionId].MeshRevisionId == input.Id &&
                    !StageCSelection.IsCurrent(advanced, advanced.Selections[selectionId]),
                 "save/reopen did not preserve the stale protected-region dependency after revision advancement");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    static void ValidateAttachmentTransactions()
+    {
+        var parentId = ObjectId.New();
+        var childId = ObjectId.New();
+        var parentRevisionId = RevisionId.New();
+        var childRevisionId = RevisionId.New();
+        var now = DateTimeOffset.UtcNow;
+        var parentRevision = new MeshRevision(parentRevisionId, parentId, null, "assets/parent.meshbin", new string('d', 64), 3, 1, "attachment-parent", now);
+        var childRevision = new MeshRevision(childRevisionId, childId, null, "assets/child.meshbin", new string('e', 64), 3, 1, "attachment-child", now);
+        var state = new ProjectState(
+            ProjectId.New(),
+            "attachment-transactions",
+            objects: new[]
+            {
+                new ProjectObject(parentId, "Parent", parentRevisionId, TransformState.Identity),
+                new ProjectObject(childId, "Child", childRevisionId, TransformState.Identity)
+            },
+            meshRevisions: new[] { parentRevision, childRevision });
+        var session = new ProjectSession(state);
+        var attachmentId = AttachmentId.New();
+
+        AttachmentRecord created = StageDAttachments.Create(
+            session, attachmentId, parentId, childId, "surface", TransformState.Identity);
+        Assert(session.Current.Attachments.TryGetValue(attachmentId, out AttachmentRecord? stored) && stored == created,
+            "Core attachment create did not persist stable identity");
+        Assert(StageDAttachments.IsAttachmentTransaction(session.UndoTransactions.First()),
+            "attachment create was not recorded as an attachment transaction");
+
+        session.Undo();
+        Assert(!session.Current.Attachments.ContainsKey(attachmentId),
+            "undo did not remove a newly created attachment");
+        session.Redo();
+        Assert(session.Current.Attachments[attachmentId] == created,
+            "redo did not restore a newly created attachment");
+
+        var moved = new TransformState(new Vec3(1, 2, 3), new Vec3(0, 15, 0), Vec3.One);
+        AttachmentRecord updated = StageDAttachments.UpdateIfCurrent(session, created, "edge", moved);
+        Assert(session.Current.Attachments[attachmentId] == updated && updated.LocalTransform == moved && updated.Socket == "edge",
+            "Core attachment update did not commit local placement and socket atomically");
+
+        bool staleUpdateRejected = false;
+        try { StageDAttachments.UpdateIfCurrent(session, created, "stale", TransformState.Identity); }
+        catch (InvalidOperationException) { staleUpdateRejected = true; }
+        Assert(staleUpdateRejected, "stale attachment update was allowed to overwrite newer attachment state");
+
+        StageDAttachments.RemoveIfCurrent(session, updated);
+        Assert(!session.Current.Attachments.ContainsKey(attachmentId),
+            "Core attachment remove did not detach the stable attachment identity");
+        session.Undo();
+        Assert(session.Current.Attachments[attachmentId] == updated,
+            "undo did not restore the removed attachment");
+        session.Redo();
+        Assert(!session.Current.Attachments.ContainsKey(attachmentId),
+            "redo did not restore attachment removal");
+
+        bool selfAttachmentRejected = false;
+        try { StageDAttachments.Create(new ProjectSession(state), AttachmentId.New(), parentId, parentId, "self", TransformState.Identity); }
+        catch (InvalidDataException) { selfAttachmentRejected = true; }
+        Assert(selfAttachmentRejected, "self attachment was not rejected by Core authority");
+
+        string root = Path.Combine(Path.GetTempPath(), "MiniscuplterStageDAttachmentTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string projectPath = Path.Combine(root, "attachments" + ProjectStore.ProjectExtension);
+            var persistSession = new ProjectSession(state);
+            AttachmentRecord persisted = StageDAttachments.Create(
+                persistSession, AttachmentId.New(), parentId, childId, "persisted", moved);
+            var store = new ProjectStore();
+            store.SaveAsync(persistSession.Current, projectPath).GetAwaiter().GetResult();
+            ProjectState reopened = store.LoadAsync(projectPath).GetAwaiter().GetResult();
+            Assert(reopened.Attachments.TryGetValue(persisted.Id, out AttachmentRecord? reopenedAttachment) && reopenedAttachment == persisted,
+                "save/reopen did not preserve the exact stable attachment record");
         }
         finally
         {
