@@ -198,7 +198,8 @@ public partial class Main
             if (mesh.GetSurfaceCount() == 0)
                 throw new InvalidOperationException("The generated STL contains no renderable mesh surface.");
 
-            SetV1093DPhase("Saving immutable candidate revision…", "The identity-verified mesh is being copied into the transactional project store before review.", 96);
+            bool autoApplied = false;
+            SetV1093DPhase("Saving generated object…", "The identity-verified mesh is being copied into the transactional project store and inserted into the scene.", 96);
             await _v1020StageCGate.WaitAsync();
             try
             {
@@ -209,18 +210,36 @@ public partial class Main
                     _v1020StageCProjectPath, binding.OutputObjectId, data, $"image-to-3d:{actualProvider}");
                 var registeredCandidate = StageCGeneration.RegisterResult(
                     session, binding, revision, actualProvider, $"verified-backend-stl:{Path.GetFileName(path)};job:{binding.JobId}");
+                if (registeredCandidate.Status == CandidateStatus.Conflict)
+                {
+                    _v1020PendingCandidate = registeredCandidate;
+                }
+                else
+                {
+                    var applied = StageCGeneration.ApplyCandidate(session, registeredCandidate.Id, $"AI 3D — {actualProvider}");
+                    if (!applied.Applied)
+                        throw new InvalidOperationException("The verified 3D result could not be inserted into the project: " + applied.Message);
+                    _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current).First(x => x.Id == registeredCandidate.Id);
+                    autoApplied = true;
+                }
                 await V1020SaveSessionAsync();
-                _v1020PendingCandidate = registeredCandidate;
                 _v1020PendingCandidateMesh = mesh;
                 V1020RefreshCandidateControls();
             }
             finally { _v1020StageCGate.Release(); }
 
+            if (autoApplied && _v1020PendingCandidate != null)
+            {
+                AddMeshObject(mesh, $"AI 3D — {actualProvider}");
+                if (_selected != null) _v1013ObjectIds[_selected.GetInstanceId()] = _v1020PendingCandidate.OutputObjectId;
+                FrameSelected();
+            }
+
             double seconds = (DateTime.UtcNow - _v1093DStarted).TotalSeconds;
             if (_v1020PendingCandidate?.Status == CandidateStatus.Conflict)
                 SetV1093DResult($"3D status: completed in {seconds:0}s, preserved as conflict.", _v1020PendingCandidate.ConflictReason ?? "The accepted baseline changed while inference was running.");
             else
-                SetV1093DResult($"3D status: identity-verified candidate ready from {actualProvider} in {seconds:0}s.", "Review the candidate, then choose Apply 3D Candidate or Discard Candidate.");
+                SetV1093DResult($"3D status: generated object inserted from {actualProvider} in {seconds:0}s.", "The result is already in the scene and persisted transactionally; continue editing it directly.");
         }
         catch (Exception ex)
         {
