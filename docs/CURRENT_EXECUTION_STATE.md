@@ -6,7 +6,7 @@
 - release_freeze: false
 - publication_active: false
 - branch_bootstrap: complete; VERSION 1.0.32
-- execution_hold: none; AUTO-INC-006 recovered and patch-control is operational
+- execution_hold: none; AUTO-INC-007 recovered after user-cancelled stuck patch workflow `34737156905`; no target mutation occurred and no workflow is currently queued/running
 
 ## Reference-machine gate
 - state: FAILED / ACTIONABLE EVIDENCE CAPTURED
@@ -23,7 +23,7 @@
   1. E1 P0 / MS-033: editor-owned backend restart health-version drift fixed at `282d61e8e479058179fa3a903c5ba0d9962f5569`; targeted and full validation green there. State is FIXED IN v1.0.32 - NEEDS USER VERIFICATION.
   2. E2 P0/P1 / MS-036: successful identity-verified 3D generations now transactionally apply and insert directly into the visible scene while conflicts remain preserved for review. Implementation commit `01b1818a911b763346794b53cb96a7a8ee4de6a7`; release-audit reconciliation completed through commits `8a33df8097053d9ed0e82c807e77833bc7e13bc5` and `1336031293d4037f2f45e871c94624f45a0f8340`. Exact-head build run `34736924339` is green. State is FIXED IN v1.0.32 - NEEDS USER VERIFICATION.
 - current:
-  3. E3 P1: diagnose/fix MS-037 exterior-face rendering plus viewport readability: correct normals/winding/culling as appropriate, use a neutral Blender-like light-gray matte default model presentation distinct from the darker background, and provide lighting/shading that reveals surface form instead of a flat silhouette. Fix MS-039 grounding and physical scale: lowest model point rests on grid and one canonical user-facing size/scale model controls insertion.
+  3. E3 P1: diagnose/fix MS-037 exterior-face rendering plus viewport readability: correct normals/winding/culling as appropriate, use a neutral Blender-like light-gray matte default model presentation distinct from the darker background, and provide lighting/shading that reveals surface form instead of a flat silhouette. Fix MS-039 grounding and physical scale: lowest model point rests on grid and one canonical user-facing size/scale model controls insertion. The prior grounding patch request was cancelled before execution; before any fresh patch-control request, refetch exact writable HEAD + target blob, confirm the change is still required, and submit only a freshly revalidated request. If queue stalling recurs, stop and correlate/escalate through AUTO-INC rather than duplicating/bypassing.
 - queued:
   4. E4 P1: fix MS-040 Smart Select packaging/status and MS-035 resize/client-area composition; then reconcile MS-026/MS-027 dedicated telemetry/AI-command areas and MS-038 direct manipulation/rotation rings.
   5. E5: integrate/regress v1.0.32 checkpoint and return to Coordinator review; MS-041 Refinement/Kitbash implementation waits until E1-E4 correctness, with exact UI details reversible pending user design approval.
