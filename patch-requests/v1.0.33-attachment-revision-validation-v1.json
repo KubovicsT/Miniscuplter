@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "cd7ed274e6ebdf3fbe86831c34471d88b7c0e6fa",
+  "target_path": "Core/ProjectModels.cs",
+  "expected_blob_sha": "297887de967b78d893a516a63948ea8350770100",
+  "commit_message": "core: allow attachments to become stale across revision advance",
+  "patch": "--- a/Core/ProjectModels.cs\n+++ b/Core/ProjectModels.cs\n@@ -340,8 +340,7 @@\n             attachment.LocalTransform.Validate();\n             if (attachment.ParentObjectId == attachment.ChildObjectId)\n                 throw new InvalidDataException($\"Attachment {attachment.Id} cannot attach an object to itself.\");\n-            if (!_objects.TryGetValue(attachment.ParentObjectId, out var parentObject) ||\n-                !_objects.TryGetValue(attachment.ChildObjectId, out var childObject))\n+            if (!_objects.ContainsKey(attachment.ParentObjectId) || !_objects.ContainsKey(attachment.ChildObjectId))\n                 throw new InvalidDataException($\"Attachment {attachment.Id} references a missing object.\");\n             if (string.IsNullOrWhiteSpace(attachment.Socket))\n                 throw new InvalidDataException($\"Attachment {attachment.Id} has no socket name.\");\n@@ -360,6 +359,0 @@\n-            if (attachment.BindingStatus is AttachmentBindingStatus.Current or AttachmentBindingStatus.Rebound)\n-            {\n-                if (parentObject.ActiveMeshRevisionId != parentRevisionId || childObject.ActiveMeshRevisionId != childRevisionId)\n-                    throw new InvalidDataException($\"Authoritative attachment {attachment.Id} is not bound to both active mesh revisions.\");\n-            }\n"
+}
