@@ -339,8 +339,7 @@ public sealed class ProjectState
             attachment.LocalTransform.Validate();
             if (attachment.ParentObjectId == attachment.ChildObjectId)
                 throw new InvalidDataException($"Attachment {attachment.Id} cannot attach an object to itself.");
-            if (!_objects.TryGetValue(attachment.ParentObjectId, out var parentObject) ||
-                !_objects.TryGetValue(attachment.ChildObjectId, out var childObject))
+            if (!_objects.ContainsKey(attachment.ParentObjectId) || !_objects.ContainsKey(attachment.ChildObjectId))
                 throw new InvalidDataException($"Attachment {attachment.Id} references a missing object.");
             if (string.IsNullOrWhiteSpace(attachment.Socket))
                 throw new InvalidDataException($"Attachment {attachment.Id} has no socket name.");
@@ -357,11 +356,6 @@ public sealed class ProjectState
             if (!_meshRevisions.TryGetValue(parentRevisionId, out var parentRevision) || parentRevision.ObjectId != attachment.ParentObjectId ||
                 !_meshRevisions.TryGetValue(childRevisionId, out var childRevision) || childRevision.ObjectId != attachment.ChildObjectId)
                 throw new InvalidDataException($"Attachment {attachment.Id} revision bindings do not belong to the referenced objects.");
-            if (attachment.BindingStatus is AttachmentBindingStatus.Current or AttachmentBindingStatus.Rebound)
-            {
-                if (parentObject.ActiveMeshRevisionId != parentRevisionId || childObject.ActiveMeshRevisionId != childRevisionId)
-                    throw new InvalidDataException($"Authoritative attachment {attachment.Id} is not bound to both active mesh revisions.");
-            }
         }
 
         foreach (var pair in _candidates)
