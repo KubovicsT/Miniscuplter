@@ -155,19 +155,18 @@ public sealed class ProjectSession
             return new CandidateApplyResult(false, false, "Candidate does not exist.", Current);
         if (!Current.Objects.TryGetValue(candidate.ObjectId, out var obj))
             return new CandidateApplyResult(false, true, "Candidate target object no longer exists.", Current);
-        if (candidate.Status is CandidateStatus.Applied or CandidateStatus.Discarded)
+        if (candidate.Status == CandidateStatus.Applied || candidate.Status == CandidateStatus.Discarded)
             return new CandidateApplyResult(false, false, $"Candidate is already {candidate.Status.ToString().ToLowerInvariant()}.", Current);
+        if (candidate.Status == CandidateStatus.Failed)
+            return new CandidateApplyResult(false, false, "Failed candidates cannot be applied.", Current);
+        if (candidate.Status == CandidateStatus.Conflict)
+            return new CandidateApplyResult(false, true, candidate.ConflictReason ?? "Candidate is in conflict and must not be applied.", Current);
 
         if (obj.ActiveMeshRevisionId != candidate.InputRevisionId)
-        {
-            Execute("Mark stale AI candidate as conflict", state =>
-                state.WithCandidate(candidate with
-                {
-                    Status = CandidateStatus.Conflict,
-                    ConflictReason = $"Object advanced from input revision {candidate.InputRevisionId} to {obj.ActiveMeshRevisionId}."
-                }), candidate.ObjectId);
-            return new CandidateApplyResult(false, true, "Candidate input is stale. It was preserved as a conflict instead of overwriting newer work.", Current);
-        }
+            return MarkCandidateConflict(candidate, $"Object advanced from input revision {candidate.InputRevisionId} to {obj.ActiveMeshRevisionId}.", "Candidate input is stale. It was preserved as a conflict instead of overwriting newer work.");
+
+        if (!IsDescendantRevision(candidate.OutputRevisionId, candidate.InputRevisionId, candidate.ObjectId))
+            return MarkCandidateConflict(candidate, $"Output revision {candidate.OutputRevisionId} is not descended from input revision {candidate.InputRevisionId}.", "Candidate output lineage is invalid. It was preserved as a conflict instead of replacing the bound input.");
 
         Execute("Apply candidate", state =>
         {
@@ -176,6 +175,54 @@ public sealed class ProjectSession
             return state.WithObject(updatedObject).WithCandidate(updatedCandidate);
         }, candidate.ObjectId);
         return new CandidateApplyResult(true, false, "Candidate applied transactionally.", Current);
+    }
+
+    public CandidateApplyResult DiscardCandidate(CandidateId candidateId)
+    {
+        if (!Current.Candidates.TryGetValue(candidateId, out var candidate))
+            return new CandidateApplyResult(false, false, "Candidate does not exist.", Current);
+        if (candidate.Status == CandidateStatus.Applied)
+            return new CandidateApplyResult(false, true, "Applied candidates cannot be discarded without undoing the apply transaction first.", Current);
+        if (candidate.Status == CandidateStatus.Discarded)
+            return new CandidateApplyResult(false, false, "Candidate is already discarded.", Current);
+
+        Execute("Discard candidate", state =>
+            state.WithCandidate(candidate with
+            {
+                Status = CandidateStatus.Discarded,
+                ConflictReason = null
+            }), candidate.ObjectId);
+        return new CandidateApplyResult(false, false, "Candidate discarded transactionally.", Current);
+    }
+
+    CandidateApplyResult MarkCandidateConflict(CandidateRecord candidate, string reason, string message)
+    {
+        Execute("Mark stale AI candidate as conflict", state =>
+            state.WithCandidate(candidate with
+            {
+                Status = CandidateStatus.Conflict,
+                ConflictReason = reason
+            }), candidate.ObjectId);
+        return new CandidateApplyResult(false, true, message, Current);
+    }
+
+    bool IsDescendantRevision(RevisionId outputRevisionId, RevisionId inputRevisionId, ObjectId objectId)
+    {
+        if (!Current.MeshRevisions.TryGetValue(outputRevisionId, out var cursor) || cursor.ObjectId != objectId)
+            return false;
+
+        var visited = new HashSet<RevisionId>();
+        while (true)
+        {
+            if (!visited.Add(cursor.Id))
+                return false;
+            if (cursor.ParentRevisionId is not { } parentId)
+                return false;
+            if (parentId == inputRevisionId)
+                return true;
+            if (!Current.MeshRevisions.TryGetValue(parentId, out cursor) || cursor.ObjectId != objectId)
+                return false;
+        }
     }
 
     void TrimUndo()
