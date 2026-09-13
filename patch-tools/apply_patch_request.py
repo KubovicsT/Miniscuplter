@@ -28,7 +28,6 @@ def validate_common(request: dict) -> tuple[str, str, str, str]:
     head = str(request["expected_head_sha"]).lower()
     target = str(request["target_path"])
     message = str(request["commit_message"]).strip()
-
     if not SEMVER_BRANCH.fullmatch(branch):
         raise RuntimeError("target_branch must be a semantic-version branch")
     if not FULL_SHA.fullmatch(head):
@@ -53,14 +52,14 @@ def prepare_target(branch: str, head: str) -> None:
     run("git", "switch", "--detach", head)
 
 
-def validate_result(target: str) -> None:
+def validate_result(target: str, *, allow_create: bool = False) -> None:
     path = Path(target)
     if not path.is_file() or path.is_symlink():
         raise RuntimeError("target must be a regular file")
     changed = run("git", "diff", "--name-only").splitlines()
     if changed != [target]:
         raise RuntimeError(f"request changed unexpected paths: {changed}")
-    if run("git", "diff", "--summary"):
+    if not allow_create and run("git", "diff", "--summary"):
         raise RuntimeError("renames and file-mode changes are forbidden")
     numstat = run("git", "diff", "--numstat", "--", target).split("\t")
     if len(numstat) != 3 or "-" in numstat[:2]:
@@ -97,7 +96,6 @@ def apply_existing_patch(request: dict) -> None:
         raise RuntimeError("expected_blob_sha must be a full 40-character hexadecimal value")
     if not isinstance(patch, str) or not patch.strip() or len(patch.encode()) > MAX_PATCH_BYTES:
         raise RuntimeError("invalid or oversized patch")
-
     prepare_target(branch, head)
     actual_blob = run("git", "rev-parse", f"{head}:{target}").lower()
     if actual_blob != blob:
@@ -105,7 +103,6 @@ def apply_existing_patch(request: dict) -> None:
     path = Path(target)
     if not path.is_file() or path.is_symlink():
         raise RuntimeError("target must be an existing regular file")
-
     fd, patch_path = tempfile.mkstemp(suffix=".patch")
     try:
         with os.fdopen(fd, "wb") as f:
@@ -134,7 +131,6 @@ def create_new_text_file(request: dict) -> None:
         raise RuntimeError("binary/NUL content is forbidden")
     if content.count("\n") + 1 > MAX_CHANGED_LINES:
         raise RuntimeError("new file has too many lines")
-
     prepare_target(branch, head)
     exists = subprocess.run(
         ["git", "cat-file", "-e", f"{head}:{target}"],
@@ -143,7 +139,6 @@ def create_new_text_file(request: dict) -> None:
     ).returncode == 0
     if exists:
         raise RuntimeError("target_path already exists at expected_head_sha")
-
     path = Path(target)
     if path.exists() or path.is_symlink():
         raise RuntimeError("target_path unexpectedly exists in checkout")
@@ -151,11 +146,8 @@ def create_new_text_file(request: dict) -> None:
     path.write_text(content, encoding="utf-8", newline="")
     if path.is_symlink() or not path.is_file():
         raise RuntimeError("created target must be a regular file")
-
-    # Intent-to-add makes the new file visible to ordinary git diff without staging
-    # the actual contents yet, so the same single-file/text/line-count guards apply.
     run("git", "add", "--intent-to-add", "--", target)
-    validate_result(target)
+    validate_result(target, allow_create=True)
     recheck_head(branch, head)
     commit_and_push(branch, target, message, "FILE_CREATED")
 
