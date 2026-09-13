@@ -53,7 +53,9 @@ public partial class Main
             current = next;
         }
         _v096Selection = current;
-        RebuildV096SelectionOverlay(); ApplyV096SelectionToSculptMask();
-        SetStatus($"Smart Selection {operation} applied ({iterations} pass{(iterations == 1 ? "" : "es")}).");
+        RebuildV096SelectionOverlay();
+        ApplyV096SelectionToSculptMask();
+        V1027ReconcileDurableSmartSelection();
+        SetStatus($"Smart Selection {operation} applied ({iterations} pass{(iterations == 1 ? "" : "es")}) and queued for revision-bound persistence.");
     }
 }
