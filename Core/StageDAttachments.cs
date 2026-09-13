@@ -67,6 +67,24 @@ public static class StageDAttachments
         return updated;
     }
 
+    public static void RemoveIfCurrent(ProjectSession session, AttachmentRecord expected)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(expected);
+        if (!session.Current.Attachments.TryGetValue(expected.Id, out AttachmentRecord? current) || current != expected)
+            throw new InvalidOperationException("Attachment changed before the removal could commit.");
+
+        session.Execute(
+            $"{TransactionPrefix} remove",
+            state =>
+            {
+                if (!state.Attachments.TryGetValue(expected.Id, out AttachmentRecord? persisted) || persisted != expected)
+                    throw new InvalidOperationException("Attachment changed before the removal transaction could commit.");
+                return state.WithoutAttachment(expected.Id);
+            },
+            expected.ParentObjectId, expected.ChildObjectId);
+    }
+
     public static bool IsAttachmentTransaction(ProjectTransaction transaction) =>
         transaction != null && transaction.Label.StartsWith(TransactionPrefix, StringComparison.Ordinal);
 
