@@ -14,23 +14,25 @@ This file is the authoritative medium/long-horizon technical-direction state own
 ## Current strategic objective
 - stable_release: v1.0.32
 - writable_release_line: v1.0.33
-- objective: qualify the released v1.0.32 end-to-end recovery checkpoint on the Windows / GTX 1080 reference machine, then use real runtime evidence to choose the next v1.0.33 implementation slice
+- objective: run v1.0.32 reference-machine verification as a parallel acceptance lane while v1.0.33 continues UI-neutral Stage-D/E ownership convergence that does not depend on the pending user test
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
+- preemption_rule: any reproduced v1.0.32 P0/P1 regression preempts lower-priority v1.0.33 foundation work after Coordinator reconciliation
 
 ## Priority order
-1. reference-machine verification of v1.0.32 cancellation/retry, direct generation insertion, rendering/readability, grounding/scale, Smart Select, resize/workspace and transform interaction
-2. immediately repair any reproduced P0/P1 regression before adding feature breadth
-3. after the recovery checkpoint is verified, design the exact Refinement/Kitbash interaction with the user and implement it as a coherent product surface
-4. later Rig & Pose and Cleanup & Export implementation
-5. provider expansion / broad sculpt-system work only when evidence makes it a higher-value dependency
+1. keep v1.0.32 cancellation/retry, direct insertion, rendering/readability, grounding/scale, Smart Select, resize/workspace and transform interaction open for reference-machine verification
+2. in parallel, converge attachment/Kitbash durable authority onto Core stable object/attachment identity and transactional persistence/history without changing the unresolved user-facing UI
+3. establish revision-bound Refinement candidate/dependency foundations: exact object/input revision, selection/protected-region bindings, output lineage, stale/conflict handling, apply/discard and undo/redo semantics
+4. explicitly preserve/transfer/invalidate revision-dependent selections, protected regions and attachments across topology/revision changes, with save/reopen coverage
+5. only after the durable foundation and relevant runtime evidence are sound, design the exact Refinement/Kitbash interaction with the user; Rig & Pose and Cleanup & Export remain later
 
 ## Strategic dependencies
-- v1.0.32 is a verified published build and is now the runtime acceptance target
+- v1.0.32 is a verified published build and is the runtime acceptance target
 - v1.0.33 is the authoritative writable successor with canonical VERSION bootstrap complete
-- user/reference-machine evidence determines whether the recovery issues close or preempt new work
-- generated-result UX must preserve Core transaction/identity/stale-result authority rather than moving durable state into Godot
-- physical size and transforms retain one canonical Core representation
+- user/reference-machine verification is a local acceptance dependency, not a global stop while independent safe work exists
+- Core already contains stable AttachmentRecord, CandidateRecord, object/revision identity and revision-bound selection models; legacy Godot attachment paths still include display-name/DTO ownership and must converge rather than become a second durable authority
+- stale AI/refinement outputs must become explicit conflict/discard state and must never overwrite newer revisions
+- generated-result UX, attachments, transforms and physical size must preserve one canonical Core representation
 
 ## Accepted product direction
 - local-first behavior preserved
@@ -47,9 +49,10 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - generated geometry is grounded and begins at a coherent user-facing physical scale
 - transform UX supports precise axis manipulation plus intuitive direct movement and visible rotation rings
 - 3D enhancement/redesign moves toward dedicated Refinement and Kitbash areas; exact UI remains intentionally reversible and user-approved
+- durable Refinement/Kitbash foundations may progress before exact UI design when they are presentation-neutral and compatible with the accepted Core/Godot/Python authority split
 
 ## Deferred work
-- exact Refinement/Kitbash UI contract until v1.0.32 verification feedback
+- exact Refinement/Kitbash UI contract
 - Rig & Pose implementation
 - Cleanup & Export product-surface completion
 - provider-family expansion
@@ -63,4 +66,4 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - published releases/tags and their semantic branches are immutable history
 - v1.0.32 is published/frozen
 - v1.0.33 is the authoritative writable successor
-- no further release consideration until a coherent v1.0.33 scope is established from user verification or another evidence-backed priority
+- no v1.0.33 release consideration until the independent foundation slice is coherent and any reference-machine regressions that materially affect it are reconciled
