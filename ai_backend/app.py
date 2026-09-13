@@ -108,6 +108,11 @@ class SmartSelectRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=8000)
     output_path: str = Field(min_length=1, max_length=4096)
 
+class SemanticSelectRequest(BaseModel):
+    input_path: str = Field(min_length=1, max_length=4096)
+    query: str = Field(min_length=1, max_length=8000)
+
+
 
 class Detail2DRequest(BaseModel):
     image_path: str = Field(min_length=1, max_length=4096)
@@ -390,6 +395,16 @@ def generate_parts(req: GeneratePartsRequest):
         return r
     except Exception as e:
         raise HTTPException(502, f"Structured 3D provider failed: {e}") from e
+
+
+@app.post("/semantic-select")
+def semantic_select_endpoint(req: SemanticSelectRequest):
+    req.input_path = _safe_input_path(req.input_path, DEFAULT_MESH_SUFFIXES)
+    try:
+        return semantic_select(req.input_path, req.query)
+    except Exception as e:
+        raise HTTPException(502, f"Semantic Select failed: {e}") from e
+
 
 
 @app.post("/smart-select")
