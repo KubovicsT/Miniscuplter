@@ -407,7 +407,9 @@ public sealed class ProjectStore
             Id = x.Id.ToString(), ParentObjectId = x.ParentObjectId.ToString(), ChildObjectId = x.ChildObjectId.ToString(), Socket = x.Socket,
             Position = [x.LocalTransform.Position.X, x.LocalTransform.Position.Y, x.LocalTransform.Position.Z],
             Rotation = [x.LocalTransform.RotationEuler.X, x.LocalTransform.RotationEuler.Y, x.LocalTransform.RotationEuler.Z],
-            Scale = [x.LocalTransform.Scale.X, x.LocalTransform.Scale.Y, x.LocalTransform.Scale.Z], CreatedUtc = x.CreatedUtc
+            Scale = [x.LocalTransform.Scale.X, x.LocalTransform.Scale.Y, x.LocalTransform.Scale.Z], CreatedUtc = x.CreatedUtc,
+            ParentMeshRevisionId = x.ParentMeshRevisionId?.ToString(), ChildMeshRevisionId = x.ChildMeshRevisionId?.ToString(),
+            BindingStatus = x.BindingStatus.ToString()
         }).ToList(),
         Candidates = state.Candidates.Values.Select(x => new CandidateDto
         {
