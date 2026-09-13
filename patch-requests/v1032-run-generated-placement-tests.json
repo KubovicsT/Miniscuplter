@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.32",
+  "expected_head_sha": "c0794667637aaf1eaa5de4f3526c871b815f832e",
+  "target_path": "Core.Tests/Program.cs",
+  "expected_blob_sha": "c5ac531babc574db920e5328c79847b2b2955a57",
+  "commit_message": "test: run generated-object placement regression",
+  "patch": "diff --git a/Core.Tests/Program.cs b/Core.Tests/Program.cs\n--- a/Core.Tests/Program.cs\n+++ b/Core.Tests/Program.cs\n@@ -201,6 +201,7 @@\n             catch (InvalidDataException) { rejected = true; }\n             Assert(rejected, \"legacy path traversal was not rejected\");\n \n+            GeneratedObjectPlacementTests.Run();\n             await StageCGenerationTests.RunAsync(root);\n             await StageCEditingTests.RunAsync(root);\n \n"
+}
