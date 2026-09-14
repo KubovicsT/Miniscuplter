@@ -32,6 +32,14 @@ internal static class ProtectedRegionPresentationSafetyTests
             "explicit Smart Selection clear is not serialized through durable Core selection removal");
         Assert(source.Contains("binding.ObjectId != _v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal),
             "a Smart Selection pending durable clear can be immediately resurrected by restore reconciliation");
+        Assert(source.Contains("string[] retiredAssetPaths = currentSession.Current.Selections.Values", StringComparison.Ordinal) &&
+               source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal) &&
+               source.Contains("File.Delete(assetPath);", StringComparison.Ordinal),
+            "durable Smart Selection clear does not clean retired snapshot assets after the project save succeeds");
+        Assert(source.Contains("bool stillReferenced = currentSession.Current.Selections.Values.Any", StringComparison.Ordinal),
+            "durable Smart Selection clear can delete a selection asset that is still referenced by another binding");
+        Assert(normalizedSource.Contains("catch (Exception ex)\n        {\n            cleared = false;", StringComparison.Ordinal),
+            "failed durable Smart Selection clear does not re-enable reconciliation of the restored durable binding");
 
         string smartSelectPath = Path.Combine(root, "Scripts", "Main.V096SmartSelect.cs");
         if (!File.Exists(smartSelectPath))
