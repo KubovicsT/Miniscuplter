@@ -242,8 +242,9 @@ public sealed class ProjectSession
                 continue;
 
             string? conflictReason = null;
-            if (after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) &&
-                afterObject.ActiveMeshRevisionId != candidate.InputRevisionId)
+            if (!after.Objects.TryGetValue(candidate.ObjectId, out var afterObject))
+                conflictReason = $"Target object {candidate.ObjectId} no longer exists.";
+            else if (afterObject.ActiveMeshRevisionId != candidate.InputRevisionId)
                 conflictReason = $"Object advanced from input revision {candidate.InputRevisionId} to {afterObject.ActiveMeshRevisionId}.";
             else if (!IsDescendantRevision(after, candidate.OutputRevisionId, candidate.InputRevisionId, candidate.ObjectId))
                 conflictReason = $"Output revision {candidate.OutputRevisionId} is not descended from input revision {candidate.InputRevisionId}.";
