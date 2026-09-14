@@ -62,10 +62,14 @@ internal static class StageDAttachmentRevisionTests
         var reconciledSession = new ProjectSession(legacyCurrent);
         Assert(reconciledSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
             "session construction did not reconcile a loaded stale attachment marked current");
+        Assert(reconciledSession.IsDirty && reconciledSession.Current.RevisionNumber == legacyCurrent.RevisionNumber + 1,
+            "session construction attachment reconciliation was not marked as a durable unsaved repair");
         var replacementSession = new ProjectSession(state);
         replacementSession.ReplaceFromLoad(legacyCurrent);
         Assert(replacementSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
             "ReplaceFromLoad did not reconcile a stale attachment marked current");
+        Assert(replacementSession.IsDirty && replacementSession.Current.RevisionNumber == legacyCurrent.RevisionNumber + 1,
+            "ReplaceFromLoad attachment reconciliation was not marked dirty for persistence");
 
         var rebound = StageDAttachments.RebindToCurrent(session, persisted);
         Assert(rebound.ParentMeshRevisionId == parentV2.Id && rebound.ChildMeshRevisionId == childV1.Id,
@@ -111,9 +115,13 @@ internal static class StageDAttachmentRevisionTests
         var reboundReconciledSession = new ProjectSession(staleMarkedRebound);
         Assert(reboundReconciledSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
             "session construction did not fail closed a revision-stale attachment marked rebound");
+        Assert(reboundReconciledSession.IsDirty && reboundReconciledSession.Current.RevisionNumber == staleMarkedRebound.RevisionNumber + 1,
+            "stale Rebound load reconciliation was not marked as a durable unsaved repair");
         var reboundReplacementSession = new ProjectSession(state);
         reboundReplacementSession.ReplaceFromLoad(staleMarkedRebound);
         Assert(reboundReplacementSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
             "ReplaceFromLoad did not fail closed a revision-stale attachment marked rebound");
+        Assert(reboundReplacementSession.IsDirty && reboundReplacementSession.Current.RevisionNumber == staleMarkedRebound.RevisionNumber + 1,
+            "ReplaceFromLoad stale Rebound reconciliation was not marked dirty for persistence");
     }
 }
