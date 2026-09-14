@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "476d7ae72db481f847b361bcd8126af329908a74",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "156cad6d09f58b112423a7341c84020daeecdcb6",
+  "commit_message": "state: record stale attachment presentation guard",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -40,3 +40,3 @@\n   5. topology-changing or unknown-compatibility edits therefore default to stale/non-authoritative state rather than silent deletion or transfer\n-  6. mapped Godot Kitbash actions resolve stable Core object identity and commit snap/detach/fine-tune through StageDAttachments; stale mapped attachments fail closed and do not keep following sockets from legacy display-name state\n+  6. mapped Godot Kitbash actions resolve stable Core object identity and commit snap/detach/fine-tune through StageDAttachments; stale mapped attachments fail closed, do not keep following sockets from legacy display-name state, and no longer project stale legacy fine-tune values into the controls after Core authority is lost\n   7. legacy DTO/display-name behavior remains only as a migration fallback for objects that are not yet represented by stable Core identity; no user-facing Kitbash workflow change was introduced\n"
+}
