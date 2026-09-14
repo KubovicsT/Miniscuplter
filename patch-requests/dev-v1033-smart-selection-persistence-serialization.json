@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "3af8671da16afa034549434e03c86e35fad23d41",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "5af1c349a1652dc9246b2ea8ccd3b745dd2b732d",
+  "commit_message": "state: record smart selection persistence serialization",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -44,7 +44,8 @@\n   2. revision advancement invalidates stale vertex-weight bindings instead of reusing indices against different topology\n   3. grow/shrink/smooth produces a new selection-weight snapshot that is queued immediately through the same revision-bound persistence seam\n   4. stale durable protected-region bindings clear stale live weights whenever stable live object identity cannot be proven, rather than allowing presentation state to outlive Core revision authority\n   5. candidate-driven revision advancement makes the bound selection stale, while undo restores current selection semantics and redo restores stale semantics against the exact durable revision history\n+  6. Smart Selection persistence only acknowledges the exact saved weight/query snapshot; changes made while a save is in flight are immediately reconciled and queued afterward, so an older async save cannot falsely mark newer refined weights durable\n - next:\n   1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including remaining dependency preservation/invalidation and migration coverage\n   2. close any remaining UI-neutral stale presentation paths for candidates, attachments or selections after Core authority changes\n"
+}
