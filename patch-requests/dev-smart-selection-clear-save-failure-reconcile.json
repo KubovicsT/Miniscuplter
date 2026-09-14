@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "58f115d2e40a8acdb3dbfd42971dd4c44345813a",
+  "target_path": "Scripts/Main.V1027ProtectedRegionAuthority.cs",
+  "expected_blob_sha": "243ec61888783e72d23a7ed59c0b676b3b421a13",
+  "commit_message": "fix: reconcile failed smart selection clear",
+  "patch": "--- a/Scripts/Main.V1027ProtectedRegionAuthority.cs\n+++ b/Scripts/Main.V1027ProtectedRegionAuthority.cs\n@@ -159,6 +159,7 @@\n         }\n         catch (Exception ex)\n         {\n+            cleared = false;\n             SetStatus(\"Smart Selection was cleared locally but its durable binding could not be removed: \" + ex.Message);\n         }\n         finally\n"
+}
