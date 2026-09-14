@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "d8c0aae30ee76cca4c7958b45cf55b6c9c18b0c2",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "8952b264655b7e98389a31d22ad8c69986d37ae8",
+  "commit_message": "docs: record selection dependency undo redo coverage",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -50,1 +50,2 @@\n   4. stale durable protected-region bindings clear stale live weights whenever stable live object identity cannot be proven, rather than allowing presentation state to outlive Core revision authority\n+  5. candidate-driven revision advancement makes the bound selection stale, while undo restores current selection semantics and redo restores stale semantics against the exact durable revision history\n"
+}
