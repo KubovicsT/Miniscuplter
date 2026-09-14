@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.34",
+  "expected_head_sha": "3c7044fd182a7025f86fd3dd1d5c81c37ddd3d79",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "21998334f3d58c1e0c5e42071addacc593d2d210",
+  "commit_message": "docs: record clean sibling conflict reopen",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -37,1 +37,1 @@\n-- refinement_candidate_persistence_contract: when one Ready Refinement candidate advances an object away from a shared input revision, competing sibling candidates retain their exact input/output dependency identity as durable Conflict records across save/reopen; rejected Apply after reopen remains fail-closed and cannot mutate the applied output state. Exact-head Core and full build/package validation are green.\n+- refinement_candidate_persistence_contract: when one Ready Refinement candidate advances an object away from a shared input revision, competing sibling candidates retain their exact input/output dependency identity as durable Conflict records across save/reopen; a valid persisted sibling Conflict reopens clean without a spurious reconciliation repair or dirty state; rejected Apply after reopen remains fail-closed and cannot mutate the applied output state. Exact-head Core and full build/package validation are green.\n"
+}
