@@ -161,6 +161,7 @@ public partial class Main
         }
         catch (Exception ex)
         {
+            cleared = false;
             SetStatus("Smart Selection was cleared locally but its durable binding could not be removed: " + ex.Message);
         }
         finally
