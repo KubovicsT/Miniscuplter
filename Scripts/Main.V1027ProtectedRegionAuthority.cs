@@ -108,6 +108,7 @@ public partial class Main
     async Task V1027ClearDurableSmartSelectionAsync(ObjectId objectId)
     {
         bool cleared = false;
+        string? cleanupWarning = null;
         try
         {
             await _v1020StageCGate.WaitAsync();
@@ -115,17 +116,48 @@ public partial class Main
             {
                 ProjectSession currentSession = _v1020StageCSession ??
                     throw new InvalidOperationException("Stage-C project session is unavailable.");
+                string[] retiredAssetPaths = currentSession.Current.Selections.Values
+                    .Where(binding => binding.ObjectId == objectId &&
+                                      binding.Kind == "smart-select-vertex-weights")
+                    .Select(binding => binding.DataAssetPath)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
                 cleared = StageCSelection.RemoveRevisionSelections(
                     currentSession,
                     objectId,
                     "smart-select-vertex-weights") > 0;
                 if (cleared)
+                {
                     await V1020SaveSessionAsync();
+
+                    ProjectLayout layout = ProjectLayout.FromManifest(_v1020StageCProjectPath);
+                    foreach (string relativeAssetPath in retiredAssetPaths)
+                    {
+                        bool stillReferenced = currentSession.Current.Selections.Values.Any(binding =>
+                            string.Equals(binding.DataAssetPath, relativeAssetPath, StringComparison.OrdinalIgnoreCase));
+                        if (stillReferenced)
+                            continue;
+
+                        try
+                        {
+                            string assetPath = ProjectStore.ResolveAsset(layout, relativeAssetPath);
+                            if (File.Exists(assetPath))
+                                File.Delete(assetPath);
+                        }
+                        catch (Exception cleanupError)
+                        {
+                            cleanupWarning = cleanupError.Message;
+                        }
+                    }
+                }
             }
             finally
             {
                 _v1020StageCGate.Release();
             }
+
+            if (cleared && cleanupWarning != null)
+                SetStatus("Smart Selection cleared durably, but retired selection asset cleanup failed: " + cleanupWarning);
         }
         catch (Exception ex)
         {
