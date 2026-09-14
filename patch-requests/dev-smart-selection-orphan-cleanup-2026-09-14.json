@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "ff26de3a446180dce8f55190f5d6c84afa436324",
+  "target_path": "Scripts/Main.V1027ProtectedRegionAuthority.cs",
+  "expected_blob_sha": "37e9764c94ad7251582fd265963164ed2ed9130b",
+  "commit_message": "fix: clean unbound smart selection assets",
+  "patch": "@@ -146,5 +146,6 @@\n         string destination = ProjectStore.ResolveAsset(layout, relative);\n         string temp = destination + \".tmp\";\n+        bool bindingCommitted = false;\n \n         try\n         {\n@@ -169,9 +170,10 @@\n                 SelectionBinding binding = StageCSelection.BindRevisionSelection(\n                     currentSession,\n                     selectionId,\n                     objectId,\n                     meshRevisionId,\n                     \"smart-select-vertex-weights\",\n                     relative);\n+                bindingCommitted = true;\n                 await V1020SaveSessionAsync();\n                 _v1027DurableSmartSelection = binding;\n@@ -197,5 +199,6 @@\n         catch (Exception ex)\n         {\n             try { if (File.Exists(temp)) File.Delete(temp); } catch { }\n+            try { if (!bindingCommitted && File.Exists(destination)) File.Delete(destination); } catch { }\n             if (_v1020StageCSession != null &&\n                 _v1020StageCSession.Current.Objects.TryGetValue(objectId, out ProjectObject? current) &&\n"
+}
