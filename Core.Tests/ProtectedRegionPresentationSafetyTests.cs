@@ -17,6 +17,10 @@ internal static class ProtectedRegionPresentationSafetyTests
             "stale durable protected-region presentation binding is retained after invalidation");
         Assert(source.Contains("_v1027FailedSelectionRestore = null;", StringComparison.Ordinal),
             "stale restore-failure presentation state is retained after revision invalidation");
+        Assert(source.Contains("_v096Selection.AsSpan().SequenceEqual(weights)", StringComparison.Ordinal),
+            "Smart Selection persistence can acknowledge a stale snapshot as if it contained newer live weights");
+        Assert(source.Contains("if (_v096Selection != null)\n                V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
+            "Smart Selection changes made during an in-flight persistence operation are not re-queued afterward");
     }
 
     static void Assert(bool condition, string message)
