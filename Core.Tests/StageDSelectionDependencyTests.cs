@@ -153,6 +153,16 @@ internal static class StageDSelectionDependencyTests
                 "revision advancement did not make the persisted protected-region selection stale");
 
             store.SaveAsync(session.Current, projectPath).GetAwaiter().GetResult();
+            session.Undo();
+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == input.Id &&
+                   StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),
+                "undo did not restore the revision-bound protected-region selection to current semantics");
+            session.Redo();
+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == output.Id &&
+                   !StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),
+                "redo did not restore stale protected-region semantics after revision advancement");
+
+
             ProjectState advanced = store.LoadAsync(projectPath).GetAwaiter().GetResult();
             Assert(advanced.Objects[objectId].ActiveMeshRevisionId == output.Id &&
                    advanced.Candidates[candidateId].Status == CandidateStatus.Applied,
