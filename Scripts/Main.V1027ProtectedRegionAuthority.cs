@@ -12,6 +12,7 @@ public partial class Main
 {
     SelectionBinding? _v1027DurableSmartSelection;
     SelectionId? _v1027FailedSelectionRestore;
+    ObjectId? _v1027PendingSmartSelectionClearObjectId;
     bool _v1027SmartSelectionPersisting;
     float[]? _v1027PersistedSmartSelectionValues;
     string _v1027PersistedSmartSelectionQuery = "";
@@ -57,6 +58,7 @@ public partial class Main
         {
             SelectionBinding? restorable = session.Current.Selections.Values
                 .Where(binding => binding.Kind == "smart-select-vertex-weights" &&
+                                  binding.ObjectId != _v1027PendingSmartSelectionClearObjectId &&
                                   StageCSelection.IsCurrent(session.Current, binding) &&
                                   (liveObjectId == null || binding.ObjectId == liveObjectId))
                 .OrderByDescending(binding => binding.CreatedUtc)
@@ -88,6 +90,53 @@ public partial class Main
         string query = _v096SelectionQuery;
         _v1027SmartSelectionPersisting = true;
         _ = V1027PersistSmartSelectionAsync(objectId, obj.ActiveMeshRevisionId, snapshot, query);
+    }
+
+    void V1027BeginDurableSmartSelectionClear()
+    {
+        if (_v1027DurableSmartSelection is not { } binding || _v1020StageCSession == null)
+            return;
+
+        _v1027PendingSmartSelectionClearObjectId = binding.ObjectId;
+        _v1027DurableSmartSelection = null;
+        _v1027FailedSelectionRestore = null;
+        _v1027PersistedSmartSelectionValues = null;
+        _v1027PersistedSmartSelectionQuery = "";
+        _ = V1027ClearDurableSmartSelectionAsync(binding.ObjectId);
+    }
+
+    async Task V1027ClearDurableSmartSelectionAsync(ObjectId objectId)
+    {
+        bool cleared = false;
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                ProjectSession currentSession = _v1020StageCSession ??
+                    throw new InvalidOperationException("Stage-C project session is unavailable.");
+                cleared = StageCSelection.RemoveRevisionSelections(
+                    currentSession,
+                    objectId,
+                    "smart-select-vertex-weights") > 0;
+                if (cleared)
+                    await V1020SaveSessionAsync();
+            }
+            finally
+            {
+                _v1020StageCGate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Smart Selection was cleared locally but its durable binding could not be removed: " + ex.Message);
+        }
+        finally
+        {
+            _v1027PendingSmartSelectionClearObjectId = null;
+            if (!cleared)
+                V1027ReconcileDurableSmartSelection();
+        }
     }
 
     void V1027RestoreSmartSelection(SelectionBinding binding)
