@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "36cf1b3a46d7fd05551a3117896cfb424e108366",
+  "target_path": "Scripts/Main.V096SmartSelect.cs",
+  "expected_blob_sha": "deaadbb3ef2370c9934e2e73bbecc05c0b3503e2",
+  "commit_message": "fix: persist inverted smart selection",
+  "patch": "diff --git a/Scripts/Main.V096SmartSelect.cs b/Scripts/Main.V096SmartSelect.cs\n--- a/Scripts/Main.V096SmartSelect.cs\n+++ b/Scripts/Main.V096SmartSelect.cs\n@@ -201,7 +201,14 @@ public partial class Main\n     void InvertV096Selection()\n     {\n-        V096ValidateSelection(); if(_v096Selection==null){SetStatus(\"There is no Smart Selection to invert.\");return;} for(int i=0;i<_v096Selection.Length;i++)_v096Selection[i]=1f-_v096Selection[i]; RebuildV096SelectionOverlay();ApplyV096SelectionToSculptMask();SetStatus(\"Smart Selection inverted.\");\n+        V096ValidateSelection();\n+        if (_v096Selection == null) { SetStatus(\"There is no Smart Selection to invert.\"); return; }\n+        for (int i = 0; i < _v096Selection.Length; i++)\n+            _v096Selection[i] = 1f - _v096Selection[i];\n+        RebuildV096SelectionOverlay();\n+        ApplyV096SelectionToSculptMask();\n+        V1027ReconcileDurableSmartSelection();\n+        SetStatus(\"Smart Selection inverted and queued for revision-bound persistence.\");\n     }\n \n     void RebuildV096SelectionOverlay()\n"
+}
