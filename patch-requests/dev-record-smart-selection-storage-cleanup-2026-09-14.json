@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "144fb87fbc5c7fb739c86ecb0d94aa4b0d0d3ee4",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "c7a6ccc8c35b344303972dc7ac2773aaf94b939e",
+  "commit_message": "docs: record smart selection storage cleanup",
+  "patch": "@@ -50,2 +50,3 @@\n   6. Smart Selection persistence only acknowledges the exact saved weight/query snapshot; changes made while a save is in flight are immediately reconciled and queued afterward, so an older async save cannot falsely mark newer refined weights durable\n+  7. failed Smart Selection persistence removes a snapshot asset only when Core never accepted its revision-bound selection binding; once the binding is committed, the asset is retained even if a later project save fails, preventing both orphan storage leakage and broken committed references\n - next:\n"
+}
