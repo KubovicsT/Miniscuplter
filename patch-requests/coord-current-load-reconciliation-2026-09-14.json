@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "5b33b96348e97d76da9b42757e49135db690ae58",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "720bf2e3a0db62307b62b92070d983e08d8dec53",
+  "commit_message": "state: record dirty load reconciliation contract",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -34,1 +34,2 @@\n+- load_reconciliation_contract: session construction and ReplaceFromLoad repairs that change stale candidate or attachment state advance the durable revision and preserve the pre-repair saved revision, so repaired sessions are dirty and saveable; unchanged valid loads remain clean. Exact-head Core and full build/package validation are green.\n - attachment_revision_contract:\n"
+}
