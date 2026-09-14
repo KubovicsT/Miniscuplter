@@ -27,7 +27,9 @@ public sealed class ProjectSession
 
     public ProjectSession(ProjectState initial, int historyLimit = 100)
     {
-        Current = initial ?? throw new ArgumentNullException(nameof(initial));
+        if (initial == null) throw new ArgumentNullException(nameof(initial));
+        initial.Validate();
+        Current = InvalidateReadyCandidatesWhoseInputAdvanced(initial, initial);
         Current.Validate();
         _historyLimit = Math.Clamp(historyLimit, 1, 1000);
         _revisionClock = Current.RevisionNumber;
@@ -137,7 +139,7 @@ public sealed class ProjectSession
     {
         if (state == null) throw new ArgumentNullException(nameof(state));
         state.Validate();
-        Current = state;
+        Current = InvalidateReadyCandidatesWhoseInputAdvanced(state, state);
         _undo.Clear();
         _redo.Clear();
         _revisionClock = state.RevisionNumber;
@@ -217,9 +219,7 @@ public sealed class ProjectSession
                 continue;
 
             string? conflictReason = null;
-            if (before.Objects.TryGetValue(candidate.ObjectId, out var beforeObject) &&
-                after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) &&
-                beforeObject.ActiveMeshRevisionId != afterObject.ActiveMeshRevisionId &&
+            if (after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) &&
                 afterObject.ActiveMeshRevisionId != candidate.InputRevisionId)
                 conflictReason = $"Object advanced from input revision {candidate.InputRevisionId} to {afterObject.ActiveMeshRevisionId}.";
             else if (!IsDescendantRevision(after, candidate.OutputRevisionId, candidate.InputRevisionId, candidate.ObjectId))
