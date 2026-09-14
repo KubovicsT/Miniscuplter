@@ -145,6 +145,7 @@ public partial class Main
         string relative = $"data/selection_{selectionId}.json";
         string destination = ProjectStore.ResolveAsset(layout, relative);
         string temp = destination + ".tmp";
+        bool bindingCommitted = false;
 
         try
         {
@@ -173,6 +174,7 @@ public partial class Main
                     meshRevisionId,
                     "smart-select-vertex-weights",
                     relative);
+                bindingCommitted = true;
                 await V1020SaveSessionAsync();
                 _v1027DurableSmartSelection = binding;
                 _v1027FailedSelectionRestore = null;
@@ -197,6 +199,7 @@ public partial class Main
         catch (Exception ex)
         {
             try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            try { if (!bindingCommitted && File.Exists(destination)) File.Delete(destination); } catch { }
             if (_v1020StageCSession != null &&
                 _v1020StageCSession.Current.Objects.TryGetValue(objectId, out ProjectObject? current) &&
                 current.ActiveMeshRevisionId != meshRevisionId)
