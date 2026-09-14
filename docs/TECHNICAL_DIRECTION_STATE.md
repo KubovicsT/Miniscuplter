@@ -2,7 +2,7 @@
 
 This file is the authoritative medium/long-horizon technical-direction state owned by the Project Coordinator. It stores project strategy facts only; behavioral rules remain in automation prompts. `docs/TECHNICAL_ROADMAP.md` is legacy/read-only context.
 
-- last_reconciled: 2026-09-13
+- last_reconciled: 2026-09-14
 
 ## Architecture ownership
 - durable_project_state: Core
@@ -61,9 +61,14 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - non-critical provider fallback expansion
 
 ## Release policy state
-- Coordinator owns release readiness, chunk size and publication
-- Dev prepares release-worthy checkpoints but never publishes
+- Coordinator owns release readiness, chunk size and publication; Dev prepares release-worthy checkpoints but never publishes
 - published releases/tags and their semantic branches are immutable history
+- active-development cadence target: approximately two meaningful runtime-test releases per day when safe/coherent work supports it; this is a planning target, never a clock-triggered publication requirement
+- normal release envelope: one coherent test theme containing roughly 2–4 meaningful related changes or about 3–6 hours of active development; once that batch is coherent, validated and useful to test, adjacent nonessential work rolls forward to the next semantic version instead of prolonging the current one
+- every ordinary release should provide useful runtime feedback value through visible workflow change, reliability/recovery behavior, persistence/history behavior, performance/runtime behavior, or a regression-prone foundation change that merits target-machine testing
+- do not publish an isolated trivial bug fix as a normal version; bundle it with the smallest coherent related test slice unless severity, testing blockage or release-safety risk justifies an expedited fix
+- do not hold a ready testable batch for perfection, unrelated cleanup, or completion of an entire architectural workstream
+- candidate gates remain strict: exact-head automated validation/package gates green, canonical state coherent, no known release-blocking regression, and no active publication conflict; pending user verification of prior releases is not itself a publication blocker
+- after successful publication, immediately establish the validated next semantic-version branch/VERSION bootstrap so continuing work lands in a fresh release envelope
 - v1.0.32 is published/frozen
-- v1.0.33 is the authoritative writable successor
-- no v1.0.33 release consideration until the independent foundation slice is coherent and any reference-machine regressions that materially affect it are reconciled
+- v1.0.33 is the authoritative writable successor and should be treated as the first small-batch checkpoint under this policy: close/release it at the next coherent green checkpoint rather than waiting for all remaining UI-neutral foundation work; unfinished independent work continues on v1.0.34
