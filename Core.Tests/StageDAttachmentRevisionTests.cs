@@ -80,5 +80,21 @@ internal static class StageDAttachmentRevisionTests
         session.Redo();
         Assert(StageDAttachments.ResolveBindingStatus(session.Current, session.Current.Attachments[attachment.Id]) == AttachmentBindingStatus.Rebound,
             "redo did not restore rebound attachment binding");
+
+        var childV2 = await store.CreateMeshRevisionAsync(projectPath, childId, Tetra(0.6f), "attachment-test:child-v2", childV1.Id);
+        session.Execute("Advance child mesh", current => current
+            .WithMeshRevision(childV2)
+            .WithObject(current.Objects[childId] with { ActiveMeshRevisionId = childV2.Id }), childId);
+        var childStale = session.Current.Attachments[attachment.Id];
+        Assert(childStale.ParentMeshRevisionId == parentV2.Id && childStale.ChildMeshRevisionId == childV1.Id,
+            "child revision advance silently transferred durable attachment revision bindings");
+        Assert(childStale.BindingStatus == AttachmentBindingStatus.Stale &&
+               StageDAttachments.ResolveBindingStatus(session.Current, childStale) == AttachmentBindingStatus.Stale,
+            "attachment did not persist stale state after child revision advance");
+        bool childStaleUpdateRejected = false;
+        try { StageDAttachments.UpdateIfCurrent(session, childStale, "other-child", TransformState.Identity); }
+        catch (InvalidOperationException) { childStaleUpdateRejected = true; }
+        Assert(childStaleUpdateRejected,
+            "child-revision-stale attachment remained authoritative for update");
     }
 }
