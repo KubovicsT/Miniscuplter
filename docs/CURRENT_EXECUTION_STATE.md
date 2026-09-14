@@ -39,6 +39,7 @@
   5. topology-changing or unknown-compatibility edits therefore default to stale/non-authoritative state rather than silent deletion or transfer
   6. mapped Godot Kitbash actions resolve stable Core object identity and commit snap/detach/fine-tune through StageDAttachments; stale mapped attachments fail closed and do not keep following sockets from legacy display-name state
   7. legacy DTO/display-name behavior remains only as a migration fallback for objects that are not yet represented by stable Core identity; no user-facing Kitbash workflow change was introduced
+  8. explicit attachment rebind persists its exact Rebound status and parent/child revision pair across save/reopen, while session construction and ReplaceFromLoad fail closed a revision-mismatched record even if legacy state marks it Rebound
 - selection_dependency_contract:
   1. Smart Selection durable bindings remain tied to exact ObjectId + mesh revision identity
   2. revision advancement invalidates stale vertex-weight bindings instead of reusing indices against different topology
