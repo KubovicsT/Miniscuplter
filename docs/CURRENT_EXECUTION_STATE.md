@@ -51,6 +51,7 @@
   7. failed pre-binding Smart Selection persistence removes an unreferenced snapshot asset, while a binding already accepted by Core retains its asset if the later project save fails
   8. explicit Smart Selection clear removes all durable smart-select bindings for the object through a serialized Core transaction and suppresses restore while that removal is pending, so cleared live weights cannot be resurrected by reconciliation or save/reopen
   9. successful durable Smart Selection clear removes retired snapshot assets only after project save succeeds and only when no surviving binding references them; failed durable removal re-enables reconciliation so recovered Core state is not hidden behind locally cleared presentation
+  10. failed Smart Selection save recovery re-checks the recovered Core selection graph before snapshot cleanup, so a rolled-back binding cannot leak an orphan asset while any still-referenced asset is preserved
 - next:
   1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including remaining dependency preservation/invalidation and migration coverage
   2. close any remaining UI-neutral stale presentation paths for candidates, attachments or selections after Core authority changes
