@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "7458b6cfac3b729e937e549f53de6690db147323",
+  "target_path": "Core/ProjectHistory.cs",
+  "expected_blob_sha": "dd4db1a7a3593d4ab97539d97d92122b65605268",
+  "commit_message": "core: conflict candidates with missing targets",
+  "patch": "--- a/Core/ProjectHistory.cs\n+++ b/Core/ProjectHistory.cs\n@@ -245,3 +245,4 @@\n-            if (after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) &&\n-                afterObject.ActiveMeshRevisionId != candidate.InputRevisionId)\n+            if (!after.Objects.TryGetValue(candidate.ObjectId, out var afterObject))\n+                conflictReason = $\"Target object {candidate.ObjectId} no longer exists.\";\n+            else if (afterObject.ActiveMeshRevisionId != candidate.InputRevisionId)\n                 conflictReason = $\"Object advanced from input revision {candidate.InputRevisionId} to {afterObject.ActiveMeshRevisionId}.\";\n"
+}
