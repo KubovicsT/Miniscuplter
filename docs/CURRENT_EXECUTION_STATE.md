@@ -7,6 +7,8 @@
 - publication_active: false
 - branch_bootstrap: complete; VERSION 1.0.33
 - execution_hold: none
+- release_cadence_target: approximately two meaningful runtime-test releases per active development day when coherent/green batches exist; cadence target is not a timer-based publication rule
+- current_release_slice: v1.0.33 is now bounded as the first small-batch checkpoint under this policy; do not add unrelated new foundation scope before Coordinator release review
 
 ## Pending reference-machine verification
 ### F — verify the released v1.0.32 recovery checkpoint on the reference machine
@@ -53,14 +55,15 @@
   9. successful durable Smart Selection clear removes retired snapshot assets only after project save succeeds and only when no surviving binding references them; failed durable removal re-enables reconciliation so recovered Core state is not hidden behind locally cleared presentation
   10. failed Smart Selection save recovery re-checks the recovered Core selection graph before snapshot cleanup, so a rolled-back binding cannot leak an orphan asset while any still-referenced asset is preserved
 - next:
-  1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including remaining dependency preservation/invalidation and migration coverage
-  2. close any remaining UI-neutral stale presentation paths for candidates, attachments or selections after Core authority changes
-  3. stop before irreversible or user-owned Refinement/Kitbash UI decisions
+  1. treat the accumulated v1.0.33 foundation/Smart Selection durability work as a coherent release checkpoint; finish only candidate-blocking fixes or already-in-flight atomic work on this version
+  2. return v1.0.33 to Coordinator for release as soon as exact-head release/package gates and canonical state are coherent; do not delay it for additional unrelated UI-neutral foundation cleanup
+  3. after publication and validated v1.0.34 bootstrap, continue remaining revision-safe Refinement dependency preservation/invalidation and stale-presentation migration coverage there
+  4. continue to stop before irreversible or user-owned Refinement/Kitbash UI decisions
 - acceptance: no revision-dependent attachment, selection or refinement dependency can silently survive an incompatible mesh revision change; save/reopen and undo/redo preserve exact durable state; exact-head Core and full build/package validation remain green
 - process_blocker: none; recurring patch-request formatting friction remained fail-closed and recovered within the bounded retry contract; AUTO-INC-013 carries the process evidence
 - preemption: any reproduced v1.0.32 P0/P1 regression becomes the next implementation priority after Coordinator reconciliation
 - stop: strategic/user authority is required; no independent authorized work remains; a real release freeze starts; or continuing would compound a severe regression/data-loss/safety risk
-- continuation: Dev continues automatically through valid independent work; Coordinator replenishes the queue without waiting for ordinary user runtime availability
+- continuation: Dev continues automatically through valid independent work, but release slices are intentionally bounded; once the current version has a coherent green runtime-test batch, defer adjacent unfinished work to the next semantic version rather than extending the current release envelope
 
 ## Deferred / user-owned design
 - MS-041 Refinement/Kitbash: structural direction is accepted, but exact UI/interaction design remains user-approval work.
