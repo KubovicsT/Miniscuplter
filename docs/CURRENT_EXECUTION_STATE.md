@@ -44,7 +44,7 @@
 - selection_dependency_contract:
   1. Smart Selection durable bindings remain tied to exact ObjectId + mesh revision identity
   2. revision advancement invalidates stale vertex-weight bindings instead of reusing indices against different topology
-  3. grow/shrink/smooth produces a new selection-weight snapshot that is queued immediately through the same revision-bound persistence seam
+  3. grow/shrink/smooth/invert produces a new selection-weight snapshot that is queued immediately through the same revision-bound persistence seam
   4. stale durable protected-region bindings clear stale live weights whenever stable live object identity cannot be proven, rather than allowing presentation state to outlive Core revision authority
   5. candidate-driven revision advancement makes the bound selection stale, while undo restores current selection semantics and redo restores stale semantics against the exact durable revision history
   6. Smart Selection persistence only acknowledges the exact saved weight/query snapshot; changes made while a save is in flight are immediately reconciled and queued afterward, so an older async save cannot falsely mark newer refined weights durable
