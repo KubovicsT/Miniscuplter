@@ -29,7 +29,7 @@ public sealed class ProjectSession
     {
         if (initial == null) throw new ArgumentNullException(nameof(initial));
         initial.Validate();
-        Current = InvalidateReadyCandidatesWhoseInputAdvanced(initial, initial);
+        Current = ReconcileAttachmentBindings(InvalidateReadyCandidatesWhoseInputAdvanced(initial, initial));
         Current.Validate();
         _historyLimit = Math.Clamp(historyLimit, 1, 1000);
         _revisionClock = Current.RevisionNumber;
@@ -43,7 +43,7 @@ public sealed class ProjectSession
         var after = mutation(before) ?? throw new InvalidOperationException("Project command returned null state.");
         if (after.ProjectId != before.ProjectId) throw new InvalidOperationException("A project command cannot replace project identity.");
 
-        after = InvalidateReadyCandidatesWhoseInputAdvanced(before, after);
+        after = ReconcileAttachmentBindings(InvalidateReadyCandidatesWhoseInputAdvanced(before, after));
 
         // Revision numbers are durable state identities, not an undo-stack cursor. After undo,
         // a new branch must never reuse a previously observed revision number because that can
@@ -139,7 +139,7 @@ public sealed class ProjectSession
     {
         if (state == null) throw new ArgumentNullException(nameof(state));
         state.Validate();
-        Current = InvalidateReadyCandidatesWhoseInputAdvanced(state, state);
+        Current = ReconcileAttachmentBindings(InvalidateReadyCandidatesWhoseInputAdvanced(state, state));
         _undo.Clear();
         _redo.Clear();
         _revisionClock = state.RevisionNumber;
@@ -208,6 +208,29 @@ public sealed class ProjectSession
                 ConflictReason = reason
             }), candidate.ObjectId);
         return new CandidateApplyResult(false, true, message, Current);
+    }
+
+    static ProjectState ReconcileAttachmentBindings(ProjectState state)
+    {
+        ProjectState result = state;
+        foreach (var attachment in state.Attachments.Values)
+        {
+            if (attachment.BindingStatus == AttachmentBindingStatus.Stale)
+                continue;
+            if (!state.Objects.TryGetValue(attachment.ParentObjectId, out var parent) ||
+                !state.Objects.TryGetValue(attachment.ChildObjectId, out var child) ||
+                attachment.ParentMeshRevisionId is not { } parentRevisionId ||
+                attachment.ChildMeshRevisionId is not { } childRevisionId ||
+                parent.ActiveMeshRevisionId != parentRevisionId ||
+                child.ActiveMeshRevisionId != childRevisionId)
+            {
+                result = result.WithAttachment(attachment with
+                {
+                    BindingStatus = AttachmentBindingStatus.Stale
+                });
+            }
+        }
+        return result;
     }
 
     static ProjectState InvalidateReadyCandidatesWhoseInputAdvanced(ProjectState before, ProjectState after)
