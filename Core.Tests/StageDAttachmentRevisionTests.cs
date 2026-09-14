@@ -81,6 +81,16 @@ internal static class StageDAttachmentRevisionTests
         Assert(StageDAttachments.ResolveBindingStatus(session.Current, session.Current.Attachments[attachment.Id]) == AttachmentBindingStatus.Rebound,
             "redo did not restore rebound attachment binding");
 
+        await store.SaveAsync(session.Current, projectPath);
+        var reopenedRebound = await store.LoadAsync(projectPath);
+        var persistedRebound = reopenedRebound.Attachments[attachment.Id];
+        Assert(persistedRebound.BindingStatus == AttachmentBindingStatus.Rebound &&
+               persistedRebound.ParentMeshRevisionId == parentV2.Id &&
+               persistedRebound.ChildMeshRevisionId == childV1.Id,
+            "save/reopen did not preserve the exact explicit rebind state");
+        Assert(StageDAttachments.ResolveBindingStatus(reopenedRebound, persistedRebound) == AttachmentBindingStatus.Rebound,
+            "save/reopen did not preserve authoritative rebound semantics");
+
         var childV2 = await store.CreateMeshRevisionAsync(projectPath, childId, Tetra(0.6f), "attachment-test:child-v2", childV1.Id);
         session.Execute("Advance child mesh", current => current
             .WithMeshRevision(childV2)
@@ -96,5 +106,14 @@ internal static class StageDAttachmentRevisionTests
         catch (InvalidOperationException) { childStaleUpdateRejected = true; }
         Assert(childStaleUpdateRejected,
             "child-revision-stale attachment remained authoritative for update");
+
+        var staleMarkedRebound = session.Current.WithAttachment(childStale with { BindingStatus = AttachmentBindingStatus.Rebound });
+        var reboundReconciledSession = new ProjectSession(staleMarkedRebound);
+        Assert(reboundReconciledSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
+            "session construction did not fail closed a revision-stale attachment marked rebound");
+        var reboundReplacementSession = new ProjectSession(state);
+        reboundReplacementSession.ReplaceFromLoad(staleMarkedRebound);
+        Assert(reboundReplacementSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
+            "ReplaceFromLoad did not fail closed a revision-stale attachment marked rebound");
     }
 }
