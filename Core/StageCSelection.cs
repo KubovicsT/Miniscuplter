@@ -74,23 +74,32 @@ public static class StageCSelection
         return binding;
     }
 
-    public static bool RemoveRevisionSelection(ProjectSession session, SelectionBinding selection)
+    public static int RemoveRevisionSelections(ProjectSession session, ObjectId objectId, string kind)
     {
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(selection);
-        if (!session.Current.Selections.TryGetValue(selection.Id, out SelectionBinding? persisted))
-            return false;
-        if (persisted != selection)
-            throw new InvalidOperationException("Selection binding changed before it could be removed.");
+        if (objectId.Value == Guid.Empty)
+            throw new ArgumentException("Object ID cannot be empty.", nameof(objectId));
+        if (string.IsNullOrWhiteSpace(kind))
+            throw new ArgumentException("Selection kind is required.", nameof(kind));
 
+        string normalizedKind = kind.Trim();
+        SelectionId[] ids = session.Current.Selections.Values
+            .Where(selection => selection.ObjectId == objectId &&
+                                string.Equals(selection.Kind, normalizedKind, StringComparison.Ordinal))
+            .Select(selection => selection.Id)
+            .ToArray();
+        if (ids.Length == 0)
+            return 0;
+
+        var remove = ids.ToHashSet();
         session.Execute(
-            $"Stage-C selection: remove {selection.Kind}",
-            state => WithoutSelection(state, selection.Id),
-            selection.ObjectId);
-        return true;
+            $"Stage-C selection: clear {normalizedKind}",
+            state => WithoutSelections(state, remove),
+            objectId);
+        return ids.Length;
     }
 
-    static ProjectState WithoutSelection(ProjectState state, SelectionId selectionId) =>
+    static ProjectState WithoutSelections(ProjectState state, IReadOnlySet<SelectionId> selectionIds) =>
         new(
             state.ProjectId,
             state.DisplayName,
@@ -98,7 +107,7 @@ public static class StageCSelection
             state.Objects.Values,
             state.MeshRevisions.Values,
             state.ImageRevisions.Values,
-            state.Selections.Values.Where(selection => selection.Id != selectionId),
+            state.Selections.Values.Where(selection => !selectionIds.Contains(selection.Id)),
             state.Rigs.Values,
             state.Attachments.Values,
             state.Candidates.Values,
