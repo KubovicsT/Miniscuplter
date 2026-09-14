@@ -74,6 +74,36 @@ public static class StageCSelection
         return binding;
     }
 
+    public static bool RemoveRevisionSelection(ProjectSession session, SelectionBinding selection)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(selection);
+        if (!session.Current.Selections.TryGetValue(selection.Id, out SelectionBinding? persisted))
+            return false;
+        if (persisted != selection)
+            throw new InvalidOperationException("Selection binding changed before it could be removed.");
+
+        session.Execute(
+            $"Stage-C selection: remove {selection.Kind}",
+            state => WithoutSelection(state, selection.Id),
+            selection.ObjectId);
+        return true;
+    }
+
+    static ProjectState WithoutSelection(ProjectState state, SelectionId selectionId) =>
+        new(
+            state.ProjectId,
+            state.DisplayName,
+            state.RevisionNumber,
+            state.Objects.Values,
+            state.MeshRevisions.Values,
+            state.ImageRevisions.Values,
+            state.Selections.Values.Where(selection => selection.Id != selectionId),
+            state.Rigs.Values,
+            state.Attachments.Values,
+            state.Candidates.Values,
+            state.Metadata);
+
     public static bool IsCurrent(ProjectState state, SelectionBinding selection)
     {
         ArgumentNullException.ThrowIfNull(state);
