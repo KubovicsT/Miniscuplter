@@ -12,6 +12,8 @@ internal static class StageDLoadedCandidateReconciliationTests
             staleSession.Current.Candidates[stale.CandidateId].Status == CandidateStatus.Conflict &&
             staleSession.Current.Candidates[stale.CandidateId].ConflictReason?.Contains("advanced", StringComparison.Ordinal) == true,
             "loaded candidate bound to a stale input revision remained Ready");
+        Assert(staleSession.IsDirty && staleSession.Current.RevisionNumber == stale.State.RevisionNumber + 1,
+            "load-time stale-candidate reconciliation was not marked as a durable unsaved repair");
 
         var invalidLineage = CreateCandidateFixture(outputDescendsFromInput: false, activeOnInput: true);
         var invalidSession = new ProjectSession(invalidLineage.State);
@@ -19,15 +21,21 @@ internal static class StageDLoadedCandidateReconciliationTests
             invalidSession.Current.Candidates[invalidLineage.CandidateId].Status == CandidateStatus.Conflict &&
             invalidSession.Current.Candidates[invalidLineage.CandidateId].ConflictReason?.Contains("not descended", StringComparison.Ordinal) == true,
             "loaded candidate with invalid output lineage remained Ready");
+        Assert(invalidSession.IsDirty,
+            "load-time invalid-lineage reconciliation was not marked dirty for persistence");
 
         var valid = CreateCandidateFixture(outputDescendsFromInput: true, activeOnInput: true);
         var validSession = new ProjectSession(valid.State);
         Assert(validSession.Current.Candidates[valid.CandidateId].Status == CandidateStatus.Ready,
             "valid loaded candidate was incorrectly conflicted");
+        Assert(!validSession.IsDirty && validSession.Current.RevisionNumber == valid.State.RevisionNumber,
+            "unchanged valid load was incorrectly marked dirty");
 
         validSession.ReplaceFromLoad(stale.State);
         Assert(validSession.Current.Candidates[stale.CandidateId].Status == CandidateStatus.Conflict,
             "ReplaceFromLoad did not reconcile a stale Ready candidate");
+        Assert(validSession.IsDirty && validSession.Current.RevisionNumber == stale.State.RevisionNumber + 1,
+            "ReplaceFromLoad reconciliation repair was not marked dirty for persistence");
     }
 
     static CandidateFixture CreateCandidateFixture(bool outputDescendsFromInput, bool activeOnInput)
