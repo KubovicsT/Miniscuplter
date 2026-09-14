@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "c1496d220f69f543e76201e0ebc661600a0674b2",
+  "target_path": "Scripts/Main.V096SmartSelect.cs",
+  "expected_blob_sha": "36a0cb422d0f9adfd10a9c886ec256760d9d3665",
+  "commit_message": "fix: retire durable smart selection on clear",
+  "patch": "@@ -193,4 +193,5 @@\n     void ClearV096Selection(bool status = true)\n     {\n+        if (status) V1027BeginDurableSmartSelectionClear();\n         V096RestoreSelectionView();\n         if (_v096SelectionObject?.Mesh is ArrayMesh mesh) { var mask=GetV08Mask(mesh,false); if(mask!=null){Array.Fill(mask,0f);UpdateV08MaskStatus(mask);} }\n"
+}
