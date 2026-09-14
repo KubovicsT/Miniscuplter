@@ -106,6 +106,15 @@ internal static class StageDCandidateSiblingPersistenceTests
             Assert(discardedReopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id &&
                    discardedReopenedSession.Current.Candidates[candidateAId].Status == CandidateStatus.Applied,
                 "save/reopen after sibling discard disturbed the already-applied candidate result");
+
+            long discardedRevisionBeforeRejectedApply = discardedReopenedSession.Current.RevisionNumber;
+            CandidateApplyResult discardedApply = discardedReopenedSession.ApplyCandidate(candidateBId);
+            Assert(!discardedApply.Applied && !discardedApply.Conflict,
+                "reopened discarded sibling candidate did not remain terminal on Apply");
+            Assert(discardedReopenedSession.Current.RevisionNumber == discardedRevisionBeforeRejectedApply &&
+                   discardedReopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id &&
+                   discardedReopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Discarded,
+                "Apply against a reopened discarded sibling candidate mutated durable project state");
         }
         finally
         {
