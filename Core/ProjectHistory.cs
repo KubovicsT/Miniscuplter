@@ -213,20 +213,47 @@ public sealed class ProjectSession
         ProjectState result = after;
         foreach (var candidate in after.Candidates.Values)
         {
-            if (candidate.Status != CandidateStatus.Ready ||
-                !before.Objects.TryGetValue(candidate.ObjectId, out var beforeObject) ||
-                !after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) ||
-                beforeObject.ActiveMeshRevisionId == afterObject.ActiveMeshRevisionId ||
-                afterObject.ActiveMeshRevisionId == candidate.InputRevisionId)
+            if (candidate.Status != CandidateStatus.Ready)
+                continue;
+
+            string? conflictReason = null;
+            if (before.Objects.TryGetValue(candidate.ObjectId, out var beforeObject) &&
+                after.Objects.TryGetValue(candidate.ObjectId, out var afterObject) &&
+                beforeObject.ActiveMeshRevisionId != afterObject.ActiveMeshRevisionId &&
+                afterObject.ActiveMeshRevisionId != candidate.InputRevisionId)
+                conflictReason = $"Object advanced from input revision {candidate.InputRevisionId} to {afterObject.ActiveMeshRevisionId}.";
+            else if (!IsDescendantRevision(after, candidate.OutputRevisionId, candidate.InputRevisionId, candidate.ObjectId))
+                conflictReason = $"Output revision {candidate.OutputRevisionId} is not descended from input revision {candidate.InputRevisionId}.";
+
+            if (conflictReason is null)
                 continue;
 
             result = result.WithCandidate(candidate with
             {
                 Status = CandidateStatus.Conflict,
-                ConflictReason = $"Object advanced from input revision {candidate.InputRevisionId} to {afterObject.ActiveMeshRevisionId}."
+                ConflictReason = conflictReason
             });
         }
         return result;
+    }
+
+    static bool IsDescendantRevision(ProjectState state, RevisionId outputRevisionId, RevisionId inputRevisionId, ObjectId objectId)
+    {
+        if (!state.MeshRevisions.TryGetValue(outputRevisionId, out var cursor) || cursor.ObjectId != objectId)
+            return false;
+
+        var visited = new HashSet<RevisionId>();
+        while (true)
+        {
+            if (!visited.Add(cursor.Id))
+                return false;
+            if (cursor.ParentRevisionId is not { } parentId)
+                return false;
+            if (parentId == inputRevisionId)
+                return true;
+            if (!state.MeshRevisions.TryGetValue(parentId, out cursor) || cursor.ObjectId != objectId)
+                return false;
+        }
     }
 
     bool IsDescendantRevision(RevisionId outputRevisionId, RevisionId inputRevisionId, ObjectId objectId)
