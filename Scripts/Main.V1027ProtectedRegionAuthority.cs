@@ -281,7 +281,15 @@ public partial class Main
         catch (Exception ex)
         {
             try { if (File.Exists(temp)) File.Delete(temp); } catch { }
-            try { if (!bindingCommitted && File.Exists(destination)) File.Delete(destination); } catch { }
+            try
+            {
+                bool destinationStillReferenced = _v1020StageCSession != null &&
+                    _v1020StageCSession.Current.Selections.Values.Any(binding =>
+                        string.Equals(binding.DataAssetPath, relative, StringComparison.OrdinalIgnoreCase));
+                if (!destinationStillReferenced && File.Exists(destination))
+                    File.Delete(destination);
+            }
+            catch { }
             if (_v1020StageCSession != null &&
                 _v1020StageCSession.Current.Objects.TryGetValue(objectId, out ProjectObject? current) &&
                 current.ActiveMeshRevisionId != meshRevisionId)
