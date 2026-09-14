@@ -192,6 +192,7 @@ public partial class Main
 
     void ClearV096Selection(bool status = true)
     {
+        if (status) V1027BeginDurableSmartSelectionClear();
         V096RestoreSelectionView();
         if (_v096SelectionObject?.Mesh is ArrayMesh mesh) { var mask=GetV08Mask(mesh,false); if(mask!=null){Array.Fill(mask,0f);UpdateV08MaskStatus(mask);} }
         _v096Selection=null; _v096SelectionObject=null; _v096SelectionQuery=""; _v096SelectionTopology=""; _v096SelectionOverlay?.QueueFree(); _v096SelectionOverlay=null;
