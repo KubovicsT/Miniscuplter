@@ -200,7 +200,14 @@ public partial class Main
 
     void InvertV096Selection()
     {
-        V096ValidateSelection(); if(_v096Selection==null){SetStatus("There is no Smart Selection to invert.");return;} for(int i=0;i<_v096Selection.Length;i++)_v096Selection[i]=1f-_v096Selection[i]; RebuildV096SelectionOverlay();ApplyV096SelectionToSculptMask();SetStatus("Smart Selection inverted.");
+        V096ValidateSelection();
+        if (_v096Selection == null) { SetStatus("There is no Smart Selection to invert."); return; }
+        for (int i = 0; i < _v096Selection.Length; i++)
+            _v096Selection[i] = 1f - _v096Selection[i];
+        RebuildV096SelectionOverlay();
+        ApplyV096SelectionToSculptMask();
+        V1027ReconcileDurableSmartSelection();
+        SetStatus("Smart Selection inverted and queued for revision-bound persistence.");
     }
 
     void RebuildV096SelectionOverlay()
