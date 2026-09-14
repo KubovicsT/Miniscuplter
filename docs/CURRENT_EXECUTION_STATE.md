@@ -38,7 +38,7 @@
   3. session construction and ReplaceFromLoad fail closed legacy/current-marked attachment records whose exact revision bindings no longer match active parent/child revisions
   4. automatic transfer remains disallowed without explicit compatibility evidence; no automatic transfer path was introduced
   5. topology-changing or unknown-compatibility edits therefore default to stale/non-authoritative state rather than silent deletion or transfer
-  6. mapped Godot Kitbash actions resolve stable Core object identity and commit snap/detach/fine-tune through StageDAttachments; stale mapped attachments fail closed and do not keep following sockets from legacy display-name state
+  6. mapped Godot Kitbash actions resolve stable Core object identity and commit snap/detach/fine-tune through StageDAttachments; stale mapped attachments fail closed, do not keep following sockets from legacy display-name state, and no longer project stale legacy fine-tune values into the controls after Core authority is lost
   7. legacy DTO/display-name behavior remains only as a migration fallback for objects that are not yet represented by stable Core identity; no user-facing Kitbash workflow change was introduced
   8. explicit attachment rebind persists its exact Rebound status and parent/child revision pair across save/reopen, while session construction and ReplaceFromLoad fail closed a revision-mismatched record even if legacy state marks it Rebound
 - selection_dependency_contract:
