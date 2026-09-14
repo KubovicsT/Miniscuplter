@@ -70,13 +70,14 @@ internal static class StageDSelectionDependencyTests
 
         var stale = CreateCandidateFixture(outputDescendsFromInput: true, activeOnInput: false);
         var staleSession = new ProjectSession(stale.State);
+        Assert(staleSession.Current.Candidates[stale.CandidateId].Status == CandidateStatus.Conflict,
+            "loaded candidate bound to a stale input revision was not reconciled as a conflict");
+        long staleRevision = staleSession.Current.RevisionNumber;
         var staleResult = staleSession.ApplyCandidate(stale.CandidateId);
         Assert(!staleResult.Applied && staleResult.Conflict &&
-               staleSession.Current.Candidates[stale.CandidateId].Status == CandidateStatus.Conflict,
-            "candidate bound to a stale input revision was not preserved as a conflict");
-        staleSession.Undo();
-        Assert(staleSession.Current.Candidates[stale.CandidateId].Status == CandidateStatus.Ready,
-            "undo did not restore stale candidate conflict marking");
+               staleSession.Current.Candidates[stale.CandidateId].Status == CandidateStatus.Conflict &&
+               staleSession.Current.RevisionNumber == staleRevision,
+            "already-conflicted stale candidate was reprocessed or mutated again");
 
         var invalidLineage = CreateCandidateFixture(outputDescendsFromInput: false, activeOnInput: true);
         var invalidSession = new ProjectSession(invalidLineage.State);
