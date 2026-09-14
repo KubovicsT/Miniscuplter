@@ -114,9 +114,15 @@ public partial class Main
     {
         if (_selected == null) { _v095FineTuneObject = ""; return; }
         string name = _selected.Name.ToString();
-        if (name == _v095FineTuneObject) return;
         var a = _v07Attachments.FirstOrDefault(x => x.PartObjectName == name);
         if (a == null) { _v095FineTuneObject = ""; return; }
+        if (!V1033TryProjectAuthoritativeAttachment(a, _selected))
+        {
+            V095ClearAttachmentFineTuneControls();
+            _v095FineTuneObject = "";
+            return;
+        }
+        if (name == _v095FineTuneObject) return;
         if (a.LocalOffset == null || a.LocalOffset.Length < 3) a.LocalOffset = new float[3];
         if (a.LocalRotationDeg == null || a.LocalRotationDeg.Length < 3) a.LocalRotationDeg = new float[3];
         if (_v07AttachOffsetX != null) _v07AttachOffsetX.Value = a.LocalOffset[0];
@@ -127,5 +133,16 @@ public partial class Main
         if (_v07AttachRotZ != null) _v07AttachRotZ.Value = a.LocalRotationDeg[2];
         if (_v07AttachScale != null) _v07AttachScale.Value = Math.Max(.01f, a.UniformScale);
         _v095FineTuneObject = name;
+    }
+
+    void V095ClearAttachmentFineTuneControls()
+    {
+        if (_v07AttachOffsetX != null) _v07AttachOffsetX.Value = 0;
+        if (_v07AttachOffsetY != null) _v07AttachOffsetY.Value = 0;
+        if (_v07AttachOffsetZ != null) _v07AttachOffsetZ.Value = 0;
+        if (_v07AttachRotX != null) _v07AttachRotX.Value = 0;
+        if (_v07AttachRotY != null) _v07AttachRotY.Value = 0;
+        if (_v07AttachRotZ != null) _v07AttachRotZ.Value = 0;
+        if (_v07AttachScale != null) _v07AttachScale.Value = 1;
     }
 }
