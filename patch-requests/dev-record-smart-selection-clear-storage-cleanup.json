@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "bc0cd81c5f7331d30d9ae52791aa7bb173aacb33",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "1a713ea5c9447b49faf03da8dfe34121dbab1269",
+  "commit_message": "docs: record smart selection clear storage cleanup",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -50,6 +50,7 @@\n   6. Smart Selection persistence only acknowledges the exact saved weight/query snapshot; changes made while a save is in flight are immediately reconciled and queued afterward, so an older async save cannot falsely mark newer refined weights durable\n   7. failed pre-binding Smart Selection persistence removes an unreferenced snapshot asset, while a binding already accepted by Core retains its asset if the later project save fails\n   8. explicit Smart Selection clear removes all durable smart-select bindings for the object through a serialized Core transaction and suppresses restore while that removal is pending, so cleared live weights cannot be resurrected by reconciliation or save/reopen\n+  9. successful durable Smart Selection clear removes retired snapshot assets only after project save succeeds and only when no surviving binding references them; failed durable removal re-enables reconciliation so recovered Core state is not hidden behind locally cleared presentation\n - next:\n   1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including remaining dependency preservation/invalidation and migration coverage\n   2. close any remaining UI-neutral stale presentation paths for candidates, attachments or selections after Core authority changes\n"
+}
