@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.33",
+  "expected_head_sha": "d8a6345caab9aca6d26e54f24ef6fee00367a03f",
+  "target_path": "Core.Tests/StageDSelectionDependencyTests.cs",
+  "expected_blob_sha": "7255928be44a3d413f67adcd66f7ce3d813b866b",
+  "commit_message": "test: cover selection dependency undo redo",
+  "patch": "--- a/Core.Tests/StageDSelectionDependencyTests.cs\n+++ b/Core.Tests/StageDSelectionDependencyTests.cs\n@@ -153,6 +153,16 @@\n             Assert(!StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),\n                 \"revision advancement did not make the persisted protected-region selection stale\");\n \n+            session.Undo();\n+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == input.Id &&\n+                   StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),\n+                \"undo did not restore the revision-bound protected-region selection to current semantics\");\n+            session.Redo();\n+            Assert(session.Current.Objects[objectId].ActiveMeshRevisionId == output.Id &&\n+                   !StageCSelection.IsCurrent(session.Current, session.Current.Selections[selectionId]),\n+                \"redo did not restore stale protected-region semantics after revision advancement\");\n+\n             store.SaveAsync(session.Current, projectPath).GetAwaiter().GetResult();\n             ProjectState advanced = store.LoadAsync(projectPath).GetAwaiter().GetResult();\n             Assert(advanced.Objects[objectId].ActiveMeshRevisionId == output.Id &&\n"
+}
