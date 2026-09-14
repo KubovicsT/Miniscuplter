@@ -22,11 +22,10 @@ internal static class ProtectedRegionPresentationSafetyTests
             "Smart Selection persistence can acknowledge a stale snapshot as if it contained newer live weights");
         Assert(normalizedSource.Contains("if (_v096Selection != null)\n                V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
             "Smart Selection changes made during an in-flight persistence operation are not re-queued afterward");
-        Assert(source.Contains("bool bindingCommitted = false;", StringComparison.Ordinal) &&
-               source.Contains("bindingCommitted = true;", StringComparison.Ordinal),
-            "Smart Selection persistence does not distinguish unbound assets from Core-accepted bindings");
-        Assert(source.Contains("if (!bindingCommitted && File.Exists(destination)) File.Delete(destination);", StringComparison.Ordinal),
-            "failed Smart Selection persistence can leave an unreferenced selection asset in project storage");
+        Assert(source.Contains("bool destinationStillReferenced = _v1020StageCSession != null", StringComparison.Ordinal) &&
+               source.Contains("_v1020StageCSession.Current.Selections.Values.Any", StringComparison.Ordinal) &&
+               source.Contains("if (!destinationStillReferenced && File.Exists(destination))", StringComparison.Ordinal),
+            "failed Smart Selection persistence does not re-check recovered Core references before cleaning its snapshot asset");
         Assert(source.Contains("_v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal) &&
                source.Contains("StageCSelection.RemoveRevisionSelections(", StringComparison.Ordinal),
             "explicit Smart Selection clear is not serialized through durable Core selection removal");
