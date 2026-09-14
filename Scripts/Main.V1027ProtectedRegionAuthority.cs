@@ -176,8 +176,18 @@ public partial class Main
                 await V1020SaveSessionAsync();
                 _v1027DurableSmartSelection = binding;
                 _v1027FailedSelectionRestore = null;
-                _v1027PersistedSmartSelectionValues = _v096Selection;
-                _v1027PersistedSmartSelectionQuery = _v096SelectionQuery;
+                if (_v096Selection != null &&
+                    _v096Selection.AsSpan().SequenceEqual(weights) &&
+                    string.Equals(_v096SelectionQuery, query, StringComparison.Ordinal))
+                {
+                    _v1027PersistedSmartSelectionValues = _v096Selection;
+                    _v1027PersistedSmartSelectionQuery = _v096SelectionQuery;
+                }
+                else
+                {
+                    _v1027PersistedSmartSelectionValues = null;
+                    _v1027PersistedSmartSelectionQuery = "";
+                }
             }
             finally
             {
@@ -202,6 +212,8 @@ public partial class Main
         finally
         {
             _v1027SmartSelectionPersisting = false;
+            if (_v096Selection != null)
+                V1027ReconcileDurableSmartSelection();
         }
     }
 }
