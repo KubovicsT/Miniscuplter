@@ -12,12 +12,12 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - architecture_mode: selective refactor; bounded ownership convergence; no broad rewrite
 
 ## Current strategic objective
-- stable_release: v1.0.32
-- writable_release_line: v1.0.33
-- objective: run v1.0.32 reference-machine verification as a parallel acceptance lane while v1.0.33 continues UI-neutral Stage-D/E ownership convergence that does not depend on the pending user test
+- stable_release: v1.0.33
+- writable_release_line: v1.0.34
+- objective: use v1.0.33 as the latest reference-machine runtime-test checkpoint while v1.0.34 continues the next bounded UI-neutral Stage-D/E ownership-convergence batch
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
-- preemption_rule: any reproduced v1.0.32 P0/P1 regression preempts lower-priority v1.0.33 foundation work after Coordinator reconciliation
+- preemption_rule: any reproduced P0/P1 regression in the latest user-tested release preempts lower-priority current-version foundation work after Coordinator reconciliation
 
 ## Priority order
 1. keep v1.0.32 cancellation/retry, direct insertion, rendering/readability, grounding/scale, Smart Select, resize/workspace and transform interaction open for reference-machine verification
@@ -27,8 +27,8 @@ This file is the authoritative medium/long-horizon technical-direction state own
 5. only after the durable foundation and relevant runtime evidence are sound, design the exact Refinement/Kitbash interaction with the user; Rig & Pose and Cleanup & Export remain later
 
 ## Strategic dependencies
-- v1.0.32 is a verified published build and is the runtime acceptance target
-- v1.0.33 is the authoritative writable successor with canonical VERSION bootstrap complete
+- v1.0.33 is the latest verified published build and preferred runtime acceptance target
+- v1.0.34 is the authoritative writable successor with canonical VERSION bootstrap complete
 - user/reference-machine verification is a local acceptance dependency, not a global stop while independent safe work exists
 - Core already contains stable AttachmentRecord, CandidateRecord, object/revision identity and revision-bound selection models; legacy Godot attachment paths still include display-name/DTO ownership and must converge rather than become a second durable authority
 - stale AI/refinement outputs must become explicit conflict/discard state and must never overwrite newer revisions
@@ -70,5 +70,5 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - do not hold a ready testable batch for perfection, unrelated cleanup, or completion of an entire architectural workstream
 - candidate gates remain strict: exact-head automated validation/package gates green, canonical state coherent, no known release-blocking regression, and no active publication conflict; pending user verification of prior releases is not itself a publication blocker
 - after successful publication, immediately establish the validated next semantic-version branch/VERSION bootstrap so continuing work lands in a fresh release envelope
-- v1.0.32 is published/frozen
-- v1.0.33 is the authoritative writable successor and should be treated as the first small-batch checkpoint under this policy: close/release it at the next coherent green checkpoint rather than waiting for all remaining UI-neutral foundation work; unfinished independent work continues on v1.0.34
+- v1.0.33 is published/frozen as the first small-batch checkpoint under this policy
+- v1.0.34 is the authoritative writable successor and begins a fresh release envelope; choose a small coherent subset of the remaining foundation work, prefer runtime-testable grouping, and roll excess adjacent work forward rather than prolonging the version
