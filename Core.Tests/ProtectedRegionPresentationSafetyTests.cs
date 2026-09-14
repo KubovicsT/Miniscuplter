@@ -22,6 +22,16 @@ internal static class ProtectedRegionPresentationSafetyTests
             "Smart Selection persistence can acknowledge a stale snapshot as if it contained newer live weights");
         Assert(normalizedSource.Contains("if (_v096Selection != null)\n                V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
             "Smart Selection changes made during an in-flight persistence operation are not re-queued afterward");
+
+        string smartSelectPath = Path.Combine(root, "Scripts", "Main.V096SmartSelect.cs");
+        if (!File.Exists(smartSelectPath))
+            throw new InvalidOperationException("TEST FAILED: Smart Selection implementation is missing");
+
+        string smartSelectSource = File.ReadAllText(smartSelectPath).Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert(smartSelectSource.Contains(
+            "ApplyV096SelectionToSculptMask();\n        V1027ReconcileDurableSmartSelection();\n        SetStatus(\"Smart Selection inverted and queued for revision-bound persistence.\");",
+            StringComparison.Ordinal),
+            "inverted Smart Selection weights are not queued through revision-bound durable persistence");
     }
 
     static void Assert(bool condition, string message)
