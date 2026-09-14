@@ -29,11 +29,13 @@ public sealed class ProjectSession
     {
         if (initial == null) throw new ArgumentNullException(nameof(initial));
         initial.Validate();
-        Current = ReconcileAttachmentBindings(InvalidateReadyCandidatesWhoseInputAdvanced(initial, initial));
+        Current = ReconcileLoadedState(initial, out bool repaired);
+        if (repaired)
+            Current = Current.WithRevisionNumber(checked(initial.RevisionNumber + 1));
         Current.Validate();
         _historyLimit = Math.Clamp(historyLimit, 1, 1000);
         _revisionClock = Current.RevisionNumber;
-        SavedRevisionNumber = Current.RevisionNumber;
+        SavedRevisionNumber = repaired ? initial.RevisionNumber : Current.RevisionNumber;
     }
 
     public ProjectTransaction Execute(string label, Func<ProjectState, ProjectState> mutation, params ObjectId[] affectedObjectIds)
@@ -139,11 +141,14 @@ public sealed class ProjectSession
     {
         if (state == null) throw new ArgumentNullException(nameof(state));
         state.Validate();
-        Current = ReconcileAttachmentBindings(InvalidateReadyCandidatesWhoseInputAdvanced(state, state));
+        Current = ReconcileLoadedState(state, out bool repaired);
+        if (repaired)
+            Current = Current.WithRevisionNumber(checked(state.RevisionNumber + 1));
+        Current.Validate();
         _undo.Clear();
         _redo.Clear();
-        _revisionClock = state.RevisionNumber;
-        MarkSaved();
+        _revisionClock = Current.RevisionNumber;
+        SavedRevisionNumber = repaired ? state.RevisionNumber : Current.RevisionNumber;
     }
 
     public void ClearHistory(bool markCurrentAsSaved = false)
@@ -208,6 +213,13 @@ public sealed class ProjectSession
                 ConflictReason = reason
             }), candidate.ObjectId);
         return new CandidateApplyResult(false, true, message, Current);
+    }
+
+    static ProjectState ReconcileLoadedState(ProjectState state, out bool repaired)
+    {
+        ProjectState result = ReconcileAttachmentBindings(InvalidateReadyCandidatesWhoseInputAdvanced(state, state));
+        repaired = !ReferenceEquals(result, state);
+        return result;
     }
 
     static ProjectState ReconcileAttachmentBindings(ProjectState state)
