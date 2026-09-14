@@ -34,8 +34,10 @@ public partial class Main
         {
             if (!StageCSelection.IsCurrent(session.Current, existing))
             {
-                if (_v096Selection != null && liveObjectId == existing.ObjectId)
+                if (_v096Selection != null && (liveObjectId == null || liveObjectId == existing.ObjectId))
                     ClearV096Selection(false);
+                _v1027DurableSmartSelection = null;
+                _v1027FailedSelectionRestore = null;
                 _v1027PersistedSmartSelectionValues = null;
                 _v1027PersistedSmartSelectionQuery = "";
                 SetStatus("Smart Selection invalidated because the mesh revision changed; stale vertex indices were not reused.");
