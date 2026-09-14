@@ -71,6 +71,41 @@ internal static class StageDCandidateSiblingPersistenceTests
             Assert(reopenedSession.Current.RevisionNumber == revisionBeforeRejectedApply &&
                    reopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id,
                 "rejected sibling Apply mutated durable project state after save/reopen");
+
+            string conflictReason = reopenedSession.Current.Candidates[candidateBId].ConflictReason!;
+            CandidateApplyResult discarded = reopenedSession.DiscardCandidate(candidateBId);
+            Assert(!discarded.Applied && !discarded.Conflict,
+                "explicit discard of the reopened sibling conflict did not succeed transactionally");
+            Assert(reopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Discarded &&
+                   reopenedSession.Current.Candidates[candidateBId].ConflictReason is null,
+                "explicit discard did not retire the sibling conflict and diagnostic reason");
+            Assert(reopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id,
+                "discarding the sibling conflict changed the already-applied candidate output");
+            Assert(reopenedSession.IsDirty && reopenedSession.CanUndo,
+                "discarding the sibling conflict did not create an undoable dirty transaction");
+
+            reopenedSession.Undo();
+            Assert(reopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Conflict &&
+                   reopenedSession.Current.Candidates[candidateBId].ConflictReason == conflictReason &&
+                   reopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id,
+                "undo did not restore the exact persisted sibling conflict without disturbing the applied output");
+
+            reopenedSession.Redo();
+            Assert(reopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Discarded &&
+                   reopenedSession.Current.Candidates[candidateBId].ConflictReason is null &&
+                   reopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id,
+                "redo did not restore the discarded sibling state without disturbing the applied output");
+
+            store.SaveAsync(reopenedSession.Current, projectPath).GetAwaiter().GetResult();
+            ProjectState discardedReopened = store.LoadAsync(projectPath).GetAwaiter().GetResult();
+            var discardedReopenedSession = new ProjectSession(discardedReopened);
+            Assert(!discardedReopenedSession.IsDirty &&
+                   discardedReopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Discarded &&
+                   discardedReopenedSession.Current.Candidates[candidateBId].ConflictReason is null,
+                "discarded sibling conflict did not reopen as clean durable state");
+            Assert(discardedReopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id &&
+                   discardedReopenedSession.Current.Candidates[candidateAId].Status == CandidateStatus.Applied,
+                "save/reopen after sibling discard disturbed the already-applied candidate result");
         }
         finally
         {
