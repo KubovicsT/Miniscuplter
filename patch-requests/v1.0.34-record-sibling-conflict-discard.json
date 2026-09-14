@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.34",
+  "expected_head_sha": "f011c91729ffb274592b87291707772ae23c0ef1",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "2ae39ea3b1620cd2cfd1d9afcc6a812fd94d8855",
+  "commit_message": "docs: record sibling conflict discard persistence",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -37,1 +37,1 @@\n-- refinement_candidate_persistence_contract: when one Ready Refinement candidate advances an object away from a shared input revision, competing sibling candidates retain their exact input/output dependency identity as durable Conflict records across save/reopen; a valid persisted sibling Conflict reopens clean without a spurious reconciliation repair or dirty state; rejected Apply after reopen remains fail-closed and cannot mutate the applied output state. Exact-head Core and full build/package validation are green.\n+- refinement_candidate_persistence_contract: when one Ready Refinement candidate advances an object away from a shared input revision, competing sibling candidates retain their exact input/output dependency identity as durable Conflict records across save/reopen; a valid persisted sibling Conflict reopens clean without a spurious reconciliation repair or dirty state; rejected Apply after reopen remains fail-closed and cannot mutate the applied output state; explicit discard of a reopened sibling Conflict is transactional, preserves the already-applied output revision, clears the stale diagnostic, round-trips through undo/redo, and persists/reopens as clean Discarded state. Exact-head Core and full build/package validation are green.\n"
+}
