@@ -27,6 +27,11 @@ internal static class ProtectedRegionPresentationSafetyTests
             "Smart Selection persistence does not distinguish unbound assets from Core-accepted bindings");
         Assert(source.Contains("if (!bindingCommitted && File.Exists(destination)) File.Delete(destination);", StringComparison.Ordinal),
             "failed Smart Selection persistence can leave an unreferenced selection asset in project storage");
+        Assert(source.Contains("_v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal) &&
+               source.Contains("StageCSelection.RemoveRevisionSelections(", StringComparison.Ordinal),
+            "explicit Smart Selection clear is not serialized through durable Core selection removal");
+        Assert(source.Contains("binding.ObjectId != _v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal),
+            "a Smart Selection pending durable clear can be immediately resurrected by restore reconciliation");
 
         string smartSelectPath = Path.Combine(root, "Scripts", "Main.V096SmartSelect.cs");
         if (!File.Exists(smartSelectPath))
@@ -37,6 +42,10 @@ internal static class ProtectedRegionPresentationSafetyTests
             "ApplyV096SelectionToSculptMask();\n        V1027ReconcileDurableSmartSelection();\n        SetStatus(\"Smart Selection inverted and queued for revision-bound persistence.\");",
             StringComparison.Ordinal),
             "inverted Smart Selection weights are not queued through revision-bound durable persistence");
+        Assert(smartSelectSource.Contains(
+            "void ClearV096Selection(bool status = true)\n    {\n        if (status) V1027BeginDurableSmartSelectionClear();",
+            StringComparison.Ordinal),
+            "explicit Smart Selection clear does not retire its durable binding before clearing presentation state");
     }
 
     static void Assert(bool condition, string message)
