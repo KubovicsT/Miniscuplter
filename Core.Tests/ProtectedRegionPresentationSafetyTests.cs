@@ -11,6 +11,7 @@ internal static class ProtectedRegionPresentationSafetyTests
             throw new InvalidOperationException("TEST FAILED: protected-region authority bridge is missing");
 
         string source = File.ReadAllText(path);
+        string normalizedSource = source.Replace("\r\n", "\n", StringComparison.Ordinal);
         Assert(source.Contains("liveObjectId == null || liveObjectId == existing.ObjectId", StringComparison.Ordinal),
             "stale protected-region weights are not cleared when stable live object identity cannot be proven");
         Assert(source.Contains("_v1027DurableSmartSelection = null;", StringComparison.Ordinal),
@@ -19,7 +20,7 @@ internal static class ProtectedRegionPresentationSafetyTests
             "stale restore-failure presentation state is retained after revision invalidation");
         Assert(source.Contains("_v096Selection.AsSpan().SequenceEqual(weights)", StringComparison.Ordinal),
             "Smart Selection persistence can acknowledge a stale snapshot as if it contained newer live weights");
-        Assert(source.Contains("if (_v096Selection != null)\n                V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
+        Assert(normalizedSource.Contains("if (_v096Selection != null)\n                V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
             "Smart Selection changes made during an in-flight persistence operation are not re-queued afterward");
     }
 
