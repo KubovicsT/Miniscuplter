@@ -48,6 +48,9 @@ internal static class StageDCandidateSiblingPersistenceTests
             ProjectState reopened = store.LoadAsync(projectPath).GetAwaiter().GetResult();
             var reopenedSession = new ProjectSession(reopened);
 
+            Assert(!reopenedSession.IsDirty &&
+                   reopenedSession.SavedRevisionNumber == reopenedSession.Current.RevisionNumber,
+                "a valid persisted sibling conflict was spuriously repaired or marked dirty on reopen");
             Assert(reopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id,
                 "save/reopen changed the applied candidate output revision");
             Assert(reopenedSession.Current.Candidates[candidateAId].Status == CandidateStatus.Applied,
