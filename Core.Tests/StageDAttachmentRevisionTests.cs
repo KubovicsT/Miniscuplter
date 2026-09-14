@@ -36,7 +36,10 @@ internal static class StageDAttachmentRevisionTests
             .WithMeshRevision(parentV2)
             .WithObject(current.Objects[parentId] with { ActiveMeshRevisionId = parentV2.Id }), parentId);
         var persisted = session.Current.Attachments[attachment.Id];
-        Assert(persisted == attachment, "revision advance rewrote or deleted durable attachment state");
+        Assert(persisted.ParentMeshRevisionId == parentV1.Id && persisted.ChildMeshRevisionId == childV1.Id,
+            "revision advance silently transferred durable attachment revision bindings");
+        Assert(persisted.BindingStatus == AttachmentBindingStatus.Stale,
+            "revision advance did not persist the stale attachment status");
         Assert(StageDAttachments.ResolveBindingStatus(session.Current, persisted) == AttachmentBindingStatus.Stale,
             "attachment did not become stale after parent revision advance");
 
@@ -48,10 +51,21 @@ internal static class StageDAttachmentRevisionTests
         await store.SaveAsync(session.Current, projectPath);
         var loaded = await store.LoadAsync(projectPath);
         var loadedAttachment = loaded.Attachments[attachment.Id];
+        Assert(loadedAttachment.BindingStatus == AttachmentBindingStatus.Stale,
+            "save/reopen lost the durable stale attachment status");
         Assert(StageDAttachments.ResolveBindingStatus(loaded, loadedAttachment) == AttachmentBindingStatus.Stale,
             "save/reopen lost stale attachment semantics");
         Assert(loadedAttachment.ParentMeshRevisionId == parentV1.Id,
             "save/reopen silently transferred the stale parent binding");
+
+        var legacyCurrent = loaded.WithAttachment(loadedAttachment with { BindingStatus = AttachmentBindingStatus.Current });
+        var reconciledSession = new ProjectSession(legacyCurrent);
+        Assert(reconciledSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
+            "session construction did not reconcile a loaded stale attachment marked current");
+        var replacementSession = new ProjectSession(state);
+        replacementSession.ReplaceFromLoad(legacyCurrent);
+        Assert(replacementSession.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
+            "ReplaceFromLoad did not reconcile a stale attachment marked current");
 
         var rebound = StageDAttachments.RebindToCurrent(session, persisted);
         Assert(rebound.ParentMeshRevisionId == parentV2.Id && rebound.ChildMeshRevisionId == childV1.Id,
@@ -59,6 +73,8 @@ internal static class StageDAttachmentRevisionTests
         Assert(StageDAttachments.ResolveBindingStatus(session.Current, rebound) == AttachmentBindingStatus.Rebound,
             "explicit rebind did not restore authoritative state");
         session.Undo();
+        Assert(session.Current.Attachments[attachment.Id].BindingStatus == AttachmentBindingStatus.Stale,
+            "undo did not restore durable stale attachment status");
         Assert(StageDAttachments.ResolveBindingStatus(session.Current, session.Current.Attachments[attachment.Id]) == AttachmentBindingStatus.Stale,
             "undo did not restore stale attachment binding");
         session.Redo();
