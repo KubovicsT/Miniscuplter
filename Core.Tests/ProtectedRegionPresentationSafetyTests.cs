@@ -22,6 +22,11 @@ internal static class ProtectedRegionPresentationSafetyTests
             "Smart Selection persistence can acknowledge a stale snapshot as if it contained newer live weights");
         Assert(normalizedSource.Contains("if (_v096Selection != null)\n                V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
             "Smart Selection changes made during an in-flight persistence operation are not re-queued afterward");
+        Assert(source.Contains("bool bindingCommitted = false;", StringComparison.Ordinal) &&
+               source.Contains("bindingCommitted = true;", StringComparison.Ordinal),
+            "Smart Selection persistence does not distinguish unbound assets from Core-accepted bindings");
+        Assert(source.Contains("if (!bindingCommitted && File.Exists(destination)) File.Delete(destination);", StringComparison.Ordinal),
+            "failed Smart Selection persistence can leave an unreferenced selection asset in project storage");
 
         string smartSelectPath = Path.Combine(root, "Scripts", "Main.V096SmartSelect.cs");
         if (!File.Exists(smartSelectPath))
