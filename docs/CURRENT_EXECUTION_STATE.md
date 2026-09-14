@@ -48,6 +48,8 @@
   4. stale durable protected-region bindings clear stale live weights whenever stable live object identity cannot be proven, rather than allowing presentation state to outlive Core revision authority
   5. candidate-driven revision advancement makes the bound selection stale, while undo restores current selection semantics and redo restores stale semantics against the exact durable revision history
   6. Smart Selection persistence only acknowledges the exact saved weight/query snapshot; changes made while a save is in flight are immediately reconciled and queued afterward, so an older async save cannot falsely mark newer refined weights durable
+  7. failed pre-binding Smart Selection persistence removes an unreferenced snapshot asset, while a binding already accepted by Core retains its asset if the later project save fails
+  8. explicit Smart Selection clear removes all durable smart-select bindings for the object through a serialized Core transaction and suppresses restore while that removal is pending, so cleared live weights cannot be resurrected by reconciliation or save/reopen
 - next:
   1. continue revision-safe Refinement candidate/dependency foundations where no user-facing interaction decision is required, including remaining dependency preservation/invalidation and migration coverage
   2. close any remaining UI-neutral stale presentation paths for candidates, attachments or selections after Core authority changes
