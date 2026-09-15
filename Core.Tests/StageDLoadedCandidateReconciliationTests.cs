@@ -37,20 +37,25 @@ internal static class StageDLoadedCandidateReconciliationTests
         Assert(validSession.IsDirty && validSession.Current.RevisionNumber == stale.State.RevisionNumber + 1,
             "ReplaceFromLoad reconciliation repair was not marked dirty for persistence");
 
-        ValidateMissingOutputLineageFailsClosed();
+        ValidateMissingCandidateDependenciesFailClosed();
     }
 
-    static void ValidateMissingOutputLineageFailsClosed()
+    static void ValidateMissingCandidateDependenciesFailClosed()
     {
         var objectId = ObjectId.New();
         var inputRevisionId = RevisionId.New();
+        var outputRevisionId = RevisionId.New();
+        var missingInputRevisionId = RevisionId.New();
         var missingOutputRevisionId = RevisionId.New();
         var candidateId = CandidateId.New();
         var now = DateTimeOffset.UtcNow;
         var input = new MeshRevision(
             inputRevisionId, objectId, null, "assets/missing-output-input.meshbin", new string('d', 64),
             3, 1, "missing-output-input", now);
-        var obj = new ProjectObject(objectId, "Missing Output Candidate Test", inputRevisionId, TransformState.Identity);
+        var output = new MeshRevision(
+            outputRevisionId, objectId, inputRevisionId, "assets/missing-input-output.meshbin", new string('e', 64),
+            3, 1, "missing-input-output", now);
+        var obj = new ProjectObject(objectId, "Missing Candidate Dependency Test", inputRevisionId, TransformState.Identity);
 
         AssertThrowsInvalidData(
             () => new ProjectState(
@@ -65,6 +70,20 @@ internal static class StageDLoadedCandidateReconciliationTests
                         CandidateStatus.Ready, "missing-output-candidate", now)
                 }),
             "candidate with missing output revision was accepted into durable project state");
+
+        AssertThrowsInvalidData(
+            () => new ProjectState(
+                ProjectId.New(),
+                "missing-input-candidate",
+                objects: new[] { obj },
+                meshRevisions: new[] { input, output },
+                candidates: new[]
+                {
+                    new CandidateRecord(
+                        CandidateId.New(), objectId, missingInputRevisionId, outputRevisionId, "refinement",
+                        CandidateStatus.Ready, "missing-input-candidate", now)
+                }),
+            "candidate with missing input revision was accepted into durable project state");
     }
 
     static CandidateFixture CreateCandidateFixture(bool outputDescendsFromInput, bool activeOnInput)
