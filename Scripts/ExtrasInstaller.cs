@@ -67,5 +67,6 @@ public partial class ExtrasInstaller : Node
         main.ReconcileWorkspaceBottomDock();
         main.InstallWorkspaceDensity();
         main.InstallV1036ProjectResetIsolation();
+        main.InstallV1036CameraContinuity();
     }
 }
