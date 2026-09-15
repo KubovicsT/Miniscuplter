@@ -10,24 +10,56 @@ public partial class Main
     {
         var root = GetChildren().OfType<VBoxContainer>().FirstOrDefault();
         var toolbar = root?.GetChildren().OfType<HBoxContainer>().FirstOrDefault();
-        if (toolbar == null) return;
-
-        var newButton = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "New");
-        if (newButton != null)
+        if (toolbar != null)
         {
-            newButton.Pressed -= V1036ClearProjectPresentation;
-            newButton.Pressed += V1036ClearProjectPresentation;
+            var newButton = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "New");
+            if (newButton != null)
+            {
+                newButton.Pressed -= V1036ClearProjectPresentation;
+                newButton.Pressed += V1036ClearProjectPresentation;
+            }
+
+            // The legacy project actions were appended after a crowded modeling toolbar, which can
+            // clip Open/Load entirely on ordinary window widths. Keep the existing handler but make
+            // the project-open action a first-class neighbor of New.
+            var openButton = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text is "Load Project" or "Open Project");
+            if (openButton != null)
+            {
+                openButton.Text = "Open Project";
+                toolbar.MoveChild(openButton, Math.Min(1, toolbar.GetChildCount() - 1));
+            }
         }
 
-        // The legacy project actions were appended after a crowded modeling toolbar, which can
-        // clip Open/Load entirely on ordinary window widths. Keep the existing handler but make
-        // the project-open action a first-class neighbor of New.
-        var openButton = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text is "Load Project" or "Open Project");
-        if (openButton != null)
+        if (FindChild("ViewportHost", true, false) is SubViewportContainer host)
         {
-            openButton.Text = "Open Project";
-            toolbar.MoveChild(openButton, Math.Min(1, toolbar.GetChildCount() - 1));
+            var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
+            if (tabs != null)
+            {
+                // v1.0.19 framed the selected object every time a non-2D tab became active. That
+                // turns an ordinary tab switch into an implicit camera reset. Preserve the user's
+                // orbit/zoom and refresh presentation without mutating camera focus/distance.
+                tabs.TabChanged -= V1019WorkflowTabChanged;
+                tabs.TabChanged -= V1036WorkflowTabChangedPreserveCamera;
+                tabs.TabChanged += V1036WorkflowTabChangedPreserveCamera;
+            }
         }
+    }
+
+    void V1036WorkflowTabChangedPreserveCamera(long tab)
+    {
+        if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
+        var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
+        string title = tabs != null && tabs.GetTabCount() > 0
+            ? tabs.GetTabTitle(Math.Clamp((int)tab, 0, tabs.GetTabCount() - 1))
+            : "";
+        if (title.Equals("2D", StringComparison.OrdinalIgnoreCase)) return;
+
+        if (_v1015ImageCanvas != null) _v1015ImageCanvas.Visible = false;
+        if (_v1015CanvasHint != null) _v1015CanvasHint.Visible = false;
+        V1019ConfigureStudioLighting();
+        V1017UpdateGizmo();
+        if (FindChild("Viewport", true, false) is SubViewport sub) V1019UpdateViewportDiagnostics(sub);
+        V1019ArmRenderProbe();
     }
 
     void V1036ClearProjectPresentation()
