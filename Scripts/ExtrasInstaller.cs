@@ -55,6 +55,7 @@ public partial class ExtrasInstaller : Node
         main.InstallV1020AppliedObjectRestore();
         main.InstallV1020StageCCleanupExport();
         main.InstallV1020StageCEditingAuthority();
+        main.InstallV1036TransformCommitGuard();
         main.InstallV1022Acceptance();
 
         // v1.0.23+ workspace presentation composes after accepted viewport ownership.
