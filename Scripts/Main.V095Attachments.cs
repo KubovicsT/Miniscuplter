@@ -112,10 +112,21 @@ public partial class Main
 
     void SyncV095AttachmentControls()
     {
-        if (_selected == null) { _v095FineTuneObject = ""; return; }
+        if (_selected == null)
+        {
+            V095ClearAttachmentFineTuneControls();
+            _v095FineTuneObject = "";
+            return;
+        }
         string name = _selected.Name.ToString();
         var a = _v07Attachments.FirstOrDefault(x => x.PartObjectName == name);
-        if (a == null) { _v095FineTuneObject = ""; return; }
+        if (a == null)
+        {
+            if (_v1020StageCSession != null && _v1013ObjectIds.ContainsKey(_selected.GetInstanceId()))
+                V095ClearAttachmentFineTuneControls();
+            _v095FineTuneObject = "";
+            return;
+        }
         if (!V1033TryProjectAuthoritativeAttachment(a, _selected))
         {
             V095ClearAttachmentFineTuneControls();
