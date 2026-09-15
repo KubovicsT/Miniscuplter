@@ -141,6 +141,16 @@ This file is the authoritative current-state ledger for active, release-relevant
 - adjacent_code_risk: current /detail-3d request model/endpoint is also structurally inconsistent with AIClient.Detail3DAsync and detail_pipeline.detail_3d; inspect/fix contract coherently but do not claim user-runtime reproduction without evidence
 - desired_state: 2D Enhance reaches the selected local image-detail provider through one typed request contract, preserves safe path/output validation, and completes without arity/request-field mismatch; add a focused endpoint/contract regression test
 
+
+### MS-050 — Hunyuan3D 2.1 Windows install fails on long checkout paths
+- severity: High AI-runtime/model-install blocker
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1 PREEMPTION
+- evidence: reference-machine install under X:\Minisculpter\Minisculpter\AIData reaches the Hunyuan3D-2.1 Git checkout, repeatedly reports "Filename too long" for upstream hy3dshape/tools/mini_trainset/preprocessed/... files, completes file transfer, then fails checkout and preserves the deterministic hunyuan21-shape partial stage. Current source routes Hunyuan through model_manager_v105._ensure_clone -> model_manager._clone_fresh, and _clone_fresh invokes a normal shallow git clone without per-command long-path handling.
+- resume_risk: _ensure_clone currently returns as soon as target/.git exists. A failed checkout can therefore leave a repository metadata directory that is not a valid complete runtime worktree, so a later Resume may incorrectly skip clone/checkout repair.
+- desired_state: install/resume succeeds from the existing Windows AIData root without requiring global Git/Windows reconfiguration or data relocation; long-path handling is contained to Miniscuplter's Git invocation; interrupted clone state is validated/repaired rather than trusted from .git presence alone; safe reusable staged payload remains resumable.
+- suggested_validation: focused clone-command/partial-worktree regression coverage plus packaged Windows install/resume verification at a path depth at least as long as the reported reference-machine root
+
 ## Existing issues updated by v1.0.31 evidence
 
 ### MS-020 — AI job/runtime ownership
