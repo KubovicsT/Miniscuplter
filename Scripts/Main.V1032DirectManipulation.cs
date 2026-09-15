@@ -57,6 +57,18 @@ public partial class Main
             return true;
         }
 
+        if (_v1018Tool == V1018ViewportTool.Rotate &&
+            V1018RaycastScene(screenPosition, out MeshInstance3D rotateTarget))
+        {
+            V1027SelectStableViewportHit(rotateTarget);
+            RebuildSceneList();
+            V1017UpdateGizmo();
+            // Direct object drag rotates around the common Y axis. The colored rings remain
+            // available for explicit X/Y/Z constrained rotation.
+            BeginV1018Transform(Vector3.Up);
+            return true;
+        }
+
         if (_v1018Tool != V1018ViewportTool.Move ||
             !V1018RaycastScene(screenPosition, out MeshInstance3D target))
             return false;
