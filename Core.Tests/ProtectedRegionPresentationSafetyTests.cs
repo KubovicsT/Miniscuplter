@@ -23,6 +23,9 @@ internal static class ProtectedRegionPresentationSafetyTests
             "stale durable protected-region presentation binding is retained after invalidation");
         Assert(source.Contains("_v1027FailedSelectionRestore = null;", StringComparison.Ordinal),
             "stale restore-failure presentation state is retained after revision invalidation");
+        Assert(source.Contains("Smart Selection presentation cleared because its stable Core object identity is no longer live.", StringComparison.Ordinal) &&
+               normalizedSource.Contains("!session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))\n        {\n            ClearV096Selection(false);", StringComparison.Ordinal),
+            "orphaned Smart Selection weights can remain visible after their stable Core object identity disappears");
         Assert(source.Contains("_v096Selection.AsSpan().SequenceEqual(weights)", StringComparison.Ordinal),
             "Smart Selection persistence can acknowledge a stale snapshot as if it contained newer live weights");
         Assert(normalizedSource.Contains("if (_v096Selection != null) V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal) ||
