@@ -39,10 +39,11 @@
    - inspect the adjacent /detail-3d request/endpoint contract in the same bounded slice because current source is structurally inconsistent with AIClient.Detail3DAsync/detail_pipeline.detail_3d; only mark 3D runtime behavior fixed/reproduced from actual evidence
    - keep this bounded and then continue the project-lifecycle work in the same Dev cycle when time permits
 2. Project lifecycle isolation — P0/P1
-   - reproduce New after a generated/edited project
-   - make New establish a genuinely fresh project: previous 2D image/baseline, 3D presentation, selection/tool bindings and project-scoped UI state must not survive unless explicitly intended
-   - diagnose/fix the disposed Godot.MeshInstance3D Stage-D commit path so stale scene-node references cannot participate after project reset
-   - add focused project-reset regression coverage; preserve Core transactional safety
+   - disposed-selection sub-slice is FIXED IN v1.0.36 - NEEDS USER VERIFICATION: per-frame stable-selection reconciliation now clears an invalid/disposed _selected plus its stable viewport binding before status/gizmo consumers can dereference it; focused guard and exact-head Core/full build/package/installer validation are green
+   - remaining project-reset work: reproduce New after a generated/edited project and make New establish a genuinely fresh project
+   - previous 2D image/baseline, 3D presentation, selection/tool bindings and other project-scoped UI state must not survive unless explicitly intended
+   - verify the v1.0.35 disposed MeshInstance3D error no longer reproduces on the reference machine after the new fail-closed cleanup; do not treat that verification as proof that the separate 2D-image leak is fixed
+   - add/extend focused project-reset regression coverage as the remaining reset paths are corrected; preserve Core transactional safety
 3. Workspace composition regressions — P1
    - reopen MS-035/MS-026/MS-027 from v1.0.35 evidence
    - eliminate exterior black gutters at supported sizes, including the narrow-window top/bottom variant
@@ -65,6 +66,8 @@
    - return one coherent v1.0.36 runtime-test checkpoint to Coordinator; do not publish autonomously
 
 ### Acceptance / preemption
+- current exact writable head is recovered and green after the 18:00 Dev process incident: the malformed ai_backend/app.py commit was immediately forward-reverted, backend source is restored byte-for-byte, and no product behavior from that bad commit is accepted
+- Manager owns the process-incident follow-up; it does not globally freeze product work because current source is restored, exact-head validation is green, and safe independent corrective work remains
 - P0/P1 user-observed regressions outrank the prior attachment-history architecture queue
 - 2D Enhance must complete through the current backend contract without request/signature mismatch; provider/path validation remains intact
 - New must not leak prior project visual/data state and must not touch disposed scene objects
