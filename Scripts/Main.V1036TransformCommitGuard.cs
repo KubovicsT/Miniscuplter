@@ -1,4 +1,5 @@
 using Godot;
+using Miniscuplter.Core;
 
 namespace Miniscuplter;
 
