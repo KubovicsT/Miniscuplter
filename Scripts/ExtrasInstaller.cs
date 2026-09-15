@@ -66,5 +66,6 @@ public partial class ExtrasInstaller : Node
         main.InstallResourceTelemetry();
         main.ReconcileWorkspaceBottomDock();
         main.InstallWorkspaceDensity();
+        main.InstallV1036ProjectResetIsolation();
     }
 }
