@@ -257,9 +257,11 @@ public partial class Main
 
     bool V1033TryResolveAttachmentSocketOwner(AttachmentRecord attachment, out V07SocketDto? socket)
     {
-        socket = _v07Sockets.FirstOrDefault(s => s.Id == attachment.Socket);
+        string socketId = attachment.Socket;
+        socket = _v07Sockets.FirstOrDefault(s => s.Id == socketId);
         if (socket == null) return false;
-        MeshInstance3D? parent = _objects.FirstOrDefault(o => GodotObject.IsInstanceValid(o) && o.Name.ToString() == socket.OwnerObject);
+        string ownerObject = socket.OwnerObject;
+        MeshInstance3D? parent = _objects.FirstOrDefault(o => GodotObject.IsInstanceValid(o) && o.Name.ToString() == ownerObject);
         if (parent == null || !_v1013ObjectIds.TryGetValue(parent.GetInstanceId(), out ObjectId parentId)) return false;
         return parentId == attachment.ParentObjectId &&
                _v1020StageCSession != null &&
