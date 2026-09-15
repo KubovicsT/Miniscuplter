@@ -19,6 +19,9 @@ internal static class ProjectResetIsolationTests
             Assert(reset.Contains(token, StringComparison.Ordinal), "New project does not retire project-scoped 2D presentation token: " + token);
         Assert(reset.Contains("_v109Generate3D.Disabled = true", StringComparison.Ordinal),
             "New project does not retire prior accepted-baseline generation eligibility");
+        Assert(reset.Contains("openButton.Text = \"Open Project\"", StringComparison.Ordinal) &&
+               reset.Contains("toolbar.MoveChild(openButton", StringComparison.Ordinal),
+            "project Open action is not promoted beside New and may be clipped off the toolbar");
     }
 
     static void Assert(bool condition, string message)
