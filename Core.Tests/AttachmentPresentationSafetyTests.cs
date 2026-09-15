@@ -6,11 +6,13 @@ internal static class AttachmentPresentationSafetyTests
     internal static void ValidateMappedAttachmentControlsFailClosed()
     {
         string root = Directory.GetCurrentDirectory();
-        string path = Path.Combine(root, "Scripts", "Main.V095Attachments.cs");
-        if (!File.Exists(path))
+        string presentationPath = Path.Combine(root, "Scripts", "Main.V095Attachments.cs");
+        string authorityPath = Path.Combine(root, "Scripts", "Main.V1033AttachmentAuthority.cs");
+        if (!File.Exists(presentationPath) || !File.Exists(authorityPath))
             throw new InvalidOperationException("TEST FAILED: attachment presentation bridge is missing");
 
-        string source = File.ReadAllText(path);
+        string source = File.ReadAllText(presentationPath);
+        string authority = File.ReadAllText(authorityPath);
         Assert(source.Contains("if (!V1033TryProjectAuthoritativeAttachment(a, _selected))", StringComparison.Ordinal),
             "mapped attachment fine-tune controls do not verify Core attachment authority before projecting values");
         Assert(source.Contains("if (_selected == null)", StringComparison.Ordinal) &&
@@ -22,6 +24,16 @@ internal static class AttachmentPresentationSafetyTests
             "stale mapped attachment fine-tune values are not cleared from presentation state");
         Assert(source.Contains("if (_v07AttachScale != null) _v07AttachScale.Value = 1;", StringComparison.Ordinal),
             "stale attachment presentation does not reset scale to a neutral value");
+
+        Assert(authority.Contains("if (V1033HasStableCoreIdentity(_selected))", StringComparison.Ordinal) &&
+               authority.Contains("legacy attachment state will not take authority", StringComparison.Ordinal),
+            "mapped snap can fall back to legacy attachment authority when the Core socket owner cannot be resolved");
+        Assert(authority.Contains("V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());", StringComparison.Ordinal) &&
+               authority.Contains("has no durable attachment; stale legacy attachment presentation was cleared", StringComparison.Ordinal),
+            "mapped detach can resurrect legacy authority when no durable Core attachment exists");
+        Assert(authority.Contains("bool V1033HasStableCoreIdentity(MeshInstance3D part)", StringComparison.Ordinal) &&
+               authority.Contains("_v1020StageCSession.Current.Objects.ContainsKey(objectId)", StringComparison.Ordinal),
+            "mapped attachment fallback guard does not prove stable live Core object identity");
     }
 
     static void Assert(bool condition, string message)
