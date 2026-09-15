@@ -34,6 +34,11 @@ public partial class Main
 
         if (!V1033TryResolveMappedAttachment(_selected, socket, out ProjectSession? session, out ObjectId parentId, out ObjectId childId))
         {
+            if (V1033HasStableCoreIdentity(_selected))
+            {
+                SetStatus("Snap failed safely; the selected Core object cannot resolve a stable Core socket owner, so legacy attachment state will not take authority.");
+                return;
+            }
             SnapSelectedV095Object();
             return;
         }
@@ -98,7 +103,8 @@ public partial class Main
         AttachmentRecord? existing = _v1020StageCSession.Current.Attachments.Values.FirstOrDefault(x => x.ChildObjectId == childId);
         if (existing == null)
         {
-            DetachSelectedV07Object();
+            V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());
+            SetStatus("Selected Core object has no durable attachment; stale legacy attachment presentation was cleared.");
             return;
         }
 
@@ -111,9 +117,7 @@ public partial class Main
                 : throw new InvalidOperationException("Attachment changed before detach could commit.");
             StageDAttachments.RemoveIfCurrent(session, current);
             await V1020SaveSessionAsync();
-            _v07Attachments.RemoveAll(a => a.PartObjectName == _selected.Name.ToString());
-            _v095FineTuneObject = "";
-            SyncV095AttachmentControls();
+            V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());
             SetStatus($"Detached {_selected.Name}; durable Core attachment state was removed transactionally.");
         }
         catch (Exception ex)
@@ -204,6 +208,13 @@ public partial class Main
         }
     }
 
+    bool V1033HasStableCoreIdentity(MeshInstance3D part)
+    {
+        return _v1020StageCSession != null &&
+               _v1013ObjectIds.TryGetValue(part.GetInstanceId(), out ObjectId objectId) &&
+               _v1020StageCSession.Current.Objects.ContainsKey(objectId);
+    }
+
     bool V1033TryResolveMappedAttachment(
         MeshInstance3D child,
         V07SocketDto socket,
@@ -253,6 +264,13 @@ public partial class Main
         if (!StageDAttachments.IsAuthoritative(_v1020StageCSession.Current, attachment)) return false;
         V1033ProjectCoreLocalTransform(attachment, projection);
         return true;
+    }
+
+    void V1033RetireLegacyAttachmentProjection(string partObjectName)
+    {
+        _v07Attachments.RemoveAll(a => a.PartObjectName == partObjectName);
+        _v095FineTuneObject = "";
+        SyncV095AttachmentControls();
     }
 
     void V1033ReplaceLegacyProjection(V07AttachmentDto projection)
