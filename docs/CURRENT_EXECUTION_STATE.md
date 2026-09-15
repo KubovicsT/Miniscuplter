@@ -26,6 +26,7 @@
 - no user-visible project Load/Open entry point is available, so explicit saved-project reload testing cannot be performed from the UI
 - Smart Select, attachment-control switching, cancellation/retry and several save/reopen cases remain untested in this v1.0.35 pass
 - Hunyuan3D 2.1 Shape install fails on the reference Windows machine during the companion Git checkout because upstream mini-trainset paths exceed Windows filename/path handling; clone reaches 100% but checkout fails, and the deterministic partial stage is retained for resume
+- TripoSR install also fails on the reference Windows machine before model download completes: torchmcubes metadata generation runs in pip's isolated build environment, cannot see the already-installed host PyTorch, and aborts with the upstream instruction to build without isolation; the deterministic TripoSR partial stage is retained for resume
 
 ## Current objective
 ### I — v1.0.36 reference-machine regression recovery
@@ -34,12 +35,12 @@
 - release_boundary: v1.0.35 remains immutable. v1.0.36 remains the only writable semantic branch. The already-green attachment/Smart-Selection ownership fixes remain in v1.0.36 but are not sufficient for publication while reproduced user-facing regressions remain.
 
 ### Ordered Dev queue
-1. Hunyuan3D 2.1 Shape Windows install/resume — P1 reference-machine blocker
-   - fix MS-050: the v1.0.35 launcher fails cloning/checking out the Hunyuan3D-2.1 companion repository under the user's normal AIData root with repeated "Filename too long" errors; clone completes object transfer but working-tree checkout fails
-   - make Git checkout long-path safe per invocation without requiring global user Git/Windows configuration or relocating the data root; prefer a contained command-level solution and retain storage containment
-   - harden resume semantics: _ensure_clone must not treat the mere presence of .git as proof of a valid completed worktree after checkout failure; verify/repair a partial clone or safely recreate only the incomplete tool checkout while preserving reusable staged model payload
-   - add focused command/partial-checkout regression coverage and verify the installer can resume from the deterministic partial stage; avoid discarding already-downloaded safe payload unnecessarily
-   - inspect whether unneeded upstream training data can be omitted safely, but do not make a broader sparse-checkout redesign a blocker for the direct fix
+1. Windows 3D provider install/resume blockers — P1 reference-machine blockers
+   - fix MS-050 Hunyuan3D 2.1: the v1.0.35 launcher fails cloning/checking out the Hunyuan3D-2.1 companion repository under the user's normal AIData root with repeated "Filename too long" errors; make Git checkout long-path safe per invocation without global user Git/Windows configuration or data-root relocation
+   - harden Hunyuan resume semantics: _ensure_clone must not treat the mere presence of .git as proof of a valid completed worktree after checkout failure; verify/repair a partial clone or safely recreate only the incomplete tool checkout while preserving reusable staged model payload
+   - fix MS-051 TripoSR: torchmcubes is currently installed through ordinary pip build isolation, but its metadata provider requires an installed PyTorch to be visible; install torchmcubes only after verifying host torch availability and use a contained non-isolated build path for that dependency while leaving unrelated dependencies on normal isolation
+   - keep TripoSR dependency failure fail-closed and resumable: preserve/reuse the deterministic partial stage and do not redownload/reclone valid payload unnecessarily after dependency repair
+   - add focused command/partial-stage regression coverage for both providers and verify packaged Windows install/resume behavior; inspect safe checkout/download trimming only as a bounded optimization, not as a blocker to the direct fixes
 2. 2D detail endpoint contract — P1 deterministic runtime regression
    - fix MS-049: released v1.0.35 "Enhance Selected Region" fails immediately because /detail-2d passes six positional arguments into a detail_2d implementation that accepts four required plus one optional argument
    - reconcile the public request contract end-to-end: AIClient request fields, FastAPI Detail2DRequest, endpoint call, provider routing, output/path validation and focused endpoint regression coverage
@@ -77,6 +78,7 @@
 - Manager owns the process-incident follow-up; it does not globally freeze product work because current source is restored, exact-head validation is green, and safe independent corrective work remains
 - P0/P1 user-observed regressions outrank the prior attachment-history architecture queue
 - Hunyuan3D 2.1 Shape must install/resume successfully from the user's existing Windows AIData root without filename-too-long checkout failure, global Git configuration, or forced data-root relocation; partial-stage recovery must verify a usable worktree rather than .git existence alone
+- TripoSR must install/resume successfully with torchmcubes built against the packaged/host PyTorch environment rather than failing in isolated metadata generation; the fix must not globally disable pip build isolation for unrelated dependencies
 - 2D Enhance must complete through the current backend contract without request/signature mismatch; provider/path validation remains intact
 - New must not leak prior project visual/data state and must not touch disposed scene objects
 - workspace has no exterior gutters, telemetry is non-overlay, and AI command input is visible
