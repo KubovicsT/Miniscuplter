@@ -8,7 +8,7 @@
 - branch_bootstrap: complete; VERSION 1.0.36
 - execution_hold: none
 - release_cadence_target: approximately two meaningful runtime-test releases per active development day when coherent/green batches exist; cadence target is not a timer-based publication rule
-- v1.0.36_release_boundary: REJECTED FOR NOW due reproduced v1.0.35 reference-machine regressions that preempt lower-priority ownership-convergence release work
+- v1.0.36_release_boundary: COORDINATOR REVIEW — implementation checkpoint is exact-head green and the evidence-backed corrective mutation queue is exhausted; publication still requires canonical issue reconciliation and final release-candidate verification, while user-visible fixes remain NEEDS USER VERIFICATION rather than release-verified
 
 ## Latest reference-machine evidence — v1.0.35
 - direct successful 3D insertion is verified: generation succeeds and auto-inserts without Apply
@@ -29,55 +29,46 @@
 - TripoSR install also fails on the reference Windows machine before model download completes: torchmcubes metadata generation runs in pip's isolated build environment, cannot see the already-installed host PyTorch, and aborts with the upstream instruction to build without isolation; the deterministic TripoSR partial stage is retained for resume
 
 ## Current objective
-### I — v1.0.36 reference-machine regression recovery
-- state: ACTIVE / PREEMPTING PRIOR RELEASE REVIEW
-- outcome: turn the user's v1.0.35 runtime findings into one coherent corrective release before resuming lower-priority Stage-D attachment-history architecture work
-- release_boundary: v1.0.35 remains immutable. v1.0.36 remains the only writable semantic branch. The already-green attachment/Smart-Selection ownership fixes remain in v1.0.36 but are not sufficient for publication while reproduced user-facing regressions remain.
+### I — v1.0.36 corrective checkpoint closure
+- state: COORDINATOR REVIEW / CANONICAL RECONCILIATION
+- outcome: convert the reproduced v1.0.35 runtime findings into one coherent runtime-test release without reopening speculative implementation work
+- release_boundary: v1.0.35 remains immutable. v1.0.36 is the only writable semantic branch. Current exact implementation head is green across Core, .NET/C#, Python/runtime/geometry/release-audit, portable package and installer. User-visible corrections remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION` until packaged reference-machine retest.
 
-### Ordered Dev queue
-1. Windows 3D provider install/resume blockers — P1 reference-machine blockers
-   - v1.0.36 implementation checkpoint is code-complete/green for MS-050/MS-051: Hunyuan checkout uses per-invocation long-path configuration plus partial-worktree verification/recovery, and TripoSR builds torchmcubes after host torch verification with contained no-build-isolation; deterministic partial stages remain reusable
-   - reference-machine packaged install/resume remains `FIXED IN v1.0.36 - NEEDS USER VERIFICATION`
-2. 2D detail endpoint contract — P1 deterministic runtime regression
-   - implementation checkpoint landed in v1.0.36: a bounded app_v1036 migration retires only the legacy /detail-2d and /detail-3d routes, installs typed request contracts aligned with AIClient/detail_pipeline, and serve.py imports the migration before serving canonical app:app
-   - focused typed-contract coverage is present and exact-head core-foundation is green; treat MS-049 as FIXED IN v1.0.36 - NEEDS USER VERIFICATION, not release-verified
-   - reference-machine acceptance still requires packaged Enhance Selected Region to complete without the released v1.0.35 arity/request mismatch and without provider/path-validation regression
-3. Project lifecycle isolation — P0/P1
-   - disposed-selection sub-slice is FIXED IN v1.0.36 - NEEDS USER VERIFICATION: per-frame stable-selection reconciliation clears invalid/disposed selection before status/gizmo consumers
-   - fresh-project sub-slice is now code-complete/green: New clears project-scoped 2D/baseline/candidate presentation and replaces the Stage-C working project with a fresh Core ProjectState/session before new baseline work can inherit prior revisions
-   - reference-machine acceptance still requires New after a generated/edited project to show no prior 2D image/baseline/candidate and no disposed MeshInstance3D error
-4. Workspace composition regressions — P1
-   - exterior-gutter root cause fixed in v1.0.36 code: the programmatic top-level VBox had FullRect anchors without a Control parent while also receiving manual size; it now uses explicit TopLeft anchors and synchronizes its full client rect from the root viewport on resize, with a focused contract guard
-   - telemetry/AI-command composition remains next; reference-machine resize/maximize/restore acceptance remains required
-5. 3D render / transform / navigation correctness — P1
-   - camera tab continuity and RMB selected-object pivot fixes are already landed/code-green in v1.0.36; reference-machine verification remains required
-   - remaining: generated-mesh exterior/backface correctness, Rotate stable pivot/rollback, and tiny-model -> delayed scale/ground sequencing
-6. Project/settings/prompt UX continuity — P1/P2
-   - Open Project is now promoted beside New in the top toolbar; packaged user verification remains required
-   - remaining: MS-014 quality preset/custom controls and last concept/image-edit prompt continuity across ordinary reopen
-7. Close the corrective checkpoint
-   - preserve already-landed v1.0.36 mapped attachment/orphaned Smart Selection fixes plus the current runtime-recovery fixes
-   - keep Stage-D attachment undo/load schema work deferred until reproduced runtime regressions are contained
-   - run focused regressions plus final exact-head Core and full build/package/installer validation
-   - return one coherent v1.0.36 runtime-test checkpoint to Coordinator; do not publish autonomously
+### Corrective implementation status
+1. Provider install/resume — MS-050/MS-051
+   - code-complete/green: Hunyuan checkout uses contained long-path handling plus partial-worktree verification/recovery; TripoSR verifies host torch and builds torchmcubes with contained no-build-isolation; deterministic partial stages remain reusable
+   - packaged reference-machine install/resume verification remains required
+2. 2D detail endpoint contract — MS-049
+   - code-complete/green with typed 2D/3D contracts while preserving canonical `app:app`; packaged Enhance Selected Region retest remains required
+3. Project lifecycle isolation — MS-043/MS-044
+   - code-complete/green: New retires prior project-scoped 2D/baseline/candidate presentation, establishes a fresh durable Stage-C ProjectState/session, and disposed selection is cleared before consumers
+   - packaged New-project isolation retest remains required
+4. Workspace composition — MS-035 and telemetry/AI-command composition
+   - code-complete/green: top-level workspace owns the full client rect; docked Resource Telemetry layout authority no longer overlays the viewport; focused composition guards are present
+   - resize/maximize/restore and AI-command visibility require packaged reference-machine verification
+5. 3D render / transform / navigation — MS-037/MS-038/MS-039/MS-045/MS-046
+   - code-complete/green evidence includes camera tab continuity, stable selected-object RMB orbit pivot, generated presentation-normal repair, immediate generated-transform projection, direct Rotate drag, object-origin Rotate gizmo pivot, and fail-closed prevention of overlapping durable transform gestures that could snap back to stale rotation
+   - packaged reference-machine verification remains required for shell/backside appearance, Rotate pivot/rollback, and tiny-model/delayed scale-ground behavior; if Rotate still reproduces, inspect the remaining runtime/Euler path from this verified head rather than adding speculative fixes now
+6. Project/settings/prompt UX continuity — MS-014/MS-047/MS-048
+   - code-complete/green evidence includes visible Quality preset parameters/custom-preset path, persisted project prompt continuity, and Open Project promoted beside New
+   - packaged user verification remains required
 
-### Acceptance / preemption
-- current exact writable head includes provider install/resume hardening, typed 2D/3D detail contracts, disposed-selection safety, durable New-project isolation, camera/orbit continuity, visible Open Project access, and explicit full-client workspace root ownership
-- latest exact-head validation for the implementation checkpoint is green across core-foundation, C#/.NET, Python/runtime/geometry/release-audit, portable package and installer
-- all user-observed runtime/UI fixes remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION` until packaged reference-machine retest
-- Manager owns the prior malformed-write process-incident follow-up; it does not globally freeze product work because source recovery was conclusive
-- P0/P1 user-observed regressions outrank the prior attachment-history architecture queue
-- pending untested items (MS-033/MS-040 and attachment/selection switching) remain local verification dependencies, not a global stop
+### Dev continuation boundary
+- no evidence-backed corrective mutation remains authorized solely from the existing v1.0.35 observations; the latest Dev run intentionally stopped with `authorized_work_remaining_at_intent: NO` after exact-head green validation and Coordinator handoff
+- Dev must not repeat the landed corrective batch or invent speculative fixes merely to consume run time
+- next Dev implementation is triggered by a concrete Coordinator acceptance gap, failed release-candidate validation, or new packaged/reference-machine evidence
+- Stage-D attachment undo/load reconstruction remains deferred until this corrective checkpoint is released/verified enough to resume lower-priority architecture work
 
-### Latest validated implementation delta — pending Coordinator reconciliation
-- exact_head: `150051c7310f2ac8fe685ba68ad04c99f9e7983e`
-- landed_since_prior_canonical_reconciliation: Quality preset parameter visibility/custom-preset path; direct Rotate drag; project prompt persistence; immediate generated-transform projection; generated presentation normals; docked telemetry layout authority; object-origin Rotate pivot; and fail-closed prevention of overlapping durable transform gestures
-- validation: exact-head core-foundation and full C#/.NET, Python/runtime/geometry/release-audit, portable package and installer gates are green
-- acceptance: all user-visible corrections remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION`; no release action was taken
-- continuation: Coordinator should reconcile CURRENT/ISSUE_STATE and the v1.0.36 release boundary; Dev resumes from any concrete remaining corrective gap or new reference-machine evidence rather than repeating the landed work
+### Release acceptance / preemption
+- exact implementation head `150051c7310f2ac8fe685ba68ad04c99f9e7983e` is the latest reconciled corrective checkpoint before the subsequent documentation-only execution-state reconciliation
+- exact-head Core, .NET/C#, Python/runtime/geometry/release-audit, portable package and installer validation are green
+- all user-observed runtime/UI fixes remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION`; green CI does not convert them to reference-machine VERIFIED
+- pending untested MS-033/MS-040 and attachment/selection switching remain local verification dependencies, not global implementation blockers
+- Coordinator owns final ISSUE_STATE reconciliation and release-candidate decision/publication; Dev never publishes
+
 ## Architecture decision deferred
 - MSG-20260915-DEV-006 Stage-D attachment undo/load reconstruction remains valid evidence.
-- Coordinator disposition: DEFER the durable-metadata-vs-transient-projection choice until the current reference-machine P0/P1 corrective batch is stabilized.
+- Coordinator disposition: DEFER the durable-metadata-vs-transient-projection choice until the current reference-machine corrective checkpoint is published/verified enough to resume lower-priority Stage-D work.
 
 ## Deferred / user-owned design
 - MS-041 Refinement/Kitbash exact UI/interaction design remains user-approval work.
