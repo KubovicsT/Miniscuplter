@@ -136,6 +136,17 @@ internal static class StageDCandidateSiblingPersistenceTests
                    discardedReopenedSession.Current.Candidates[candidateAId].Status == CandidateStatus.Applied &&
                    discardedReopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Discarded,
                 "discard against a reopened applied candidate created phantom history or disturbed terminal sibling state");
+
+            CandidateApplyResult repeatedApply = discardedReopenedSession.ApplyCandidate(candidateAId);
+            Assert(!repeatedApply.Applied && repeatedApply.Conflict,
+                "reopened applied candidate did not remain terminal when Apply was attempted again");
+            Assert(discardedReopenedSession.Current.RevisionNumber == discardedRevisionBeforeRejectedApply &&
+                   !discardedReopenedSession.IsDirty &&
+                   !discardedReopenedSession.CanUndo &&
+                   discardedReopenedSession.Current.Objects[objectId].ActiveMeshRevisionId == outputA.Id &&
+                   discardedReopenedSession.Current.Candidates[candidateAId].Status == CandidateStatus.Applied &&
+                   discardedReopenedSession.Current.Candidates[candidateBId].Status == CandidateStatus.Discarded,
+                "Apply against a reopened applied candidate created phantom history or disturbed terminal sibling state");
         }
         finally
         {
