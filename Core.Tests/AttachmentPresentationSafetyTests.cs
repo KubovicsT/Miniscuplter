@@ -34,6 +34,10 @@ internal static class AttachmentPresentationSafetyTests
         Assert(authority.Contains("bool V1033HasStableCoreIdentity(MeshInstance3D part)", StringComparison.Ordinal) &&
                authority.Contains("_v1020StageCSession.Current.Objects.ContainsKey(objectId)", StringComparison.Ordinal),
             "mapped attachment fallback guard does not prove stable live Core object identity");
+        Assert(authority.Contains("bool V1033TryResolveAttachmentSocketOwner(AttachmentRecord attachment", StringComparison.Ordinal) &&
+               authority.Contains("parentId == attachment.ParentObjectId", StringComparison.Ordinal) &&
+               authority.Contains("if (!V1033TryResolveAttachmentSocketOwner(attachment, out _)) return false;", StringComparison.Ordinal),
+            "mapped attachment presentation can remain authoritative when its socket is absent or owned by a different Core parent");
     }
 
     static void Assert(bool condition, string message)
