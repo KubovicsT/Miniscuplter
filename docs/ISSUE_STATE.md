@@ -130,6 +130,14 @@ This file is the authoritative current-state ledger for active, release-relevant
 - evidence: released v1.0.35 exposes New/Import/Export but no visible Load/Open Project action, preventing the user from explicitly exercising the charter's save/reload workflow
 - desired_state: provide a clear user-accessible project open/load/recovery entry point consistent with the canonical project-store model and safe migration/recovery rules
 
+### MS-049 — 2D Enhance Selected Region backend contract mismatch
+- severity: High 2D AI editing regression
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1 PREEMPTION
+- evidence: reference-machine "Enhance Selected Region" fails immediately with "2D detail generation failed: detail_2d() takes from 4 to 5 positional arguments but 6 were given". Current source confirms /detail-2d passes image_path, mask_path, prompt, output_path, quality and provider positionally while detail_pipeline.detail_2d accepts image_path, mask_path, prompt, output_path and one optional image_provider. AIClient also sends image_provider while the FastAPI request model exposes legacy quality/provider fields.
+- adjacent_code_risk: current /detail-3d request model/endpoint is also structurally inconsistent with AIClient.Detail3DAsync and detail_pipeline.detail_3d; inspect/fix contract coherently but do not claim user-runtime reproduction without evidence
+- desired_state: 2D Enhance reaches the selected local image-detail provider through one typed request contract, preserves safe path/output validation, and completes without arity/request-field mismatch; add a focused endpoint/contract regression test
+
 ## Existing issues updated by v1.0.31 evidence
 
 ### MS-020 — AI job/runtime ownership
