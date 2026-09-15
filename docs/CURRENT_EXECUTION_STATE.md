@@ -41,13 +41,13 @@
 - state: ACTIVE
 - outcome: remove remaining evidence-backed cases where legacy Godot presentation state can appear authoritative after Core attachment/selection identity or revision authority changes, without committing the unresolved Refinement/Kitbash UI design
 - release_boundary: v1.0.35 is published/frozen. v1.0.36 is the only authoritative writable semantic branch.
+- completed_this_slice: mapped attachment command/read fallback is now fail-closed for stable Core objects. Snap no longer falls back to legacy attachment mutation when the selected child has stable Core identity but its socket owner cannot resolve to stable Core identity. Detach of a mapped child with no durable Core attachment retires stale legacy projection instead of invoking legacy detach authority. Read-side projection now also requires the durable attachment socket to exist and its current Godot owner to map to the exact durable Core ParentObjectId before fine-tune/placement presentation can remain authoritative. Focused Core presentation guards cover these seams. An intermediate C# compile failure caused by capturing an out parameter in a lambda was diagnosed from CI and fixed immediately; the corrected implementation exact-head Core, C#/.NET, Python/runtime/geometry/release-audit and package/installer validation are green.
 
 ### Ordered Dev queue
-1. **Mapped Kitbash read-side authority audit/fix**
-   - inspect remaining attachment presentation/read paths used for Core-mapped objects: attachment status, parent/child identity, socket/fine-tune projection and selection-driven refresh
-   - where a concrete authority leak exists, make stable Core ObjectId + AttachmentRecord state authoritative and fail closed when the matching durable record/projection is absent or stale
-   - retain display-name/legacy DTO fallback only for objects not yet represented by stable Core identity; do not redesign the user-facing Kitbash controls
-2. **Attachment transaction/history/load reconciliation**
+1. **Mapped Kitbash read-side authority audit/fix — IN PROGRESS / FIRST PASS COMPLETE**
+   - completed: mapped command fallback and socket-owner presentation authority now fail closed for stable Core objects; legacy fallback remains only for objects without stable Core identity
+   - continue only if another concrete read-side authority leak is evidenced; do not redesign the user-facing Kitbash controls
+2. **Attachment transaction/history/load reconciliation — NEXT**
    - verify mapped presentation after snap/detach/fine-tune/rebind plus undo/redo and save/reopen
    - fix evidence-backed cases where stale/absent Core attachment state can resurrect prior controls/placement or where current durable state is not re-projected after history/load transitions
    - preserve explicit stale/rebind semantics; no automatic revision transfer without compatibility evidence
