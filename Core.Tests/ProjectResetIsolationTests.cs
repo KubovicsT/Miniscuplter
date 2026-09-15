@@ -19,13 +19,19 @@ internal static class ProjectResetIsolationTests
             Assert(reset.Contains(token, StringComparison.Ordinal), "New project does not retire project-scoped 2D presentation token: " + token);
         Assert(reset.Contains("_v109Generate3D.Disabled = true", StringComparison.Ordinal),
             "New project does not retire prior accepted-baseline generation eligibility");
+        Assert(reset.Contains("_v1020GenerationBinding = null", StringComparison.Ordinal) &&
+               reset.Contains("_v1020PendingCandidate = null", StringComparison.Ordinal) &&
+               reset.Contains("ProjectState.Create(\"Stage C working project\")", StringComparison.Ordinal) &&
+               reset.Contains("_v1020StageCStore.SaveAsync(fresh, _v1020StageCProjectPath)", StringComparison.Ordinal) &&
+               reset.Contains("_v1020StageCSession = new ProjectSession(fresh)", StringComparison.Ordinal),
+            "New project does not retire prior durable Stage-C baseline/candidate authority");
         Assert(reset.Contains("openButton.Text = \"Open Project\"", StringComparison.Ordinal) &&
                reset.Contains("toolbar.MoveChild(openButton", StringComparison.Ordinal),
             "project Open action is not promoted beside New and may be clipped off the toolbar");
         Assert(reset.Contains("tabs.TabChanged -= V1019WorkflowTabChanged", StringComparison.Ordinal) &&
                reset.Contains("tabs.TabChanged += V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal),
             "workflow tabs still use the implicit camera-framing handler");
-        string preserveBody = reset[(reset.IndexOf("void V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal))..reset.IndexOf("void V1036ClearProjectPresentation", StringComparison.Ordinal)];
+        string preserveBody = reset[(reset.IndexOf("void V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal))..reset.IndexOf("async void V1036ClearProjectPresentation", StringComparison.Ordinal)];
         Assert(!preserveBody.Contains("FrameSelected", StringComparison.Ordinal),
             "ordinary workflow-tab switching still reframes the selected object");
         Assert(reset.Contains("host.GuiInput += V1036StabilizeOrbitPivot", StringComparison.Ordinal) &&
