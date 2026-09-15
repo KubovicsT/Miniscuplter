@@ -134,13 +134,13 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-049 — 2D Enhance Selected Region backend contract mismatch
 - severity: High 2D AI editing regression
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1 PREEMPTION
-- evidence: reference-machine "Enhance Selected Region" fails immediately with "2D detail generation failed: detail_2d() takes from 4 to 5 positional arguments but 6 were given". Current source confirms /detail-2d passes image_path, mask_path, prompt, output_path, quality and provider positionally while detail_pipeline.detail_2d accepts image_path, mask_path, prompt, output_path and one optional image_provider. AIClient also sends image_provider while the FastAPI request model exposes legacy quality/provider fields.
-- current_implementation_state: UNFIXED. Dev began this slice but a malformed whole-file app.py write was detected and forward-reverted immediately; current backend source is restored byte-for-byte to the pre-attempt state, so no endpoint fix from that attempt is accepted. Current exact head is green.
-- adjacent_code_risk: current /detail-3d request model/endpoint is also structurally inconsistent with AIClient.Detail3DAsync and detail_pipeline.detail_3d; inspect/fix contract coherently but do not claim user-runtime reproduction without evidence
-- desired_state: 2D Enhance reaches the selected local image-detail provider through one typed request contract, preserves safe path/output validation, and completes without arity/request-field mismatch; add a focused endpoint/contract regression test
-
+- evidence: reference-machine v1.0.35 "Enhance Selected Region" fails immediately with "2D detail generation failed: detail_2d() takes from 4 to 5 positional arguments but 6 were given". v1.0.36 now carries a bounded app_v1036 migration that retires only the legacy /detail-2d and /detail-3d routes and registers typed request contracts aligned with AIClient/detail_pipeline; serve.py imports that migration before serving canonical app:app.
+- current_implementation_state: implemented in v1.0.36 with focused typed-contract coverage. The current exact writable head preserves canonical backend entry-point behavior and core-foundation is green.
+- adjacent_code_state: the structurally inconsistent /detail-3d contract was aligned in the same bounded migration, but no reference-machine 3D detail behavior is claimed fixed without runtime evidence.
+- verification_state: packaged reference-machine Enhance Selected Region retest required; confirm request/provider/path validation and actual detail generation complete without the v1.0.35 arity mismatch.
+- desired_state: 2D Enhance reaches the selected local image-detail provider through one typed request contract, preserves safe path/output validation, and completes without arity/request-field mismatch.
 
 ### MS-050 — Hunyuan3D 2.1 Windows install fails on long checkout paths
 - severity: High AI-runtime/model-install blocker
@@ -150,7 +150,6 @@ This file is the authoritative current-state ledger for active, release-relevant
 - resume_risk: _ensure_clone currently returns as soon as target/.git exists. A failed checkout can therefore leave a repository metadata directory that is not a valid complete runtime worktree, so a later Resume may incorrectly skip clone/checkout repair.
 - desired_state: install/resume succeeds from the existing Windows AIData root without requiring global Git/Windows reconfiguration or data relocation; long-path handling is contained to Miniscuplter's Git invocation; interrupted clone state is validated/repaired rather than trusted from .git presence alone; safe reusable staged payload remains resumable.
 - suggested_validation: focused clone-command/partial-worktree regression coverage plus packaged Windows install/resume verification at a path depth at least as long as the reported reference-machine root
-
 
 ### MS-051 — TripoSR torchmcubes build isolation failure
 - severity: High AI-runtime/model-install blocker
@@ -173,57 +172,14 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-031 — accepted-baseline persistence across reopen
 - severity: Critical persistence/state-restoration defect
-- state: VERIFIED FIXED ON RELEASED v1.0.31
-- priority: closed verification gate
-- current_implementation_state: accepted-baseline restoration runs after UI composition on reopen; targeted save/reopen regression and CI green
-- verification_state: reference-machine verified on Windows/GTX 1080: after app close/reopen the 2D result is already visible and Generate 3D is immediately available without re-accepting the image as baseline; generated 3D object persistence/edit continuity is also verified across reopen
+- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- priority: P0
+- evidence: v1.0.31 reference machine can save a project with generated/accepted baseline but reopen/reload acceptance remains unavailable from current UI; canonical persistence repair exists in v1.0.32 and must be exercised once Open/Load is user-accessible
+- desired_state: accepted baseline and revision identity survive save/reopen and are restored transactionally before dependent presentation
 
-### MS-009 — viewport grid/render ownership
-- severity: Critical
-- state: PARTIALLY VERIFIED / RESIZE PATH REOPENED; see MS-035
-- latest_reference_machine_evidence: grid remains visible with generated content, but released v1.0.35 still produces exterior black gutters; the bars move from left/right to top/bottom at sufficiently narrow window proportions
-- desired_state: visible neutral grid plus robust resize/client-area composition
-
-### MS-026 — resource telemetry layout
-- severity: Medium product/observability
-- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
-- latest_reference_machine_evidence: v1.0.31 telemetry still overlays the viewport/AI-command region instead of occupying the requested bottom-left app-window area
-- current_implementation_state: v1.0.32 introduces one dedicated bottom workspace dock outside `ViewportHost`; telemetry is immediately reparented into its fixed 300-unit lower-left lane, while the command surface owns the expandable center lane and a 330-unit gutter preserves alignment with the fixed right rail. `WorkspaceAcceptanceTests` now rejects viewport-overlay ownership. Core-foundation run 34748891791 and full build/package run 34748891535 are green at exact head `ae8f24a6d460d182be5cd8332634b87d4bda9763`.
-- verification_state: FAILED on v1.0.35 reference machine: telemetry still overlaps the viewport
-- desired_state: telemetry lives in the lower-left application workspace area without covering viewport or command UI
-
-### MS-027 — workspace composition
-- severity: High product/UX acceptance
-- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
-- latest_reference_machine_evidence: v1.0.31 AI command line remains an overlay and is too narrow; user requires a dedicated non-overlay area expanded across the available bottom-center width; telemetry placement also remains wrong
-- current_implementation_state: v1.0.32 moves the AI command console out of `ViewportHost` into the dedicated expandable bottom-center workspace lane, lays contextual actions horizontally to preserve useful prompt width, and composes telemetry separately at bottom-left. Regression coverage requires non-overlay command ownership and the bottom-dock telemetry/command/right-rail alignment contract. Core-foundation run 34748891791 and full build/package run 34748891535 are green at exact head `ae8f24a6d460d182be5cd8332634b87d4bda9763`.
-- verification_state: FAILED on v1.0.35 reference machine: dedicated AI command area is not visible in either 2D or 3D, while telemetry remains over the viewport
-- desired_state: dedicated AI command area outside the main viewport, expanded across available bottom-center space; bottom-left telemetry outside viewport; contextual actions compose without overlap; accepted viewport tools and orientation control preserved
-
-### MS-029 — updater leaves launcher closed
-- severity: Critical release-path regression
-- state: FIXED - NEEDS USER VERIFICATION
-- verification_state: update-path reference-machine retest still required
-
-### MS-030 — packaged backend health after Runtime Repair
-- severity: Critical
-- state: FIXED - NEEDS USER VERIFICATION / RELATED TO MS-033
-- current_implementation_state: v1.0.32 derives expected repaired-backend health version from launcher assembly and editor-owned cancellation-restart health version from the packaged editor assembly instead of stale hardcoded backend versions; isolated instance-token checks remain required
-- verification_state: reference-machine Runtime Repair -> Generate and cancel -> immediate retry retests still required
-
-### MS-032 — failed generation envelope retirement
-- severity: High generation/persistence correctness
-- state: FIXED
-- priority: completed v1.0.31 P0 preemption
-- latest_evidence: terminal non-cancelled failures retire exact durable envelope and persist retirement before in-memory binding clears; exact-head validation green
-- source_finding: AMF-001 / GitHub Issue #2
-
-## Additional observed v1.0.31 state
-- starter-sphere UI remnant: 3D panel can report/select `Starter sphere` while no sphere is visible in viewport; fold into scene/selection-authority investigation unless it proves independently causal.
-- generated model itself successfully completed on GTX 1080 in about 390 s after app restart, using up to roughly 5.8 GB VRAM and high GPU utilization; this is positive provider/runtime evidence but does not close MS-033/MS-036/MS-037/MS-039.
-- generated-object persistence/rehydration is positive: with the generated model present, closing and reopening v1.0.31 restored the 3D object and its viewport transform tools continued to work; this confirms the generated-object identity/edit-continuity part of the Stage-C path on the reference machine.
-- accepted 2D baseline persistence is now also verified: after reopen the prior 2D result is visible and 3D generation can start immediately without another baseline-accept action.
-
-## Historical ledger
-- legacy_source: docs/ISSUES.md
-- historical_attempts_and_old issue records: preserved in legacy source and Git history
+### MS-032 — direct 3D transform controls
+- severity: High modeling UX
+- state: PARTIALLY VERIFIED ON v1.0.35; see MS-038
+- priority: P1
+- evidence: v1.0.35 reference machine confirms direct Move works and visible Rotate rings are draggable; Rotate correctness remains reopened under MS-038
+- desired_state: direct object manipulation with stable transform authority and precise gizmo behavior
