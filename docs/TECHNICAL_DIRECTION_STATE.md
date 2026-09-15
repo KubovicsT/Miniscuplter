@@ -12,9 +12,9 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - architecture_mode: selective refactor; bounded ownership convergence; no broad rewrite
 
 ## Current strategic objective
-- stable_release: v1.0.34
-- writable_release_line: v1.0.35
-- objective: use v1.0.34 as the latest reference-machine runtime-test checkpoint while v1.0.35 continues the next bounded UI-neutral Stage-D/E ownership-convergence batch
+- stable_release: v1.0.35
+- writable_release_line: v1.0.36
+- objective: use v1.0.35 as the latest reference-machine runtime-test checkpoint while v1.0.36 continues the next bounded UI-neutral Stage-D/E ownership-convergence batch
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
 - preemption_rule: any reproduced P0/P1 regression in the latest user-tested release preempts lower-priority current-version foundation work after Coordinator reconciliation
@@ -27,8 +27,8 @@ This file is the authoritative medium/long-horizon technical-direction state own
 5. only after the durable foundation and relevant runtime evidence are sound, design the exact Refinement/Kitbash interaction with the user; Rig & Pose and Cleanup & Export remain later
 
 ## Strategic dependencies
-- v1.0.34 is the latest verified published build and preferred runtime acceptance target
-- v1.0.35 is the authoritative writable successor with canonical VERSION bootstrap complete and green bootstrap build/package validation
+- v1.0.35 is the latest verified published build and preferred runtime acceptance target
+- v1.0.36 is the authoritative writable successor with canonical VERSION bootstrap complete and green bootstrap .NET/Python/package validation
 - user/reference-machine verification is a local acceptance dependency, not a global stop while independent safe work exists
 - Core already contains stable AttachmentRecord, CandidateRecord, object/revision identity and revision-bound selection models; legacy Godot attachment paths still include display-name/DTO ownership and must converge rather than become a second durable authority
 - stale AI/refinement outputs must become explicit conflict/discard state and must never overwrite newer revisions
@@ -70,5 +70,6 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - do not hold a ready testable batch for perfection, unrelated cleanup, or completion of an entire architectural workstream
 - candidate gates remain strict: exact-head automated validation/package gates green, canonical state coherent, no known release-blocking regression, and no active publication conflict; pending user verification of prior releases is not itself a publication blocker
 - after successful publication, immediately establish the validated next semantic-version branch/VERSION bootstrap so continuing work lands in a fresh release envelope
-- v1.0.34 is published/frozen as the latest small-batch runtime-test checkpoint
-- v1.0.35 is the authoritative writable successor and begins a fresh release envelope; choose a small coherent subset of the remaining foundation work, prefer one runtime-testable story, keep enough ordered related slices for productive 40-minute Dev cycles, and roll excess adjacent work to v1.0.36 rather than prolonging the version
+- v1.0.35 is published/frozen as the latest small-batch runtime-test checkpoint
+- v1.0.36 is the authoritative writable successor and begins a fresh release envelope; prioritize remaining evidence-backed mapped attachment read-side/history/load presentation convergence, then Smart Selection/protected-region fail-closed presentation seams, without changing the unresolved user-facing Refinement/Kitbash UI
+- v1.0.36 release boundary: once roughly 2–4 meaningful related changes form a coherent runtime-testable ownership-convergence batch with final exact-head gates green, return it to Coordinator and roll adjacent cleanup to v1.0.37 rather than prolonging the version
