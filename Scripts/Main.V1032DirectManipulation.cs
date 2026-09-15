@@ -15,6 +15,12 @@ public partial class Main
     {
         if (_v1017Gizmo == null || !IsInstanceValid(_v1017Gizmo)) return;
 
+        // Rotation mutates the MeshInstance transform around its stable object origin. Keep the
+        // visible rings on that same pivot instead of the bounds-center placement used by the
+        // generic selection gizmo, so the presented rotate pivot matches the actual/durable one.
+        if (_v1018Tool == V1018ViewportTool.Rotate && _selected != null && IsInstanceValid(_selected))
+            _v1017Gizmo.GlobalPosition = _selected.GlobalPosition;
+
         void EnsureRing(string name, Vector3 rotationDegrees, Color color)
         {
             MeshInstance3D? ring = _v1017Gizmo.GetChildren().OfType<MeshInstance3D>()
