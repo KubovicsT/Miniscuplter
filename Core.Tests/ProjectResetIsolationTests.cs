@@ -28,6 +28,9 @@ internal static class ProjectResetIsolationTests
         string preserveBody = reset[(reset.IndexOf("void V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal))..reset.IndexOf("void V1036ClearProjectPresentation", StringComparison.Ordinal)];
         Assert(!preserveBody.Contains("FrameSelected", StringComparison.Ordinal),
             "ordinary workflow-tab switching still reframes the selected object");
+        Assert(reset.Contains("host.GuiInput += V1036StabilizeOrbitPivot", StringComparison.Ordinal) &&
+               reset.Contains("_focus = _selected.GlobalTransform * (bounds.Position + bounds.Size * .5f)", StringComparison.Ordinal),
+            "RMB orbit does not establish a stable selected-object pivot");
     }
 
     static void Assert(bool condition, string message)
