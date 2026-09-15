@@ -255,6 +255,17 @@ public partial class Main
         projection.UniformScale = Math.Max(.01f, attachment.LocalTransform.Scale.X);
     }
 
+    bool V1033TryResolveAttachmentSocketOwner(AttachmentRecord attachment, out V07SocketDto? socket)
+    {
+        socket = _v07Sockets.FirstOrDefault(s => s.Id == attachment.Socket);
+        if (socket == null) return false;
+        MeshInstance3D? parent = _objects.FirstOrDefault(o => GodotObject.IsInstanceValid(o) && o.Name.ToString() == socket.OwnerObject);
+        if (parent == null || !_v1013ObjectIds.TryGetValue(parent.GetInstanceId(), out ObjectId parentId)) return false;
+        return parentId == attachment.ParentObjectId &&
+               _v1020StageCSession != null &&
+               _v1020StageCSession.Current.Objects.ContainsKey(parentId);
+    }
+
     bool V1033TryProjectAuthoritativeAttachment(V07AttachmentDto projection, MeshInstance3D part)
     {
         if (_v1020StageCSession == null || !_v1013ObjectIds.TryGetValue(part.GetInstanceId(), out ObjectId childId))
@@ -262,6 +273,7 @@ public partial class Main
         AttachmentRecord? attachment = _v1020StageCSession.Current.Attachments.Values.FirstOrDefault(x => x.ChildObjectId == childId);
         if (attachment == null) return false;
         if (!StageDAttachments.IsAuthoritative(_v1020StageCSession.Current, attachment)) return false;
+        if (!V1033TryResolveAttachmentSocketOwner(attachment, out _)) return false;
         V1033ProjectCoreLocalTransform(attachment, projection);
         return true;
     }
