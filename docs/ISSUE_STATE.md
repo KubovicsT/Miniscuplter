@@ -151,6 +151,16 @@ This file is the authoritative current-state ledger for active, release-relevant
 - desired_state: install/resume succeeds from the existing Windows AIData root without requiring global Git/Windows reconfiguration or data relocation; long-path handling is contained to Miniscuplter's Git invocation; interrupted clone state is validated/repaired rather than trusted from .git presence alone; safe reusable staged payload remains resumable.
 - suggested_validation: focused clone-command/partial-worktree regression coverage plus packaged Windows install/resume verification at a path depth at least as long as the reported reference-machine root
 
+
+### MS-051 — TripoSR torchmcubes build isolation failure
+- severity: High AI-runtime/model-install blocker
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1 PREEMPTION
+- evidence: reference-machine TripoSR install preserves ~0.06 GB of deterministic staged data, clones tatsy/torchmcubes, then fails during pyproject metadata generation because the isolated build environment cannot import torch. The upstream package error explicitly requires PyTorch to be installed/visible and recommends building without isolation. Current Miniscuplter source installs torchmcubes through model_manager._install_triposr_dependencies -> _pip_install using ordinary pip isolation together with unrelated dependencies.
+- root_cause: torchmcubes has dynamic metadata that imports/detects PyTorch at build time; pip's temporary isolated build environment does not inherit the packaged host environment's installed torch, so metadata generation fails before the dependency can build.
+- desired_state: TripoSR install/resume verifies that the Miniscuplter host environment has the required torch, installs torchmcubes through a contained no-build-isolation path, retains normal build isolation for unrelated packages, preserves safe staged data across failure/retry, and completes without unnecessary source/model redownload.
+- suggested_validation: focused command-construction test proving torchmcubes alone receives --no-build-isolation, host-torch preflight/fail-closed coverage, and packaged Windows install/resume verification from a preserved partial stage
+
 ## Existing issues updated by v1.0.31 evidence
 
 ### MS-020 — AI job/runtime ownership
