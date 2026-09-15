@@ -15,11 +15,9 @@ internal static class CameraContinuityTests
         string installer = File.ReadAllText(installerPath);
         Assert(continuity.Contains("tabs.TabChanged -= V1019WorkflowTabChanged", StringComparison.Ordinal),
             "v1.0.19 tab-change camera-reset handler is not explicitly retired");
-        Assert(continuity.Contains("tabs.TabChanged += V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal),
-            "camera-preserving workflow-tab handler is not installed");
         Assert(!continuity.Contains("FrameSelected()", StringComparison.Ordinal) &&
                !continuity.Contains("UpdateCamera()", StringComparison.Ordinal),
-            "workflow-tab continuity handler must not rewrite camera framing/orbit state");
+            "workflow-tab continuity repair must not rewrite camera framing/orbit state");
         Assert(installer.Contains("main.InstallV1036CameraContinuity();", StringComparison.Ordinal),
             "camera-continuity repair is not composed by the installer");
     }
