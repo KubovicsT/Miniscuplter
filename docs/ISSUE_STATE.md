@@ -15,45 +15,45 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-035 — resize leaves black exterior gutters and does not preserve panel layout
 - severity: High workspace/resize UX
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
-- priority: P1
+- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
+- priority: P1 PREEMPTION
 - evidence: screenshots show black rectangles at window edges after resize; side panels/layout do not behave as fixed-width rails with viewport absorbing size delta. Source audit found the programmatic top-level `VBoxContainer` was anchored under a non-Control `Node`, so it did not have a reliable client-area resize owner, while the right rail was also deliberately resized as 27% of available width.
 - current_implementation_state: v1.0.32 binds the top-level workspace root to `Viewport.SizeChanged` and the current visible client rect, keeps the right workspace rail at its intended 330-unit width, and lets the central viewport absorb horizontal size changes while preserving the v1.0.19 `SubViewportContainer.Stretch` render-size authority. `WorkspaceResizeContractTests` guards the client-area/root and fixed-rail contract. Core-foundation run 34747505948 and full build run 34747505866 are green at exact code/test head `c7507a6384f3fc4ebdbd32dee263507b7fb66027`.
-- verification_state: packaged reference-machine resize/maximize/restore retest required; confirm no black exterior gutters and that the right rail remains stable while the viewport absorbs size delta
+- verification_state: FAILED on v1.0.35 reference machine: black bars remain at the left/right in normal proportions and move to top/bottom when the window becomes sufficiently narrow; major controls otherwise stay comparatively stable during resize
 - desired_state: left/right panels retain intended sizes and the central viewport expands/contracts to consume available client area with no black gutters
 
 ### MS-036 — generated candidate is not reviewable before Apply
 - severity: High generation UX/correctness visibility
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- state: VERIFIED FIXED ON RELEASED v1.0.35
 - priority: P0/P1
 - evidence: successful generation in v1.0.31 reports identity-verified candidate ready but viewport/scene do not display it until Apply; user cannot review the candidate as instructed
 - current_implementation_state: v1.0.32 preserves stale/conflict guards but automatically applies a non-conflicting identity-verified generation into canonical Core project state and immediately inserts the matching mesh presentation; the redundant Apply gate is no longer part of the normal successful generation path
-- verification_state: packaged reference-machine generation must confirm a successful result appears automatically in the scene without pressing Apply
+- verification_state: PASSED on v1.0.35 reference machine: generation succeeded and the result auto-inserted without an Apply step
 - desired_state: generation result is immediately visible and reviewable. User direction: remove the redundant Apply step and insert a successful generation directly; unsuitable results can be regenerated. Preserve transactional/stale-result guards while simplifying the UX.
 
 ### MS-037 — generated mesh renders with shell/back-side appearance
 - severity: High viewport/render correctness
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
 - priority: P1
 - evidence: applied generated knight in v1.0.31 appears visually inside-out/shell-like, as if non-user-facing/back surfaces dominate
 - current_implementation_state: v1.0.32 repairs generated mesh winding/normals before export and uses correctness-oriented back-face culling with neutral matte material plus stronger directional studio lighting instead of masking orientation problems with two-sided rendering; exact-head CI for the implementation is green
-- verification_state: packaged reference-machine visual retest required to confirm exterior faces and surface detail read correctly on GTX 1080
+- verification_state: FAILED on v1.0.35 reference machine: generated mesh still visibly shows backside/shell-like surfaces
 - desired_state: normal/front-facing generated surface renders correctly from the active camera; diagnose normals/winding/material/culling rather than masking the symptom
 
 ### MS-038 — transform interaction incomplete
 - severity: Medium/High modeling UX
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- state: PARTIALLY VERIFIED / ROTATE REOPENED ON v1.0.35
 - priority: P1
-- evidence: Select/Move/Rotate tools work through axis handles, but dragging the model itself does not perform expected constrained/direct move; rotate lacks a rotation-circle/ring interaction
+- evidence: v1.0.35 reference machine verifies direct model Move works and rotation rings are visible/useable; Rotate still behaves incorrectly because rotation does not occur around the expected stable object/origin axes and some interaction failures snap the model back toward a prior rotation
 - desired_state: intuitive direct model drag where appropriate plus axis constraints; rotation exposes visible rotation rings/circles while retaining precise axis manipulation
 
 ### MS-039 — generated-object placement and scale are unsuitable
 - severity: High generation/modeling UX
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- state: PARTIAL PASS / REOPENED PRESENTATION SEQUENCING ON v1.0.35
 - priority: P1
 - evidence: inserted model in v1.0.31 has origin at grid zero so geometry is roughly bisected by the grid; generated object is tiny and scale is not user-adjustable
 - current_implementation_state: v1.0.32 computes one Core-owned initial transform from generated mesh bounds: uniform scaling targets a 100-unit largest dimension, X/Z bounds are centered around workspace origin, and minimum Y is translated to grid Y=0. The transform is persisted in canonical `ProjectObject.Transform`, so save/reopen/edit paths consume the same authority rather than a viewport-only offset. Targeted `GeneratedObjectPlacementTests` plus exact-head build run 34746648597 are green at `9353b21686fe34d7699b391c9469fd8643349e53`.
-- verification_state: packaged reference-machine generation must confirm sensible apparent size and lowest-point grid contact; user-adjustable pre-generation desired physical size remains a later product-surface enhancement rather than a second transform authority
+- verification_state: PARTIAL on v1.0.35 reference machine: result first appears very small, then after a noticeable delay enlarges and snaps to the grid. Final placement/scale is improved, but the visible multi-stage insertion is not coherent acceptance behavior
 - desired_state: on insertion translate object so its lowest world-space point rests on the grid; expose user-facing grid scale and desired model height/size before generation so the inserted result starts near intended physical scale
 
 ### MS-040 — Smart Select AI unavailable
@@ -77,6 +77,58 @@ This file is the authoritative current-state ledger for active, release-relevant
 - state: DEFERRED BY USER
 - priority: later
 - desired_state: implement these product areas in later scoped work; do not let empty-tab implementation preempt current generation/viewport/refinement correctness
+
+
+## v1.0.35 reference-machine findings — 2026-09-15
+
+### MS-014 — Quality presets are opaque / custom presets unavailable
+- severity: High settings/runtime UX regression
+- state: REOPENED ON RELEASED v1.0.35
+- priority: P1/P2
+- evidence: Settings > Quality shows a preset selector and descriptive text, but does not expose the actual adjustable values for the selected preset and no visible custom preset creation/edit controls are available; this contradicts the historical v1.0.17 completion record
+- desired_state: users can inspect the parameters controlled by built-in presets and create/clone/rename/save/delete custom presets from the current supported Settings UI
+
+### MS-043 — New project leaks previous project 2D state
+- severity: Critical project-state isolation / data correctness
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P0/P1 PREEMPTION
+- evidence: pressing New after a project with generated 3D clears the 3D model but leaves the previous project's 2D image visible; screenshot also shows stale scene/selection presentation after reset
+- desired_state: New establishes one clean authoritative project boundary; prior project 2D image/baseline, 3D objects, selections, tool bindings and project-scoped presentation cannot leak into the new project
+
+### MS-044 — project reset leaves disposed MeshInstance3D in Stage-D path
+- severity: High runtime/state-transition correctness
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1 PREEMPTION
+- evidence: after New, the bottom status reports Stage-D sculpt commit failed safely / durable Core restored because a disposed Godot.MeshInstance3D was accessed
+- desired_state: project reset retires scene-node bindings atomically enough that no later Stage-D action can reference disposed presentation objects; recovery remains fail-closed without surfacing routine reset errors
+
+### MS-045 — 3D camera view resets on tab switch
+- severity: High modeling/navigation UX
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1
+- evidence: zoom/orientation in 3D is lost when switching to another tab and back
+- desired_state: ordinary 2D/3D/product-tab switching preserves the 3D viewport camera transform/zoom unless the user explicitly frames or resets the view
+
+### MS-046 — RMB orbit uses unstable/wrong pivot
+- severity: High modeling/navigation UX
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1
+- evidence: right-drag orbit snaps toward origin and orbits a point that appears to move with the camera rather than a stable selected-object/world pivot
+- desired_state: orbit uses a stable selected-object pivot when selection exists and a coherent stable fallback otherwise; camera translation must not drag the orbit pivot
+
+### MS-047 — concept/image-edit prompt text is not restored
+- severity: Medium workflow continuity
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P2
+- evidence: the last AI prompt disappears from the concept/image-edit prompt textbox after application reopen
+- desired_state: when the relevant project/session is restored, the most recent user prompt text remains available for iteration unless explicitly cleared
+
+### MS-048 — no user-visible project Open/Load entry point
+- severity: High project workflow completeness
+- state: OPEN - REPRODUCED ON v1.0.35
+- priority: P1/P2
+- evidence: released v1.0.35 exposes New/Import/Export but no visible Load/Open Project action, preventing the user from explicitly exercising the charter's save/reload workflow
+- desired_state: provide a clear user-accessible project open/load/recovery entry point consistent with the canonical project-store model and safe migration/recovery rules
 
 ## Existing issues updated by v1.0.31 evidence
 
@@ -103,18 +155,18 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-026 — resource telemetry layout
 - severity: Medium product/observability
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
 - latest_reference_machine_evidence: v1.0.31 telemetry still overlays the viewport/AI-command region instead of occupying the requested bottom-left app-window area
 - current_implementation_state: v1.0.32 introduces one dedicated bottom workspace dock outside `ViewportHost`; telemetry is immediately reparented into its fixed 300-unit lower-left lane, while the command surface owns the expandable center lane and a 330-unit gutter preserves alignment with the fixed right rail. `WorkspaceAcceptanceTests` now rejects viewport-overlay ownership. Core-foundation run 34748891791 and full build/package run 34748891535 are green at exact head `ae8f24a6d460d182be5cd8332634b87d4bda9763`.
-- verification_state: packaged reference-machine workspace retest required; confirm telemetry stays in the lower-left application area and never covers the viewport or AI command surface during resize/maximize/restore
+- verification_state: FAILED on v1.0.35 reference machine: telemetry still overlaps the viewport
 - desired_state: telemetry lives in the lower-left application workspace area without covering viewport or command UI
 
 ### MS-027 — workspace composition
 - severity: High product/UX acceptance
-- state: FIXED IN v1.0.32 - NEEDS USER VERIFICATION
+- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
 - latest_reference_machine_evidence: v1.0.31 AI command line remains an overlay and is too narrow; user requires a dedicated non-overlay area expanded across the available bottom-center width; telemetry placement also remains wrong
 - current_implementation_state: v1.0.32 moves the AI command console out of `ViewportHost` into the dedicated expandable bottom-center workspace lane, lays contextual actions horizontally to preserve useful prompt width, and composes telemetry separately at bottom-left. Regression coverage requires non-overlay command ownership and the bottom-dock telemetry/command/right-rail alignment contract. Core-foundation run 34748891791 and full build/package run 34748891535 are green at exact head `ae8f24a6d460d182be5cd8332634b87d4bda9763`.
-- verification_state: packaged reference-machine workspace retest required; confirm the command area spans the available bottom-center width, contextual actions/history remain usable, and neither command nor telemetry covers the viewport
+- verification_state: FAILED on v1.0.35 reference machine: dedicated AI command area is not visible in either 2D or 3D, while telemetry remains over the viewport
 - desired_state: dedicated AI command area outside the main viewport, expanded across available bottom-center space; bottom-left telemetry outside viewport; contextual actions compose without overlap; accepted viewport tools and orientation control preserved
 
 ### MS-029 — updater leaves launcher closed
