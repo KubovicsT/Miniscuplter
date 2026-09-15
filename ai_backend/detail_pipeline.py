@@ -37,11 +37,16 @@ def _fit_patch_to_bounds(path,bounds_min,bounds_max,padding=1.04):
     m=_load_mesh(path);lo=np.asarray(bounds_min,float);hi=np.asarray(bounds_max,float)
     if lo.shape!=(3,) or hi.shape!=(3,) or np.any(hi<=lo):raise ValueError("Selection bounds are invalid")
     target=np.maximum(hi-lo,1e-3);center=(lo+hi)*.5;ext=np.maximum(np.asarray(m.extents,float),1e-6);scale=float(np.min((target*padding)/ext));m.apply_translation(-np.asarray(m.bounds).mean(axis=0));m.apply_scale(scale);m.apply_translation(center);m.remove_unreferenced_vertices();m.merge_vertices();out=validate_output_path(path, (".stl",));m.export(out,file_type="stl");return {"scale":scale,"target_center_mm":center.tolist(),"target_extents_mm":target.tolist(),"patch_extents_mm":m.extents.tolist(),"fit_method":"uniform all-axis bounding fit"}
-def detail_2d(image_path,mask_path,prompt,output_path,image_provider="auto"):
+def detail_2d(image_path,mask_path,prompt,output_path,quality_or_provider="auto",image_provider=None):
+    # v1.0.35's endpoint still passes legacy quality + provider positionally. Accept that
+    # six-argument shape while the typed endpoint contract is migrated, but keep routing
+    # authority on the provider field; quality does not alter detail-provider selection.
+    provider = image_provider if image_provider is not None else quality_or_provider
+    if provider in {None, "", "standard", "high", "balanced", "fast"}: provider = "auto"
     image_path = str(validate_input_path(image_path, DEFAULT_IMAGE_SUFFIXES))
     mask_path = str(validate_input_path(mask_path, DEFAULT_IMAGE_SUFFIXES))
     output_path = str(validate_output_path(output_path, DEFAULT_IMAGE_SUFFIXES))
-    d=choose_image_provider("detail",image_provider);release_all_models()
+    d=choose_image_provider("detail",provider);release_all_models()
     try:return {"path":_run_image_edit(d.provider,image_path,mask_path,prompt,output_path),"provider":d.provider,"routing_reason":d.reason}
     finally:release_all_models()
 def detail_3d(source_mesh,image_path,mask_path,prompt,bounds_min,bounds_max,output_patch,output_image,output_crop,image_provider="auto",three_d_provider="auto"):
