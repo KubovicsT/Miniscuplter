@@ -14,22 +14,22 @@ This file is the authoritative medium/long-horizon technical-direction state own
 ## Current strategic objective
 - stable_release: v1.0.35
 - writable_release_line: v1.0.36
-- objective: use v1.0.35 as the latest reference-machine runtime-test checkpoint while v1.0.36 continues the next bounded UI-neutral Stage-D/E ownership-convergence batch
+- objective: use v1.0.35 reference-machine evidence to preempt lower-priority Stage-D/E ownership work and make v1.0.36 a runtime-regression recovery release centered on project isolation, workspace composition, render/transform/navigation correctness and essential project/settings continuity
 - reference_machine: Windows; GTX 1080 8 GB VRAM; 16 GB RAM
 - evidence_rule: reference-machine GUI/GPU/runtime evidence outranks CI for runtime acceptance
 - preemption_rule: any reproduced P0/P1 regression in the latest user-tested release preempts lower-priority current-version foundation work after Coordinator reconciliation
 
 ## Priority order
-1. keep v1.0.32 cancellation/retry, direct insertion, rendering/readability, grounding/scale, Smart Select, resize/workspace and transform interaction open for reference-machine verification
-2. in parallel, converge attachment/Kitbash durable authority onto Core stable object/attachment identity and transactional persistence/history without changing the unresolved user-facing UI
-3. establish revision-bound Refinement candidate/dependency foundations: exact object/input revision, selection/protected-region bindings, output lineage, stale/conflict handling, apply/discard and undo/redo semantics
-4. explicitly preserve/transfer/invalidate revision-dependent selections, protected regions and attachments across topology/revision changes, with save/reopen coverage
-5. only after the durable foundation and relevant runtime evidence are sound, design the exact Refinement/Kitbash interaction with the user; Rig & Pose and Cleanup & Export remain later
+1. fix the reproduced v1.0.35 project-boundary failures first: New must not retain the prior 2D/baseline state and must not leave disposed Godot scene objects reachable from Stage-D actions
+2. restore runtime workspace acceptance: remove black gutters, move telemetry out of the viewport and restore the dedicated AI command area across 2D/3D and resize/maximize/restore
+3. restore 3D viewport correctness on the packaged reference path: exterior rendering, stable Rotate pivot/history behavior, stable RMB orbit pivot, preserved camera state across tab switches, and coherent initial generated-object placement without delayed visible re-scaling
+4. restore essential workflow continuity: current Quality preset introspection/customization, user-visible project Open/Load/recovery entry point, and retained concept/image-edit prompt text
+5. after the corrective runtime batch is stable, resume the deferred Stage-D attachment undo/load reconstruction decision and remaining Refinement/Kitbash ownership convergence; exact UI remains user-owned
 
 ## Strategic dependencies
 - v1.0.35 is the latest verified published build and preferred runtime acceptance target
 - v1.0.36 is the authoritative writable successor with canonical VERSION bootstrap complete and green bootstrap .NET/Python/package validation
-- user/reference-machine verification is a local acceptance dependency, not a global stop while independent safe work exists
+- user/reference-machine verification is a local acceptance dependency, but reproduced P0/P1 failures on the latest tested release preempt lower-priority independent foundation work until contained
 - Core already contains stable AttachmentRecord, CandidateRecord, object/revision identity and revision-bound selection models; legacy Godot attachment paths still include display-name/DTO ownership and must converge rather than become a second durable authority
 - stale AI/refinement outputs must become explicit conflict/discard state and must never overwrite newer revisions
 - generated-result UX, attachments, transforms and physical size must preserve one canonical Core representation
@@ -71,5 +71,6 @@ This file is the authoritative medium/long-horizon technical-direction state own
 - candidate gates remain strict: exact-head automated validation/package gates green, canonical state coherent, no known release-blocking regression, and no active publication conflict; pending user verification of prior releases is not itself a publication blocker
 - after successful publication, immediately establish the validated next semantic-version branch/VERSION bootstrap so continuing work lands in a fresh release envelope
 - v1.0.35 is published/frozen as the latest small-batch runtime-test checkpoint
-- v1.0.36 is the authoritative writable successor and begins a fresh release envelope; prioritize remaining evidence-backed mapped attachment read-side/history/load presentation convergence, then Smart Selection/protected-region fail-closed presentation seams, without changing the unresolved user-facing Refinement/Kitbash UI
-- v1.0.36 release boundary: once roughly 2–4 meaningful related changes form a coherent runtime-testable ownership-convergence batch with final exact-head gates green, return it to Coordinator and roll adjacent cleanup to v1.0.37 rather than prolonging the version
+- v1.0.36 is the authoritative writable successor. Its previously returned attachment/Smart-Selection ownership batch remains valid code, but the release boundary is rejected after v1.0.35 reference-machine testing reproduced multiple user-facing P0/P1 regressions.
+- v1.0.36 is now the corrective runtime-test envelope: contain the project-reset, workspace, render/transform/navigation and essential continuity regressions above, keep final scope coherent, and return to Coordinator when the corrective batch has exact-head gates green.
+- Stage-D attachment undo/load reconstruction is intentionally deferred during this corrective tranche; do not add durable attachment compatibility schema or transient history-cache architecture merely to finish invisible follow-on work while the latest released runtime fails basic acceptance.
