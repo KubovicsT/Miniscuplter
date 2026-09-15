@@ -16,8 +16,10 @@ internal static class WorkspaceResizeContractTests
 
         Assert(responsive.Contains("GetViewport().SizeChanged += SyncV109RootToViewport", StringComparison.Ordinal),
             "workspace root is not synchronized to OS/client viewport resize");
-        Assert(responsive.Contains("_v109ResponsiveRoot.Size = size", StringComparison.Ordinal),
-            "workspace root no longer consumes the full visible client area");
+        Assert(responsive.Contains("_v109ResponsiveRoot.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopLeft)", StringComparison.Ordinal) &&
+               responsive.Contains("_v109ResponsiveRoot.Position = Vector2.Zero", StringComparison.Ordinal) &&
+               responsive.Contains("_v109ResponsiveRoot.Size = size", StringComparison.Ordinal),
+            "top-level workspace root does not use one explicit client-rect layout authority");
         Assert(responsive.Contains("const float sidebar = 330f", StringComparison.Ordinal),
             "right workspace rail no longer has a fixed intended width");
         Assert(!responsive.Contains("width * 0.27f", StringComparison.Ordinal),
