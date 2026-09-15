@@ -39,6 +39,12 @@ public partial class Main
             if (!_v1013ObjectIds.TryGetValue(instanceId, out ObjectId objectId)) continue;
             if (!_v1020StageCSession.Current.Objects.TryGetValue(objectId, out ProjectObject? projectObject)) continue;
 
+            // Stage-C candidate reconstruction currently carries positions + triangle indices into
+            // Godot, but no normal array. Generate normals once at the presentation boundary so
+            // standard back-face culling/lighting does not make the generated surface look like an
+            // inside-out shell.
+            V1036EnsureGeneratedPresentationNormals(presentation);
+
             // Generation creates the Godot mesh before its durable placement is projected. Do the
             // first projection immediately after the generation busy boundary instead of leaving a
             // tiny/default-transform presentation visible until a later reconciliation happens.
@@ -47,5 +53,19 @@ public partial class Main
             if (ReferenceEquals(_selected, presentation))
                 FrameSelected();
         }
+    }
+
+    static void V1036EnsureGeneratedPresentationNormals(MeshInstance3D presentation)
+    {
+        if (presentation.Mesh is not ArrayMesh mesh || mesh.GetSurfaceCount() == 0) return;
+        var arrays = mesh.SurfaceGetArrays(0);
+        if (arrays.Count > (int)Mesh.ArrayType.Normal && arrays[(int)Mesh.ArrayType.Normal].VariantType != Variant.Type.Nil)
+            return;
+
+        var surface = new SurfaceTool();
+        surface.CreateFrom(mesh, 0);
+        surface.GenerateNormals();
+        ArrayMesh rebuilt = surface.Commit();
+        presentation.Mesh = rebuilt;
     }
 }
