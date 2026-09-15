@@ -26,10 +26,10 @@ def _configure_model_install_storage() -> None:
 
 _configure_model_install_storage()
 
-# Import only after TEMP/TMP/PIP_CACHE_DIR are redirected. model_manager subprocesses inherit
-# this environment, including pip's isolated build environments and Git source checkouts.
-from model_manager import install_component, uninstall_component, update_component
-from model_manager_v105 import status
+# Import only after TEMP/TMP/PIP_CACHE_DIR are redirected. The safety adapter routes install,
+# update and status through the resumable manager while keeping uninstall on the contained
+# legacy implementation.
+from model_install_safety import install_component, status, uninstall_component, update_component
 
 
 def _exception_detail(exc: Exception) -> str:
