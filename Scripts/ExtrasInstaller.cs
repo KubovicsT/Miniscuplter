@@ -68,5 +68,6 @@ public partial class ExtrasInstaller : Node
         main.InstallWorkspaceDensity();
         main.InstallV1036ProjectResetIsolation();
         main.InstallV1036CameraContinuity();
+        main.InstallV1036InitialTransformProjection();
     }
 }
