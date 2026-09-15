@@ -15,6 +15,9 @@ internal static class InitialTransformProjectionTests
         string installer = File.ReadAllText(installerPath);
         Assert(projection.Contains("if (_v1093DBusy || _v1020StageCSession == null) return;", StringComparison.Ordinal),
             "generated transform projection must wait for the generation busy boundary");
+        Assert(projection.Contains("V1036EnsureGeneratedPresentationNormals(presentation);", StringComparison.Ordinal) &&
+               projection.Contains("surface.GenerateNormals();", StringComparison.Ordinal),
+            "Stage-C presentation does not repair the missing normal array before standard rendering");
         Assert(projection.Contains("V1020ProjectObjectStateToScene(presentation, projectObject, reloadMesh: false);", StringComparison.Ordinal),
             "new mapped presentation is not projected from durable Core transform state");
         Assert(projection.Contains("_v1036ObservedMappedPresentations.Add(instanceId);", StringComparison.Ordinal),
