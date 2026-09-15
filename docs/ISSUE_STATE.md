@@ -149,8 +149,8 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-009 — viewport grid/render ownership
 - severity: Critical
-- state: PARTIALLY VERIFIED / RESIZE FIX IN v1.0.32 NEEDS USER VERIFICATION; see MS-035
-- latest_reference_machine_evidence: v1.0.31 grid is visible, including with generated object, but resize still produces black exterior gutters
+- state: PARTIALLY VERIFIED / RESIZE PATH REOPENED; see MS-035
+- latest_reference_machine_evidence: grid remains visible with generated content, but released v1.0.35 still produces exterior black gutters; the bars move from left/right to top/bottom at sufficiently narrow window proportions
 - desired_state: visible neutral grid plus robust resize/client-area composition
 
 ### MS-026 — resource telemetry layout
