@@ -23,6 +23,10 @@ public partial class Main
 
         if (_v109ResponsiveRoot != null)
         {
+            // Main is a Node, so the programmatic root has no Control parent to resolve its
+            // FullRect anchors against. Give it the viewport client rect as explicit top-level
+            // layout authority instead of mixing anchors with manual Size assignment.
+            _v109ResponsiveRoot.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopLeft);
             GetViewport().SizeChanged += SyncV109RootToViewport;
             SyncV109RootToViewport();
         }
