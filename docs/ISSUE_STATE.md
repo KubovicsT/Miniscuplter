@@ -97,9 +97,11 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-044 — project reset leaves disposed MeshInstance3D in Stage-D path
 - severity: High runtime/state-transition correctness
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1 PREEMPTION
-- evidence: after New, the bottom status reports Stage-D sculpt commit failed safely / durable Core restored because a disposed Godot.MeshInstance3D was accessed
+- evidence: after New, released v1.0.35 reports Stage-D sculpt commit failed safely / durable Core restored because a disposed Godot.MeshInstance3D was accessed
+- current_implementation_state: v1.0.36 per-frame stable-selection reconciliation now detects an invalid/disposed _selected before status/gizmo consumers run, clears both _selected and its stable viewport binding, and refreshes the gizmo. Focused ProtectedRegionPresentationSafetyTests guard this fail-closed cleanup. The implementation checkpoint and recovered current head both have green exact-head Core and full build/package/installer validation.
+- verification_state: packaged reference-machine New-project retest required. Confirm the disposed MeshInstance3D Stage-D error no longer appears. This does not close MS-043: the separate previous-project 2D image leak remains reproduced/open.
 - desired_state: project reset retires scene-node bindings atomically enough that no later Stage-D action can reference disposed presentation objects; recovery remains fail-closed without surfacing routine reset errors
 
 ### MS-045 — 3D camera view resets on tab switch
@@ -135,6 +137,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 - state: OPEN - REPRODUCED ON v1.0.35
 - priority: P1 PREEMPTION
 - evidence: reference-machine "Enhance Selected Region" fails immediately with "2D detail generation failed: detail_2d() takes from 4 to 5 positional arguments but 6 were given". Current source confirms /detail-2d passes image_path, mask_path, prompt, output_path, quality and provider positionally while detail_pipeline.detail_2d accepts image_path, mask_path, prompt, output_path and one optional image_provider. AIClient also sends image_provider while the FastAPI request model exposes legacy quality/provider fields.
+- current_implementation_state: UNFIXED. Dev began this slice but a malformed whole-file app.py write was detected and forward-reverted immediately; current backend source is restored byte-for-byte to the pre-attempt state, so no endpoint fix from that attempt is accepted. Current exact head is green.
 - adjacent_code_risk: current /detail-3d request model/endpoint is also structurally inconsistent with AIClient.Detail3DAsync and detail_pipeline.detail_3d; inspect/fix contract coherently but do not claim user-runtime reproduction without evidence
 - desired_state: 2D Enhance reaches the selected local image-detail provider through one typed request contract, preserves safe path/output validation, and completes without arity/request-field mismatch; add a focused endpoint/contract regression test
 
