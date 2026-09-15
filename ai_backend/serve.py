@@ -19,7 +19,7 @@ def main() -> None:
         raise SystemExit("Invalid backend port.")
 
     os.environ["MINISCULPTER_BACKEND_INSTANCE"] = args.instance_token
-    uvicorn.run("app:app", host="127.0.0.1", port=args.port, log_level="info")
+    uvicorn.run("app_v1036:app", host="127.0.0.1", port=args.port, log_level="info")
 
 
 if __name__ == "__main__":
