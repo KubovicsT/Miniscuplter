@@ -32,6 +32,9 @@ public partial class Main
 
         if (FindChild("ViewportHost", true, false) is SubViewportContainer host)
         {
+            host.GuiInput -= V1036StabilizeOrbitPivot;
+            host.GuiInput += V1036StabilizeOrbitPivot;
+
             var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
             if (tabs != null)
             {
@@ -43,6 +46,16 @@ public partial class Main
                 tabs.TabChanged += V1036WorkflowTabChangedPreserveCamera;
             }
         }
+    }
+
+    void V1036StabilizeOrbitPivot(InputEvent ev)
+    {
+        if (ev is not InputEventMouseButton button || button.ButtonIndex != MouseButton.Right || !button.Pressed) return;
+        if (_selected == null || !IsInstanceValid(_selected)) return;
+
+        var bounds = _selected.GetAabb();
+        _focus = _selected.GlobalTransform * (bounds.Position + bounds.Size * .5f);
+        UpdateCamera();
     }
 
     void V1036WorkflowTabChangedPreserveCamera(long tab)
