@@ -46,6 +46,13 @@ internal static class ProtectedRegionPresentationSafetyTests
         Assert(source.Contains("catch (Exception ex)", StringComparison.Ordinal) && source.Contains("cleared = false;", StringComparison.Ordinal),
             "failed durable Smart Selection clear does not re-enable reconciliation of the restored durable binding");
 
+        string selectionAuthorityPath = Path.Combine(root, "Scripts", "Main.V1027SelectionAuthority.cs");
+        if (!File.Exists(selectionAuthorityPath)) throw new InvalidOperationException("TEST FAILED: viewport selection authority bridge is missing");
+        string selectionAuthority = File.ReadAllText(selectionAuthorityPath).Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert(selectionAuthority.Contains("if (_selected != null && !GodotObject.IsInstanceValid(_selected))", StringComparison.Ordinal) &&
+               selectionAuthority.Contains("_selected = null;\n            _v1027ViewportSelection = null;\n            V1017UpdateGizmo();", StringComparison.Ordinal),
+            "disposed viewport selection presentation is not cleared before per-frame status/gizmo consumers can dereference it");
+
         string smartSelectPath = Path.Combine(root, "Scripts", "Main.V096SmartSelect.cs");
         if (!File.Exists(smartSelectPath)) throw new InvalidOperationException("TEST FAILED: Smart Selection implementation is missing");
         string smartSelectSource = File.ReadAllText(smartSelectPath).Replace("\r\n", "\n", StringComparison.Ordinal);
