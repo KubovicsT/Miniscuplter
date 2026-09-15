@@ -83,7 +83,15 @@ public partial class Main
         if (_v096SelectionObject == null || !GodotObject.IsInstanceValid(_v096SelectionObject) ||
             !_v1013ObjectIds.TryGetValue(_v096SelectionObject.GetInstanceId(), out ObjectId objectId) ||
             !session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))
+        {
+            ClearV096Selection(false);
+            _v1027DurableSmartSelection = null;
+            _v1027FailedSelectionRestore = null;
+            _v1027PersistedSmartSelectionValues = null;
+            _v1027PersistedSmartSelectionQuery = "";
+            SetStatus("Smart Selection presentation cleared because its stable Core object identity is no longer live.");
             return;
+        }
 
         if (_v1027DurableSmartSelection is { } currentBinding &&
             currentBinding.ObjectId == objectId &&
