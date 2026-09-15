@@ -70,5 +70,6 @@ public partial class ExtrasInstaller : Node
         main.InstallV1036CameraContinuity();
         main.InstallV1036InitialTransformProjection();
         main.InstallV1036SettingsQualityBridge();
+        main.InstallV1036PromptContinuity();
     }
 }
