@@ -42,10 +42,10 @@
    - keep TripoSR dependency failure fail-closed and resumable: preserve/reuse the deterministic partial stage and do not redownload/reclone valid payload unnecessarily after dependency repair
    - add focused command/partial-stage regression coverage for both providers and verify packaged Windows install/resume behavior; inspect safe checkout/download trimming only as a bounded optimization, not as a blocker to the direct fixes
 2. 2D detail endpoint contract — P1 deterministic runtime regression
-   - fix MS-049: released v1.0.35 "Enhance Selected Region" fails immediately because /detail-2d passes six positional arguments into a detail_2d implementation that accepts four required plus one optional argument
-   - reconcile the public request contract end-to-end: AIClient request fields, FastAPI Detail2DRequest, endpoint call, provider routing, output/path validation and focused endpoint regression coverage
-   - inspect the adjacent /detail-3d request/endpoint contract in the same bounded slice because current source is structurally inconsistent with AIClient.Detail3DAsync/detail_pipeline.detail_3d; only mark 3D runtime behavior fixed/reproduced from actual evidence
-   - keep this bounded and then continue the project-lifecycle work in the same Dev cycle when time permits
+   - implementation checkpoint landed in v1.0.36: a bounded app_v1036 migration retires only the legacy /detail-2d and /detail-3d routes, installs typed request contracts aligned with AIClient/detail_pipeline, and serve.py imports the migration before serving canonical app:app
+   - focused typed-contract coverage is present and exact-head core-foundation is green; treat MS-049 as FIXED IN v1.0.36 - NEEDS USER VERIFICATION, not release-verified
+   - reference-machine acceptance still requires packaged Enhance Selected Region to complete without the released v1.0.35 arity/request mismatch and without provider/path-validation regression
+   - keep the adjacent 3D contract as code-validated only unless actual runtime evidence establishes behavior
 3. Project lifecycle isolation — P0/P1
    - disposed-selection sub-slice is FIXED IN v1.0.36 - NEEDS USER VERIFICATION: per-frame stable-selection reconciliation now clears an invalid/disposed _selected plus its stable viewport binding before status/gizmo consumers can dereference it; focused guard and exact-head Core/full build/package/installer validation are green
    - remaining project-reset work: reproduce New after a generated/edited project and make New establish a genuinely fresh project
@@ -74,8 +74,8 @@
    - return one coherent v1.0.36 runtime-test checkpoint to Coordinator; do not publish autonomously
 
 ### Acceptance / preemption
-- current exact writable head is recovered and green after the 18:00 Dev process incident: the malformed ai_backend/app.py commit was immediately forward-reverted, backend source is restored byte-for-byte, and no product behavior from that bad commit is accepted
-- Manager owns the process-incident follow-up; it does not globally freeze product work because current source is restored, exact-head validation is green, and safe independent corrective work remains
+- current exact writable head includes the bounded MS-049 detail-contract migration and preserves canonical app:app as the backend entry point; exact-head core-foundation is green, but packaged user verification is still required
+- Manager owns the prior malformed-write process-incident follow-up; it does not globally freeze product work because source recovery was conclusive and safe corrective work continued
 - P0/P1 user-observed regressions outrank the prior attachment-history architecture queue
 - Hunyuan3D 2.1 Shape must install/resume successfully from the user's existing Windows AIData root without filename-too-long checkout failure, global Git configuration, or forced data-root relocation; partial-stage recovery must verify a usable worktree rather than .git existence alone
 - TripoSR must install/resume successfully with torchmcubes built against the packaged/host PyTorch environment rather than failing in isolated metadata generation; the fix must not globally disable pip build isolation for unrelated dependencies
