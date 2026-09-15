@@ -10,11 +10,24 @@ public partial class Main
     {
         var root = GetChildren().OfType<VBoxContainer>().FirstOrDefault();
         var toolbar = root?.GetChildren().OfType<HBoxContainer>().FirstOrDefault();
-        var newButton = toolbar?.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "New");
-        if (newButton == null) return;
+        if (toolbar == null) return;
 
-        newButton.Pressed -= V1036ClearProjectPresentation;
-        newButton.Pressed += V1036ClearProjectPresentation;
+        var newButton = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == "New");
+        if (newButton != null)
+        {
+            newButton.Pressed -= V1036ClearProjectPresentation;
+            newButton.Pressed += V1036ClearProjectPresentation;
+        }
+
+        // The legacy project actions were appended after a crowded modeling toolbar, which can
+        // clip Open/Load entirely on ordinary window widths. Keep the existing handler but make
+        // the project-open action a first-class neighbor of New.
+        var openButton = toolbar.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text is "Load Project" or "Open Project");
+        if (openButton != null)
+        {
+            openButton.Text = "Open Project";
+            toolbar.MoveChild(openButton, Math.Min(1, toolbar.GetChildCount() - 1));
+        }
     }
 
     void V1036ClearProjectPresentation()
