@@ -138,8 +138,8 @@ internal static class StageDCandidateSiblingPersistenceTests
                 "discard against a reopened applied candidate created phantom history or disturbed terminal sibling state");
 
             CandidateApplyResult repeatedApply = discardedReopenedSession.ApplyCandidate(candidateAId);
-            Assert(!repeatedApply.Applied && repeatedApply.Conflict,
-                "reopened applied candidate did not remain terminal when Apply was attempted again");
+            Assert(!repeatedApply.Applied && !repeatedApply.Conflict,
+                "reopened applied candidate did not remain a terminal no-op when Apply was attempted again");
             Assert(discardedReopenedSession.Current.RevisionNumber == discardedRevisionBeforeRejectedApply &&
                    !discardedReopenedSession.IsDirty &&
                    !discardedReopenedSession.CanUndo &&
