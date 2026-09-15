@@ -69,6 +69,12 @@
 - P0/P1 user-observed regressions outrank the prior attachment-history architecture queue
 - pending untested items (MS-033/MS-040 and attachment/selection switching) remain local verification dependencies, not a global stop
 
+### Latest validated implementation delta — pending Coordinator reconciliation
+- exact_head: `150051c7310f2ac8fe685ba68ad04c99f9e7983e`
+- landed_since_prior_canonical_reconciliation: Quality preset parameter visibility/custom-preset path; direct Rotate drag; project prompt persistence; immediate generated-transform projection; generated presentation normals; docked telemetry layout authority; object-origin Rotate pivot; and fail-closed prevention of overlapping durable transform gestures
+- validation: exact-head core-foundation and full C#/.NET, Python/runtime/geometry/release-audit, portable package and installer gates are green
+- acceptance: all user-visible corrections remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION`; no release action was taken
+- continuation: Coordinator should reconcile CURRENT/ISSUE_STATE and the v1.0.36 release boundary; Dev resumes from any concrete remaining corrective gap or new reference-machine evidence rather than repeating the landed work
 ## Architecture decision deferred
 - MSG-20260915-DEV-006 Stage-D attachment undo/load reconstruction remains valid evidence.
 - Coordinator disposition: DEFER the durable-metadata-vs-transient-projection choice until the current reference-machine P0/P1 corrective batch is stabilized.
