@@ -22,6 +22,15 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def _request_properties(openapi: dict, path: str) -> set[str]:
+    schema = openapi["paths"][path]["post"]["requestBody"]["content"]["application/json"]["schema"]
+    ref = schema.get("$ref", "")
+    if not ref.startswith("#/components/schemas/"):
+        raise AssertionError(f"{path} request does not use a typed component schema: {schema}")
+    name = ref.rsplit("/", 1)[-1]
+    return set(openapi["components"]["schemas"][name].get("properties", {}))
+
+
 def main() -> None:
     if not SERVER.is_file():
         raise AssertionError("canonical backend serve.py is missing")
@@ -70,7 +79,17 @@ def main() -> None:
                     elif payload.get("instance_token") != token:
                         last_error = f"instance identity mismatch: {payload}"
                     else:
-                        print("backend lifecycle regression test passed")
+                        with urllib.request.urlopen(f"http://127.0.0.1:{port}/openapi.json", timeout=2.0) as response:
+                            openapi = json.loads(response.read().decode("utf-8"))
+                        detail2d = _request_properties(openapi, "/detail-2d")
+                        detail3d = _request_properties(openapi, "/detail-3d")
+                        required2d = {"image_path", "mask_path", "prompt", "output_path", "image_provider"}
+                        required3d = {"source_mesh", "image_path", "mask_path", "prompt", "bounds_min", "bounds_max", "output_patch", "output_image", "output_crop", "image_provider", "three_d_provider"}
+                        if not required2d.issubset(detail2d):
+                            raise AssertionError(f"2D detail contract missing editor fields: {sorted(required2d - detail2d)}")
+                        if not required3d.issubset(detail3d):
+                            raise AssertionError(f"3D detail contract missing editor fields: {sorted(required3d - detail3d)}")
+                        print("backend lifecycle/detail contract regression test passed")
                         return
                 except Exception as exc:
                     last_error = repr(exc)
