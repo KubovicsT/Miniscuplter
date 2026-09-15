@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "target_branch": "v1.0.36",
+  "expected_head_sha": "150051c7310f2ac8fe685ba68ad04c99f9e7983e",
+  "target_path": "docs/CURRENT_EXECUTION_STATE.md",
+  "expected_blob_sha": "a92b53347dbcdcb60de42de0c37aae6634308f69",
+  "commit_message": "state: record validated v1.0.36 corrective delta",
+  "patch": "--- a/docs/CURRENT_EXECUTION_STATE.md\n+++ b/docs/CURRENT_EXECUTION_STATE.md\n@@ -72,0 +72,6 @@\n+### Latest validated implementation delta — pending Coordinator reconciliation\n+- exact_head: `150051c7310f2ac8fe685ba68ad04c99f9e7983e`\n+- landed_since_prior_canonical_reconciliation: Quality preset parameter visibility/custom-preset path; direct Rotate drag; project prompt persistence; immediate generated-transform projection; generated presentation normals; docked telemetry layout authority; object-origin Rotate pivot; and fail-closed prevention of overlapping durable transform gestures\n+- validation: exact-head core-foundation and full C#/.NET, Python/runtime/geometry/release-audit, portable package and installer gates are green\n+- acceptance: all user-visible corrections remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION`; no release action was taken\n+- continuation: Coordinator should reconcile CURRENT/ISSUE_STATE and the v1.0.36 release boundary; Dev resumes from any concrete remaining corrective gap or new reference-machine evidence rather than repeating the landed work\n+"
+}
