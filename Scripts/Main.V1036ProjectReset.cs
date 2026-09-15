@@ -1,5 +1,7 @@
 using Godot;
+using Miniscuplter.Core;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace Miniscuplter;
@@ -75,7 +77,7 @@ public partial class Main
         V1019ArmRenderProbe();
     }
 
-    void V1036ClearProjectPresentation()
+    async void V1036ClearProjectPresentation()
     {
         // NewScene owns scene-object reset. This companion runs after that handler and retires
         // project-scoped 2D/prompt-selection presentation that historically survived New.
@@ -84,10 +86,14 @@ public partial class Main
         _lastMask = "";
         _v03StartingImage = "";
         _v1011BaselineImage = "";
+        _v1020GenerationBinding = null;
+        _v1020PendingCandidate = null;
+        _v1020PendingCandidateMesh = null;
 
         if (_aiPreview != null) _aiPreview.Texture = null;
         SyncV1015CanvasSource("");
         _v1015ImageCanvas?.ClearSelection();
+        V1020RefreshCandidateControls();
         if (_v1011BaselineStatus != null) _v1011BaselineStatus.Text = "Baseline: not accepted yet";
         if (_v1015EditStatus != null) _v1015EditStatus.Text = "2D source: generate or load an image first.";
         if (_v109Generate3D != null)
@@ -95,5 +101,27 @@ public partial class Main
             _v109Generate3D.Disabled = true;
             _v109Generate3D.Text = "Accept a 2D Baseline First";
         }
+
+        // The Stage-C compatibility bridge owns durable accepted-baseline/candidate state. New must
+        // retire that state too; otherwise accepting a new image can silently inherit the previous
+        // project's revisions from stagec_working.msculpt2 even though the viewport looks fresh.
+        await _v1020StageCGate.WaitAsync();
+        try
+        {
+            string projects = AppDataRoot.Resolve("projects");
+            Directory.CreateDirectory(projects);
+            _v1020StageCProjectPath = Path.Combine(projects, "stagec_working.msculpt2");
+            var fresh = ProjectState.Create("Stage C working project")
+                .WithMetadata("compatibility_bridge", "v1.0.20-editor");
+            await _v1020StageCStore.SaveAsync(fresh, _v1020StageCProjectPath);
+            _v1020StageCSession = new ProjectSession(fresh);
+            _v1020StageCSession.MarkSaved();
+        }
+        catch (Exception ex)
+        {
+            _v1020StageCSession = null;
+            SetStatus("New scene presentation is clear, but fresh durable project state could not be established: " + ex.Message);
+        }
+        finally { _v1020StageCGate.Release(); }
     }
 }
