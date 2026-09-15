@@ -8,11 +8,15 @@ internal static class BackendRuntimeOwnershipTests
         string root = Directory.GetCurrentDirectory();
         string backendLauncherPath = Path.Combine(root, "Scripts", "BackendLauncher.cs");
         string repairPath = Path.Combine(root, "Launcher", "RuntimeSetupService.cs");
-        if (!File.Exists(backendLauncherPath) || !File.Exists(repairPath))
+        string modelBridgePath = Path.Combine(root, "ai_backend", "launcher_bridge.py");
+        string modelSafetyPath = Path.Combine(root, "ai_backend", "model_install_safety.py");
+        if (!File.Exists(backendLauncherPath) || !File.Exists(repairPath) || !File.Exists(modelBridgePath) || !File.Exists(modelSafetyPath))
             throw new InvalidOperationException("TEST FAILED: backend runtime ownership source files are missing");
 
         string backend = File.ReadAllText(backendLauncherPath);
         string repair = File.ReadAllText(repairPath);
+        string modelBridge = File.ReadAllText(modelBridgePath);
+        string modelSafety = File.ReadAllText(modelSafetyPath);
 
         Assert(backend.Contains("Path.Combine(backendDir, \".venv\", \"Scripts\", \"python.exe\")", StringComparison.Ordinal),
             "editor backend launcher does not use the repaired backend-local virtual environment");
@@ -38,6 +42,15 @@ internal static class BackendRuntimeOwnershipTests
             "Repair success does not require its own isolated instance-bound backend health response");
         Assert(repair.Contains("backend.Kill(entireProcessTree: true)", StringComparison.Ordinal),
             "Repair health probe does not clean up its temporary backend process tree");
+
+        Assert(modelBridge.Contains("from model_install_safety import install_component, status, uninstall_component, update_component", StringComparison.Ordinal),
+            "launcher model operations do not use the hardened resumable install entry point");
+        Assert(modelSafety.Contains("core.longpaths=true", StringComparison.Ordinal) &&
+               modelSafety.Contains("checkout\", \"-f\", \"HEAD", StringComparison.Ordinal),
+            "Hunyuan tool checkout is not guarded by contained Windows long-path/recovery handling");
+        Assert(modelSafety.Contains("--no-build-isolation", StringComparison.Ordinal) &&
+               modelSafety.Contains("import torch; print(torch.__version__)", StringComparison.Ordinal),
+            "TripoSR torchmcubes install does not preflight torch and use dependency-scoped no-build-isolation");
     }
 
     static void Assert(bool condition, string message)
