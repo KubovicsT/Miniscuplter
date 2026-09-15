@@ -40,6 +40,13 @@ public partial class Main
         V1027EnsureRevisionBoundSculptObserver();
         V1027ReconcileDurableSmartSelection();
 
+        if (_selected != null && !GodotObject.IsInstanceValid(_selected))
+        {
+            _selected = null;
+            _v1027ViewportSelection = null;
+            V1017UpdateGizmo();
+        }
+
         if (_v1027ViewportSelection is not { } binding || _v1020StageCSession == null)
             return;
 
