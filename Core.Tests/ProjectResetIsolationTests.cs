@@ -22,6 +22,12 @@ internal static class ProjectResetIsolationTests
         Assert(reset.Contains("openButton.Text = \"Open Project\"", StringComparison.Ordinal) &&
                reset.Contains("toolbar.MoveChild(openButton", StringComparison.Ordinal),
             "project Open action is not promoted beside New and may be clipped off the toolbar");
+        Assert(reset.Contains("tabs.TabChanged -= V1019WorkflowTabChanged", StringComparison.Ordinal) &&
+               reset.Contains("tabs.TabChanged += V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal),
+            "workflow tabs still use the implicit camera-framing handler");
+        string preserveBody = reset[(reset.IndexOf("void V1036WorkflowTabChangedPreserveCamera", StringComparison.Ordinal))..reset.IndexOf("void V1036ClearProjectPresentation", StringComparison.Ordinal)];
+        Assert(!preserveBody.Contains("FrameSelected", StringComparison.Ordinal),
+            "ordinary workflow-tab switching still reframes the selected object");
     }
 
     static void Assert(bool condition, string message)
