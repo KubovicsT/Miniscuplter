@@ -36,6 +36,35 @@ internal static class StageDLoadedCandidateReconciliationTests
             "ReplaceFromLoad did not reconcile a stale Ready candidate");
         Assert(validSession.IsDirty && validSession.Current.RevisionNumber == stale.State.RevisionNumber + 1,
             "ReplaceFromLoad reconciliation repair was not marked dirty for persistence");
+
+        ValidateMissingOutputLineageFailsClosed();
+    }
+
+    static void ValidateMissingOutputLineageFailsClosed()
+    {
+        var objectId = ObjectId.New();
+        var inputRevisionId = RevisionId.New();
+        var missingOutputRevisionId = RevisionId.New();
+        var candidateId = CandidateId.New();
+        var now = DateTimeOffset.UtcNow;
+        var input = new MeshRevision(
+            inputRevisionId, objectId, null, "assets/missing-output-input.meshbin", new string('d', 64),
+            3, 1, "missing-output-input", now);
+        var obj = new ProjectObject(objectId, "Missing Output Candidate Test", inputRevisionId, TransformState.Identity);
+
+        AssertThrowsInvalidData(
+            () => new ProjectState(
+                ProjectId.New(),
+                "missing-output-candidate",
+                objects: new[] { obj },
+                meshRevisions: new[] { input },
+                candidates: new[]
+                {
+                    new CandidateRecord(
+                        candidateId, objectId, inputRevisionId, missingOutputRevisionId, "refinement",
+                        CandidateStatus.Ready, "missing-output-candidate", now)
+                }),
+            "candidate with missing output revision was accepted into durable project state");
     }
 
     static CandidateFixture CreateCandidateFixture(bool outputDescendsFromInput, bool activeOnInput)
@@ -72,6 +101,20 @@ internal static class StageDLoadedCandidateReconciliationTests
     }
 
     readonly record struct CandidateFixture(ProjectState State, CandidateId CandidateId);
+
+    static void AssertThrowsInvalidData(Action action, string message)
+    {
+        try
+        {
+            action();
+        }
+        catch (InvalidDataException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException("TEST FAILED: " + message);
+    }
 
     static void Assert(bool condition, string message)
     {
