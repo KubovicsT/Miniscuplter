@@ -68,10 +68,19 @@ public partial class Main
         if (!EnsureWorkspaceBottomDock() || _workspaceTelemetryDock == null)
             return;
 
-        if (FindChild("Resource Telemetry", true, false) is Control telemetry &&
-            telemetry.GetParent() != _workspaceTelemetryDock)
+        if (FindChild("Resource Telemetry", true, false) is Control telemetry)
         {
-            telemetry.Reparent(_workspaceTelemetryDock, false);
+            if (telemetry.GetParent() != _workspaceTelemetryDock)
+                telemetry.Reparent(_workspaceTelemetryDock, false);
+
+            // Resource telemetry historically owned viewport-overlay anchors and offsets.
+            // Once it is docked, clear that obsolete absolute layout state so the container
+            // is the sole geometry authority and cannot keep covering the viewport.
+            telemetry.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+            telemetry.OffsetLeft = 0;
+            telemetry.OffsetTop = 0;
+            telemetry.OffsetRight = 0;
+            telemetry.OffsetBottom = 0;
             telemetry.ZIndex = 0;
             telemetry.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             telemetry.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
