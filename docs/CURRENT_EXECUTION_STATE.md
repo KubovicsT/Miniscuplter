@@ -1,20 +1,20 @@
 # Miniscuplter Current Execution State
 
 ## Release state
-- stable: v1.0.33
-- writable: v1.0.34
+- stable: v1.0.34
+- writable: v1.0.35
 - release_freeze: false
 - publication_active: false
-- branch_bootstrap: complete; VERSION 1.0.34
+- branch_bootstrap: complete; VERSION 1.0.35; bootstrap exact-head build/package green
 - execution_hold: none
 - release_cadence_target: approximately two meaningful runtime-test releases per active development day when coherent/green batches exist; cadence target is not a timer-based publication rule
-- current_release_slice: v1.0.34 is a fresh small-batch envelope; aim for a coherent runtime-testable checkpoint after roughly 2–4 related meaningful changes or about 3–6 hours of active development, without forcing publication by clock
+- current_release_slice: v1.0.35 is a fresh small-batch envelope; aim for one coherent runtime-test story after roughly 2–4 related meaningful changes or about 3–6 hours of active development, then return it to Coordinator instead of extending the version with adjacent cleanup
 
 ## Pending reference-machine verification
-### F — verify the latest released v1.0.33 checkpoint on the reference machine
+### F — verify the latest released v1.0.34 checkpoint on the reference machine
 - state: WAITING FOR USER REFERENCE-MACHINE EVIDENCE; NON-BLOCKING FOR INDEPENDENT WORK
-- outcome: use v1.0.33 as the preferred current runtime-test target on the Windows / GTX 1080 reference machine while independent v1.0.34 work continues; the prior v1.0.32 verification checklist remains applicable because those fixes are carried forward
-- release_evidence: v1.0.33 release-control publication completed successfully; tag, exact release candidate and installer/ZIP/hash assets were independently verified; validated forward branch v1.0.34 and VERSION 1.0.34 bootstrap completed
+- outcome: use v1.0.34 as the preferred current runtime-test target on the Windows / GTX 1080 reference machine while independent v1.0.35 work continues; the prior verification checklist remains applicable because those fixes are carried forward
+- release_evidence: v1.0.34 release-control publication completed successfully; tag, exact release candidate and installer/ZIP/hash assets were independently verified; validated forward branch v1.0.35 and VERSION 1.0.35 bootstrap completed; bootstrap exact-head build/package is green
 - verify:
   1. MS-033 cancel an active 3D generation, then immediately generate again without restarting the app
   2. MS-036 successful 3D generation inserts directly without a redundant Apply step
@@ -28,9 +28,10 @@
 - continuation: keep verification-dependent issues pending until user evidence arrives; do not treat user availability as a global development stop
 
 ## Current objective
-### G — continue independent v1.0.34 foundation work
+### G — continue independent v1.0.35 foundation work
 - state: ACTIVE
-- outcome: advance the next bounded, coherent runtime-test batch without depending on immediate user verification of v1.0.33
+- outcome: advance the next bounded, coherent runtime-test batch without depending on immediate user verification of v1.0.34
+- release_boundary: v1.0.34 is published/frozen; no further product work may land there. v1.0.35 is the only authoritative writable semantic branch.
 - current: revision-safe Refinement, attachment and protected-region dependency hardening now fails closed across durable and presentation state: loaded Ready candidates reconcile stale input/invalid output lineage immediately and candidate reconciliation explicitly rejects missing target identity, stale Smart Selection weights are cleared when their durable binding is stale and stable live object identity cannot be proven, and attachment records persist stale status as soon as either bound mesh revision is no longer active
 - completed_this_slice: Core attachments bind exact parent/child mesh revisions, become stale/non-authoritative when either revision advances, persist that stale state through transactions/save/reopen, reconcile legacy/current-marked stale bindings during session construction and ReplaceFromLoad, support explicit transactional rebind, reject stale updates, preserve exact state through undo/redo, and drive mapped Kitbash attachment actions through stable ObjectId/AttachmentRecord authority. Focused regression coverage now exercises revision invalidation symmetrically for both parent and child mesh advancement, proves stale updates fail closed in either direction, proves candidate-driven attachment invalidation restores current/stale semantics across undo/redo, and proves the exact stale binding survives save/reopen without silently transferring to the candidate output revision. The existing Kitbash UI remains unchanged; its legacy DTO is a presentation/compatibility projection for mapped objects rather than durable placement authority. Mapped stale attachments no longer continue driving placement from display-name DTO state. Unmigrated legacy objects retain the existing fallback until they acquire stable Core object identity. Smart Selection grow/shrink/smooth now reconciles the changed weight array into the existing durable revision-bound selection persistence path instead of leaving refined weights only in Godot memory. Stale protected-region presentation clears stale vertex weights even when the live Godot object can no longer be mapped to stable Core identity, and stale presentation binding/restore-failure pointers are retired so revision-invalid weights cannot remain visually or behaviorally authoritative. Ready Refinement candidates are conflicted as soon as their output revision is not descended from their bound input revision, loaded Ready candidates reconcile against the current active input revision plus output ancestry before the session exposes them, and reconciliation now explicitly conflicts a Ready candidate if its target object cannot be resolved instead of allowing later lineage checks to mask the missing dependency. Project-state validation already rejects missing-object candidate graphs, so this is a defense-in-depth fail-closed guard for mutation/reconciliation paths rather than a new persistence format. Focused regression coverage also proves that a reconciled candidate conflict and its diagnostic reason survive save/reopen and that rejected Apply on the reopened conflict cannot mutate the project. Focused regression coverage guards loaded candidate reconciliation, durable attachment stale reconciliation and protected-region fail-closed presentation. Exact-head Core and full build/package validation for the latest implementation checkpoint are green.
 - load_reconciliation_contract: session construction and ReplaceFromLoad repairs that change stale candidate or attachment state advance the durable revision and preserve the pre-repair saved revision, so repaired sessions are dirty and saveable; unchanged valid loads remain clean. Exact-head Core and full build/package validation are green.
@@ -56,10 +57,12 @@
   9. successful durable Smart Selection clear removes retired snapshot assets only after project save succeeds and only when no surviving binding references them; failed durable removal re-enables reconciliation so recovered Core state is not hidden behind locally cleared presentation
   10. failed Smart Selection save recovery re-checks the recovered Core selection graph before snapshot cleanup, so a rolled-back binding cannot leak an orphan asset while any still-referenced asset is preserved
 - next:
-  1. continue the remaining revision-safe Refinement dependency preservation/invalidation and stale-presentation migration work, selecting only a small coherent subset for the v1.0.34 release envelope
-  2. prefer changes that produce useful runtime feedback together: candidate/selection/attachment behavior that can be exercised in one testing session rather than unrelated cleanup
-  3. once roughly 2–4 meaningful related changes form a coherent green test batch, return it to Coordinator for release and roll remaining adjacent work to v1.0.35
-  4. continue to stop before irreversible or user-owned Refinement/Kitbash UI decisions
+  1. close the remaining revision-safe Refinement candidate dependency edge cases that can be exercised together: stale/missing target or input identity, output-lineage conflict, terminal apply/discard behavior, and save/reopen + undo/redo preservation
+  2. close the related stale presentation migration paths for protected-region/selection/candidate state after Core revision authority changes or stable object identity can no longer be proven; stale state must clear/fail closed rather than remain visually authoritative
+  3. tighten the mapped Kitbash/attachment migration seam only where stable Core identity already exists, proving legacy display-name/DTO state cannot regain durable authority after stale/rebind transitions; do not redesign the user-facing Kitbash UI
+  4. batch focused validation across these related slices and continue within the same 40-minute Dev cycle when safe; do not stop after one tiny assertion or test if another ordered slice remains authorized
+  5. once 2–4 related meaningful changes form a coherent green runtime-test batch, return v1.0.35 to Coordinator for release and roll remaining adjacent work to v1.0.36
+  6. continue to stop before irreversible or user-owned Refinement/Kitbash UI decisions
 - acceptance: no revision-dependent attachment, selection or refinement dependency can silently survive an incompatible mesh revision change; save/reopen and undo/redo preserve exact durable state; exact-head Core and full build/package validation remain green
 - process_blocker: none; recurring patch-request formatting friction remained fail-closed and recovered within the bounded retry contract; AUTO-INC-013 carries the process evidence
 - preemption: any reproduced v1.0.32 P0/P1 regression becomes the next implementation priority after Coordinator reconciliation
