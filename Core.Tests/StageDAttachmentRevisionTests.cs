@@ -25,11 +25,13 @@ internal static class StageDAttachmentRevisionTests
             .WithObject(new ProjectObject(parentId, "Parent", parentV1.Id, TransformState.Identity))
             .WithObject(new ProjectObject(childId, "Child", childV1.Id, TransformState.Identity));
         var session = new ProjectSession(state);
-        var attachment = StageDAttachments.Create(session, AttachmentId.New(), parentId, childId, "mount", TransformState.Identity);
+        var attachment = StageDAttachments.Create(session, AttachmentId.New(), parentId, childId, "mount", TransformState.Identity, "detail-part");
         Assert(attachment.ParentMeshRevisionId == parentV1.Id && attachment.ChildMeshRevisionId == childV1.Id,
             "new attachment did not bind exact active mesh revisions");
         Assert(StageDAttachments.ResolveBindingStatus(session.Current, attachment) == AttachmentBindingStatus.Current,
             "new attachment was not authoritative");
+        Assert(attachment.PartLibraryId == "detail-part",
+            "new attachment did not retain durable part-library identity");
 
         var parentV2 = await store.CreateMeshRevisionAsync(projectPath, parentId, Tetra(1.1f), "attachment-test:parent-v2", parentV1.Id);
         session.Execute("Advance parent mesh", current => current
@@ -57,6 +59,23 @@ internal static class StageDAttachmentRevisionTests
             "save/reopen lost stale attachment semantics");
         Assert(loadedAttachment.ParentMeshRevisionId == parentV1.Id,
             "save/reopen silently transferred the stale parent binding");
+        Assert(loadedAttachment.PartLibraryId == "detail-part",
+            "save/reopen lost durable part-library identity");
+
+        string legacyManifest = string.Join(Environment.NewLine,
+            (await File.ReadAllLinesAsync(projectPath))
+                .Where(line => !line.Contains("\"PartLibraryId\"", StringComparison.Ordinal)))
+            .Replace("\"SchemaVersion\": 8", "\"SchemaVersion\": 7", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(projectPath, legacyManifest);
+        var migratedV7 = await store.LoadAsync(projectPath);
+        Assert(migratedV7.Attachments[attachment.Id].PartLibraryId == null,
+            "schema-7 migration invented attachment part-library identity");
+        await store.SaveAsync(migratedV7, projectPath);
+        string migratedManifest = await File.ReadAllTextAsync(projectPath);
+        Assert(migratedManifest.Contains("\"SchemaVersion\": 8", StringComparison.Ordinal),
+            "schema-7 project was not upgraded on save");
+        Assert(migratedManifest.Contains("\"PartLibraryId\": null", StringComparison.Ordinal),
+            "schema-7 attachment migration did not emit the schema-8 compatibility field");
 
         var legacyCurrent = loaded.WithAttachment(loadedAttachment with { BindingStatus = AttachmentBindingStatus.Current });
         var reconciledSession = new ProjectSession(legacyCurrent);
@@ -90,7 +109,8 @@ internal static class StageDAttachmentRevisionTests
         var persistedRebound = reopenedRebound.Attachments[attachment.Id];
         Assert(persistedRebound.BindingStatus == AttachmentBindingStatus.Rebound &&
                persistedRebound.ParentMeshRevisionId == parentV2.Id &&
-               persistedRebound.ChildMeshRevisionId == childV1.Id,
+               persistedRebound.ChildMeshRevisionId == childV1.Id &&
+               persistedRebound.PartLibraryId == "detail-part",
             "save/reopen did not preserve the exact explicit rebind state");
         Assert(StageDAttachments.ResolveBindingStatus(reopenedRebound, persistedRebound) == AttachmentBindingStatus.Rebound,
             "save/reopen did not preserve authoritative rebound semantics");

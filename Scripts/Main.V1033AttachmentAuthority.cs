@@ -55,17 +55,17 @@ public partial class Main
                 {
                     if (!StageDAttachments.IsAuthoritative(session.Current, existing))
                         existing = StageDAttachments.RebindToCurrent(session, existing);
-                    StageDAttachments.UpdateIfCurrent(session, existing, socket.Id, local);
+                    StageDAttachments.UpdateIfCurrent(session, existing, socket.Id, local, library);
                 }
                 else
                 {
                     StageDAttachments.RemoveIfCurrent(session, existing);
-                    StageDAttachments.Create(session, AttachmentId.New(), parentId, childId, socket.Id, local);
+                    StageDAttachments.Create(session, AttachmentId.New(), parentId, childId, socket.Id, local, library);
                 }
             }
             else
             {
-                StageDAttachments.Create(session, AttachmentId.New(), parentId, childId, socket.Id, local);
+                StageDAttachments.Create(session, AttachmentId.New(), parentId, childId, socket.Id, local, library);
             }
             await V1020SaveSessionAsync();
         }
@@ -278,6 +278,78 @@ public partial class Main
         if (!V1033TryResolveAttachmentSocketOwner(attachment, out _)) return false;
         V1033ProjectCoreLocalTransform(attachment, projection);
         return true;
+    }
+
+    async Task V1033UndoRedoAttachmentAsync(bool undo)
+    {
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                ProjectSession session = _v1020StageCSession
+                    ?? throw new InvalidOperationException("Core project session is unavailable.");
+                ProjectTransaction transaction = undo ? session.Undo() : session.Redo();
+                if (!StageDAttachments.IsAttachmentTransaction(transaction))
+                    throw new InvalidOperationException("The requested history entry is not an attachment transaction.");
+                await V1020SaveSessionAsync();
+            }
+            finally
+            {
+                _v1020StageCGate.Release();
+            }
+
+            V1033RebuildMappedAttachmentProjectionsFromCore();
+            SetStatus(undo
+                ? "Attachment change undone from durable Core history."
+                : "Attachment change redone from durable Core history.");
+        }
+        catch (Exception ex)
+        {
+            V1033RebuildMappedAttachmentProjectionsFromCore();
+            SetStatus($"Attachment {(undo ? "undo" : "redo")} failed safely: {ex.Message}");
+        }
+    }
+
+    void V1033RebuildMappedAttachmentProjectionsFromCore()
+    {
+        ProjectSession? session = _v1020StageCSession;
+        if (session == null) return;
+
+        string[] mappedObjectNames = _objects
+            .Where(part => GodotObject.IsInstanceValid(part) &&
+                           _v1013ObjectIds.ContainsKey(part.GetInstanceId()))
+            .Select(part => part.Name.ToString())
+            .ToArray();
+        _v07Attachments.RemoveAll(projection => mappedObjectNames.Contains(projection.PartObjectName));
+
+        foreach (AttachmentRecord attachment in session.Current.Attachments.Values)
+        {
+            if (string.IsNullOrWhiteSpace(attachment.PartLibraryId) ||
+                !StageDAttachments.IsAuthoritative(session.Current, attachment) ||
+                !V1033TryResolveAttachmentSocketOwner(attachment, out _))
+                continue;
+
+            MeshInstance3D? part = _objects.FirstOrDefault(candidate =>
+                GodotObject.IsInstanceValid(candidate) &&
+                _v1013ObjectIds.TryGetValue(candidate.GetInstanceId(), out ObjectId objectId) &&
+                objectId == attachment.ChildObjectId);
+            if (part == null) continue;
+
+            var projection = new V07AttachmentDto
+            {
+                PartObjectName = part.Name.ToString(),
+                SocketId = attachment.Socket,
+                LibraryId = attachment.PartLibraryId!,
+                UniformScale = 1f
+            };
+            V1033ProjectCoreLocalTransform(attachment, projection);
+            _v07Attachments.Add(projection);
+        }
+
+        _v095FineTuneObject = "";
+        SyncV095AttachmentControls();
+        RefreshV095Attachments();
     }
 
     void V1033RetireLegacyAttachmentProjection(string partObjectName)

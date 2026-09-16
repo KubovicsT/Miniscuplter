@@ -71,7 +71,8 @@ public sealed record AttachmentRecord(
     DateTimeOffset CreatedUtc,
     RevisionId? ParentMeshRevisionId = null,
     RevisionId? ChildMeshRevisionId = null,
-    AttachmentBindingStatus BindingStatus = AttachmentBindingStatus.Stale);
+    AttachmentBindingStatus BindingStatus = AttachmentBindingStatus.Stale,
+    string? PartLibraryId = null);
 
 public sealed record CandidateRecord(
     CandidateId Id,
@@ -86,7 +87,7 @@ public sealed record CandidateRecord(
 
 public sealed class ProjectState
 {
-    public const int CurrentSchemaVersion = 7;
+    public const int CurrentSchemaVersion = 8;
 
     readonly Dictionary<ObjectId, ProjectObject> _objects;
     readonly Dictionary<RevisionId, MeshRevision> _meshRevisions;
@@ -343,6 +344,8 @@ public sealed class ProjectState
                 throw new InvalidDataException($"Attachment {attachment.Id} references a missing object.");
             if (string.IsNullOrWhiteSpace(attachment.Socket))
                 throw new InvalidDataException($"Attachment {attachment.Id} has no socket name.");
+            if (attachment.PartLibraryId is not null && string.IsNullOrWhiteSpace(attachment.PartLibraryId))
+                throw new InvalidDataException($"Attachment {attachment.Id} has invalid part-library identity.");
             if (attachment.ParentMeshRevisionId is not { } parentRevisionId ||
                 attachment.ChildMeshRevisionId is not { } childRevisionId)
             {

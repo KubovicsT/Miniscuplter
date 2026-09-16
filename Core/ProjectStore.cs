@@ -189,8 +189,8 @@ public sealed class ProjectStore
         var manifest = JsonSerializer.Deserialize<ProjectManifest>(json, JsonOptions)
             ?? throw new InvalidDataException("Project manifest JSON is invalid.");
         EnsureManifestCollections(manifest);
-        if (manifest.SchemaVersion != ProjectState.CurrentSchemaVersion)
-            throw new InvalidDataException($"Unsupported project schema {manifest.SchemaVersion}; expected {ProjectState.CurrentSchemaVersion}.");
+        if (manifest.SchemaVersion is < 7 or > ProjectState.CurrentSchemaVersion)
+            throw new InvalidDataException($"Unsupported project schema {manifest.SchemaVersion}; expected 7 through {ProjectState.CurrentSchemaVersion}.");
 
         var state = FromManifest(manifest);
         state.Validate();
@@ -409,7 +409,7 @@ public sealed class ProjectStore
             Rotation = [x.LocalTransform.RotationEuler.X, x.LocalTransform.RotationEuler.Y, x.LocalTransform.RotationEuler.Z],
             Scale = [x.LocalTransform.Scale.X, x.LocalTransform.Scale.Y, x.LocalTransform.Scale.Z], CreatedUtc = x.CreatedUtc,
             ParentMeshRevisionId = x.ParentMeshRevisionId?.ToString(), ChildMeshRevisionId = x.ChildMeshRevisionId?.ToString(),
-            BindingStatus = x.BindingStatus.ToString()
+            BindingStatus = x.BindingStatus.ToString(), PartLibraryId = x.PartLibraryId
         }).ToList(),
         Candidates = state.Candidates.Values.Select(x => new CandidateDto
         {
@@ -438,7 +438,8 @@ public sealed class ProjectStore
             ParseTransform(x.Position, x.Rotation, x.Scale), x.CreatedUtc,
             ParseRevision(x.ParentMeshRevisionId), ParseRevision(x.ChildMeshRevisionId),
             Enum.TryParse<AttachmentBindingStatus>(x.BindingStatus, true, out var bindingStatus)
-                ? bindingStatus : AttachmentBindingStatus.Stale)).ToArray();
+                ? bindingStatus : AttachmentBindingStatus.Stale,
+            string.IsNullOrWhiteSpace(x.PartLibraryId) ? null : x.PartLibraryId.Trim())).ToArray();
         var candidates = manifest.Candidates.Select(x => new CandidateRecord(
             CandidateId.Parse(x.Id), ObjectId.Parse(x.ObjectId), RevisionId.Parse(x.InputRevisionId), RevisionId.Parse(x.OutputRevisionId),
             x.Kind, Enum.TryParse<CandidateStatus>(x.Status, true, out var status) ? status : CandidateStatus.Failed,
@@ -476,6 +477,6 @@ public sealed class ProjectStore
     sealed class ImageRevisionDto { public string Id { get; set; } = ""; public string? ParentRevisionId { get; set; } public string AssetPath { get; set; } = ""; public string Sha256 { get; set; } = ""; public string Purpose { get; set; } = ""; public string Provenance { get; set; } = ""; public DateTimeOffset CreatedUtc { get; set; } }
     sealed class SelectionDto { public string Id { get; set; } = ""; public string ObjectId { get; set; } = ""; public string MeshRevisionId { get; set; } = ""; public string Kind { get; set; } = ""; public string DataAssetPath { get; set; } = ""; public DateTimeOffset CreatedUtc { get; set; } }
     sealed class RigDto { public string Id { get; set; } = ""; public string ObjectId { get; set; } = ""; public string RestMeshRevisionId { get; set; } = ""; public string DataAssetPath { get; set; } = ""; public DateTimeOffset CreatedUtc { get; set; } }
-    sealed class AttachmentDto { public string Id { get; set; } = ""; public string ParentObjectId { get; set; } = ""; public string ChildObjectId { get; set; } = ""; public string Socket { get; set; } = ""; public float[] Position { get; set; } = [0,0,0]; public float[] Rotation { get; set; } = [0,0,0]; public float[] Scale { get; set; } = [1,1,1]; public DateTimeOffset CreatedUtc { get; set; } public string? ParentMeshRevisionId { get; set; } public string? ChildMeshRevisionId { get; set; } public string BindingStatus { get; set; } = "Stale"; }
+    sealed class AttachmentDto { public string Id { get; set; } = ""; public string ParentObjectId { get; set; } = ""; public string ChildObjectId { get; set; } = ""; public string Socket { get; set; } = ""; public float[] Position { get; set; } = [0,0,0]; public float[] Rotation { get; set; } = [0,0,0]; public float[] Scale { get; set; } = [1,1,1]; public DateTimeOffset CreatedUtc { get; set; } public string? ParentMeshRevisionId { get; set; } public string? ChildMeshRevisionId { get; set; } public string BindingStatus { get; set; } = "Stale"; public string? PartLibraryId { get; set; } }
     sealed class CandidateDto { public string Id { get; set; } = ""; public string ObjectId { get; set; } = ""; public string InputRevisionId { get; set; } = ""; public string OutputRevisionId { get; set; } = ""; public string Kind { get; set; } = ""; public string Status { get; set; } = "Ready"; public string Provenance { get; set; } = ""; public DateTimeOffset CreatedUtc { get; set; } public string? ConflictReason { get; set; } }
 }

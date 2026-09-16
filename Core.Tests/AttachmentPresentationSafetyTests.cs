@@ -8,11 +8,16 @@ internal static class AttachmentPresentationSafetyTests
         string root = Directory.GetCurrentDirectory();
         string presentationPath = Path.Combine(root, "Scripts", "Main.V095Attachments.cs");
         string authorityPath = Path.Combine(root, "Scripts", "Main.V1033AttachmentAuthority.cs");
-        if (!File.Exists(presentationPath) || !File.Exists(authorityPath))
+        string editingPath = Path.Combine(root, "Scripts", "Main.V1020StageCEditing.cs");
+        string bridgePath = Path.Combine(root, "Scripts", "Main.V1020StageCBridge.cs");
+        if (!File.Exists(presentationPath) || !File.Exists(authorityPath) ||
+            !File.Exists(editingPath) || !File.Exists(bridgePath))
             throw new InvalidOperationException("TEST FAILED: attachment presentation bridge is missing");
 
         string source = File.ReadAllText(presentationPath);
         string authority = File.ReadAllText(authorityPath);
+        string editing = File.ReadAllText(editingPath);
+        string bridge = File.ReadAllText(bridgePath);
         Assert(source.Contains("if (!V1033TryProjectAuthoritativeAttachment(a, _selected))", StringComparison.Ordinal),
             "mapped attachment fine-tune controls do not verify Core attachment authority before projecting values");
         Assert(source.Contains("if (_selected == null)", StringComparison.Ordinal) &&
@@ -38,6 +43,19 @@ internal static class AttachmentPresentationSafetyTests
                authority.Contains("parentId == attachment.ParentObjectId", StringComparison.Ordinal) &&
                authority.Contains("if (!V1033TryResolveAttachmentSocketOwner(attachment, out _)) return false;", StringComparison.Ordinal),
             "mapped attachment presentation can remain authoritative when its socket is absent or owned by a different Core parent");
+        Assert(authority.Contains("local, library);", StringComparison.Ordinal) &&
+               authority.Contains("LibraryId = attachment.PartLibraryId", StringComparison.Ordinal),
+            "mapped snap and reconstruction do not carry durable part-library identity through Core");
+        Assert(authority.Contains("void V1033RebuildMappedAttachmentProjectionsFromCore()", StringComparison.Ordinal) &&
+               authority.Contains("objectId == attachment.ChildObjectId", StringComparison.Ordinal) &&
+               authority.Contains("StageDAttachments.IsAuthoritative(session.Current, attachment)", StringComparison.Ordinal),
+            "attachment presentation reconstruction does not resolve authoritative Core records by stable child identity");
+        Assert(editing.Contains("StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.UndoTransactions.First())", StringComparison.Ordinal) &&
+               editing.Contains("StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.RedoTransactions.First())", StringComparison.Ordinal),
+            "mapped attachment transactions are not routed through Core undo and redo history");
+        Assert(bridge.Contains("V1033RestoreAppliedStageCObjects(session);", StringComparison.Ordinal) &&
+               bridge.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal),
+            "project load does not rebuild mapped attachment presentation from durable Core state");
     }
 
     static void Assert(bool condition, string message)

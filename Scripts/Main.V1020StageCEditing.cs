@@ -507,6 +507,12 @@ public partial class Main
 
     void V1020UndoStageCAware()
     {
+        if (_v1020StageCSession != null && _v1020StageCSession.CanUndo &&
+            StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.UndoTransactions.First()))
+        {
+            _ = V1033UndoRedoAttachmentAsync(undo: true);
+            return;
+        }
         if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out _) ||
             _v1020StageCSession == null || !_v1020StageCSession.CanUndo)
         {
@@ -524,6 +530,12 @@ public partial class Main
 
     void V1020RedoStageCAware()
     {
+        if (_v1020StageCSession != null && _v1020StageCSession.CanRedo &&
+            StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.RedoTransactions.First()))
+        {
+            _ = V1033UndoRedoAttachmentAsync(undo: false);
+            return;
+        }
         if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out _) ||
             _v1020StageCSession == null || !_v1020StageCSession.CanRedo)
         {

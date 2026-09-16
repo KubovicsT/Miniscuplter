@@ -14,7 +14,8 @@ public static class StageDAttachments
         ObjectId parentObjectId,
         ObjectId childObjectId,
         string socket,
-        TransformState localTransform)
+        TransformState localTransform,
+        string? partLibraryId = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ValidateIdentity(session.Current, attachmentId, parentObjectId, childObjectId, socket, localTransform);
@@ -34,7 +35,8 @@ public static class StageDAttachments
             DateTimeOffset.UtcNow,
             parentRevisionId,
             childRevisionId,
-            AttachmentBindingStatus.Current);
+            AttachmentBindingStatus.Current,
+            NormalizePartLibraryId(partLibraryId));
         session.Execute(
             $"{TransactionPrefix} create",
             state =>
@@ -76,7 +78,8 @@ public static class StageDAttachments
         ProjectSession session,
         AttachmentRecord expected,
         string socket,
-        TransformState localTransform)
+        TransformState localTransform,
+        string? partLibraryId = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(expected);
@@ -85,7 +88,12 @@ public static class StageDAttachments
             throw new InvalidOperationException("Attachment changed before the update could commit.");
         EnsureAuthoritative(session.Current, expected);
 
-        var updated = expected with { Socket = socket.Trim(), LocalTransform = localTransform };
+        var updated = expected with
+        {
+            Socket = socket.Trim(),
+            LocalTransform = localTransform,
+            PartLibraryId = partLibraryId is null ? expected.PartLibraryId : NormalizePartLibraryId(partLibraryId)
+        };
         if (updated == expected) return expected;
         session.Execute(
             $"{TransactionPrefix} update",
@@ -159,6 +167,14 @@ public static class StageDAttachments
     {
         if (!IsAuthoritative(state, attachment))
             throw new InvalidOperationException("Attachment is stale for the current parent/child mesh revisions and must be explicitly rebound or removed.");
+    }
+
+    static string? NormalizePartLibraryId(string? value)
+    {
+        if (value is null) return null;
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Part-library identity cannot be blank.", nameof(value));
+        return value.Trim();
     }
 
     static void ValidateIdentity(
