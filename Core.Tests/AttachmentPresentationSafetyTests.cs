@@ -33,7 +33,7 @@ internal static class AttachmentPresentationSafetyTests
                source.Contains("V1033RetireLegacyAttachmentProjection(a.PartObjectName);", StringComparison.Ordinal),
             "mapped stale attachment projection remains exportable after Core authority rejects it");
 
-        Assert(authority.Contains("if (V1033HasStableCoreIdentity(_selected))", StringComparison.Ordinal) &&
+        Assert(authority.Contains("if (V1033HasStableCoreIdentity(selected))", StringComparison.Ordinal) &&
                authority.Contains("legacy attachment state will not take authority", StringComparison.Ordinal),
             "mapped snap can fall back to legacy attachment authority when the Core socket owner cannot be resolved");
         int snapStart = authority.IndexOf("async void SnapSelectedV1033Object()", StringComparison.Ordinal);
@@ -45,7 +45,7 @@ internal static class AttachmentPresentationSafetyTests
             "mapped snap can publish caller-built legacy projection values instead of rebuilding from committed Core state");
         Assert(!authority.Contains("void V1033ReplaceLegacyProjection", StringComparison.Ordinal),
             "unused legacy attachment write helper remains available after mapped snap migrated to Core reconstruction");
-        Assert(authority.Contains("V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());", StringComparison.Ordinal) &&
+        Assert(authority.Contains("V1033RetireLegacyAttachmentProjection(selectedName);", StringComparison.Ordinal) &&
                authority.Contains("has no durable attachment; stale legacy attachment presentation was cleared", StringComparison.Ordinal),
             "mapped detach can resurrect legacy authority when no durable Core attachment exists");
         int fineTuneStart = authority.IndexOf("async void ApplyV1033AttachmentFineTune()", StringComparison.Ordinal);
