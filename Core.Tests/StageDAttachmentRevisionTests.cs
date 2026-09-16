@@ -1,4 +1,6 @@
 using Miniscuplter.Core;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 internal static class StageDAttachmentRevisionTests
 {
@@ -62,10 +64,11 @@ internal static class StageDAttachmentRevisionTests
         Assert(loadedAttachment.PartLibraryId == "detail-part",
             "save/reopen lost durable part-library identity");
 
-        string legacyManifest = (await File.ReadAllTextAsync(projectPath))
-            .Replace("\"SchemaVersion\": 8", "\"SchemaVersion\": 7", StringComparison.Ordinal)
-            .Replace(",\n      \"PartLibraryId\": \"detail-part\"", "", StringComparison.Ordinal);
-        await File.WriteAllTextAsync(projectPath, legacyManifest);
+        JsonObject legacyManifest = JsonNode.Parse(await File.ReadAllTextAsync(projectPath))!.AsObject();
+        legacyManifest["SchemaVersion"] = 7;
+        foreach (JsonNode? node in legacyManifest["Attachments"]!.AsArray())
+            node!.AsObject().Remove("PartLibraryId");
+        await File.WriteAllTextAsync(projectPath, legacyManifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         var migratedV7 = await store.LoadAsync(projectPath);
         Assert(migratedV7.Attachments[attachment.Id].PartLibraryId == null,
             "schema-7 migration invented attachment part-library identity");

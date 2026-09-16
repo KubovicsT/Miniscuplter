@@ -182,7 +182,7 @@ require("Miniscuplter-Launcher/{version}" in updates, "launcher update User-Agen
 require('ProjectReference Include="Core\\Miniscuplter.Core.csproj"' in app_project, "editor does not reference the replacement core project")
 for token in ("ProjectId", "ObjectId", "RevisionId", "CandidateId", "TransactionId"):
     require(token in core_ids, f"strong domain identity missing: {token}")
-require("CurrentSchemaVersion = 7" in core_models and "ActiveMeshRevisionId" in core_models and "SelectionBinding" in core_models and "RestMeshRevisionId" in core_models, "revision-bound Stage-B domain graph incomplete")
+require("CurrentSchemaVersion = 8" in core_models and "ActiveMeshRevisionId" in core_models and "SelectionBinding" in core_models and "RestMeshRevisionId" in core_models, "revision-bound Stage-B domain graph incomplete")
 require("ProjectTransaction" in core_history and "Before" in core_history and "After" in core_history and "ApplyCandidate" in core_history and "CandidateStatus.Conflict" in core_history, "full-state history/stale-result protection missing")
 require('Encoding.ASCII.GetBytes("MSHM")' in core_codec and "Indices" in core_codec and "Flush(flushToDisk: true)" in core_codec, "indexed durable internal mesh codec missing")
 require("ProjectExtension = \".msculpt2\"" in core_store and "RecoveryCheckpointLimit" in core_store and "VerifyDurableAssetsAsync" in core_store and "SHA-256" in core_store, "atomic versioned project store incomplete")
