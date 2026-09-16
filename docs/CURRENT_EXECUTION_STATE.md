@@ -15,8 +15,14 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 
 ## Current objective
 ### I — Continue post-attachment/history convergence on v1.0.38
-- state: READY FOR DEV
+- state: IN PROGRESS — GREEN DEV CHECKPOINT
 - release_boundary: v1.0.37 is immutable. v1.0.38 is the sole writable semantic branch. Pending user verification is local, not a global stop.
+
+### Latest v1.0.38 Dev checkpoint
+- repaired the forward-branch release identity across every audited runtime/package surface and the canonical backend lifecycle test
+- extended the semantic-version guard to cover the lifecycle test's expected version so this bootstrap drift fails before backend startup
+- revision-bound selection creation now rejects duplicate stable IDs both before and inside the Core transaction; focused coverage proves rejection cannot overwrite durable state or add history
+- exact-head Core and full build/package/installer validation is green; no release/publication action was taken
 
 ### Accepted v1.0.37 checkpoint
 - Stage-D attachment undo/load reconstruction — accepted and published
@@ -25,7 +31,7 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - exact candidate passed Core plus full build/package/installer and autonomous release gates
 
 ### Ordered Dev queue
-1. Re-orient from the published v1.0.37 checkpoint and inspect remaining migration/legacy ownership seams around attachment/history/selection before mutation.
+1. Continue inspection from the immutable selection-identity checkpoint for remaining migration/legacy ownership seams around attachment/history/selection before mutation.
    - identify any still-duplicated legacy authority that can now be safely removed or quarantined because the migrated Core-owned paths are proven
    - preserve migration-before-legacy-removal and fail-closed stale-result behavior
 2. Complete the next smallest coherent durable-state/history convergence slice exposed by that inspection.
