@@ -23,6 +23,9 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - extended the semantic-version guard to cover the lifecycle test's expected version so this bootstrap drift fails before backend startup
 - revision-bound selection creation now rejects duplicate stable IDs both before and inside the Core transaction; focused coverage proves rejection cannot overwrite durable state or add history
 - mapped attachment fine-tune/reset now resolves durable child identity before consulting legacy projection state and rebuilds the disposable projection from committed Core state
+- mapped snap now rebuilds presentation from the saved Core attachment record instead of publishing its caller-built legacy DTO
+- mapped detach revalidates project/child identity, removes the exact current or stale Core record transactionally, and rebuilds without restoring legacy authority; save/reopen and undo/redo cover stale detach
+- the now-unreferenced legacy projection writer is removed; `_v07Attachments` remains only as a Core-derived compatibility projection for the supported legacy save/export path
 - exact-head Core and full build/package/installer validation is green; no release/publication action was taken
 
 ### Accepted v1.0.37 checkpoint
@@ -32,16 +35,17 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - exact candidate passed Core plus full build/package/installer and autonomous release gates
 
 ### Ordered Dev queue
-1. Remove the remaining mapped snap-path dependence on caller-built legacy projection state after a successful Core commit.
+1. COMPLETE at `705d83e` — remove the remaining mapped snap-path dependence on caller-built legacy projection state after a successful Core commit.
    - `SnapSelectedV1033Object` still finishes a mapped Core-owned snap with `V1033ReplaceLegacyProjection(projection)`, unlike fine-tune/reset and history paths which rebuild disposable presentation from committed Core state.
    - after the durable save succeeds, reconstruct mapped attachment presentation from authoritative Core records; preserve the unmapped legacy fallback only where no stable Core identity exists.
    - add focused source/behavior coverage proving a mapped snap cannot leave presentation values that diverge from the committed Core attachment record.
-2. Audit and harden mapped detach/stale-authority behavior as the next independent attachment seam.
+2. COMPLETE at `705d83e` — audit and harden mapped detach/stale-authority behavior as the next independent attachment seam.
    - prove mapped detach removes only the current authoritative Core attachment transactionally and that stale/non-authoritative durable records cannot be silently treated as current or transferred to legacy authority.
    - preserve fail-closed behavior, rebuild/retire disposable presentation from Core truth after successful mutation, and add focused history/save-reopen coverage where a concrete gap is found.
 3. Inspect the remaining mapped attachment projection helpers and read-side callers after objectives 1–2, then remove/quarantine only legacy write authority that is demonstrably redundant.
    - specifically trace remaining uses of `V1033ReplaceLegacyProjection`, `_v07Attachments`, and legacy attachment controls on objects with stable Core identity; mapped objects must derive durable identity/transform/library/socket truth from Core.
    - this is one discovery objective, not multiple queue-depth objectives. If inspection exposes another concrete seam, implement the smallest coherent migration/history slice and record it; if it does not, return factual evidence rather than manufacturing cleanup.
+   - bounded result: the dead `V1033ReplaceLegacyProjection` writer was removed; remaining `_v07Attachments` consumers are read-side presentation or the still-supported legacy save/export compatibility path, so no broader removal is justified yet.
 4. Return a coherent runtime-test/release checkpoint when objectives 1–3 are reconciled and exact-head Core/full build-package validation is green.
    - Coordinator owns release readiness/chunking/publication; Dev never publishes.
 
