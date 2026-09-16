@@ -219,6 +219,10 @@ public partial class Main
         {
             string full = Path.GetFullPath(projectPath);
             var dto = JsonSerializer.Deserialize<ProjectDto>(File.ReadAllText(full)) ?? throw new InvalidDataException("Invalid project file.");
+            if (dto.Version != 1)
+            {
+                throw new InvalidDataException($"Unsupported project version: {dto.Version}");
+            }
             string dir = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "_assets");
             foreach (var o in _objects) o.QueueFree();
             _objects.Clear(); _selected = null; _undo.Clear(); _redo.Clear();
