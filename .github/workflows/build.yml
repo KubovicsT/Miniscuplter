@@ -58,6 +58,7 @@ jobs:
             @{ Path = 'export_presets.cfg'; Token = "application/file_version=`"$version.0`""; Label = 'Windows file version' },
             @{ Path = 'export_presets.cfg'; Token = "application/product_version=`"$version.0`""; Label = 'Windows product version' },
             @{ Path = 'ai_backend/app.py'; Token = "APP_VERSION = `"$version`""; Label = 'backend API' },
+            @{ Path = 'tools/backend_lifecycle_tests.py'; Token = "EXPECTED_VERSION = `"$version`""; Label = 'backend lifecycle test' },
             @{ Path = 'Scripts/Main.V100Release.cs'; Token = "Ready — Miniscuplter v$version"; Label = 'editor display' },
             @{ Path = 'tools/release_audit.py'; Token = "EXPECTED = `"$version`""; Label = 'release audit' }
           )
