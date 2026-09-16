@@ -84,7 +84,12 @@ public partial class Main
         {
             var part = _objects.FirstOrDefault(o => GodotObject.IsInstanceValid(o) && o.Name.ToString() == a.PartObjectName);
             if (part == null) continue;
-            if (!V1033TryProjectAuthoritativeAttachment(a, part)) continue;
+            if (!V1033TryProjectAuthoritativeAttachment(a, part))
+            {
+                if (V1033HasStableCoreIdentity(part))
+                    V1033RetireLegacyAttachmentProjection(a.PartObjectName);
+                continue;
+            }
             var socket = _v07Sockets.FirstOrDefault(s => s.Id == a.SocketId);
             if (socket == null) continue;
             if (!TryGetV07SocketWorld(socket, out var p, out var n)) continue;

@@ -29,6 +29,9 @@ internal static class AttachmentPresentationSafetyTests
             "stale mapped attachment fine-tune values are not cleared from presentation state");
         Assert(source.Contains("if (_v07AttachScale != null) _v07AttachScale.Value = 1;", StringComparison.Ordinal),
             "stale attachment presentation does not reset scale to a neutral value");
+        Assert(source.Contains("if (V1033HasStableCoreIdentity(part))", StringComparison.Ordinal) &&
+               source.Contains("V1033RetireLegacyAttachmentProjection(a.PartObjectName);", StringComparison.Ordinal),
+            "mapped stale attachment projection remains exportable after Core authority rejects it");
 
         Assert(authority.Contains("if (V1033HasStableCoreIdentity(_selected))", StringComparison.Ordinal) &&
                authority.Contains("legacy attachment state will not take authority", StringComparison.Ordinal),
