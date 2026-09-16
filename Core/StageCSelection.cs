@@ -10,6 +10,8 @@ public readonly record struct ObjectSelectionRef(ObjectId ObjectId, RevisionId M
 
 public static class StageCSelection
 {
+    public const string TransactionPrefix = "Stage-C selection:";
+
     public static ObjectSelectionRef BindObject(ProjectState state, ObjectId objectId)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -63,7 +65,7 @@ public static class StageCSelection
             dataAssetPath.Replace('\\', '/'),
             DateTimeOffset.UtcNow);
         session.Execute(
-            $"Stage-C selection: bind {binding.Kind}",
+            $"{TransactionPrefix} bind {binding.Kind}",
             state =>
             {
                 if (!state.Objects.TryGetValue(objectId, out ProjectObject? current) || current.ActiveMeshRevisionId != meshRevisionId)
@@ -93,7 +95,7 @@ public static class StageCSelection
 
         var remove = ids.ToHashSet();
         session.Execute(
-            $"Stage-C selection: clear {normalizedKind}",
+            $"{TransactionPrefix} clear {normalizedKind}",
             state => WithoutSelections(state, remove),
             objectId);
         return ids.Length;
@@ -112,6 +114,9 @@ public static class StageCSelection
             state.Attachments.Values,
             state.Candidates.Values,
             state.Metadata);
+
+    public static bool IsSelectionTransaction(ProjectTransaction transaction) =>
+        transaction != null && transaction.Label.StartsWith(TransactionPrefix, StringComparison.Ordinal);
 
     public static bool IsCurrent(ProjectState state, SelectionBinding selection)
     {

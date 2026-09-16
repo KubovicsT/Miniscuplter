@@ -143,7 +143,7 @@ public partial class Main
                     ProjectLayout layout = ProjectLayout.FromManifest(_v1020StageCProjectPath);
                     foreach (string relativeAssetPath in retiredAssetPaths)
                     {
-                        bool stillReferenced = currentSession.Current.Selections.Values.Any(binding => string.Equals(binding.DataAssetPath, relativeAssetPath, StringComparison.OrdinalIgnoreCase));
+                        bool stillReferenced = V1027SelectionAssetReferencedByCurrentOrHistory(currentSession, relativeAssetPath);
                         if (stillReferenced) continue;
                         try { string assetPath = ProjectStore.ResolveAsset(layout, relativeAssetPath); if (File.Exists(assetPath)) File.Delete(assetPath); }
                         catch (Exception cleanupError) { cleanupWarning = cleanupError.Message; }
@@ -162,6 +162,46 @@ public partial class Main
         {
             _v1027PendingSmartSelectionClearObjectId = null;
             if (!cleared) V1027ReconcileDurableSmartSelection();
+        }
+    }
+
+    static bool V1027SelectionAssetReferencedByCurrentOrHistory(ProjectSession session, string relativeAssetPath)
+    {
+        static bool StateReferences(ProjectState state, string path) =>
+            state.Selections.Values.Any(binding =>
+                string.Equals(binding.DataAssetPath, path, StringComparison.OrdinalIgnoreCase));
+
+        return StateReferences(session.Current, relativeAssetPath) ||
+               session.UndoTransactions.Concat(session.RedoTransactions).Any(transaction =>
+                   StateReferences(transaction.Before, relativeAssetPath) ||
+                   StateReferences(transaction.After, relativeAssetPath));
+    }
+
+    async Task V1027UndoRedoSmartSelectionAsync(bool undo)
+    {
+        try
+        {
+            await _v1020StageCGate.WaitAsync();
+            try
+            {
+                ProjectSession session = _v1020StageCSession ??
+                    throw new InvalidOperationException("Stage-C project session is unavailable.");
+                ProjectTransaction transaction = undo ? session.Undo() : session.Redo();
+                if (!StageCSelection.IsSelectionTransaction(transaction))
+                    throw new InvalidOperationException("The requested history entry is not a Smart Selection transaction.");
+                await V1020SaveSessionAsync();
+            }
+            finally { _v1020StageCGate.Release(); }
+
+            V1027ReconcileDurableSmartSelection();
+            SetStatus(undo
+                ? "Smart Selection change undone from durable Core history."
+                : "Smart Selection change redone from durable Core history.");
+        }
+        catch (Exception ex)
+        {
+            V1027ReconcileDurableSmartSelection();
+            SetStatus($"Smart Selection {(undo ? "undo" : "redo")} failed safely: {ex.Message}");
         }
     }
 
@@ -191,7 +231,7 @@ public partial class Main
     async Task V1027PersistSmartSelectionAsync(ObjectId objectId, RevisionId meshRevisionId, float[] weights, string query)
     {
         SelectionId selectionId = SelectionId.New(); ProjectLayout layout = ProjectLayout.FromManifest(_v1020StageCProjectPath);
-        string relative = $"data/selection_{selectionId}.json"; string destination = ProjectStore.ResolveAsset(layout, relative); string temp = destination + ".tmp"; bool bindingCommitted = false;
+        string relative = $"data/selection_{selectionId}.json"; string destination = ProjectStore.ResolveAsset(layout, relative); string temp = destination + ".tmp";
         try
         {
             layout.EnsureDirectories(); string json = JsonSerializer.Serialize(new { query, weights }); await File.WriteAllTextAsync(temp, json); File.Move(temp, destination, overwrite: true);
@@ -201,7 +241,7 @@ public partial class Main
                 ProjectSession currentSession = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
                 if (!currentSession.Current.Objects.TryGetValue(objectId, out ProjectObject? current) || current.ActiveMeshRevisionId != meshRevisionId) throw new InvalidOperationException("The mesh revision advanced before Smart Selection could be persisted.");
                 if (_v096SelectionObject == null || !GodotObject.IsInstanceValid(_v096SelectionObject) || !_v1013ObjectIds.TryGetValue(_v096SelectionObject.GetInstanceId(), out ObjectId liveObjectId) || liveObjectId != objectId) throw new InvalidOperationException("The Smart Selection target changed before persistence completed.");
-                SelectionBinding binding = StageCSelection.BindRevisionSelection(currentSession, selectionId, objectId, meshRevisionId, "smart-select-vertex-weights", relative); bindingCommitted = true; await V1020SaveSessionAsync();
+                SelectionBinding binding = StageCSelection.BindRevisionSelection(currentSession, selectionId, objectId, meshRevisionId, "smart-select-vertex-weights", relative); await V1020SaveSessionAsync();
                 _v1027DurableSmartSelection = binding; _v1027FailedSelectionRestore = null;
                 if (_v096Selection != null && _v096Selection.AsSpan().SequenceEqual(weights) && string.Equals(_v096SelectionQuery, query, StringComparison.Ordinal)) { _v1027PersistedSmartSelectionValues = _v096Selection; _v1027PersistedSmartSelectionQuery = _v096SelectionQuery; }
                 else { _v1027PersistedSmartSelectionValues = null; _v1027PersistedSmartSelectionQuery = ""; }

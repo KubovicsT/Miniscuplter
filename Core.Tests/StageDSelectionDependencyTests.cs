@@ -9,6 +9,7 @@ internal static class StageDSelectionDependencyTests
         ValidateDurableSelectionBridge();
         ValidateCandidateDependencyTransactions();
         ValidatePersistenceAndRevisionAdvance();
+        ValidateSelectionTransactions();
         ValidateAttachmentTransactions();
     }
 
@@ -176,6 +177,45 @@ internal static class StageDSelectionDependencyTests
         {
             try { Directory.Delete(root, recursive: true); } catch { }
         }
+    }
+
+    static void ValidateSelectionTransactions()
+    {
+        var objectId = ObjectId.New();
+        var revisionId = RevisionId.New();
+        var now = DateTimeOffset.UtcNow;
+        var revision = new MeshRevision(
+            revisionId, objectId, null, "assets/selection.meshbin", new string('f', 64),
+            3, 1, "selection-history", now);
+        var state = new ProjectState(
+            ProjectId.New(),
+            "selection-history",
+            objects: new[] { new ProjectObject(objectId, "Selection History", revisionId, TransformState.Identity) },
+            meshRevisions: new[] { revision });
+        var session = new ProjectSession(state);
+        var selectionId = SelectionId.New();
+
+        SelectionBinding binding = StageCSelection.BindRevisionSelection(
+            session, selectionId, objectId, revisionId, "smart-select-vertex-weights", "data/selection-history.json");
+        Assert(StageCSelection.IsSelectionTransaction(session.UndoTransactions.First()),
+            "selection bind was not recorded as a selection transaction");
+        session.Undo();
+        Assert(!session.Current.Selections.ContainsKey(selectionId),
+            "undo did not remove a newly bound revision selection");
+        session.Redo();
+        Assert(session.Current.Selections[selectionId] == binding,
+            "redo did not restore the exact revision selection binding");
+
+        Assert(StageCSelection.RemoveRevisionSelections(session, objectId, binding.Kind) == 1,
+            "selection clear did not remove the durable binding");
+        Assert(StageCSelection.IsSelectionTransaction(session.UndoTransactions.First()),
+            "selection clear was not recorded as a selection transaction");
+        session.Undo();
+        Assert(session.Current.Selections[selectionId] == binding,
+            "undo did not restore the cleared revision selection");
+        session.Redo();
+        Assert(!session.Current.Selections.ContainsKey(selectionId),
+            "redo did not restore the revision selection clear");
     }
 
     static void ValidateAttachmentTransactions()

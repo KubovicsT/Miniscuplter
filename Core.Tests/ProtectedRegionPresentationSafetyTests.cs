@@ -39,12 +39,27 @@ internal static class ProtectedRegionPresentationSafetyTests
             "explicit Smart Selection clear is not serialized through durable Core selection removal");
         Assert(source.Contains("binding.ObjectId != _v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal),
             "a Smart Selection pending durable clear can be immediately resurrected by restore reconciliation");
-        Assert(source.Contains("string[] retiredAssetPaths = currentSession.Current.Selections.Values", StringComparison.Ordinal) && source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal) && source.Contains("File.Delete(assetPath);", StringComparison.Ordinal),
-            "durable Smart Selection clear does not clean retired snapshot assets after the project save succeeds");
-        Assert(source.Contains("bool stillReferenced = currentSession.Current.Selections.Values.Any", StringComparison.Ordinal),
-            "durable Smart Selection clear can delete a selection asset that is still referenced by another binding");
+        Assert(source.Contains("string[] retiredAssetPaths = currentSession.Current.Selections.Values", StringComparison.Ordinal) &&
+               source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal) &&
+               source.Contains("V1027SelectionAssetReferencedByCurrentOrHistory", StringComparison.Ordinal),
+            "durable Smart Selection clear does not defer snapshot cleanup while Core history can restore the binding");
+        Assert(source.Contains("session.UndoTransactions.Concat(session.RedoTransactions)", StringComparison.Ordinal) &&
+               source.Contains("StateReferences(transaction.Before", StringComparison.Ordinal) &&
+               source.Contains("StateReferences(transaction.After", StringComparison.Ordinal),
+            "Smart Selection cleanup can delete an immutable snapshot still reachable from undo or redo history");
         Assert(source.Contains("catch (Exception ex)", StringComparison.Ordinal) && source.Contains("cleared = false;", StringComparison.Ordinal),
             "failed durable Smart Selection clear does not re-enable reconciliation of the restored durable binding");
+        Assert(source.Contains("async Task V1027UndoRedoSmartSelectionAsync(bool undo)", StringComparison.Ordinal) &&
+               source.Contains("StageCSelection.IsSelectionTransaction(transaction)", StringComparison.Ordinal) &&
+               source.Contains("V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
+            "Smart Selection undo/redo does not reconcile Godot presentation from restored Core history");
+
+        string editingPath = Path.Combine(root, "Scripts", "Main.V1020StageCEditing.cs");
+        if (!File.Exists(editingPath)) throw new InvalidOperationException("TEST FAILED: Stage-C history router is missing");
+        string editing = File.ReadAllText(editingPath);
+        Assert(editing.Contains("StageCSelection.IsSelectionTransaction(current)", StringComparison.Ordinal) &&
+               editing.Contains("V1027UndoRedoSmartSelectionAsync", StringComparison.Ordinal),
+            "selection transactions can block Core history behind the legacy undo stack");
 
         string selectionAuthorityPath = Path.Combine(root, "Scripts", "Main.V1027SelectionAuthority.cs");
         if (!File.Exists(selectionAuthorityPath)) throw new InvalidOperationException("TEST FAILED: viewport selection authority bridge is missing");

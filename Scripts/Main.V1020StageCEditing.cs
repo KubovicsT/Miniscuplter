@@ -507,11 +507,19 @@ public partial class Main
 
     void V1020UndoStageCAware()
     {
-        if (_v1020StageCSession != null && _v1020StageCSession.CanUndo &&
-            StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.UndoTransactions.First()))
+        if (_v1020StageCSession != null && _v1020StageCSession.CanUndo)
         {
-            _ = V1033UndoRedoAttachmentAsync(undo: true);
-            return;
+            ProjectTransaction current = _v1020StageCSession.UndoTransactions.First();
+            if (StageDAttachments.IsAttachmentTransaction(current))
+            {
+                _ = V1033UndoRedoAttachmentAsync(undo: true);
+                return;
+            }
+            if (StageCSelection.IsSelectionTransaction(current))
+            {
+                _ = V1027UndoRedoSmartSelectionAsync(undo: true);
+                return;
+            }
         }
         if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out _) ||
             _v1020StageCSession == null || !_v1020StageCSession.CanUndo)
@@ -530,11 +538,19 @@ public partial class Main
 
     void V1020RedoStageCAware()
     {
-        if (_v1020StageCSession != null && _v1020StageCSession.CanRedo &&
-            StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.RedoTransactions.First()))
+        if (_v1020StageCSession != null && _v1020StageCSession.CanRedo)
         {
-            _ = V1033UndoRedoAttachmentAsync(undo: false);
-            return;
+            ProjectTransaction current = _v1020StageCSession.RedoTransactions.First();
+            if (StageDAttachments.IsAttachmentTransaction(current))
+            {
+                _ = V1033UndoRedoAttachmentAsync(undo: false);
+                return;
+            }
+            if (StageCSelection.IsSelectionTransaction(current))
+            {
+                _ = V1027UndoRedoSmartSelectionAsync(undo: false);
+                return;
+            }
         }
         if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out _) ||
             _v1020StageCSession == null || !_v1020StageCSession.CanRedo)
