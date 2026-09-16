@@ -32,5 +32,6 @@ public partial class BackendLauncher : Node
         {
             try { OS.Kill(_pid); } catch { }
         }
+        _pid = -1; // Reset _pid to -1 after shutdown
     }
 }
