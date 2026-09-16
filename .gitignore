@@ -9,3 +9,4 @@ ai_backend/__pycache__/
 *.user
 *.tmp
 *.log
+.aider*
