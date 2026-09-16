@@ -1,74 +1,61 @@
 # Miniscuplter Current Execution State
 
 ## Release state
-- stable: v1.0.35
-- writable: v1.0.36
+- stable: v1.0.36
+- writable: v1.0.37
 - release_freeze: false
 - publication_active: false
-- branch_bootstrap: complete; VERSION 1.0.36
+- branch_bootstrap: complete; VERSION 1.0.37
 - execution_hold: none
 - release_cadence_target: approximately two meaningful runtime-test releases per active development day when coherent/green batches exist; cadence target is not a timer-based publication rule
-- v1.0.36_release_boundary: COORDINATOR REVIEW — implementation checkpoint is exact-head green and the evidence-backed corrective mutation queue is exhausted; publication still requires canonical issue reconciliation and final release-candidate verification, while user-visible fixes remain NEEDS USER VERIFICATION rather than release-verified
+- v1.0.36: PUBLISHED from exact validated candidate after canonical ISSUE_STATE reconciliation; autonomous release rebuilt/tested/exported/hashed/smoke-installed and published installer + portable ZIP + checksum
 
-## Latest reference-machine evidence — v1.0.35
-- direct successful 3D insertion is verified: generation succeeds and auto-inserts without Apply
-- direct Move is verified working
-- Rotate rings are visible and draggable, but rotation pivot/rollback behavior is incorrect
-- generated object eventually scales/grounds, but first appears tiny and changes size/placement after a noticeable delay
-- generated mesh still renders backside/shell-like surfaces
-- New clears the 3D model but leaves the previous project's 2D image visible and can surface a Stage-D failure referencing a disposed Godot.MeshInstance3D
-- black exterior gutters remain; on narrow resize they move from left/right to top/bottom while the main layout itself stays relatively stable
-- telemetry still overlaps the viewport; the AI command area is not visible in either 2D or 3D
-- 3D camera view resets across tab switches
-- RMB orbit snaps toward origin / uses a pivot that appears to move with the camera rather than a stable selected-object pivot
-- Settings > Quality does not expose preset parameters or visible custom-preset creation despite historical MS-014 implementation claims
-- the last concept/image-edit prompt text is lost on application reopen
-- no user-visible project Load/Open entry point is available, so explicit saved-project reload testing cannot be performed from the UI
-- Smart Select, attachment-control switching, cancellation/retry and several save/reopen cases remain untested in this v1.0.35 pass
-- Hunyuan3D 2.1 Shape install fails on the reference Windows machine during the companion Git checkout because upstream mini-trainset paths exceed Windows filename/path handling; clone reaches 100% but checkout fails, and the deterministic partial stage is retained for resume
-- TripoSR install also fails on the reference Windows machine before model download completes: torchmcubes metadata generation runs in pip's isolated build environment, cannot see the already-installed host PyTorch, and aborts with the upstream instruction to build without isolation; the deterministic TripoSR partial stage is retained for resume
+## v1.0.36 reference-machine verification queue
+The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS USER VERIFICATION until the packaged v1.0.36 reference-machine pass. Green CI is not runtime verification.
+- MS-050/MS-051 provider install/resume: Hunyuan long-path/partial-worktree recovery and TripoSR torchmcubes host-torch/no-build-isolation path
+- MS-049 Enhance Selected Region typed backend contract
+- MS-043/MS-044 New-project isolation and disposed-selection retirement
+- MS-035 workspace/client-area composition and telemetry/AI-command visibility
+- MS-037/MS-038/MS-039/MS-045/MS-046 generated-surface rendering, Rotate pivot/rollback, immediate scale/ground projection, camera continuity and stable RMB orbit pivot
+- MS-014/MS-047/MS-048 Quality/custom-preset controls, prompt persistence and Open Project
+- MS-033/MS-040 plus attachment/selection switching remain previously unverified and should be included when practical
 
 ## Current objective
-### I — v1.0.36 corrective checkpoint closure
-- state: COORDINATOR REVIEW / CANONICAL RECONCILIATION
-- outcome: convert the reproduced v1.0.35 runtime findings into one coherent runtime-test release without reopening speculative implementation work
-- release_boundary: v1.0.35 remains immutable. v1.0.36 is the only writable semantic branch. Current exact implementation head is green across Core, .NET/C#, Python/runtime/geometry/release-audit, portable package and installer. User-visible corrections remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION` until packaged reference-machine retest.
+### I — Resume deferred attachment/history ownership convergence on v1.0.37
+- state: READY FOR DEV
+- outcome: continue the lower-priority architecture work that was deliberately deferred while v1.0.36 runtime regressions preempted it
+- release_boundary: v1.0.36 is immutable. v1.0.37 is the sole writable semantic branch. Pending v1.0.36 user verification is local, not a global stop; any newly reproduced severe regression preempts this queue.
 
-### Corrective implementation status
-1. Provider install/resume — MS-050/MS-051
-   - code-complete/green: Hunyuan checkout uses contained long-path handling plus partial-worktree verification/recovery; TripoSR verifies host torch and builds torchmcubes with contained no-build-isolation; deterministic partial stages remain reusable
-   - packaged reference-machine install/resume verification remains required
-2. 2D detail endpoint contract — MS-049
-   - code-complete/green with typed 2D/3D contracts while preserving canonical `app:app`; packaged Enhance Selected Region retest remains required
-3. Project lifecycle isolation — MS-043/MS-044
-   - code-complete/green: New retires prior project-scoped 2D/baseline/candidate presentation, establishes a fresh durable Stage-C ProjectState/session, and disposed selection is cleared before consumers
-   - packaged New-project isolation retest remains required
-4. Workspace composition — MS-035 and telemetry/AI-command composition
-   - code-complete/green: top-level workspace owns the full client rect; docked Resource Telemetry layout authority no longer overlays the viewport; focused composition guards are present
-   - resize/maximize/restore and AI-command visibility require packaged reference-machine verification
-5. 3D render / transform / navigation — MS-037/MS-038/MS-039/MS-045/MS-046
-   - code-complete/green evidence includes camera tab continuity, stable selected-object RMB orbit pivot, generated presentation-normal repair, immediate generated-transform projection, direct Rotate drag, object-origin Rotate gizmo pivot, and fail-closed prevention of overlapping durable transform gestures that could snap back to stale rotation
-   - packaged reference-machine verification remains required for shell/backside appearance, Rotate pivot/rollback, and tiny-model/delayed scale-ground behavior; if Rotate still reproduces, inspect the remaining runtime/Euler path from this verified head rather than adding speculative fixes now
-6. Project/settings/prompt UX continuity — MS-014/MS-047/MS-048
-   - code-complete/green evidence includes visible Quality preset parameters/custom-preset path, persisted project prompt continuity, and Open Project promoted beside New
-   - packaged user verification remains required
+### Ordered Dev queue
+1. Stage-D attachment undo/load reconstruction — architecture evidence from MSG-20260915-DEV-006
+   - re-inspect the current Core attachment/revision model and transient Godot projection before mutation
+   - choose the smallest migration-consistent path that keeps durable attachment identity/history in Core and presentation reconstruction in Godot; do not persist transient scene-node identity
+   - make undo/redo and project-load reconstruction converge on the same stable attachment/revision authority
+   - preserve migration-before-legacy-removal and stale-result rejection; add focused persistence/history/reconstruction tests
+2. Attachment read-side/history reconciliation
+   - finish mapped attachment read-side convergence so reload, undo/redo and current-revision selection resolve the same durable attachment identities
+   - remove or quarantine duplicate legacy authority only after migrated paths and tests prove parity
+   - validate save/reopen plus history traversal without presentation-only state becoming canonical
+3. Smart Selection / protected-region lifecycle convergence
+   - continue the previously deferred selection/protected-region ownership work on top of stable attachment identity
+   - ensure semantic selection/protected-region state survives only where product semantics require it and stale bindings fail closed across project/history transitions
+   - keep Godot input/presentation separate from Core durable selection/history authority
+4. Checkpoint integration and runtime-test boundary
+   - reconcile canonical docs after each accepted architecture slice, keep exact-head Core/full build/package validation green, and return one coherent v1.0.37 runtime-test checkpoint rather than isolated micro-releases
+   - if new v1.0.36 packaged evidence arrives, record it in ISSUE_STATE and preempt only the affected critical path; independent safe architecture work continues when possible
 
 ### Dev continuation boundary
-- no evidence-backed corrective mutation remains authorized solely from the existing v1.0.35 observations; the latest Dev run intentionally stopped with `authorized_work_remaining_at_intent: NO` after exact-head green validation and Coordinator handoff
-- Dev must not repeat the landed corrective batch or invent speculative fixes merely to consume run time
-- next Dev implementation is triggered by a concrete Coordinator acceptance gap, failed release-candidate validation, or new packaged/reference-machine evidence
-- Stage-D attachment undo/load reconstruction remains deferred until this corrective checkpoint is released/verified enough to resume lower-priority architecture work
+- queue is intentionally deep enough for multiple productive 40-minute cycles; slice count is descriptive, not a stopping quota
+- Dev should reassess remaining budget after each accepted slice and continue the highest-value safe authorized work until finalization or a real stop boundary
+- normal pending CI is not by itself an early-stop boundary when remaining budget can be used safely
+- a conclusively recovered write/process incident is not by itself an early-stop boundary when known-good state is restored and safe authorized work remains
+- do not reopen already-landed v1.0.36 fixes speculatively without new runtime evidence
 
-### Release acceptance / preemption
-- exact implementation head `150051c7310f2ac8fe685ba68ad04c99f9e7983e` is the latest reconciled corrective checkpoint before the subsequent documentation-only execution-state reconciliation
-- exact-head Core, .NET/C#, Python/runtime/geometry/release-audit, portable package and installer validation are green
-- all user-observed runtime/UI fixes remain `FIXED IN v1.0.36 - NEEDS USER VERIFICATION`; green CI does not convert them to reference-machine VERIFIED
-- pending untested MS-033/MS-040 and attachment/selection switching remain local verification dependencies, not global implementation blockers
-- Coordinator owns final ISSUE_STATE reconciliation and release-candidate decision/publication; Dev never publishes
-
-## Architecture decision deferred
-- MSG-20260915-DEV-006 Stage-D attachment undo/load reconstruction remains valid evidence.
-- Coordinator disposition: DEFER the durable-metadata-vs-transient-projection choice until the current reference-machine corrective checkpoint is published/verified enough to resume lower-priority Stage-D work.
+### Acceptance / preemption
+- v1.0.37 VERSION identity must remain synchronized and exact-head validation must remain green after mutations
+- any failed v1.0.36 reference-machine retest becomes release-relevant ISSUE_STATE evidence and may preempt the matching v1.0.37 slice
+- user-verification-pending items do not block independent safe work unless they expose severe regression/data-loss/safety risk or invalidate the architecture being changed
+- Coordinator owns release readiness/chunking/publication; Dev never publishes
 
 ## Deferred / user-owned design
 - MS-041 Refinement/Kitbash exact UI/interaction design remains user-approval work.
@@ -78,4 +65,4 @@
 - Core remains durable-state and transform authority.
 - Godot remains presentation/input authority.
 - Python remains inference/geometry authority.
-- Preserve local-first/storage containment, immutable revisions/stable IDs, transactional state/history and stale-result rejection.
+- Preserve local-first/storage containment, immutable published releases/branches, stable IDs/immutable revisions, transactional state/history, migration-before-legacy-removal and stale-result rejection.
