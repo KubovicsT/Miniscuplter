@@ -31,9 +31,12 @@ The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS US
   - schema 8 durably stores optional part-library identity; schema 7 remains loadable and upgrades on save without inventing missing identity
   - mapped attachment undo, redo and project load rebuild the same fail-closed Godot projection from authoritative Core records using stable object IDs
   - focused migration/history/source-contract tests, release audit, Core validation and full build/package/installer validation are green
-- Attachment read-side durable identity overlay — ACCEPTED on v1.0.37 at `bcccdf7`
-  - selection-time projection now derives library identity from Core and fails closed for migrated schema-7 records without durable identity
-  - duplicate legacy authority quarantine remains the next attachment read-side task
+- Attachment read-side/history reconciliation — COMPLETED on v1.0.37 through `e450451`
+  - selection-time projection derives library identity from Core and fails closed for migrated schema-7 records without durable identity
+  - mapped projections rejected by Core are retired from legacy export while genuinely unmapped compatibility behavior remains intact
+- Smart Selection Core-history convergence — ACCEPTED on v1.0.37 through `d93eb2f`
+  - selection bind/clear transactions route through Core undo/redo and reconcile Godot presentation afterward
+  - immutable selection snapshots remain available while current, undo or redo state can restore their binding
 
 ### Ordered Dev queue
 1. Stage-D attachment undo/load reconstruction — COMPLETED from architecture evidence in MSG-20260915-DEV-006
@@ -41,11 +44,11 @@ The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS US
    - choose the smallest migration-consistent path that keeps durable attachment identity/history in Core and presentation reconstruction in Godot; do not persist transient scene-node identity
    - make undo/redo and project-load reconstruction converge on the same stable attachment/revision authority
    - preserve migration-before-legacy-removal and stale-result rejection; add focused persistence/history/reconstruction tests
-2. Attachment read-side/history reconciliation — IN PROGRESS
+2. Attachment read-side/history reconciliation — COMPLETED
    - finish mapped attachment read-side convergence so reload, undo/redo and current-revision selection resolve the same durable attachment identities
    - remove or quarantine duplicate legacy authority only after migrated paths and tests prove parity
    - validate save/reopen plus history traversal without presentation-only state becoming canonical
-3. Smart Selection / protected-region lifecycle convergence
+3. Smart Selection / protected-region lifecycle convergence — IN PROGRESS
    - continue the previously deferred selection/protected-region ownership work on top of stable attachment identity
    - ensure semantic selection/protected-region state survives only where product semantics require it and stale bindings fail closed across project/history transitions
    - keep Godot input/presentation separate from Core durable selection/history authority
