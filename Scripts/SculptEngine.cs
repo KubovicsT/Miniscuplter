@@ -9,6 +9,7 @@ public static class SculptEngine
 {
     public static ArrayMesh Apply(ArrayMesh mesh, Vector3 hitLocal, Vector3 dragLocal, float radius, float strength, SculptBrush brush)
     {
+        if (radius <= 0) return mesh;
         if (mesh.GetSurfaceCount() == 0) return mesh;
         var mdt = new MeshDataTool();
         if (mdt.CreateFromSurface(mesh, 0) != Error.Ok) return mesh;
