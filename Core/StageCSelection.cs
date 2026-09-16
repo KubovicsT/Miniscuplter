@@ -46,6 +46,8 @@ public static class StageCSelection
         ArgumentNullException.ThrowIfNull(session);
         if (selectionId.Value == Guid.Empty)
             throw new ArgumentException("Selection ID cannot be empty.", nameof(selectionId));
+        if (session.Current.Selections.ContainsKey(selectionId))
+            throw new InvalidOperationException($"Selection {selectionId} already exists.");
         if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))
             throw new InvalidOperationException($"Cannot bind selection to missing object {objectId}.");
         if (obj.ActiveMeshRevisionId != meshRevisionId)
@@ -68,6 +70,8 @@ public static class StageCSelection
             $"{TransactionPrefix} bind {binding.Kind}",
             state =>
             {
+                if (state.Selections.ContainsKey(selectionId))
+                    throw new InvalidOperationException($"Selection {selectionId} appeared before binding could commit.");
                 if (!state.Objects.TryGetValue(objectId, out ProjectObject? current) || current.ActiveMeshRevisionId != meshRevisionId)
                     throw new InvalidOperationException("Object revision advanced before selection binding could commit.");
                 return state.WithSelection(binding);

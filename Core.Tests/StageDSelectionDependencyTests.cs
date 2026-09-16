@@ -199,6 +199,20 @@ internal static class StageDSelectionDependencyTests
             session, selectionId, objectId, revisionId, "smart-select-vertex-weights", "data/selection-history.json");
         Assert(StageCSelection.IsSelectionTransaction(session.UndoTransactions.First()),
             "selection bind was not recorded as a selection transaction");
+
+        int historyCount = session.UndoTransactions.Count;
+        bool duplicateIdentityRejected = false;
+        try
+        {
+            StageCSelection.BindRevisionSelection(
+                session, selectionId, objectId, revisionId, binding.Kind, "data/selection-overwrite.json");
+        }
+        catch (InvalidOperationException) { duplicateIdentityRejected = true; }
+        Assert(duplicateIdentityRejected &&
+               session.Current.Selections[selectionId] == binding &&
+               session.UndoTransactions.Count == historyCount,
+            "duplicate stable selection identity overwrote durable state or history");
+
         session.Undo();
         Assert(!session.Current.Selections.ContainsKey(selectionId),
             "undo did not remove a newly bound revision selection");
