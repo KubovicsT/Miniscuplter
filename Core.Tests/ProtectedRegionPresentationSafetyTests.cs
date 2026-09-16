@@ -55,6 +55,9 @@ internal static class ProtectedRegionPresentationSafetyTests
                source.Contains("StageCSelection.IsSelectionTransaction(transaction)", StringComparison.Ordinal) &&
                source.Contains("V1027ReconcileDurableSmartSelection();", StringComparison.Ordinal),
             "Smart Selection undo/redo does not reconcile Godot presentation from restored Core history");
+        Assert(source.Contains("StageCSelection.ReplaceRevisionSelection", StringComparison.Ordinal) &&
+               !source.Contains("StageCSelection.BindRevisionSelection(currentSession", StringComparison.Ordinal),
+            "Smart Selection persistence can accumulate competing current object/kind bindings instead of replacing them transactionally");
 
         string editingPath = Path.Combine(root, "Scripts", "Main.V1020StageCEditing.cs");
         if (!File.Exists(editingPath)) throw new InvalidOperationException("TEST FAILED: Stage-C history router is missing");

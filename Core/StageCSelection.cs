@@ -80,6 +80,58 @@ public static class StageCSelection
         return binding;
     }
 
+    public static SelectionBinding ReplaceRevisionSelection(
+        ProjectSession session,
+        SelectionId selectionId,
+        ObjectId objectId,
+        RevisionId meshRevisionId,
+        string kind,
+        string dataAssetPath)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (selectionId.Value == Guid.Empty)
+            throw new ArgumentException("Selection ID cannot be empty.", nameof(selectionId));
+        if (session.Current.Selections.ContainsKey(selectionId))
+            throw new InvalidOperationException($"Selection {selectionId} already exists.");
+        if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))
+            throw new InvalidOperationException($"Cannot bind selection to missing object {objectId}.");
+        if (obj.ActiveMeshRevisionId != meshRevisionId)
+            throw new InvalidOperationException("Revision-dependent selection is stale before it can replace the current binding.");
+        if (!session.Current.MeshRevisions.TryGetValue(meshRevisionId, out MeshRevision? revision) || revision.ObjectId != objectId)
+            throw new InvalidDataException("Revision-dependent selection does not target a valid mesh revision of its object.");
+        if (string.IsNullOrWhiteSpace(kind))
+            throw new ArgumentException("Selection kind is required.", nameof(kind));
+        if (string.IsNullOrWhiteSpace(dataAssetPath))
+            throw new ArgumentException("Selection data asset path is required.", nameof(dataAssetPath));
+
+        string normalizedKind = kind.Trim();
+        var binding = new SelectionBinding(
+            selectionId,
+            objectId,
+            meshRevisionId,
+            normalizedKind,
+            dataAssetPath.Replace('\\', '/'),
+            DateTimeOffset.UtcNow);
+        session.Execute(
+            $"{TransactionPrefix} replace {normalizedKind}",
+            state =>
+            {
+                if (state.Selections.ContainsKey(selectionId))
+                    throw new InvalidOperationException($"Selection {selectionId} appeared before replacement could commit.");
+                if (!state.Objects.TryGetValue(objectId, out ProjectObject? current) || current.ActiveMeshRevisionId != meshRevisionId)
+                    throw new InvalidOperationException("Object revision advanced before selection replacement could commit.");
+
+                var replace = state.Selections.Values
+                    .Where(selection => selection.ObjectId == objectId &&
+                                        string.Equals(selection.Kind, normalizedKind, StringComparison.Ordinal))
+                    .Select(selection => selection.Id)
+                    .ToHashSet();
+                return WithoutSelections(state, replace).WithSelection(binding);
+            },
+            objectId);
+        return binding;
+    }
+
     public static int RemoveRevisionSelections(ProjectSession session, ObjectId objectId, string kind)
     {
         ArgumentNullException.ThrowIfNull(session);

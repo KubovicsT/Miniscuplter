@@ -20,8 +20,8 @@ internal static class StageDSelectionDependencyTests
         if (!File.Exists(path))
             throw new InvalidOperationException("TEST FAILED: durable Smart Selection bridge is missing");
         string source = File.ReadAllText(path);
-        Assert(source.Contains("StageCSelection.BindRevisionSelection", StringComparison.Ordinal),
-            "Smart Selection is not persisted as a Core SelectionBinding");
+        Assert(source.Contains("StageCSelection.ReplaceRevisionSelection", StringComparison.Ordinal),
+            "Smart Selection is not persisted with transactional replacement of the current Core binding");
         Assert(source.Contains("StageCSelection.IsCurrent", StringComparison.Ordinal),
             "Smart Selection does not detect stale revision-bound indices");
         Assert(source.Contains("ClearV096Selection(false)", StringComparison.Ordinal),
@@ -236,6 +236,26 @@ internal static class StageDSelectionDependencyTests
         Assert(!StageCSelection.RemoveRevisionSelection(session, binding) &&
                session.Current.Selections[replacement.Id] == replacement,
             "stale selection clear removed a newer replacement binding");
+
+        SelectionBinding current = StageCSelection.ReplaceRevisionSelection(
+            session, SelectionId.New(), objectId, revisionId, binding.Kind, "data/selection-current.json");
+        Assert(session.Current.Selections.Values.Count(selection =>
+                   selection.ObjectId == objectId && selection.Kind == binding.Kind) == 1 &&
+               session.Current.Selections[current.Id] == current &&
+               !session.Current.Selections.ContainsKey(replacement.Id),
+            "transactional selection replacement left competing current object/kind bindings");
+        ProjectTransaction replaceTransaction = session.UndoTransactions.First();
+        Assert(replaceTransaction.Before.Selections.ContainsKey(replacement.Id) &&
+               replaceTransaction.After.Selections.ContainsKey(current.Id),
+            "selection replacement transaction did not retain the prior immutable binding in history");
+        session.Undo();
+        Assert(session.Current.Selections.ContainsKey(replacement.Id) &&
+               !session.Current.Selections.ContainsKey(current.Id),
+            "selection replacement undo did not restore the exact prior binding");
+        session.Redo();
+        Assert(session.Current.Selections.ContainsKey(current.Id) &&
+               !session.Current.Selections.ContainsKey(replacement.Id),
+            "selection replacement redo did not restore the exact new binding");
     }
 
     static void ValidateAttachmentTransactions()

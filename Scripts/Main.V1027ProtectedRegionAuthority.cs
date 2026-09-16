@@ -239,7 +239,7 @@ public partial class Main
                 ProjectSession currentSession = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
                 if (!currentSession.Current.Objects.TryGetValue(objectId, out ProjectObject? current) || current.ActiveMeshRevisionId != meshRevisionId) throw new InvalidOperationException("The mesh revision advanced before Smart Selection could be persisted.");
                 if (_v096SelectionObject == null || !GodotObject.IsInstanceValid(_v096SelectionObject) || !_v1013ObjectIds.TryGetValue(_v096SelectionObject.GetInstanceId(), out ObjectId liveObjectId) || liveObjectId != objectId) throw new InvalidOperationException("The Smart Selection target changed before persistence completed.");
-                SelectionBinding binding = StageCSelection.BindRevisionSelection(currentSession, selectionId, objectId, meshRevisionId, "smart-select-vertex-weights", relative); await V1020SaveSessionAsync();
+                SelectionBinding binding = StageCSelection.ReplaceRevisionSelection(currentSession, selectionId, objectId, meshRevisionId, "smart-select-vertex-weights", relative); await V1020SaveSessionAsync();
                 _v1027DurableSmartSelection = binding; _v1027FailedSelectionRestore = null;
                 if (_v096Selection != null && _v096Selection.AsSpan().SequenceEqual(weights) && string.Equals(_v096SelectionQuery, query, StringComparison.Ordinal)) { _v1027PersistedSmartSelectionValues = _v096Selection; _v1027PersistedSmartSelectionQuery = _v096SelectionQuery; }
                 else { _v1027PersistedSmartSelectionValues = null; _v1027PersistedSmartSelectionQuery = ""; }
