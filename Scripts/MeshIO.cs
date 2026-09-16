@@ -58,6 +58,10 @@ public static class MeshIO
     static Vector3 ParseVec(string s)
     {
         var p = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (p.Length != 3)
+        {
+            throw new InvalidDataException("Invalid STL vector: expected 3 numeric components.");
+        }
         return new Vector3(float.Parse(p[0], CultureInfo.InvariantCulture), float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture));
     }
 
