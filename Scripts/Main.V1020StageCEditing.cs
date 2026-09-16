@@ -1,6 +1,7 @@
 using Godot;
 using Miniscuplter.Core;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -520,20 +521,16 @@ public partial class Main
                 _ = V1027UndoRedoSmartSelectionAsync(undo: true);
                 return;
             }
+            if (StageCEditing.IsEditingTransaction(current))
+            {
+                _ = V1020UndoRedoStageCAsync(
+                    current.Id,
+                    current.AffectedObjectIds.ToArray(),
+                    undo: true);
+                return;
+            }
         }
-        if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out _) ||
-            _v1020StageCSession == null || !_v1020StageCSession.CanUndo)
-        {
-            Undo();
-            return;
-        }
-        ProjectTransaction transaction = _v1020StageCSession.UndoTransactions.First();
-        if (!StageCEditing.IsEditingTransaction(transaction) || !transaction.AffectedObjectIds.Contains(objectId))
-        {
-            Undo();
-            return;
-        }
-        _ = V1020UndoRedoStageCAsync(objectId, undo: true);
+        Undo();
     }
 
     void V1020RedoStageCAware()
@@ -551,45 +548,64 @@ public partial class Main
                 _ = V1027UndoRedoSmartSelectionAsync(undo: false);
                 return;
             }
+            if (StageCEditing.IsEditingTransaction(current))
+            {
+                _ = V1020UndoRedoStageCAsync(
+                    current.Id,
+                    current.AffectedObjectIds.ToArray(),
+                    undo: false);
+                return;
+            }
         }
-        if (!V1020SelectedIsMappedStageC(out ObjectId objectId, out _) ||
-            _v1020StageCSession == null || !_v1020StageCSession.CanRedo)
-        {
-            Redo();
-            return;
-        }
-        ProjectTransaction transaction = _v1020StageCSession.RedoTransactions.First();
-        if (!StageCEditing.IsEditingTransaction(transaction) || !transaction.AffectedObjectIds.Contains(objectId))
-        {
-            Redo();
-            return;
-        }
-        _ = V1020UndoRedoStageCAsync(objectId, undo: false);
+        Redo();
     }
 
-    async Task V1020UndoRedoStageCAsync(ObjectId objectId, bool undo)
+    async Task V1020UndoRedoStageCAsync(
+        TransactionId expectedTransactionId,
+        ObjectId[] affectedObjectIds,
+        bool undo)
     {
-        MeshInstance3D? target = V1020FindSceneObject(objectId);
         try
         {
             await _v1020StageCGate.WaitAsync();
             try
             {
                 var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
+                ProjectTransaction current = undo
+                    ? session.UndoTransactions.FirstOrDefault()
+                        ?? throw new InvalidOperationException("There is no Stage-C project command to undo.")
+                    : session.RedoTransactions.FirstOrDefault()
+                        ?? throw new InvalidOperationException("There is no Stage-C project command to redo.");
+                if (current.Id != expectedTransactionId || !StageCEditing.IsEditingTransaction(current))
+                    throw new InvalidOperationException("Stage-C history advanced before the requested edit could be applied.");
+
                 ProjectTransaction transaction = undo ? session.Undo() : session.Redo();
-                if (!StageCEditing.IsEditingTransaction(transaction) || !transaction.AffectedObjectIds.Contains(objectId))
-                    throw new InvalidOperationException("The requested history entry is not an edit of the selected Stage-C object.");
+                if (transaction.Id != expectedTransactionId || !StageCEditing.IsEditingTransaction(transaction))
+                    throw new InvalidOperationException("The requested history entry is not the expected Stage-C edit.");
+                affectedObjectIds = transaction.AffectedObjectIds.Distinct().ToArray();
                 await V1020SaveSessionAsync();
-                if (target != null && session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))
-                    V1020ProjectObjectStateToScene(target, obj);
             }
             finally { _v1020StageCGate.Release(); }
+            V1020ProjectStageCTransactionToScene(affectedObjectIds);
             SetStatus(undo ? "Stage-C edit undone and saved." : "Stage-C edit redone and saved.");
         }
         catch (Exception ex)
         {
-            V1020RestoreMappedObjectFromCurrentState(target, objectId);
+            V1020ProjectStageCTransactionToScene(affectedObjectIds);
             SetStatus($"Stage-C {(undo ? "undo" : "redo")} failed safely: {ex.Message}");
+        }
+    }
+
+    void V1020ProjectStageCTransactionToScene(IEnumerable<ObjectId> affectedObjectIds)
+    {
+        ProjectSession? session = _v1020StageCSession;
+        if (session == null) return;
+
+        foreach (ObjectId objectId in affectedObjectIds.Distinct())
+        {
+            MeshInstance3D? target = V1020FindSceneObject(objectId);
+            if (target != null && session.Current.Objects.TryGetValue(objectId, out ProjectObject? obj))
+                V1020ProjectObjectStateToScene(target, obj);
         }
     }
 

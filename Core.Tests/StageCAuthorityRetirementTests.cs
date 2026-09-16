@@ -130,6 +130,27 @@ internal static class StageCAuthorityRetirementTests
             "viewport transform failures must restore Godot presentation from durable Core state");
 
         Assert(
+            editing.Contains("if (StageCEditing.IsEditingTransaction(current))", StringComparison.Ordinal) &&
+            editing.Contains("current.AffectedObjectIds.ToArray(),", StringComparison.Ordinal) &&
+            editing.Contains("undo: true", StringComparison.Ordinal) &&
+            editing.Contains("undo: false", StringComparison.Ordinal),
+            "Stage-C edit history must route from the authoritative top transaction and its affected stable object IDs");
+        Assert(
+            editing.Contains("TransactionId expectedTransactionId", StringComparison.Ordinal) &&
+            editing.Contains("current.Id != expectedTransactionId || !StageCEditing.IsEditingTransaction(current)", StringComparison.Ordinal),
+            "asynchronous Stage-C history must reject a top transaction that advanced before the Core gate was acquired");
+        Assert(
+            editing.Contains("V1020ProjectStageCTransactionToScene(affectedObjectIds);", StringComparison.Ordinal) &&
+            editing.Contains("foreach (ObjectId objectId in affectedObjectIds.Distinct())", StringComparison.Ordinal),
+            "Stage-C history must rebuild every still-live affected mapped presentation from restored Core state");
+        int undoHistoryStart = editing.IndexOf("void V1020UndoStageCAware()", StringComparison.Ordinal);
+        int selectionHelperStart = editing.IndexOf("bool V1020SelectedIsMappedStageC", undoHistoryStart, StringComparison.Ordinal);
+        Assert(
+            undoHistoryStart >= 0 && selectionHelperStart > undoHistoryStart &&
+            !editing[undoHistoryStart..selectionHelperStart].Contains("V1020SelectedIsMappedStageC", StringComparison.Ordinal),
+            "Stage-C edit undo/redo routing must not depend on the current viewport selection");
+
+        Assert(
             viewport.Contains("V1027SelectStableViewportHit(selected);", StringComparison.Ordinal) &&
             !viewport.Contains("Select(selected);", StringComparison.Ordinal),
             "production viewport picking must hand scene hits to the stable selection bridge rather than treating a scene node as identity");
