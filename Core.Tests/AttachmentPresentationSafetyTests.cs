@@ -53,7 +53,7 @@ internal static class AttachmentPresentationSafetyTests
         Assert(editing.Contains("StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.UndoTransactions.First())", StringComparison.Ordinal) &&
                editing.Contains("StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.RedoTransactions.First())", StringComparison.Ordinal),
             "mapped attachment transactions are not routed through Core undo and redo history");
-        Assert(bridge.Contains("V1033RestoreAppliedStageCObjects(session);", StringComparison.Ordinal) &&
+        Assert(bridge.Contains("V1031RestoreAppliedStageCObjects(session);", StringComparison.Ordinal) &&
                bridge.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal),
             "project load does not rebuild mapped attachment presentation from durable Core state");
     }
