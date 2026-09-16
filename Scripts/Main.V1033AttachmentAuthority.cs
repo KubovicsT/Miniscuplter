@@ -244,6 +244,7 @@ public partial class Main
 
     static void V1033ProjectCoreLocalTransform(AttachmentRecord attachment, V07AttachmentDto projection)
     {
+        projection.LibraryId = attachment.PartLibraryId ?? "";
         projection.SocketId = attachment.Socket;
         projection.LocalOffset = new[] { attachment.LocalTransform.Position.X, attachment.LocalTransform.Position.Y, attachment.LocalTransform.Position.Z };
         projection.LocalRotationDeg = new[]
@@ -273,7 +274,7 @@ public partial class Main
         if (_v1020StageCSession == null || !_v1013ObjectIds.TryGetValue(part.GetInstanceId(), out ObjectId childId))
             return true;
         AttachmentRecord? attachment = _v1020StageCSession.Current.Attachments.Values.FirstOrDefault(x => x.ChildObjectId == childId);
-        if (attachment == null) return false;
+        if (attachment == null || string.IsNullOrWhiteSpace(attachment.PartLibraryId)) return false;
         if (!StageDAttachments.IsAuthoritative(_v1020StageCSession.Current, attachment)) return false;
         if (!V1033TryResolveAttachmentSocketOwner(attachment, out _)) return false;
         V1033ProjectCoreLocalTransform(attachment, projection);

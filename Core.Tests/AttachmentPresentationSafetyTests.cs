@@ -44,8 +44,9 @@ internal static class AttachmentPresentationSafetyTests
                authority.Contains("if (!V1033TryResolveAttachmentSocketOwner(attachment, out _)) return false;", StringComparison.Ordinal),
             "mapped attachment presentation can remain authoritative when its socket is absent or owned by a different Core parent");
         Assert(authority.Contains("local, library);", StringComparison.Ordinal) &&
-               authority.Contains("LibraryId = attachment.PartLibraryId", StringComparison.Ordinal),
-            "mapped snap and reconstruction do not carry durable part-library identity through Core");
+               authority.Contains("projection.LibraryId = attachment.PartLibraryId ?? \"\";", StringComparison.Ordinal) &&
+               authority.Contains("string.IsNullOrWhiteSpace(attachment.PartLibraryId)", StringComparison.Ordinal),
+            "mapped snap and read-side reconstruction do not carry or fail closed durable part-library identity through Core");
         Assert(authority.Contains("void V1033RebuildMappedAttachmentProjectionsFromCore()", StringComparison.Ordinal) &&
                authority.Contains("objectId == attachment.ChildObjectId", StringComparison.Ordinal) &&
                authority.Contains("StageDAttachments.IsAuthoritative(session.Current, attachment)", StringComparison.Ordinal),
