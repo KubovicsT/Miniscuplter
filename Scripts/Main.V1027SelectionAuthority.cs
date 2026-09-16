@@ -116,7 +116,6 @@ public partial class Main
         if (_v1027SculptGestureSelection is not { } selection)
             return;
 
-        _v1020SculptGestureActive = false;
         ArrayMesh? undoMarker = _v1027SculptUndoMarker;
         _v1027SculptGestureSelection = null;
         _v1027SculptUndoMarker = null;

@@ -16,11 +16,7 @@ public partial class Main
     TransformState _v1020TransformGestureDurableStart;
     TransformState _v1020TransformGestureSceneStart;
     V1018ViewportTool _v1020TransformGestureTool;
-    bool _v1020SculptGestureActive;
     bool _v1020ViewportEditingObserverAttached;
-    ObjectId _v1020SculptObjectId;
-    RevisionId _v1020SculptInputRevisionId;
-    ArrayMesh? _v1020LegacySculptUndoMarker;
 
     public void InstallV1020StageCEditingAuthority()
     {
@@ -339,19 +335,6 @@ public partial class Main
                 _v1020TransformGestureTool = _v1018Tool;
             }
 
-            if (_v1018Tool == V1018ViewportTool.Sculpt && _sculpting &&
-                V1020SelectedIsMappedStageC(out ObjectId objectId, out ProjectObject sculptProjectObject))
-            {
-                _v1020SculptGestureActive = true;
-                _v1020SculptObjectId = objectId;
-                _v1020SculptInputRevisionId = sculptProjectObject.ActiveMeshRevisionId;
-                _v1020LegacySculptUndoMarker = _undo.Count > 0 ? _undo.Peek() : null;
-            }
-            else
-            {
-                _v1020SculptGestureActive = false;
-                _v1020LegacySculptUndoMarker = null;
-            }
             return;
         }
 
@@ -372,12 +355,6 @@ public partial class Main
             }
         }
 
-        if (_v1020SculptGestureActive)
-        {
-            _v1020SculptGestureActive = false;
-            _ = V1020CommitSculptStrokeAsync(_v1020SculptObjectId, _v1020SculptInputRevisionId, _v1020LegacySculptUndoMarker);
-            _v1020LegacySculptUndoMarker = null;
-        }
     }
 
     async Task V1020CommitViewportTransformGestureAsync(
@@ -460,44 +437,6 @@ public partial class Main
         if (!float.IsFinite(factor) || factor <= 0)
             throw new InvalidOperationException("Viewport scale gesture produced an invalid scale factor.");
         return new Vec3(durableScale.X * factor, durableScale.Y * factor, durableScale.Z * factor);
-    }
-
-    async Task V1020CommitSculptStrokeAsync(ObjectId objectId, RevisionId inputRevisionId, ArrayMesh? legacyUndoMarker)
-    {
-        MeshInstance3D? target = V1020FindSceneObject(objectId);
-        if (target?.Mesh is not ArrayMesh editedMesh) return;
-
-        try
-        {
-            MeshData data = V1013MeshData(editedMesh);
-            await _v1020StageCGate.WaitAsync();
-            try
-            {
-                var session = _v1020StageCSession ?? throw new InvalidOperationException("Stage-C project session is unavailable.");
-                if (!session.Current.Objects.TryGetValue(objectId, out ProjectObject? current) ||
-                    current.ActiveMeshRevisionId != inputRevisionId)
-                    throw new InvalidOperationException("The edited object advanced before this sculpt stroke could be committed.");
-
-                MeshRevision revision = await _v1020StageCStore.CreateMeshRevisionAsync(
-                    _v1020StageCProjectPath,
-                    objectId,
-                    data,
-                    "stagec-edit:sculpt-stroke",
-                    inputRevisionId);
-                StageCEditing.CommitMeshRevision(session, objectId, inputRevisionId, revision, "sculpt stroke");
-                await V1020SaveSessionAsync();
-                V1020RemoveDuplicatedLegacySculptUndo(legacyUndoMarker);
-                V1020ProjectObjectStateToScene(target, session.Current.Objects[objectId]);
-            }
-            finally { _v1020StageCGate.Release(); }
-            SetStatus("Sculpt stroke committed as a new immutable Stage-C mesh revision.");
-        }
-        catch (Exception ex)
-        {
-            V1020RemoveDuplicatedLegacySculptUndo(legacyUndoMarker);
-            V1020RestoreMappedObjectFromCurrentState(target, objectId);
-            SetStatus("Stage-C sculpt commit failed safely; restored durable mesh: " + ex.Message);
-        }
     }
 
     void V1020RemoveDuplicatedLegacySculptUndo(ArrayMesh? marker)
