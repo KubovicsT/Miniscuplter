@@ -35,11 +35,13 @@ internal static class ProtectedRegionPresentationSafetyTests
                source.Contains("_v1020StageCSession.Current.Selections.Values.Any", StringComparison.Ordinal) &&
                source.Contains("!destinationStillReferenced && File.Exists(destination)", StringComparison.Ordinal),
             "failed Smart Selection persistence does not re-check recovered Core references before cleaning its snapshot asset");
-        Assert(source.Contains("_v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal) && source.Contains("StageCSelection.RemoveRevisionSelections(", StringComparison.Ordinal),
-            "explicit Smart Selection clear is not serialized through durable Core selection removal");
+        Assert(source.Contains("_v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal) &&
+               source.Contains("V1027ClearDurableSmartSelectionAsync(binding)", StringComparison.Ordinal) &&
+               source.Contains("StageCSelection.RemoveRevisionSelection(currentSession, expected)", StringComparison.Ordinal),
+            "explicit Smart Selection clear is not serialized against the exact durable Core binding");
         Assert(source.Contains("binding.ObjectId != _v1027PendingSmartSelectionClearObjectId", StringComparison.Ordinal),
             "a Smart Selection pending durable clear can be immediately resurrected by restore reconciliation");
-        Assert(source.Contains("string[] retiredAssetPaths = currentSession.Current.Selections.Values", StringComparison.Ordinal) &&
+        Assert(source.Contains("string[] retiredAssetPaths = [expected.DataAssetPath];", StringComparison.Ordinal) &&
                source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal) &&
                source.Contains("V1027SelectionAssetReferencedByCurrentOrHistory", StringComparison.Ordinal),
             "durable Smart Selection clear does not defer snapshot cleanup while Core history can restore the binding");

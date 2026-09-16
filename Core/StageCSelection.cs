@@ -101,6 +101,27 @@ public static class StageCSelection
         return ids.Length;
     }
 
+    public static bool RemoveRevisionSelection(ProjectSession session, SelectionBinding expected)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(expected);
+        if (!session.Current.Selections.TryGetValue(expected.Id, out SelectionBinding? current) ||
+            current != expected)
+            return false;
+
+        session.Execute(
+            $"{TransactionPrefix} clear {expected.Kind}",
+            state =>
+            {
+                if (!state.Selections.TryGetValue(expected.Id, out SelectionBinding? persisted) ||
+                    persisted != expected)
+                    throw new InvalidOperationException("Revision selection changed before clear could commit.");
+                return WithoutSelections(state, new HashSet<SelectionId> { expected.Id });
+            },
+            expected.ObjectId);
+        return true;
+    }
+
     static ProjectState WithoutSelections(ProjectState state, IReadOnlySet<SelectionId> selectionIds) =>
         new(
             state.ProjectId,

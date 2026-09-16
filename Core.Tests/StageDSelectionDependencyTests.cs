@@ -206,8 +206,8 @@ internal static class StageDSelectionDependencyTests
         Assert(session.Current.Selections[selectionId] == binding,
             "redo did not restore the exact revision selection binding");
 
-        Assert(StageCSelection.RemoveRevisionSelections(session, objectId, binding.Kind) == 1,
-            "selection clear did not remove the durable binding");
+        Assert(StageCSelection.RemoveRevisionSelection(session, binding),
+            "selection clear did not remove the exact durable binding");
         Assert(StageCSelection.IsSelectionTransaction(session.UndoTransactions.First()),
             "selection clear was not recorded as a selection transaction");
         session.Undo();
@@ -216,6 +216,12 @@ internal static class StageDSelectionDependencyTests
         session.Redo();
         Assert(!session.Current.Selections.ContainsKey(selectionId),
             "redo did not restore the revision selection clear");
+
+        SelectionBinding replacement = StageCSelection.BindRevisionSelection(
+            session, SelectionId.New(), objectId, revisionId, binding.Kind, "data/selection-replacement.json");
+        Assert(!StageCSelection.RemoveRevisionSelection(session, binding) &&
+               session.Current.Selections[replacement.Id] == replacement,
+            "stale selection clear removed a newer replacement binding");
     }
 
     static void ValidateAttachmentTransactions()

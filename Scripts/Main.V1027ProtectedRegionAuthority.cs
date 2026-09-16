@@ -119,10 +119,10 @@ public partial class Main
         _v1027FailedSelectionRestore = null;
         _v1027PersistedSmartSelectionValues = null;
         _v1027PersistedSmartSelectionQuery = "";
-        _ = V1027ClearDurableSmartSelectionAsync(binding.ObjectId);
+        _ = V1027ClearDurableSmartSelectionAsync(binding);
     }
 
-    async Task V1027ClearDurableSmartSelectionAsync(ObjectId objectId)
+    async Task V1027ClearDurableSmartSelectionAsync(SelectionBinding expected)
     {
         bool cleared = false;
         string? cleanupWarning = null;
@@ -133,10 +133,8 @@ public partial class Main
             {
                 ProjectSession currentSession = _v1020StageCSession ??
                     throw new InvalidOperationException("Stage-C project session is unavailable.");
-                string[] retiredAssetPaths = currentSession.Current.Selections.Values
-                    .Where(binding => binding.ObjectId == objectId && binding.Kind == "smart-select-vertex-weights")
-                    .Select(binding => binding.DataAssetPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-                cleared = StageCSelection.RemoveRevisionSelections(currentSession, objectId, "smart-select-vertex-weights") > 0;
+                string[] retiredAssetPaths = [expected.DataAssetPath];
+                cleared = StageCSelection.RemoveRevisionSelection(currentSession, expected);
                 if (cleared)
                 {
                     await V1020SaveSessionAsync();
