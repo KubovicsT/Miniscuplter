@@ -174,6 +174,12 @@ public partial class Main
     {
         try
         {
+            // Ensure the project file has the .msculpt extension
+            if (!Path.GetExtension(projectPath).Equals(".msculpt", StringComparison.OrdinalIgnoreCase))
+            {
+                projectPath += ".msculpt";
+            }
+
             string full = Path.GetFullPath(projectPath);
             string dir = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "_assets");
             Directory.CreateDirectory(dir);
