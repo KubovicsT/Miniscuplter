@@ -11,30 +11,27 @@ public partial class Main
     async void SnapSelectedV1033Object()
     {
         if (_selected == null) { SetStatus("Select the part object to snap first."); return; }
+        MeshInstance3D selected = _selected;
+        string selectedName = selected.Name.ToString();
         var socket = _v07Sockets.FirstOrDefault(s => s.Id == _v07SelectedSocketId);
         if (socket == null) { SetStatus("Choose a socket first."); return; }
-        if (_selected.Name.ToString() == socket.OwnerObject) { SetStatus("The socket owner cannot be snapped to its own socket."); return; }
-        if (!TryGetV07SocketWorld(socket, out var p, out var n)) { SetStatus("Socket owner no longer exists."); return; }
+        if (selectedName == socket.OwnerObject) { SetStatus("The socket owner cannot be snapped to its own socket."); return; }
+        if (!TryGetV07SocketWorld(socket, out _, out _)) { SetStatus("Socket owner no longer exists."); return; }
 
         string library = _v07SelectedPartId;
-        var def = _v07Parts.FirstOrDefault(x => x.Id == library);
-        Basis basis = V07SocketBasis(n, socket.RollDeg) * V095MountAlignment(def);
-        Vector3 mountPoint = def == null || def.MountPoint == null || def.MountPoint.Length < 3
-            ? Vector3.Zero
-            : new Vector3(def.MountPoint[0], def.MountPoint[1], def.MountPoint[2]);
-        float retainedScale = Math.Max(.01f, (_selected.Scale.X + _selected.Scale.Y + _selected.Scale.Z) / 3f);
+        float retainedScale = Math.Max(.01f, (selected.Scale.X + selected.Scale.Y + selected.Scale.Z) / 3f);
 
         var projection = new V07AttachmentDto
         {
-            PartObjectName = _selected.Name.ToString(),
+            PartObjectName = selectedName,
             SocketId = socket.Id,
             LibraryId = library,
             UniformScale = retainedScale
         };
 
-        if (!V1033TryResolveMappedAttachment(_selected, socket, out ProjectSession? session, out ObjectId parentId, out ObjectId childId))
+        if (!V1033TryResolveMappedAttachment(selected, socket, out ProjectSession? session, out ObjectId parentId, out ObjectId childId))
         {
-            if (V1033HasStableCoreIdentity(_selected))
+            if (V1033HasStableCoreIdentity(selected))
             {
                 SetStatus("Snap failed safely; the selected Core object cannot resolve a stable Core socket owner, so legacy attachment state will not take authority.");
                 return;
@@ -79,20 +76,15 @@ public partial class Main
             _v1020StageCGate.Release();
         }
 
-        var gt = _selected.GlobalTransform;
-        gt.Basis = basis.Scaled(Vector3.One * retainedScale);
-        gt.Origin = p - gt.Basis * mountPoint;
-        _selected.GlobalTransform = gt;
-        V1033ReplaceLegacyProjection(projection);
-        ImportV06Role(_selected.Name.ToString(), "attachment");
-        _v095FineTuneObject = "";
-        SyncV095AttachmentControls();
-        SetStatus($"Snapped {_selected.Name} to {socket.Type}; Core now owns the durable attachment identity and revision binding.");
+        V1033RebuildMappedAttachmentProjectionsFromCore();
+        ImportV06Role(selectedName, "attachment");
+        SetStatus($"Snapped {selectedName} to {socket.Type}; Core now owns the durable attachment identity and revision binding.");
     }
 
     async void DetachSelectedV1033Object()
     {
         if (_selected == null) return;
+        string selectedName = _selected.Name.ToString();
         if (_v1020StageCSession == null ||
             !_v1013ObjectIds.TryGetValue(_selected.GetInstanceId(), out ObjectId childId))
         {
@@ -100,10 +92,11 @@ public partial class Main
             return;
         }
 
+        ProjectId expectedProjectId = _v1020StageCSession.Current.ProjectId;
         AttachmentRecord? existing = _v1020StageCSession.Current.Attachments.Values.FirstOrDefault(x => x.ChildObjectId == childId);
         if (existing == null)
         {
-            V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());
+            V1033RetireLegacyAttachmentProjection(selectedName);
             SetStatus("Selected Core object has no durable attachment; stale legacy attachment presentation was cleared.");
             return;
         }
@@ -112,13 +105,20 @@ public partial class Main
         try
         {
             ProjectSession session = _v1020StageCSession ?? throw new InvalidOperationException("Core project session is unavailable.");
+            if (session.Current.ProjectId != expectedProjectId)
+                throw new InvalidOperationException("Project identity changed before detach could commit.");
             AttachmentRecord current = session.Current.Attachments.TryGetValue(existing.Id, out AttachmentRecord? persisted)
                 ? persisted
                 : throw new InvalidOperationException("Attachment changed before detach could commit.");
+            if (current.ChildObjectId != childId)
+                throw new InvalidOperationException("Attachment child identity changed before detach could commit.");
+            bool stale = !StageDAttachments.IsAuthoritative(session.Current, current);
             StageDAttachments.RemoveIfCurrent(session, current);
             await V1020SaveSessionAsync();
-            V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());
-            SetStatus($"Detached {_selected.Name}; durable Core attachment state was removed transactionally.");
+            V1033RebuildMappedAttachmentProjectionsFromCore();
+            SetStatus(stale
+                ? $"Removed stale attachment for {selectedName}; no legacy attachment authority was restored."
+                : $"Detached {selectedName}; durable Core attachment state was removed transactionally.");
         }
         catch (Exception ex)
         {

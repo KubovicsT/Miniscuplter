@@ -36,9 +36,27 @@ internal static class AttachmentPresentationSafetyTests
         Assert(authority.Contains("if (V1033HasStableCoreIdentity(_selected))", StringComparison.Ordinal) &&
                authority.Contains("legacy attachment state will not take authority", StringComparison.Ordinal),
             "mapped snap can fall back to legacy attachment authority when the Core socket owner cannot be resolved");
+        int snapStart = authority.IndexOf("async void SnapSelectedV1033Object()", StringComparison.Ordinal);
+        int detachStart = authority.IndexOf("async void DetachSelectedV1033Object()", StringComparison.Ordinal);
+        string snap = authority[snapStart..detachStart];
+        Assert(snap.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal) &&
+               snap.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal) &&
+               !snap.Contains("V1033ReplaceLegacyProjection(projection);", StringComparison.Ordinal),
+            "mapped snap can publish caller-built legacy projection values instead of rebuilding from committed Core state");
         Assert(authority.Contains("V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());", StringComparison.Ordinal) &&
                authority.Contains("has no durable attachment; stale legacy attachment presentation was cleared", StringComparison.Ordinal),
             "mapped detach can resurrect legacy authority when no durable Core attachment exists");
+        int fineTuneStart = authority.IndexOf("async void ApplyV1033AttachmentFineTune()", StringComparison.Ordinal);
+        string detach = authority[detachStart..fineTuneStart];
+        Assert(detach.Contains("ProjectId expectedProjectId = _v1020StageCSession.Current.ProjectId;", StringComparison.Ordinal) &&
+               detach.Contains("session.Current.ProjectId != expectedProjectId", StringComparison.Ordinal) &&
+               detach.Contains("current.ChildObjectId != childId", StringComparison.Ordinal),
+            "mapped detach does not revalidate project and child identity at its serialized commit boundary");
+        Assert(detach.Contains("bool stale = !StageDAttachments.IsAuthoritative(session.Current, current);", StringComparison.Ordinal) &&
+               detach.Contains("StageDAttachments.RemoveIfCurrent(session, current);", StringComparison.Ordinal) &&
+               detach.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal) &&
+               detach.Contains("no legacy attachment authority was restored", StringComparison.Ordinal),
+            "mapped detach does not remove the exact stale/current Core record and rebuild presentation without legacy fallback");
         Assert(authority.Contains("bool V1033HasStableCoreIdentity(MeshInstance3D part)", StringComparison.Ordinal) &&
                authority.Contains("_v1020StageCSession.Current.Objects.ContainsKey(objectId)", StringComparison.Ordinal),
             "mapped attachment fallback guard does not prove stable live Core object identity");
@@ -54,7 +72,7 @@ internal static class AttachmentPresentationSafetyTests
                authority.Contains("objectId == attachment.ChildObjectId", StringComparison.Ordinal) &&
                authority.Contains("StageDAttachments.IsAuthoritative(session.Current, attachment)", StringComparison.Ordinal),
             "attachment presentation reconstruction does not resolve authoritative Core records by stable child identity");
-        int applyStart = authority.IndexOf("async void ApplyV1033AttachmentFineTune()", StringComparison.Ordinal);
+        int applyStart = fineTuneStart;
         int resetStart = authority.IndexOf("async void ResetV1033AttachmentFineTune()", StringComparison.Ordinal);
         int updateStart = authority.IndexOf("async Task<bool> V1033UpdateCoreAttachmentAsync", StringComparison.Ordinal);
         string applyFineTune = authority[applyStart..resetStart];

@@ -325,6 +325,32 @@ internal static class StageDSelectionDependencyTests
             ProjectState reopened = store.LoadAsync(projectPath).GetAwaiter().GetResult();
             Assert(reopened.Attachments.TryGetValue(persisted.Id, out AttachmentRecord? reopenedAttachment) && reopenedAttachment == persisted,
                 "save/reopen did not preserve the exact stable attachment record");
+
+            MeshRevision advancedChild = store.CreateMeshRevisionAsync(
+                projectPath, childId, mesh, "attachment-child-advanced", durableChild.Id).GetAwaiter().GetResult();
+            persistSession.Execute(
+                "advance attached child revision",
+                currentState => currentState
+                    .WithMeshRevision(advancedChild)
+                    .WithObject(currentState.Objects[childId] with { ActiveMeshRevisionId = advancedChild.Id }),
+                childId);
+            AttachmentRecord stale = persistSession.Current.Attachments[persisted.Id];
+            Assert(!StageDAttachments.IsAuthoritative(persistSession.Current, stale),
+                "attachment did not become stale after its child mesh revision advanced");
+            StageDAttachments.RemoveIfCurrent(persistSession, stale);
+            Assert(!persistSession.Current.Attachments.ContainsKey(stale.Id),
+                "exact stale attachment record was not removable through Core history");
+            store.SaveAsync(persistSession.Current, projectPath).GetAwaiter().GetResult();
+            ProjectState detached = store.LoadAsync(projectPath).GetAwaiter().GetResult();
+            Assert(!detached.Attachments.ContainsKey(stale.Id),
+                "save/reopen resurrected a detached stale attachment record");
+            persistSession.Undo();
+            Assert(persistSession.Current.Attachments.TryGetValue(stale.Id, out AttachmentRecord? restoredStale) &&
+                   !StageDAttachments.IsAuthoritative(persistSession.Current, restoredStale),
+                "undo did not restore the exact stale attachment record without promoting it to current authority");
+            persistSession.Redo();
+            Assert(!persistSession.Current.Attachments.ContainsKey(stale.Id),
+                "redo did not restore stale attachment removal");
         }
         finally
         {
