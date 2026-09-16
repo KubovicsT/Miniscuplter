@@ -14,50 +14,53 @@
 The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packaged reference-machine testing. Green CI is not runtime verification. New reproduced severe regressions preempt only the affected path; independent safe work continues.
 
 ## Current objective
-### I — Continue post-attachment/history convergence on v1.0.38
-- state: IN PROGRESS — GREEN DEV CHECKPOINT
+### I — Continue Stage-D durable-state/history convergence on v1.0.38
+- state: IN PROGRESS — GREEN ATTACHMENT CHECKPOINT ACCEPTED; QUEUE REPLENISHED
 - release_boundary: v1.0.37 is immutable. v1.0.38 is the sole writable semantic branch. Pending user verification is local, not a global stop.
 
-### Latest v1.0.38 Dev checkpoint
-- repaired the forward-branch release identity across every audited runtime/package surface and the canonical backend lifecycle test
-- extended the semantic-version guard to cover the lifecycle test's expected version so this bootstrap drift fails before backend startup
-- revision-bound selection creation now rejects duplicate stable IDs both before and inside the Core transaction; focused coverage proves rejection cannot overwrite durable state or add history
-- mapped attachment fine-tune/reset now resolves durable child identity before consulting legacy projection state and rebuilds the disposable projection from committed Core state
-- mapped snap now rebuilds presentation from the saved Core attachment record instead of publishing its caller-built legacy DTO
-- mapped detach revalidates project/child identity, removes the exact current or stale Core record transactionally, and rebuilds without restoring legacy authority; save/reopen and undo/redo cover stale detach
-- the now-unreferenced legacy projection writer is removed; `_v07Attachments` remains only as a Core-derived compatibility projection for the supported legacy save/export path
-- exact-head Core and full build/package/installer validation is green; no release/publication action was taken
-
-### Accepted v1.0.37 checkpoint
-- Stage-D attachment undo/load reconstruction — accepted and published
-- attachment read-side/history reconciliation — accepted and published
-- Smart Selection / protected-region lifecycle convergence — accepted and published
-- exact candidate passed Core plus full build/package/installer and autonomous release gates
+### Accepted v1.0.38 attachment checkpoint
+- mapped snap saves through Core and reconstructs presentation from persisted Core state; caller legacy DTO state is no longer reapplied
+- mapped detach revalidates project, exact attachment and child identity under the Core gate; current/stale exact records are removed transactionally and rebuilt from Core without legacy fallback
+- save/reopen and undo/redo coverage proves stale attachment removal does not resurrect/promote stale records
+- the dead legacy attachment projection writer is removed; remaining `_v07Attachments` use is read-side presentation or supported legacy save/export compatibility only
+- exact-head Core and full build/package/installer validation is green at the returned checkpoint; no release/publication action was taken
 
 ### Ordered Dev queue
-1. COMPLETE at `705d83e` — remove the remaining mapped snap-path dependence on caller-built legacy projection state after a successful Core commit.
-   - `SnapSelectedV1033Object` still finishes a mapped Core-owned snap with `V1033ReplaceLegacyProjection(projection)`, unlike fine-tune/reset and history paths which rebuild disposable presentation from committed Core state.
-   - after the durable save succeeds, reconstruct mapped attachment presentation from authoritative Core records; preserve the unmapped legacy fallback only where no stable Core identity exists.
-   - add focused source/behavior coverage proving a mapped snap cannot leave presentation values that diverge from the committed Core attachment record.
-2. COMPLETE at `705d83e` — audit and harden mapped detach/stale-authority behavior as the next independent attachment seam.
-   - prove mapped detach removes only the current authoritative Core attachment transactionally and that stale/non-authoritative durable records cannot be silently treated as current or transferred to legacy authority.
-   - preserve fail-closed behavior, rebuild/retire disposable presentation from Core truth after successful mutation, and add focused history/save-reopen coverage where a concrete gap is found.
-3. Inspect the remaining mapped attachment projection helpers and read-side callers after objectives 1–2, then remove/quarantine only legacy write authority that is demonstrably redundant.
-   - specifically trace remaining uses of `V1033ReplaceLegacyProjection`, `_v07Attachments`, and legacy attachment controls on objects with stable Core identity; mapped objects must derive durable identity/transform/library/socket truth from Core.
-   - this is one discovery objective, not multiple queue-depth objectives. If inspection exposes another concrete seam, implement the smallest coherent migration/history slice and record it; if it does not, return factual evidence rather than manufacturing cleanup.
-   - bounded result: the dead `V1033ReplaceLegacyProjection` writer was removed; remaining `_v07Attachments` consumers are read-side presentation or the still-supported legacy save/export compatibility path, so no broader removal is justified yet.
-4. Return a coherent runtime-test/release checkpoint when objectives 1–3 are reconciled and exact-head Core/full build-package validation is green.
-   - Coordinator owns release readiness/chunking/publication; Dev never publishes.
+1. **Stage-C edit history routing must not depend on whichever object is currently selected.**
+   - subsystem/path: `Scripts/Main.V1020StageCEditing.cs`, especially `V1020UndoStageCAware`, `V1020RedoStageCAware`, `V1020UndoRedoStageCAsync`, plus focused Core/source-contract tests.
+   - evidence/authorization: attachment and Smart Selection transactions are routed from the top Core transaction independent of viewport selection, but ordinary Stage-C editing history falls back to legacy `Undo()`/`Redo()` unless the currently selected mapped object is also affected. A transform/sculpt transaction for object A can therefore become unreachable through Core history after selection is cleared or moved to object B.
+   - implementation direction: route a top `StageCEditing` transaction from its authoritative affected stable object IDs rather than current presentation selection. Apply Core undo/redo transactionally, save, and rebuild every still-live affected mapped presentation from restored Core state. Preserve legacy undo only when the top durable transaction is not a recognized Core transaction.
+   - acceptance: focused coverage proves transform/sculpt Core undo/redo still works after selection clear/switch, wrong current selection cannot divert the operation into legacy history, save/reopen remains coherent, and exact-head Core/full validation is green.
+   - continuation: after this lands, inspect whether candidate or other recognized Core transaction types have the same selection-dependent routing gap; only extend where concrete evidence exists.
+
+2. **Retire the duplicated mapped-sculpt commit authority that currently relies on event-handler ordering to suppress a second commit.**
+   - subsystem/path: `Scripts/Main.V1020StageCEditing.cs` mapped sculpt fields/capture/release/`V1020CommitSculptStrokeAsync` versus `Scripts/Main.V1027SelectionAuthority.cs` revision-bound sculpt observer/commit path; `Core.Tests/StageDSculptAuthorityTests.cs`.
+   - evidence/authorization: the viewport currently installs both `V1027ObserveRevisionBoundSculpt` and `V1020ObserveViewportEditingCommit`. Both capture mapped sculpt state on press; correctness on release depends on the V1027 handler setting `_v1020SculptGestureActive = false` before the older V1020 observer can commit. That is duplicate mutation authority with ordering-dependent suppression, contrary to migration-before-legacy-removal once the replacement path is proven.
+   - implementation direction: make the revision-bound V1027 path the sole mapped sculpt durable commit owner. Remove/quarantine the obsolete mapped V1020 sculpt capture/commit state without disturbing transform observation or any genuinely unmapped legacy presentation fallback.
+   - acceptance: one mapped stroke can create at most one immutable Core mesh revision/history transaction regardless of handler ordering; stale selection still fails closed and restores Core presentation; focused regression/source-contract coverage plus exact-head Core/full validation green.
+   - continuation: once duplicate mapped sculpt authority is gone, inspect only adjacent mapped editing mutation paths for the same dual-owner pattern.
+
+3. **Enforce one current durable Smart Selection binding per object/kind instead of accumulating competing current bindings.**
+   - subsystem/path: `Scripts/Main.V1027ProtectedRegionAuthority.cs`, `Core/StageCSelection.cs`, `Core.Tests/ProtectedRegionPresentationSafetyTests.cs` and selection persistence/history tests.
+   - evidence/authorization: each changed Smart Selection snapshot calls `BindRevisionSelection` with a new ID, while the previous current `smart-select-vertex-weights` binding is not transactionally replaced/retired first. Reconciliation later chooses the newest current binding, meaning multiple same-object/same-kind current bindings can coexist as competing durable authority and retain assets unnecessarily.
+   - implementation direction: add/use an exact transactional replacement semantic for the current object/kind binding so a successful new snapshot leaves one current binding while undo/redo can restore the prior binding and its immutable asset. Asset cleanup must continue respecting current + undo/redo history references; failed save/persistence must restore/reconcile prior Core authority and never delete a history-reachable snapshot.
+   - acceptance: repeated Smart Selection changes leave exactly one current same-object/same-kind binding; undo/redo restores the correct prior/new binding and presentation; save/reopen selects the authoritative binding without newest-wins ambiguity; failed persistence remains fail-closed; focused tests and exact-head Core/full validation green.
+   - continuation: after this lands, inspect protected-region consumers for assumptions that multiple current same-kind bindings are valid and remove only proven obsolete compatibility behavior.
+
+4. **Bounded convergence inspection / checkpoint return.**
+   - after objectives 1–3, inspect the adjacent Stage-D history/editing/selection bridges for another concrete duplicate-authority or stale-history seam. This is ONE discovery objective, not synthetic queue depth.
+   - if a concrete seam is evidenced, implement the smallest coherent migration/history slice and record it. If not, return factual evidence and the green checkpoint rather than manufacturing cleanup.
+   - return a coherent runtime-test/release checkpoint when the implemented batch is canonically reconciled and exact-head Core/full build-package validation is green. Coordinator owns release readiness/chunking/publication; Dev never publishes.
 
 ### Queue-depth note
-- Coordinator inspection currently supports two concrete independent attachment objectives plus one bounded discovery objective; no additional concrete third implementation seam is asserted without evidence.
-- the queue is intentionally outcome-driven; slice count is descriptive, not a stopping quota.
+- Coordinator bounded source inspection after the attachment checkpoint identified three concrete independently executable migration/history objectives above; queue starvation from the 17:00 Dev cycle is therefore resolved by evidence-backed work rather than generic discovery wording.
+- objectives are ordered by durable-history correctness and duplicate-authority risk, not by a slice quota. Dev should continue within remaining budget after each meaningful transition unless a real stop boundary exists.
 
 ### Dev continuation boundary
 - after each meaningful transition reassess remaining budget and continue the highest-value authorized safe work until finalization or a real stop boundary
 - normal pending CI is a wait state when likely to resolve within remaining budget; use wait time for safe inspection/documentation/independent reversible work
 - a conclusively recovered process/write incident is not automatically run-ending when known-good state and a safer continuation path are established
-- if inspection finds no evidence-backed migration/cleanup work, stop rather than manufacture work and return the evidence to Coordinator
+- if bounded inspection finds no evidence-backed migration/cleanup work, stop rather than manufacture work and return the evidence to Coordinator
 
 ### Acceptance / preemption
 - v1.0.38 VERSION identity must remain synchronized and exact-head validation must remain green after mutations
