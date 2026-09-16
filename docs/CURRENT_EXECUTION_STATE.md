@@ -26,13 +26,19 @@ The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS US
 - outcome: continue the lower-priority architecture work that was deliberately deferred while v1.0.36 runtime regressions preempted it
 - release_boundary: v1.0.36 is immutable. v1.0.37 is the sole writable semantic branch. Pending v1.0.36 user verification is local, not a global stop; any newly reproduced severe regression preempts this queue.
 
+### Accepted execution slices
+- Stage-D attachment undo/load reconstruction — ACCEPTED on v1.0.37 at `2d2a5b2`
+  - schema 8 durably stores optional part-library identity; schema 7 remains loadable and upgrades on save without inventing missing identity
+  - mapped attachment undo, redo and project load rebuild the same fail-closed Godot projection from authoritative Core records using stable object IDs
+  - focused migration/history/source-contract tests, release audit, Core validation and full build/package/installer validation are green
+
 ### Ordered Dev queue
-1. Stage-D attachment undo/load reconstruction — architecture evidence from MSG-20260915-DEV-006
+1. Stage-D attachment undo/load reconstruction — COMPLETED from architecture evidence in MSG-20260915-DEV-006
    - re-inspect the current Core attachment/revision model and transient Godot projection before mutation
    - choose the smallest migration-consistent path that keeps durable attachment identity/history in Core and presentation reconstruction in Godot; do not persist transient scene-node identity
    - make undo/redo and project-load reconstruction converge on the same stable attachment/revision authority
    - preserve migration-before-legacy-removal and stale-result rejection; add focused persistence/history/reconstruction tests
-2. Attachment read-side/history reconciliation
+2. Attachment read-side/history reconciliation — READY FOR DEV
    - finish mapped attachment read-side convergence so reload, undo/redo and current-revision selection resolve the same durable attachment identities
    - remove or quarantine duplicate legacy authority only after migrated paths and tests prove parity
    - validate save/reopen plus history traversal without presentation-only state becoming canonical
