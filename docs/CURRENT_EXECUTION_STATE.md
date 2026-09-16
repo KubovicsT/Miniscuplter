@@ -22,8 +22,8 @@ The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS US
 
 ## Current objective
 ### I — Resume deferred attachment/history ownership convergence on v1.0.37
-- state: READY FOR DEV
-- outcome: continue the lower-priority architecture work that was deliberately deferred while v1.0.36 runtime regressions preempted it
+- state: READY FOR COORDINATOR CHECKPOINT REVIEW
+- outcome: attachment/history and protected-region ownership convergence completed as one green v1.0.37 checkpoint; release/runtime-test disposition remains Coordinator-owned
 - release_boundary: v1.0.36 is immutable. v1.0.37 is the sole writable semantic branch. Pending v1.0.36 user verification is local, not a global stop; any newly reproduced severe regression preempts this queue.
 
 ### Accepted execution slices
@@ -34,9 +34,11 @@ The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS US
 - Attachment read-side/history reconciliation — COMPLETED on v1.0.37 through `e450451`
   - selection-time projection derives library identity from Core and fails closed for migrated schema-7 records without durable identity
   - mapped projections rejected by Core are retired from legacy export while genuinely unmapped compatibility behavior remains intact
-- Smart Selection Core-history convergence — ACCEPTED on v1.0.37 through `d93eb2f`
+- Smart Selection / protected-region lifecycle convergence — COMPLETED on v1.0.37 through `8caf76b`
   - selection bind/clear transactions route through Core undo/redo and reconcile Godot presentation afterward
   - immutable selection snapshots remain available while current, undo or redo state can restore their binding
+  - asynchronous clear targets the exact captured binding and cannot remove a newer replacement selection for the same object
+  - focused Core/source-contract tests and exact-head Core/full build/package/installer validation are green
 
 ### Ordered Dev queue
 1. Stage-D attachment undo/load reconstruction — COMPLETED from architecture evidence in MSG-20260915-DEV-006
@@ -48,11 +50,11 @@ The v1.0.35 reproduced regressions are code-fixed in v1.0.36 but remain NEEDS US
    - finish mapped attachment read-side convergence so reload, undo/redo and current-revision selection resolve the same durable attachment identities
    - remove or quarantine duplicate legacy authority only after migrated paths and tests prove parity
    - validate save/reopen plus history traversal without presentation-only state becoming canonical
-3. Smart Selection / protected-region lifecycle convergence — IN PROGRESS
+3. Smart Selection / protected-region lifecycle convergence — COMPLETED
    - continue the previously deferred selection/protected-region ownership work on top of stable attachment identity
    - ensure semantic selection/protected-region state survives only where product semantics require it and stale bindings fail closed across project/history transitions
    - keep Godot input/presentation separate from Core durable selection/history authority
-4. Checkpoint integration and runtime-test boundary
+4. Checkpoint integration and runtime-test boundary — READY FOR COORDINATOR REVIEW
    - reconcile canonical docs after each accepted architecture slice, keep exact-head Core/full build/package validation green, and return one coherent v1.0.37 runtime-test checkpoint rather than isolated micro-releases
    - if new v1.0.36 packaged evidence arrives, record it in ISSUE_STATE and preempt only the affected critical path; independent safe architecture work continues when possible
 
