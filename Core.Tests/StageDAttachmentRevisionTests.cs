@@ -62,10 +62,9 @@ internal static class StageDAttachmentRevisionTests
         Assert(loadedAttachment.PartLibraryId == "detail-part",
             "save/reopen lost durable part-library identity");
 
-        string legacyManifest = string.Join(Environment.NewLine,
-            (await File.ReadAllLinesAsync(projectPath))
-                .Where(line => !line.Contains("\"PartLibraryId\"", StringComparison.Ordinal)))
-            .Replace("\"SchemaVersion\": 8", "\"SchemaVersion\": 7", StringComparison.Ordinal);
+        string legacyManifest = (await File.ReadAllTextAsync(projectPath))
+            .Replace("\"SchemaVersion\": 8", "\"SchemaVersion\": 7", StringComparison.Ordinal)
+            .Replace(",\n      \"PartLibraryId\": \"detail-part\"", "", StringComparison.Ordinal);
         await File.WriteAllTextAsync(projectPath, legacyManifest);
         var migratedV7 = await store.LoadAsync(projectPath);
         Assert(migratedV7.Attachments[attachment.Id].PartLibraryId == null,
