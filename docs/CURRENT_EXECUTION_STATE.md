@@ -32,20 +32,24 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - exact candidate passed Core plus full build/package/installer and autonomous release gates
 
 ### Ordered Dev queue
-1. Continue inspection from the immutable selection-identity checkpoint for remaining migration/legacy ownership seams around attachment/history/selection before mutation.
-   - identify any still-duplicated legacy authority that can now be safely removed or quarantined because the migrated Core-owned paths are proven
-   - preserve migration-before-legacy-removal and fail-closed stale-result behavior
-2. Complete the next smallest coherent durable-state/history convergence slice exposed by that inspection.
-   - Core remains durable-state authority; Godot remains presentation/input authority
-   - add focused migration/history/source-contract coverage and keep exact-head Core validation green
-3. Continue independent architecture cleanup that directly reduces duplicate authority or closes a known migration seam; do not invent speculative feature scope.
-   - batch related safe work so the queue supports productive 40-minute Dev cycles
-   - pending reference-machine verification is not a global stop
-4. Return a coherent runtime-test/release checkpoint when the batch is meaningful and exact-head Core/full build-package validation is green.
-   - Coordinator owns release readiness/chunking/publication; Dev never publishes
+1. Remove the remaining mapped snap-path dependence on caller-built legacy projection state after a successful Core commit.
+   - `SnapSelectedV1033Object` still finishes a mapped Core-owned snap with `V1033ReplaceLegacyProjection(projection)`, unlike fine-tune/reset and history paths which rebuild disposable presentation from committed Core state.
+   - after the durable save succeeds, reconstruct mapped attachment presentation from authoritative Core records; preserve the unmapped legacy fallback only where no stable Core identity exists.
+   - add focused source/behavior coverage proving a mapped snap cannot leave presentation values that diverge from the committed Core attachment record.
+2. Audit and harden mapped detach/stale-authority behavior as the next independent attachment seam.
+   - prove mapped detach removes only the current authoritative Core attachment transactionally and that stale/non-authoritative durable records cannot be silently treated as current or transferred to legacy authority.
+   - preserve fail-closed behavior, rebuild/retire disposable presentation from Core truth after successful mutation, and add focused history/save-reopen coverage where a concrete gap is found.
+3. Inspect the remaining mapped attachment projection helpers and read-side callers after objectives 1–2, then remove/quarantine only legacy write authority that is demonstrably redundant.
+   - specifically trace remaining uses of `V1033ReplaceLegacyProjection`, `_v07Attachments`, and legacy attachment controls on objects with stable Core identity; mapped objects must derive durable identity/transform/library/socket truth from Core.
+   - this is one discovery objective, not multiple queue-depth objectives. If inspection exposes another concrete seam, implement the smallest coherent migration/history slice and record it; if it does not, return factual evidence rather than manufacturing cleanup.
+4. Return a coherent runtime-test/release checkpoint when objectives 1–3 are reconciled and exact-head Core/full build-package validation is green.
+   - Coordinator owns release readiness/chunking/publication; Dev never publishes.
+
+### Queue-depth note
+- Coordinator inspection currently supports two concrete independent attachment objectives plus one bounded discovery objective; no additional concrete third implementation seam is asserted without evidence.
+- the queue is intentionally outcome-driven; slice count is descriptive, not a stopping quota.
 
 ### Dev continuation boundary
-- queue is intentionally outcome-driven; slice count is descriptive, not a stopping quota
 - after each meaningful transition reassess remaining budget and continue the highest-value authorized safe work until finalization or a real stop boundary
 - normal pending CI is a wait state when likely to resolve within remaining budget; use wait time for safe inspection/documentation/independent reversible work
 - a conclusively recovered process/write incident is not automatically run-ending when known-good state and a safer continuation path are established
