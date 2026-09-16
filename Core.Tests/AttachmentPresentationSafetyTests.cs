@@ -54,8 +54,9 @@ internal static class AttachmentPresentationSafetyTests
                authority.Contains("objectId == attachment.ChildObjectId", StringComparison.Ordinal) &&
                authority.Contains("StageDAttachments.IsAuthoritative(session.Current, attachment)", StringComparison.Ordinal),
             "attachment presentation reconstruction does not resolve authoritative Core records by stable child identity");
-        Assert(editing.Contains("StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.UndoTransactions.First())", StringComparison.Ordinal) &&
-               editing.Contains("StageDAttachments.IsAttachmentTransaction(_v1020StageCSession.RedoTransactions.First())", StringComparison.Ordinal),
+        Assert(editing.Contains("StageDAttachments.IsAttachmentTransaction(current)", StringComparison.Ordinal) &&
+               editing.Contains("V1033UndoRedoAttachmentAsync(undo: true)", StringComparison.Ordinal) &&
+               editing.Contains("V1033UndoRedoAttachmentAsync(undo: false)", StringComparison.Ordinal),
             "mapped attachment transactions are not routed through Core undo and redo history");
         Assert(bridge.Contains("V1031RestoreAppliedStageCObjects(session);", StringComparison.Ordinal) &&
                bridge.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal),
