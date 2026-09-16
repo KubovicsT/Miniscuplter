@@ -133,53 +133,45 @@ public partial class Main
     async void ApplyV1033AttachmentFineTune()
     {
         if (_selected == null) return;
-        var projection = _v07Attachments.FirstOrDefault(x => x.PartObjectName == _selected.Name.ToString());
-        if (projection == null) { SetStatus("Selected object is not attached to a socket."); return; }
         if (_v1020StageCSession == null || !_v1013ObjectIds.TryGetValue(_selected.GetInstanceId(), out ObjectId childId))
         {
+            var projection = _v07Attachments.FirstOrDefault(x => x.PartObjectName == _selected.Name.ToString());
+            if (projection == null) { SetStatus("Selected object is not attached to a socket."); return; }
             ApplyV07AttachmentFineTune();
             return;
         }
 
         var next = new V07AttachmentDto
         {
-            PartObjectName = projection.PartObjectName,
-            SocketId = projection.SocketId,
-            LibraryId = projection.LibraryId,
+            PartObjectName = _selected.Name.ToString(),
             LocalOffset = new[] { (float)(_v07AttachOffsetX?.Value ?? 0), (float)(_v07AttachOffsetY?.Value ?? 0), (float)(_v07AttachOffsetZ?.Value ?? 0) },
             LocalRotationDeg = new[] { (float)(_v07AttachRotX?.Value ?? 0), (float)(_v07AttachRotY?.Value ?? 0), (float)(_v07AttachRotZ?.Value ?? 0) },
             UniformScale = Math.Max(.01f, (float)(_v07AttachScale?.Value ?? 1))
         };
 
         if (!await V1033UpdateCoreAttachmentAsync(childId, next)) return;
-        V1033ReplaceLegacyProjection(next);
-        RefreshV095Attachments();
+        V1033RebuildMappedAttachmentProjectionsFromCore();
         SetStatus("Attachment fine tune committed through Core durable state.");
     }
 
     async void ResetV1033AttachmentFineTune()
     {
         if (_selected == null) return;
-        var projection = _v07Attachments.FirstOrDefault(x => x.PartObjectName == _selected.Name.ToString());
-        if (projection == null) { SetStatus("Selected object is not attached to a socket."); return; }
         if (_v1020StageCSession == null || !_v1013ObjectIds.TryGetValue(_selected.GetInstanceId(), out ObjectId childId))
         {
+            var projection = _v07Attachments.FirstOrDefault(x => x.PartObjectName == _selected.Name.ToString());
+            if (projection == null) { SetStatus("Selected object is not attached to a socket."); return; }
             ResetV07AttachmentFineTune();
             return;
         }
 
         var next = new V07AttachmentDto
         {
-            PartObjectName = projection.PartObjectName,
-            SocketId = projection.SocketId,
-            LibraryId = projection.LibraryId,
+            PartObjectName = _selected.Name.ToString(),
             UniformScale = 1f
         };
         if (!await V1033UpdateCoreAttachmentAsync(childId, next)) return;
-        V1033ReplaceLegacyProjection(next);
-        _v095FineTuneObject = "";
-        SyncV095AttachmentControls();
-        RefreshV095Attachments();
+        V1033RebuildMappedAttachmentProjectionsFromCore();
         SetStatus("Attachment fine tune reset through Core durable state.");
     }
 

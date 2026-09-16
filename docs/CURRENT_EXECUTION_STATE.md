@@ -22,6 +22,7 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - repaired the forward-branch release identity across every audited runtime/package surface and the canonical backend lifecycle test
 - extended the semantic-version guard to cover the lifecycle test's expected version so this bootstrap drift fails before backend startup
 - revision-bound selection creation now rejects duplicate stable IDs both before and inside the Core transaction; focused coverage proves rejection cannot overwrite durable state or add history
+- mapped attachment fine-tune/reset now resolves durable child identity before consulting legacy projection state and rebuilds the disposable projection from committed Core state
 - exact-head Core and full build/package/installer validation is green; no release/publication action was taken
 
 ### Accepted v1.0.37 checkpoint

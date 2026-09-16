@@ -54,6 +54,19 @@ internal static class AttachmentPresentationSafetyTests
                authority.Contains("objectId == attachment.ChildObjectId", StringComparison.Ordinal) &&
                authority.Contains("StageDAttachments.IsAuthoritative(session.Current, attachment)", StringComparison.Ordinal),
             "attachment presentation reconstruction does not resolve authoritative Core records by stable child identity");
+        int applyStart = authority.IndexOf("async void ApplyV1033AttachmentFineTune()", StringComparison.Ordinal);
+        int resetStart = authority.IndexOf("async void ResetV1033AttachmentFineTune()", StringComparison.Ordinal);
+        int updateStart = authority.IndexOf("async Task<bool> V1033UpdateCoreAttachmentAsync", StringComparison.Ordinal);
+        string applyFineTune = authority[applyStart..resetStart];
+        string resetFineTune = authority[resetStart..updateStart];
+        Assert(applyFineTune.IndexOf("_v1020StageCSession == null", StringComparison.Ordinal) <
+               applyFineTune.IndexOf("_v07Attachments.FirstOrDefault", StringComparison.Ordinal) &&
+               resetFineTune.IndexOf("_v1020StageCSession == null", StringComparison.Ordinal) <
+               resetFineTune.IndexOf("_v07Attachments.FirstOrDefault", StringComparison.Ordinal),
+            "mapped Core attachment fine tune still requires a legacy projection before resolving durable child identity");
+        Assert(applyFineTune.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal) &&
+               resetFineTune.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal),
+            "mapped attachment fine tune does not rebuild its disposable projection from committed Core state");
         Assert(editing.Contains("StageDAttachments.IsAttachmentTransaction(current)", StringComparison.Ordinal) &&
                editing.Contains("V1033UndoRedoAttachmentAsync(undo: true)", StringComparison.Ordinal) &&
                editing.Contains("V1033UndoRedoAttachmentAsync(undo: false)", StringComparison.Ordinal),
