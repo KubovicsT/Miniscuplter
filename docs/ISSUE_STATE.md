@@ -15,7 +15,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-035 — resize leaves black exterior gutters and does not preserve panel layout
 - severity: High workspace/resize UX
-- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1 PREEMPTION
 - evidence: screenshots show black rectangles at window edges after resize; side panels/layout do not behave as fixed-width rails with viewport absorbing size delta. Source audit found the programmatic top-level `VBoxContainer` was anchored under a non-Control `Node`, so it did not have a reliable client-area resize owner, while the right rail was also deliberately resized as 27% of available width.
 - current_implementation_state: v1.0.32 binds the top-level workspace root to `Viewport.SizeChanged` and the current visible client rect, keeps the right workspace rail at its intended 330-unit width, and lets the central viewport absorb horizontal size changes while preserving the v1.0.19 `SubViewportContainer.Stretch` render-size authority. `WorkspaceResizeContractTests` guards the client-area/root and fixed-rail contract. Core-foundation run 34747505948 and full build run 34747505866 are green at exact code/test head `c7507a6384f3fc4ebdbd32dee263507b7fb66027`.
@@ -33,7 +33,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-037 — generated mesh renders with shell/back-side appearance
 - severity: High viewport/render correctness
-- state: REOPENED ON RELEASED v1.0.35 - REPRODUCED
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1
 - evidence: applied generated knight in v1.0.31 appears visually inside-out/shell-like, as if non-user-facing/back surfaces dominate
 - current_implementation_state: v1.0.32 repairs generated mesh winding/normals before export and uses correctness-oriented back-face culling with neutral matte material plus stronger directional studio lighting instead of masking orientation problems with two-sided rendering; exact-head CI for the implementation is green
@@ -42,14 +42,14 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-038 — transform interaction incomplete
 - severity: Medium/High modeling UX
-- state: PARTIALLY VERIFIED / ROTATE REOPENED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1
 - evidence: v1.0.35 reference machine verifies direct model Move works and rotation rings are visible/useable; Rotate still behaves incorrectly because rotation does not occur around the expected stable object/origin axes and some interaction failures snap the model back toward a prior rotation
 - desired_state: intuitive direct model drag where appropriate plus axis constraints; rotation exposes visible rotation rings/circles while retaining precise axis manipulation
 
 ### MS-039 — generated-object placement and scale are unsuitable
 - severity: High generation/modeling UX
-- state: PARTIAL PASS / REOPENED PRESENTATION SEQUENCING ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1
 - evidence: inserted model in v1.0.31 has origin at grid zero so geometry is roughly bisected by the grid; generated object is tiny and scale is not user-adjustable
 - current_implementation_state: v1.0.32 computes one Core-owned initial transform from generated mesh bounds: uniform scaling targets a 100-unit largest dimension, X/Z bounds are centered around workspace origin, and minimum Y is translated to grid Y=0. The transform is persisted in canonical `ProjectObject.Transform`, so save/reopen/edit paths consume the same authority rather than a viewport-only offset. Targeted `GeneratedObjectPlacementTests` plus exact-head build run 34746648597 are green at `9353b21686fe34d7699b391c9469fd8643349e53`.
@@ -83,14 +83,14 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-014 — Quality presets are opaque / custom presets unavailable
 - severity: High settings/runtime UX regression
-- state: REOPENED ON RELEASED v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1/P2
 - evidence: Settings > Quality shows a preset selector and descriptive text, but does not expose the actual adjustable values for the selected preset and no visible custom preset creation/edit controls are available; this contradicts the historical v1.0.17 completion record
 - desired_state: users can inspect the parameters controlled by built-in presets and create/clone/rename/save/delete custom presets from the current supported Settings UI
 
 ### MS-043 — New project leaks previous project 2D state
 - severity: Critical project-state isolation / data correctness
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P0/P1 PREEMPTION
 - evidence: pressing New after a project with generated 3D clears the 3D model but leaves the previous project's 2D image visible; screenshot also shows stale scene/selection presentation after reset
 - desired_state: New establishes one clean authoritative project boundary; prior project 2D image/baseline, 3D objects, selections, tool bindings and project-scoped presentation cannot leak into the new project
@@ -106,28 +106,28 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-045 — 3D camera view resets on tab switch
 - severity: High modeling/navigation UX
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1
 - evidence: zoom/orientation in 3D is lost when switching to another tab and back
 - desired_state: ordinary 2D/3D/product-tab switching preserves the 3D viewport camera transform/zoom unless the user explicitly frames or resets the view
 
 ### MS-046 — RMB orbit uses unstable/wrong pivot
 - severity: High modeling/navigation UX
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1
 - evidence: right-drag orbit snaps toward origin and orbits a point that appears to move with the camera rather than a stable selected-object/world pivot
 - desired_state: orbit uses a stable selected-object pivot when selection exists and a coherent stable fallback otherwise; camera translation must not drag the orbit pivot
 
 ### MS-047 — concept/image-edit prompt text is not restored
 - severity: Medium workflow continuity
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P2
 - evidence: the last AI prompt disappears from the concept/image-edit prompt textbox after application reopen
 - desired_state: when the relevant project/session is restored, the most recent user prompt text remains available for iteration unless explicitly cleared
 
 ### MS-048 — no user-visible project Open/Load entry point
 - severity: High project workflow completeness
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1/P2
 - evidence: released v1.0.35 exposes New/Import/Export but no visible Load/Open Project action, preventing the user from explicitly exercising the charter's save/reload workflow
 - desired_state: provide a clear user-accessible project open/load/recovery entry point consistent with the canonical project-store model and safe migration/recovery rules
@@ -144,7 +144,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-050 — Hunyuan3D 2.1 Windows install fails on long checkout paths
 - severity: High AI-runtime/model-install blocker
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1 PREEMPTION
 - evidence: reference-machine install under X:\Minisculpter\Minisculpter\AIData reaches the Hunyuan3D-2.1 Git checkout, repeatedly reports "Filename too long" for upstream hy3dshape/tools/mini_trainset/preprocessed/... files, completes file transfer, then fails checkout and preserves the deterministic hunyuan21-shape partial stage. Current source routes Hunyuan through model_manager_v105._ensure_clone -> model_manager._clone_fresh, and _clone_fresh invokes a normal shallow git clone without per-command long-path handling.
 - resume_risk: _ensure_clone currently returns as soon as target/.git exists. A failed checkout can therefore leave a repository metadata directory that is not a valid complete runtime worktree, so a later Resume may incorrectly skip clone/checkout repair.
@@ -153,7 +153,7 @@ This file is the authoritative current-state ledger for active, release-relevant
 
 ### MS-051 — TripoSR torchmcubes build isolation failure
 - severity: High AI-runtime/model-install blocker
-- state: OPEN - REPRODUCED ON v1.0.35
+- state: FIXED IN v1.0.36 - NEEDS USER VERIFICATION
 - priority: P1 PREEMPTION
 - evidence: reference-machine TripoSR install preserves ~0.06 GB of deterministic staged data, clones tatsy/torchmcubes, then fails during pyproject metadata generation because the isolated build environment cannot import torch. The upstream package error explicitly requires PyTorch to be installed/visible and recommends building without isolation. Current Miniscuplter source installs torchmcubes through model_manager._install_triposr_dependencies -> _pip_install using ordinary pip isolation together with unrelated dependencies.
 - root_cause: torchmcubes has dynamic metadata that imports/detects PyTorch at build time; pip's temporary isolated build environment does not inherit the packaged host environment's installed torch, so metadata generation fails before the dependency can build.
