@@ -43,6 +43,8 @@ internal static class AttachmentPresentationSafetyTests
                snap.Contains("V1033RebuildMappedAttachmentProjectionsFromCore();", StringComparison.Ordinal) &&
                !snap.Contains("V1033ReplaceLegacyProjection(projection);", StringComparison.Ordinal),
             "mapped snap can publish caller-built legacy projection values instead of rebuilding from committed Core state");
+        Assert(!authority.Contains("void V1033ReplaceLegacyProjection", StringComparison.Ordinal),
+            "unused legacy attachment write helper remains available after mapped snap migrated to Core reconstruction");
         Assert(authority.Contains("V1033RetireLegacyAttachmentProjection(_selected.Name.ToString());", StringComparison.Ordinal) &&
                authority.Contains("has no durable attachment; stale legacy attachment presentation was cleared", StringComparison.Ordinal),
             "mapped detach can resurrect legacy authority when no durable Core attachment exists");

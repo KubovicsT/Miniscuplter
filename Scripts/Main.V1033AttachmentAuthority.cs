@@ -352,9 +352,4 @@ public partial class Main
         SyncV095AttachmentControls();
     }
 
-    void V1033ReplaceLegacyProjection(V07AttachmentDto projection)
-    {
-        _v07Attachments.RemoveAll(a => a.PartObjectName == projection.PartObjectName);
-        _v07Attachments.Add(projection);
-    }
 }
