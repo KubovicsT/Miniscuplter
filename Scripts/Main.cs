@@ -170,10 +170,10 @@ public partial class Main : Node
         AddMeshObject(arr, "Starter sphere", new Vector3(0,15,0));
     }
 
-    void AddMeshObject(ArrayMesh mesh, string name, Vector3 position = default)
+    void AddMeshObject(ArrayMesh mesh, string name, Vector3 position = default, Vector3 rotationDegrees = default, Vector3 scale = default)
     {
         if (_world == null) return;
-        var obj = new MeshInstance3D { Mesh = mesh, Name = name, Position = position };
+        var obj = new MeshInstance3D { Mesh = mesh, Name = name, Position = position, RotationDegrees = rotationDegrees, Scale = scale };
         obj.MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.62f,0.64f,0.68f), Roughness = 0.82f };
         _world.AddChild(obj); _objects.Add(obj); Select(obj); RebuildSceneList();
     }
@@ -282,7 +282,7 @@ public partial class Main : Node
     }
 
     void NewScene() { foreach(var o in _objects) o.QueueFree(); _objects.Clear(); _selected=null; _undo.Clear(); _redo.Clear(); AddStarterMesh(); SetStatus("New scene"); }
-    void DuplicateSelected() { if (_selected?.Mesh is not ArrayMesh m) return; AddMeshObject(CloneMesh(m), _selected.Name+" copy", _selected.Position + new Vector3(5,0,0)); }
+    void DuplicateSelected() { if (_selected?.Mesh is not ArrayMesh m) return; AddMeshObject(CloneMesh(m), _selected.Name+" copy", _selected.Position + new Vector3(5,0,0), _selected.RotationDegrees, _selected.Scale); }
     void DeleteSelected() { if (_selected==null) return; var x=_selected; _objects.Remove(x); x.QueueFree(); _selected=_objects.LastOrDefault(); if(_selected!=null) Select(_selected); RebuildSceneList(); }
     void Nudge(Vector3 v) { if(_selected==null)return; _selected.Position+=v; }
     void RotateSelected(Vector3 axis,float deg){ if(_selected==null)return; _selected.Rotate(axis,Mathf.DegToRad(deg)); }
