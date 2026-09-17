@@ -19,7 +19,7 @@ public sealed class AIClient
 
     public async Task<bool> HealthAsync()
     {
-        try { using var r = await _http.GetAsync($"{BackendUrl}/health"); return r.IsSuccessStatusCode; }
+        try { using var r = await _http.GetAsync($"{BackendUrl.TrimEnd('/')} /health".TrimStart(' ')); return r.IsSuccessStatusCode; }
         catch { return false; }
     }
 
