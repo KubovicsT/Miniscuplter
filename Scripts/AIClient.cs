@@ -60,8 +60,16 @@ public sealed class AIClient
             if (e.TryGetProperty("imageinfo", out var ii) && ii.GetArrayLength() > 0)
             {
                 var info = ii[0];
-                if (info.TryGetProperty("thumburl", out var tu)) thumb = tu.GetString();
-                else if (info.TryGetProperty("url", out var u)) thumb = u.GetString();
+                if (info.TryGetProperty("thumburl", out var tu))
+                {
+                    var candidate = tu.GetString();
+                    if (!string.IsNullOrWhiteSpace(candidate)) thumb = candidate;
+                }
+                if (string.IsNullOrWhiteSpace(thumb) && info.TryGetProperty("url", out var u))
+                {
+                    var candidate = u.GetString();
+                    if (!string.IsNullOrWhiteSpace(candidate)) thumb = candidate;
+                }
             }
             results.Add(new ReferenceResult(title, pageUrl, thumb));
         }
