@@ -58,7 +58,12 @@ public static class MeshIO
     static Vector3 ParseVec(string s)
     {
         var p = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return new Vector3(float.Parse(p[0], CultureInfo.InvariantCulture), float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture));
+        var x = float.Parse(p[0], CultureInfo.InvariantCulture);
+        var y = float.Parse(p[1], CultureInfo.InvariantCulture);
+        var z = float.Parse(p[2], CultureInfo.InvariantCulture);
+        if (!float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(z))
+            throw new InvalidDataException("STL vector contains non-finite value.");
+        return new Vector3(x, y, z);
     }
 
     public static void SaveBinaryStl(Mesh mesh, string path)
