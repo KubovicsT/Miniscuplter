@@ -18,6 +18,7 @@ public partial class BackendLauncher : Node
         try
         {
             _pid = OS.CreateProcess(python, new[] { app });
+            if (_pid <= 0) _pid = -1;
             GD.Print(_pid > 0 ? $"AI backend launched (PID {_pid})." : "Could not auto-launch AI backend; editor will remain usable without AI.");
         }
         catch (Exception ex)
