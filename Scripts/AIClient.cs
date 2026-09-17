@@ -34,6 +34,8 @@ public sealed class AIClient
 
     async Task<string> PostForFileAsync(string route, object payload)
     {
+        if (string.IsNullOrWhiteSpace(route)) throw new ArgumentException("Route cannot be null or empty.", nameof(route));
+        
         var json = JsonSerializer.Serialize(payload);
         using var response = await _http.PostAsync(BackendUrl + route, new StringContent(json, Encoding.UTF8, "application/json"));
         var body = await response.Content.ReadAsStringAsync();
