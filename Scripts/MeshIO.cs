@@ -63,6 +63,7 @@ public static class MeshIO
 
     public static void SaveBinaryStl(Mesh mesh, string path)
     {
+        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("STL exportálási útvonal nem lehet üres vagy csak fehér karakterekből álló.", nameof(path));
         using var bw = new BinaryWriter(File.Create(path));
         var header = new byte[80]; Encoding.ASCII.GetBytes("Miniscuplter STL").CopyTo(header, 0); bw.Write(header);
         var tris = new List<(Vector3 a, Vector3 b, Vector3 c)>();
