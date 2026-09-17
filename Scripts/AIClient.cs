@@ -35,7 +35,7 @@ public sealed class AIClient
     async Task<string> PostForFileAsync(string route, object payload)
     {
         var json = JsonSerializer.Serialize(payload);
-        using var response = await _http.PostAsync(BackendUrl + route, new StringContent(json, Encoding.UTF8, "application/json"));
+        using var response = await _http.PostAsync($"{BackendUrl.TrimEnd('/')}{route}", new StringContent(json, Encoding.UTF8, "application/json"));
         var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
         using var doc = JsonDocument.Parse(body);
