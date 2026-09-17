@@ -51,8 +51,10 @@ public sealed class AIClient
         using var doc = JsonDocument.Parse(text);
         var results = new List<ReferenceResult>();
         if (!doc.RootElement.TryGetProperty("query", out var q) || !q.TryGetProperty("pages", out var pages)) return results;
+        var maxResults = Math.Clamp(limit, 1, 20);
         foreach (var page in pages.EnumerateObject())
         {
+            if (results.Count >= maxResults) break;
             var e = page.Value;
             string title = e.TryGetProperty("title", out var t) ? t.GetString() ?? "Reference" : "Reference";
             string pageUrl = "https://commons.wikimedia.org/wiki/" + Uri.EscapeDataString(title.Replace(' ', '_'));
