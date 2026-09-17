@@ -71,8 +71,22 @@ public static class MeshIO
             var arrays = mesh.SurfaceGetArrays(s);
             var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             var idx = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
-            if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3) tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
-            else for (int i = 0; i + 2 < verts.Length; i += 3) tris.Add((verts[i], verts[i+1], verts[i+2]));
+            if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3)
+            {
+                var a = verts[idx[i]];
+                var b = verts[idx[i+1]];
+                var c = verts[idx[i+2]];
+                if (!IsFinite(a) || !IsFinite(b) || !IsFinite(c)) throw new InvalidDataException("Mesh contains non-finite vertex coordinates.");
+                tris.Add((a, b, c));
+            }
+            else for (int i = 0; i + 2 < verts.Length; i += 3)
+            {
+                var a = verts[i];
+                var b = verts[i+1];
+                var c = verts[i+2];
+                if (!IsFinite(a) || !IsFinite(b) || !IsFinite(c)) throw new InvalidDataException("Mesh contains non-finite vertex coordinates.");
+                tris.Add((a, b, c));
+            }
         }
         bw.Write((uint)tris.Count);
         foreach (var t in tris)
@@ -80,6 +94,8 @@ public static class MeshIO
             var n = (t.b - t.a).Cross(t.c - t.a).Normalized(); WriteVec(bw, n); WriteVec(bw, t.a); WriteVec(bw, t.b); WriteVec(bw, t.c); bw.Write((ushort)0);
         }
     }
+
+    static bool IsFinite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 
     static void WriteVec(BinaryWriter bw, Vector3 v) { bw.Write(v.X); bw.Write(v.Y); bw.Write(v.Z); }
 }
