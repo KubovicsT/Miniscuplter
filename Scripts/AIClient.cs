@@ -45,6 +45,7 @@ public sealed class AIClient
     public async Task<List<ReferenceResult>> SearchReferencesAsync(string query, int limit = 8)
     {
         if (!InternetReferencesEnabled) throw new InvalidOperationException("Internet reference access is disabled in Settings.");
+        if (string.IsNullOrWhiteSpace(query)) return new List<ReferenceResult>();
         var url = "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=" + Uri.EscapeDataString(query) +
                   $"&gsrnamespace=6&gsrlimit={Math.Clamp(limit,1,20)}&prop=imageinfo&iiprop=url&iiurlwidth=320&format=json&origin=*";
         var text = await _http.GetStringAsync(url);
