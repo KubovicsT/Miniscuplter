@@ -31,6 +31,7 @@ public partial class BackendLauncher : Node
         if (_pid > 0)
         {
             try { OS.Kill(_pid); } catch { }
+            _pid = -1;
         }
     }
 }
