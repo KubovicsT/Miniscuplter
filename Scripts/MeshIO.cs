@@ -71,7 +71,11 @@ public static class MeshIO
             var arrays = mesh.SurfaceGetArrays(s);
             var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             var idx = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
-            if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3) tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
+            if (idx.Length > 0)
+            {
+                if (idx.Length % 3 != 0) throw new InvalidDataException("Indexed triangle array length must be divisible by 3.");
+                for (int i = 0; i + 2 < idx.Length; i += 3) tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
+            }
             else for (int i = 0; i + 2 < verts.Length; i += 3) tris.Add((verts[i], verts[i+1], verts[i+2]));
         }
         bw.Write((uint)tris.Count);
