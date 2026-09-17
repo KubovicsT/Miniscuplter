@@ -22,6 +22,7 @@ public partial class BackendLauncher : Node
         }
         catch (Exception ex)
         {
+            _pid = -1;
             GD.PrintErr("AI backend auto-launch failed: " + ex.Message);
         }
     }
