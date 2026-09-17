@@ -71,7 +71,12 @@ public static class MeshIO
             var arrays = mesh.SurfaceGetArrays(s);
             var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             var idx = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
-            if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3) tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
+            if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3)
+            {
+                if (idx[i] < 0 || idx[i] >= verts.Length || idx[i+1] < 0 || idx[i+1] >= verts.Length || idx[i+2] < 0 || idx[i+2] >= verts.Length)
+                    throw new InvalidDataException($"Invalid mesh indices: triangle at index {i} has out-of-bounds vertex references.");
+                tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
+            }
             else for (int i = 0; i + 2 < verts.Length; i += 3) tris.Add((verts[i], verts[i+1], verts[i+2]));
         }
         bw.Write((uint)tris.Count);
