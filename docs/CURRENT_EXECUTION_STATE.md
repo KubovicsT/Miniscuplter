@@ -84,3 +84,12 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - Godot remains presentation/input authority.
 - Python remains inference/geometry authority.
 - Preserve local-first/storage containment, immutable published releases/branches, stable IDs/immutable revisions, transactional state/history, migration-before-legacy-removal and stale-result rejection.
+
+
+## Coordinator integration checkpoint — 2026-09-17 23:40 Europe/Budapest
+- Accepted LocalDev task `LD-20260917-0001` after reviewing the isolated branch diff and worker validation.
+- Integrated onto writable `v1.0.38` as `96c009f228de995e15a5183c794804393ee96819`, preserving the existing control-plane bootstrap commit.
+- Scope: Wikimedia thumbnail fallback now trims values and falls back from blank `thumburl` to a usable `url`; focused regression coverage was included. No unrelated files changed.
+- The queue remains populated with `LD-20260917-0002` through `LD-20260917-0028`. Their historical `BASE_SHA: 323945d` is superseded; claim-time validation must resolve `LATEST_AUTHORIZED_WRITABLE_HEAD:v1.0.38` and fail closed on stale context.
+- Release disposition: hold this isolated fix for the next meaningful release chunk; no publication was performed.
+- Next action: LocalDev advances to `LD-20260917-0002`; Coordinator reviews the next completed isolated branch before adding more queue work.
