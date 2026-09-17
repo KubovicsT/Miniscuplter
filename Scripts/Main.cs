@@ -268,7 +268,7 @@ public partial class Main : Node
     {
         if (_selected?.Mesh == null) { SetStatus("Select a mesh first."); return; }
         var d = new FileDialog { FileMode = FileDialog.FileModeEnum.SaveFile, Access = FileDialog.AccessEnum.Filesystem, Filters = new[]{"*.stl ; STL meshes"}, CurrentFile = _selected.Name + ".stl", UseNativeDialog = true };
-        AddChild(d); d.FileSelected += p => { try { MeshIO.SaveBinaryStl(BakeToWorldMesh(_selected), p); SetStatus("Exported " + p); } catch(Exception ex){ SetStatus("Export failed: " + ex.Message); } d.QueueFree(); }; d.PopupCenteredRatio(.75f);
+        AddChild(d); d.FileSelected += p => { try { var path = Path.ChangeExtension(p, "stl"); MeshIO.SaveBinaryStl(BakeToWorldMesh(_selected), path); SetStatus("Exported " + path); } catch(Exception ex){ SetStatus("Export failed: " + ex.Message); } d.QueueFree(); }; d.PopupCenteredRatio(.75f);
     }
 
     static ArrayMesh BakeToWorldMesh(MeshInstance3D obj)
