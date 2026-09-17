@@ -99,6 +99,91 @@ def test_resumable_stage_recovery():
         s=model_downloads.stage_status(root,"sdxl-base");check(s["resume_available"] and s["resume_action"]=="install","partial install not reported")
         same=model_downloads.prepare_stage(root,"sdxl-base","rev-a","manifest-a","install");check((same/"models"/"stable-diffusion-xl-base-1.0"/"partial.bin").exists(),"matching stage was not preserved")
         fresh=model_downloads.prepare_stage(root,"sdxl-base","rev-b","manifest-a","install");check(not (fresh/"models").exists(),"stale revision payload was reused");check(not model_downloads.stage_status(root,"sdxl-base")["resume_available"],"metadata-only stage incorrectly reported as resumable")
+def test_wikimedia_thumbnail_fallback():
+    from unittest.mock import patch, MagicMock
+    import json
+    # Test case 1: thumburl blank -> fallback to url
+    with patch('sys.stdout') as mock_stdout:
+        client = AIClient()
+        client.InternetReferencesEnabled = True
+        query = "test"
+        limit = 2
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = json.dumps({
+            "query": {
+                "pages": {
+                    "1": {
+                        "title": "Test Page",
+                        "imageinfo": [{
+                            "thumburl": "",
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/test.jpg"
+                        }]
+                    }
+                }
+            }
+        })
+        with patch.object(client._http, 'get_string_async', return_value=mock_response.text):
+            results = client.SearchReferencesAsync(query, limit)
+            assert len(results) == 1
+            assert results[0].ThumbnailUrl == "https://upload.wikimedia.org/wikipedia/commons/thumb/test.jpg"
+    # Test case 2: thumburl whitespace -> fallback to url
+    with patch('sys.stdout') as mock_stdout:
+        mock_response.text = json.dumps({
+            "query": {
+                "pages": {
+                    "1": {
+                        "title": "Test Page",
+                        "imageinfo": [{
+                            "thumburl": "   ",
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/test2.jpg"
+                        }]
+                    }
+                }
+            }
+        })
+        with patch.object(client._http, 'get_string_async', return_value=mock_response.text):
+            results = client.SearchReferencesAsync(query, limit)
+            assert len(results) == 1
+            assert results[0].ThumbnailUrl == "https://upload.wikimedia.org/wikipedia/commons/thumb/test2.jpg"
+    # Test case 3: both blank -> null
+    with patch('sys.stdout') as mock_stdout:
+        mock_response.text = json.dumps({
+            "query": {
+                "pages": {
+                    "1": {
+                        "title": "Test Page",
+                        "imageinfo": [{
+                            "thumburl": "",
+                            "url": ""
+                        }]
+                    }
+                }
+            }
+        })
+        with patch.object(client._http, 'get_string_async', return_value=mock_response.text):
+            results = client.SearchReferencesAsync(query, limit)
+            assert len(results) == 1
+            assert results[0].ThumbnailUrl is None
+    # Test case 4: thumburl valid -> use it
+    with patch('sys.stdout') as mock_stdout:
+        mock_response.text = json.dumps({
+            "query": {
+                "pages": {
+                    "1": {
+                        "title": "Test Page",
+                        "imageinfo": [{
+                            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/valid.jpg",
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/valid.jpg"
+                        }]
+                    }
+                }
+            }
+        })
+        with patch.object(client._http, 'get_string_async', return_value=mock_response.text):
+            results = client.SearchReferencesAsync(query, limit)
+            assert len(results) == 1
+            assert results[0].ThumbnailUrl == "https://upload.wikimedia.org/wikipedia/commons/thumb/valid.jpg"
 def test_stage_c_ui_wiring():
     extras=(ROOT/"Scripts/Main.Extras.cs").read_text(encoding="utf-8")
     installer=(ROOT/"Scripts/ExtrasInstaller.cs").read_text(encoding="utf-8")
