@@ -175,6 +175,10 @@ public partial class Main
         try
         {
             string full = Path.GetFullPath(projectPath);
+            if (!full.EndsWith(".msculpt", StringComparison.OrdinalIgnoreCase))
+            {
+                full += ".msculpt";
+            }
             string dir = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "_assets");
             Directory.CreateDirectory(dir);
             var dto = new ProjectDto();
