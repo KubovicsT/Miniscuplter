@@ -54,7 +54,9 @@ public sealed class AIClient
         foreach (var page in pages.EnumerateObject())
         {
             var e = page.Value;
-            string title = e.TryGetProperty("title", out var t) ? t.GetString() ?? "Reference" : "Reference";
+            if (!e.TryGetProperty("title", out var t)) continue;
+            string title = t.GetString() ?? "";
+            if (string.IsNullOrWhiteSpace(title)) continue;
             string pageUrl = "https://commons.wikimedia.org/wiki/" + Uri.EscapeDataString(title.Replace(' ', '_'));
             string? thumb = null;
             if (e.TryGetProperty("imageinfo", out var ii) && ii.GetArrayLength() > 0)
