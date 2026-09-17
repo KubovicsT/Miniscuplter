@@ -10,6 +10,8 @@ public partial class BackendLauncher : Node
 
     public override void _Ready()
     {
+        if (_pid > 0) return;
+
         string app = ProjectSettings.GlobalizePath("res://ai_backend/app.py");
         if (!File.Exists(app)) return;
 
