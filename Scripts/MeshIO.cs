@@ -72,7 +72,11 @@ public static class MeshIO
             var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             var idx = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
             if (idx.Length > 0) for (int i = 0; i + 2 < idx.Length; i += 3) tris.Add((verts[idx[i]], verts[idx[i+1]], verts[idx[i+2]]));
-            else for (int i = 0; i + 2 < verts.Length; i += 3) tris.Add((verts[i], verts[i+1], verts[i+2]));
+            else
+            {
+                if (verts.Length % 3 != 0) throw new InvalidDataException("Malformed triangle vertices.");
+                for (int i = 0; i + 2 < verts.Length; i += 3) tris.Add((verts[i], verts[i+1], verts[i+2]));
+            }
         }
         bw.Write((uint)tris.Count);
         foreach (var t in tris)
