@@ -39,7 +39,9 @@ public sealed class AIClient
         var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(body);
         using var doc = JsonDocument.Parse(body);
-        return doc.RootElement.GetProperty("path").GetString() ?? throw new InvalidOperationException("AI backend returned no file path.");
+        var path = doc.RootElement.GetProperty("path").GetString();
+        if (string.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("AI backend returned no file path.");
+        return path;
     }
 
     public async Task<List<ReferenceResult>> SearchReferencesAsync(string query, int limit = 8)
