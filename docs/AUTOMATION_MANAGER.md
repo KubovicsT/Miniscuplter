@@ -1,71 +1,77 @@
 # Miniscuplter Automation Manager
 
-> Current process/automation state. Historical checkpoints live in GitHub Issues, Prompt Ledger history, and Git history.
+> Current process/automation state. Product truth remains in PROJECT_CHARTER and the current-state documents; historical process evidence remains in GitHub issues and Git history.
 
-Last manager review: 2026-09-13 18:42 Europe/Budapest
+Last manager migration: 2026-09-17 Europe/Budapest
 
-## Role model
-- User / PROJECT_CHARTER owns product intent and difficult-to-reverse decisions.
-- Coordinator owns architecture, strategy, issue priority/critical path, release readiness/chunking/publication.
-- Dev owns implementation, validation, current execution-state updates and release-worthy checkpoints; Dev never publishes.
-- Automation Manager owns scheduler/process/GitHub operational reliability, bounded process-infrastructure repair and prompt governance.
-- Daily Report is reporting-only and currently paused.
+## Production role model
 
-## Active automations
-- `Minisculpter Dev` — enabled; `DEV-2026-09-13.007`; hourly at :00.
-- `Minisculpter Coordination` — enabled; `COORD-2026-09-13.012`; every two hours at :30, offset one hour from Manager.
-- `Minisculpter Automation` — enabled; `MGR-2026-09-13.014`; every two hours at :30.
-- `Daily Minisculpter report` — disabled; `DAILY-2026-09-13.006`.
-- Prompt Ledger and Technical Findings Ledger remain disabled inert storage/history only; legacy duplicate tasks remain disabled.
-- All authoritative prompts retain the 30-minute run budget, all-agent no-race/wait rule, bounded retries, published-branch immutability, simplified five-field replies, and Run-task alias semantics.
-- Coordinator remains exclusive release owner; Dev never publishes.
+- User / PROJECT_CHARTER owns product intent, hard constraints, and difficult-to-reverse decisions.
+- Coordinator is technical director, architecture/strategy owner, normal integrator, and exclusive release owner. It delegates routine implementation and performs little routine coding.
+- LocalDev is the primary routine implementation worker for bounded, explicit, reversible tasks. It writes only isolated `localdev/*` branches, never merges, and never releases.
+- Dev Work is the specialist GPT implementation worker for hard work LocalDev cannot safely or reliably complete. It never publishes releases.
+- Automation Manager owns scheduler/process/control-plane reliability, LocalDev health, prompt governance, and safe reversible process tuning. It does not own product architecture or routine implementation.
+- Daily Report remains reporting-only and stays paused under the existing user direction.
 
-## Canonical current-state architecture
-- `CURRENT_EXECUTION_STATE.md` — current Coordinator↔Dev execution baton on the authoritative writable branch.
-- `TECHNICAL_DIRECTION_STATE.md` — Coordinator medium/long strategy state.
-- `ISSUE_STATE.md` — active/release-relevant/user-verification issue state.
-- `CROSS_AGENT_CONTEXT.md` — material user/cross-agent evidence bridge; not the primary automation-incident ledger.
-- `[AMF-xxx]` GitHub Issues — primary Manager→Coordinator technical-finding review/disposition channel.
-- `[AUTO-INC-xxx]` GitHub Issues — primary durable automation/process incident records.
-- Legacy HANDOFF/TECHNICAL_ROADMAP/ISSUES remain read-only context; PROJECT_STATUS is secondary.
+## Fixed LocalDev control plane
 
-## Current repository / release truth
-- Stable release: `v1.0.32`; its semantic-version branch still matches the published release candidate and remains immutable execution history.
-- Writable: `v1.0.33`; root `VERSION` is `1.0.33`; release freeze/publication inactive.
-- CURRENT is coherent and explicitly keeps v1.0.32 reference-machine verification non-blocking while v1.0.33 independent foundation work continues.
-- Latest v1.0.33 work has green exact-head Core and full build/package validation.
-- Core attachment authority and revision-bound refinement/selection persistence are advancing without choosing the deferred user-facing Refinement/Kitbash UI.
+Exactly two long-lived issues are used in `KubovicsT/Miniscuplter`:
 
-## Finding / incident state
-- No open `[AMF-xxx]` Issues.
-- `AUTO-INC-009` is recovered/closed: ordinary connector new-file creation was reproducibly safety-blocked, so Manager extended patch-control with a guarded exact-HEAD `create_text_file` route; Dev exercised it successfully on the intended Core source and exact-head validation passed.
-- `AUTO-INC-008` remains open/monitoring: two old v1.0.32 GitHub Actions runs are still stuck queued and cannot be cancelled, while later workflows continue to execute normally. This is treated as a non-blocking GitHub-side anomaly and is not a reason to alter product CI or stop development.
+- queue #93 — `LOCALDEV WORK QUEUE — Coordinator → LocalDev`;
+- journal #92 — `LOCALDEV WORK JOURNAL — execution & results`.
 
-## Reliability outcomes
-- AMP-006 global lease: HARMFUL / RETIRED.
-- Connector-first routing and wait-before-defer: HELPED.
-- Small neutral canonical-state architecture: HELPED materially.
-- Validated patch-control: HELPED materially; exact-head/blob and published-branch guards remain effective, and the new guarded text-file creation path recovered AUTO-INC-009 without weakening fail-closed behavior.
-- GitHub-Issue AMF lifecycle: HELPED.
-- AMP-009 Coordinator minimal-write discipline: HELPED.
-- AMP-010 prompt-contract lint: HELPED.
-- AUTO-INC GitHub-Issue protocol + bounded retries: HELPED.
-- Published-branch immutability / writable-branch resolution guard: HELPED.
-- 30-minute cutoff + all-agent wait/no-race rule: HELPED; no shared-state race was observed in this review.
-- Coordinator/Manager stagger: HELPED.
-- User-verification non-blocking policy: HELPED; Dev continued independent v1.0.33 work while v1.0.32 runtime verification remains pending.
-- Release terminal-confirmation gate: HELPED on the v1.0.32 publication; release/tag/assets and forward-version bootstrap were independently verified before continuing.
+Coordinator appends stable-ID task batches to queue comments. LocalDev appends claims, results, timings, validation, branches, commits, and escalations to journal comments. Production never creates one issue per task.
 
-## Process assessment
-- Coordinator direction remains coherent and stable: v1.0.32 is the runtime verification lane, while v1.0.33 advances UI-neutral durable-state foundations.
-- Dev is aligned with CURRENT and is producing acceptance-oriented Core/persistence work rather than waiting on user runtime availability.
-- The guarded patch-control recovery was used successfully in real development and did not create a duplicate Godot durable authority.
-- Daily remains intentionally paused and no reporting-role drift is present.
-- Prompt-contract lint passes at Coordinator `.012`, Dev `.007`, Manager `.014`, Daily `.006`; Prompt Ledger revision map agrees.
+The production worker is `KubovicsT/LocalDev` commit `78ddff17caa3c7a46da110a32113d8a89dba2523` or newer. Start it with `run-production.bat`. Production reads only #93/#92, polls every 180 seconds while idle, preserves the no-progress watchdog, enforces allowed-file scope, pushes isolated branches, and never merges or releases.
 
-## Verification focus
-1. Dev continues the attachment revision contract and revision-safe Refinement dependency foundation under CURRENT.
-2. Keep v1.0.32 target-machine-only claims as `NEEDS USER VERIFICATION`, but never use ordinary user unavailability as a global development stop.
-3. Keep AUTO-INC-008 monitoring-only unless the zombie Actions entries begin blocking new workflows or otherwise materially affect CI.
-4. Reopen/new incident only if the recovered new-file path materially fails again; otherwise treat AUTO-INC-009 as completed recovery.
-5. Preserve Coordinator exclusive release ownership and fail-closed release/patch/version control-plane guards.
+Benchmark #91 is archived. Benchmark launchers require explicit benchmark mode and production rejects benchmark label/issue-number arguments.
+
+## Live automations
+
+- Coordinator Work — prompt revision `.032`; enabled; exact schedule 01:40, 03:40, 05:40, 07:40, 09:40, 11:40, 13:40, 15:40, 17:40, 19:40, 21:40, 23:40 Europe/Budapest.
+- Dev Work — prompt revision `.029`; hourly at `:00`; normally disabled. Coordinator enables it only for an explicit hard-work batch in issue #23; Dev self-disables when the batch is exhausted or only Coordinator-owned work remains.
+- Manager Work — prompt revision `.033`; enabled; exact schedule 06:40 and 18:40 Europe/Budapest.
+- Daily Report — unchanged and disabled under the existing reporting pause.
+
+There is no Coordinator/Dev mutual-exclusion baton. Coordinator remains enabled while Dev may also be enabled for a hard batch. Enabled status is not proof of active execution. Before shared-branch mutation, Coordinator and Dev check actual conflicting activity. LocalDev may run concurrently because its branches are isolated.
+
+## Coordinator operating cycle
+
+Each two-hour run prioritizes:
+
+1. review new LocalDev diffs and evidence;
+2. triage escalations;
+3. integrate accepted work into the authorized writable branch;
+4. requeue bounded corrections or split unclear tasks;
+5. route environment/tooling failures to Manager and hard reasoning/architecture work to Dev;
+6. recalculate queue coverage;
+7. add enough safe work for roughly 2.5–3 hours when available;
+8. perform release-readiness/release work as appropriate.
+
+A LocalDev `COMPLETE` is not acceptance. Coordinator inspects the actual diff, acceptance criteria, validation, scope, semantics, and current writable state.
+
+## Manager inspection checklist
+
+Every 12-hour cycle inspects:
+
+- worker/watchdog health and production version;
+- ready depth, estimated coverage, and queue-empty idle time;
+- throughput and median task duration;
+- escalation, repair, semantic rejection, and stale/conflict rates;
+- Coordinator review backlog and age of complete-but-not-integrated branches;
+- Dev enablement, batch quality, run length, and hard-task throughput;
+- Coordinator review/decomposition/replenishment effectiveness;
+- schedule collisions and actual shared-branch mutation risk;
+- queue/journal parse, append, retry, and dedup health;
+- CI/build reliability and prompt drift;
+- benchmark leakage;
+- tasks that are too coarse or artificially microscopic;
+- model/hardware fit.
+
+Manager may make safe reversible prompt/process/config/documentation corrections consistent with this architecture. It reports meaningful changes, repeated failure patterns, sustained under-supply/review backlog, recommended model/hardware changes, delegation-boundary concerns, and unresolved control-plane risk.
+
+## Current migration state
+
+- Control-plane smoke task `LD-20260917-0000` successfully completed through queue comment, claim, and terminal journal result without product-code mutation.
+- Initial production fill contains 28 real bounded tasks, `LD-20260917-0001` through `LD-20260917-0028`.
+- This is below the numerical initialization target of 50 because completed benchmark branches were not duplicated and the known candidate-history presentation router remains too broad for an unsafe LocalDev tail slice. The initial tasks are medium-sized and estimated to cover roughly 2.5–3 hours; actual throughput evidence must replace this estimate.
