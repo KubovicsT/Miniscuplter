@@ -77,6 +77,10 @@ public static class MeshIO
         bw.Write((uint)tris.Count);
         foreach (var t in tris)
         {
+            if (!float.IsFinite(t.a.X) || !float.IsFinite(t.a.Y) || !float.IsFinite(t.a.Z) ||
+                !float.IsFinite(t.b.X) || !float.IsFinite(t.b.Y) || !float.IsFinite(t.b.Z) ||
+                !float.IsFinite(t.c.X) || !float.IsFinite(t.c.Y) || !float.IsFinite(t.c.Z))
+                throw new InvalidDataException("Invalid mesh vertex data.");
             var n = (t.b - t.a).Cross(t.c - t.a).Normalized(); WriteVec(bw, n); WriteVec(bw, t.a); WriteVec(bw, t.b); WriteVec(bw, t.c); bw.Write((ushort)0);
         }
     }
