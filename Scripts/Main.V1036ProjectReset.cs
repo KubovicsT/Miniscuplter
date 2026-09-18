@@ -53,15 +53,41 @@ public partial class Main
     void V1036StabilizeOrbitPivot(InputEvent ev)
     {
         if (ev is not InputEventMouseButton button || button.ButtonIndex != MouseButton.Right || !button.Pressed) return;
-        if (_selected == null || !IsInstanceValid(_selected)) return;
+        if (_selected == null || !IsInstanceValid(_selected))
+        {
+            _selected = null;
+            V1017UpdateGizmo();
+            return;
+        }
 
-        var bounds = _selected.GetAabb();
-        _focus = _selected.GlobalTransform * (bounds.Position + bounds.Size * .5f);
+        ObjectId selectedObjectId = V1013ObjectId(_selected);
+        MeshInstance3D? stableSelection = V1020FindSceneObject(selectedObjectId);
+        if (stableSelection == null)
+        {
+            _selected = null;
+            V1017UpdateGizmo();
+            return;
+        }
+
+        _selected = stableSelection;
+        var bounds = stableSelection.GetAabb();
+        _focus = stableSelection.GlobalTransform * (bounds.Position + bounds.Size * .5f);
         UpdateCamera();
     }
 
     void V1036WorkflowTabChangedPreserveCamera(long tab)
     {
+        Transform3D? preservedCameraTransform = _camera != null && IsInstanceValid(_camera)
+            ? _camera.GlobalTransform
+            : null;
+        Vector3 preservedOrbitFocus = _focus;
+        float preservedDistance = _distance;
+        float preservedYaw = _yaw;
+        float preservedPitch = _pitch;
+        ObjectId? selectedObjectId = _selected != null && IsInstanceValid(_selected)
+            ? V1013ObjectId(_selected)
+            : null;
+
         if (FindChild("ViewportHost", true, false) is not SubViewportContainer host) return;
         var tabs = (host.GetParent() as HSplitContainer)?.GetChildren().OfType<TabContainer>().FirstOrDefault();
         string title = tabs != null && tabs.GetTabCount() > 0
@@ -72,6 +98,21 @@ public partial class Main
         if (_v1015ImageCanvas != null) _v1015ImageCanvas.Visible = false;
         if (_v1015CanvasHint != null) _v1015CanvasHint.Visible = false;
         V1019ConfigureStudioLighting();
+
+        // Workflow navigation is presentation-only. Restore both the explicit camera transform
+        // and its orbit parameters so later input continues from the same selected-object pivot.
+        _focus = preservedOrbitFocus;
+        _distance = preservedDistance;
+        _yaw = preservedYaw;
+        _pitch = preservedPitch;
+        if (preservedCameraTransform is { } cameraTransform && _camera != null && IsInstanceValid(_camera))
+            _camera.GlobalTransform = cameraTransform;
+
+        if (selectedObjectId is { } stableId)
+            _selected = V1020FindSceneObject(stableId);
+        else if (_selected != null && !IsInstanceValid(_selected))
+            _selected = null;
+
         V1017UpdateGizmo();
         if (FindChild("Viewport", true, false) is SubViewport sub) V1019UpdateViewportDiagnostics(sub);
         V1019ArmRenderProbe();

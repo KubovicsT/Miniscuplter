@@ -1,4 +1,5 @@
 using Godot;
+using Miniscuplter.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +11,7 @@ public partial class Main
     Tree? _sceneHierarchyTree;
     ScrollContainer? _sceneHierarchyScroll;
     Timer? _sceneHierarchySyncTimer;
-    readonly Dictionary<ulong, TreeItem> _sceneHierarchyItems = new();
+    readonly Dictionary<ObjectId, TreeItem> _sceneHierarchyItems = new();
     string _sceneHierarchySignature = "";
     bool _sceneHierarchySyncing;
 
@@ -64,9 +65,8 @@ public partial class Main
     {
         if (_sceneHierarchyTree == null || !IsInstanceValid(_sceneHierarchyTree)) return;
 
-        string signature = string.Join("|", _objects
-            .Where(IsInstanceValid)
-            .Select(obj => $"{obj.GetInstanceId()}:{obj.Name}:{obj.GetParent()?.GetInstanceId() ?? 0}"));
+        var liveObjects = _objects.Where(IsInstanceValid).ToList();
+        string signature = SceneHierarchyStableSignature(liveObjects);
 
         if (!string.Equals(signature, _sceneHierarchySignature, StringComparison.Ordinal))
         {
@@ -98,8 +98,7 @@ public partial class Main
             foreach (MeshInstance3D obj in liveObjects.Where(obj => obj.GetParent() is not MeshInstance3D parent || !liveIds.Contains(parent.GetInstanceId())))
                 SceneHierarchyAddObject(obj, root, liveObjects, liveIds);
 
-            _sceneHierarchySignature = string.Join("|", liveObjects
-                .Select(obj => $"{obj.GetInstanceId()}:{obj.Name}:{obj.GetParent()?.GetInstanceId() ?? 0}"));
+            _sceneHierarchySignature = SceneHierarchyStableSignature(liveObjects);
             SceneHierarchySyncSelection();
         }
         finally
@@ -112,11 +111,12 @@ public partial class Main
     {
         if (_sceneHierarchyTree == null) return;
 
+        ObjectId objectId = V1013ObjectId(obj);
         TreeItem item = _sceneHierarchyTree.CreateItem(parentItem);
         item.SetText(0, obj.Name.ToString());
-        item.SetMetadata(0, obj.GetInstanceId().ToString());
-        item.SetTooltipText(0, $"{obj.Name} · scene entity");
-        _sceneHierarchyItems[obj.GetInstanceId()] = item;
+        item.SetMetadata(0, objectId.ToString());
+        item.SetTooltipText(0, $"{obj.Name} · object {objectId}");
+        _sceneHierarchyItems[objectId] = item;
 
         foreach (MeshInstance3D child in liveObjects.Where(candidate => candidate.GetParent() == obj && liveIds.Contains(candidate.GetInstanceId())))
             SceneHierarchyAddObject(child, item, liveObjects, liveIds);
@@ -125,7 +125,8 @@ public partial class Main
     void SceneHierarchySyncSelection()
     {
         if (_sceneHierarchyTree == null || _selected == null || !IsInstanceValid(_selected)) return;
-        if (!_sceneHierarchyItems.TryGetValue(_selected.GetInstanceId(), out TreeItem? item)) return;
+        ObjectId selectedObjectId = V1013ObjectId(_selected);
+        if (!_sceneHierarchyItems.TryGetValue(selectedObjectId, out TreeItem? item)) return;
         if (_sceneHierarchyTree.GetSelected() == item) return;
 
         _sceneHierarchySyncing = true;
@@ -145,10 +146,10 @@ public partial class Main
         TreeItem? item = _sceneHierarchyTree.GetSelected();
         if (item == null) return;
 
-        string instanceIdText = item.GetMetadata(0).AsString();
-        if (!ulong.TryParse(instanceIdText, out ulong instanceId)) return;
-
-        MeshInstance3D? obj = _objects.FirstOrDefault(candidate => IsInstanceValid(candidate) && candidate.GetInstanceId() == instanceId);
+        string objectIdText = item.GetMetadata(0).AsString();
+        if (!Guid.TryParse(objectIdText, out Guid objectGuid)) return;
+        var objectId = new ObjectId(objectGuid);
+        MeshInstance3D? obj = V1020FindSceneObject(objectId);
         if (obj == null) return;
 
         // Selection remains authoritative in Main.Select; the hierarchy is presentation only.
@@ -156,5 +157,19 @@ public partial class Main
         RebuildSceneList();
         V1017UpdateGizmo();
         SetStatus($"Selected: {obj.Name}");
+    }
+
+    string SceneHierarchyStableSignature(IReadOnlyList<MeshInstance3D> liveObjects)
+    {
+        var liveInstanceIds = liveObjects.Select(obj => obj.GetInstanceId()).ToHashSet();
+        return string.Join("|", liveObjects.Select(obj =>
+        {
+            ObjectId objectId = V1013ObjectId(obj);
+            ObjectId? parentObjectId = obj.GetParent() is MeshInstance3D parent &&
+                                       liveInstanceIds.Contains(parent.GetInstanceId())
+                ? V1013ObjectId(parent)
+                : null;
+            return $"{objectId}:{obj.Name}:{parentObjectId?.ToString() ?? "root"}";
+        }));
     }
 }
