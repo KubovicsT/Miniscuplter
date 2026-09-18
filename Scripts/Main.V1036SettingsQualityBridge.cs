@@ -57,6 +57,10 @@ public partial class Main
         };
         edit.Pressed += () => V1036OpenQualityPresetEditor(window);
         quality.AddChild(edit);
+
+        // Add status label for explicit selection failures (only Auto may fallback)
+        var statusLabel = new Label { Text = "Explicit selections fail when unavailable. Only 'Auto' chooses documented fallback.", ThemeTypeVariation = "Status" };
+        quality.AddChild(statusLabel);
     }
 
     static void V1036AddQualityValue(GridContainer grid, string name, string value)
