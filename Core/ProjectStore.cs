@@ -6,9 +6,20 @@ public sealed record ProjectLayout(string ManifestPath, string AssetsRoot, strin
 {
     public static ProjectLayout FromManifest(string projectPath)
     {
+        if (string.IsNullOrWhiteSpace(projectPath))
+            throw new ArgumentException("Project path cannot be empty or whitespace.", nameof(projectPath));
+
         string manifest = Path.GetFullPath(projectPath);
         string parent = Path.GetDirectoryName(manifest) ?? throw new InvalidOperationException("Project path has no parent directory.");
         string name = Path.GetFileNameWithoutExtension(manifest);
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidDataException("Project manifest filename cannot be empty or whitespace.");
+
+        // Validate extension is exactly .msculpt2
+        string extension = Path.GetExtension(manifest).ToLowerInvariant();
+        if (!extension.Equals(".msculpt2", StringComparison.Ordinal))
+            throw new InvalidDataException($"Project manifest must have extension '.msculpt2', got '{extension}'.");
+
         string assets = Path.Combine(parent, name + "_assets_v7");
         return new ProjectLayout(
             manifest,
@@ -189,8 +200,10 @@ public sealed class ProjectStore
         var manifest = JsonSerializer.Deserialize<ProjectManifest>(json, JsonOptions)
             ?? throw new InvalidDataException("Project manifest JSON is invalid.");
         EnsureManifestCollections(manifest);
-        if (manifest.SchemaVersion is < 7 or > ProjectState.CurrentSchemaVersion)
+        if (manifest.SchemaVersion < 7)
             throw new InvalidDataException($"Unsupported project schema {manifest.SchemaVersion}; expected 7 through {ProjectState.CurrentSchemaVersion}.");
+        if (manifest.SchemaVersion > ProjectState.CurrentSchemaVersion)
+            throw new InvalidDataException($"Unsupported future project schema {manifest.SchemaVersion}; current version is {ProjectState.CurrentSchemaVersion}. Auto-downgrade is not supported.");
 
         var state = FromManifest(manifest);
         state.Validate();
