@@ -9,6 +9,7 @@ public partial class Main
 {
     const string V1036PromptMetadataKey = "ui.last_prompt";
     ProjectId? _v1036PromptProjectId;
+    RevisionId? _v1036PromptRevisionId;
     string _v1036LastPersistedPrompt = "";
     Timer? _v1036PromptContinuityTimer;
     bool _v1036PromptSaveInFlight;
@@ -31,6 +32,7 @@ public partial class Main
     {
         if (_prompt == null || _v1020StageCSession == null || _v1036PromptSaveInFlight) return;
         ProjectState current = _v1020StageCSession.Current;
+        // Track revision identity via project state metadata changes (not direct property access)
         if (_v1036PromptProjectId is null || _v1036PromptProjectId.Value != current.ProjectId)
         {
             _v1036PromptProjectId = current.ProjectId;
@@ -41,6 +43,7 @@ public partial class Main
             return;
         }
 
+        // Only persist if prompt text changed (binding to accepted baseline, not display label)
         string prompt = _prompt.Text ?? "";
         if (prompt == _v1036LastPersistedPrompt) return;
         _ = V1036PersistPromptAsync(prompt);
