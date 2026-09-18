@@ -37,7 +37,9 @@ public partial class Main
         host.MouseFilter = Control.MouseFilterEnum.Stop;
         host.Modulate = Colors.White;
         host.SelfModulate = Colors.White;
-        host.CustomMinimumSize = new Vector2(320, 240);
+        // Split preferences provide the normal viewport floor. Keep the Control itself
+        // shrinkable so the supported minimum client can reflow without overflowing its root.
+        host.CustomMinimumSize = Vector2.Zero;
 
         if (FindChild("3D", true, false) is VBoxContainer threeD &&
             _v1019ViewportDiagnostics == null)
