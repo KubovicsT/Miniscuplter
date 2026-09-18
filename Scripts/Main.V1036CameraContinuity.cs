@@ -13,6 +13,9 @@ public partial class Main
 
         // v1.0.19 still framed the selected object after every non-2D workflow-tab change.
         // Tab changes are presentation navigation and must not rewrite camera orbit/framing state.
+        tabs.TabChanged -= V1017WorkflowTabChanged;
         tabs.TabChanged -= V1019WorkflowTabChanged;
+        tabs.TabChanged -= V1036WorkflowTabChangedPreserveCamera;
+        tabs.TabChanged += V1036WorkflowTabChangedPreserveCamera;
     }
 }
