@@ -31,6 +31,7 @@ export_presets = text("export_presets.cfg")
 backend = text("ai_backend/app.py")
 backend_server = text("ai_backend/serve.py")
 job_progress = text("ai_backend/job_progress.py")
+job_journal = text("ai_backend/job_journal.py")
 workflow = text(".github/workflows/build.yml")
 core_workflow = text(".github/workflows/core_foundation.yml")
 build_release = text("build_release.ps1")
@@ -68,6 +69,7 @@ triposr = text("ai_backend/triposr_shape.py")
 updater = text("Updater/Program.cs")
 updates = text("Launcher/ApplicationUpdateService.cs")
 backend_launcher = text("Scripts/BackendLauncher.cs")
+ai_client = text("Scripts/AIClient.cs")
 launcher_job = text("Launcher/OwnedChildProcessJob.cs")
 model_service = text("Launcher/ModelService.cs")
 model_dialog = text("Launcher/ModelOperationDialog.cs")
@@ -227,6 +229,13 @@ for token in ("Enhance Selected Region", "V1017PollBackendProgressAsync", "MINIS
     require(token in usability1017, f"v1.0.17 usability/containment surface missing: {token}")
 for token in ("queued", "running", "progress", "provider", "completed", "failed"):
     require(token in job_progress, f"v1.0.17 backend progress state missing: {token}")
+require("backup_path()" in job_journal and "previous = _load_path(path)" in job_journal and
+        "recovered = _load_path(backup_path())" in job_journal,
+        "durable job recovery does not use a validated previous-record backup")
+cancel_request = ai_client.find("/job-progress/{Uri.EscapeDataString(jobId)}/cancel")
+cancel_boundary = ai_client.find("await recovery();")
+require(cancel_request >= 0 and cancel_boundary > cancel_request and "TimeSpan.FromSeconds(2)" in ai_client,
+        "editor cancellation does not persist a bounded request before owned-backend termination")
 for token in ('@app.get("/job-progress/current")', '"resolving_provider"', '"preparing_runtime"', '"loading_model"', '"validating_output"'):
     require(token in backend, f"v1.0.17 backend stage reporting missing: {token}")
 

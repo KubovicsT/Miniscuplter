@@ -116,6 +116,30 @@ def test_cancelled_failure_acknowledges_stop_and_releases_owner() -> None:
     assert resource_ownership.snapshot()["active"] is False
 
 
+def test_completed_terminal_is_idempotent() -> None:
+    original = job_progress._record_completed_inference
+    recorded: list[tuple[str, str | None, float]] = []
+    try:
+        job_progress._record_completed_inference = lambda kind, provider, elapsed: recorded.append((kind, provider, elapsed))
+        job_id = job_progress.begin("3d-generate", "terminal-idempotent")
+        job_progress.complete("mesh verified", "triposr")
+        first = job_progress.get(job_id)
+        assert first is not None
+        first_sequence = first["sequence"]
+
+        job_progress.complete("late duplicate completion", "sf3d")
+        job_progress.fail("late failure")
+        job_progress.request_cancel(job_id)
+        final = job_progress.get(job_id)
+        assert final is not None
+        assert final["state"] == "completed"
+        assert final["provider"] == "triposr"
+        assert final["sequence"] == first_sequence
+        assert len(recorded) == 1
+    finally:
+        job_progress._record_completed_inference = original
+
+
 def test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease() -> None:
     first = resource_ownership.acquire("owner-a", "3d-generate", blocking=False)
     assert first["owner_id"] == "owner-a"
@@ -299,6 +323,7 @@ if __name__ == "__main__":
     test_cancel_request_retains_heavyweight_owner_until_acknowledged()
     test_late_completion_after_cancel_is_discarded_and_never_qualified()
     test_cancelled_failure_acknowledges_stop_and_releases_owner()
+    test_completed_terminal_is_idempotent()
     test_heavyweight_resource_rejects_parallel_owner_without_stealing_lease()
     test_component_mutation_cannot_interrupt_active_inference()
     test_model_release_refuses_foreign_owner()

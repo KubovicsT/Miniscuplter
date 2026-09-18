@@ -56,25 +56,49 @@ public sealed class AIClient
     public void CancelCurrentRequest()
     {
         Func<Task>? recovery = null;
+        string? jobId = null;
         bool hadActiveRequest = false;
         lock (_cancelLock)
         {
             if (_activeRequest != null)
             {
                 hadActiveRequest = true;
+                jobId = _activeJobId;
                 try { _activeRequest.Cancel(); } catch { }
             }
             if (hadActiveRequest && _cancelRecovery.IsCompleted)
             {
                 recovery = CancellationRecoveryHandler;
-                if (recovery != null) _cancelRecovery = RunCancellationRecoveryAsync(recovery);
+                if (recovery != null) _cancelRecovery = RunCancellationRecoveryAsync(recovery, jobId);
             }
         }
     }
 
-    async Task RunCancellationRecoveryAsync(Func<Task> recovery)
+    async Task RunCancellationRecoveryAsync(Func<Task> recovery, string? jobId)
     {
-        try { await recovery(); }
+        try
+        {
+            // Persist the request while the old backend still owns the worker. The restart below
+            // is the process-boundary evidence that lets startup recovery acknowledge it stopped.
+            if (!string.IsNullOrWhiteSpace(jobId))
+            {
+                try
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    using var response = await _http.PostAsync(
+                        $"{BackendUrl}/job-progress/{Uri.EscapeDataString(jobId)}/cancel",
+                        new StringContent("", Encoding.UTF8, "application/json"),
+                        timeout.Token);
+                    if (!response.IsSuccessStatusCode)
+                        LastDiagnostic = $"Cancellation request was not persisted (HTTP {(int)response.StatusCode}); backend termination will be recorded as interrupted.";
+                }
+                catch (Exception ex)
+                {
+                    LastDiagnostic = "Cancellation request could not be persisted; backend termination will be recorded as interrupted: " + ex.Message;
+                }
+            }
+            await recovery();
+        }
         catch (Exception ex)
         {
             throw new InvalidOperationException("The AI job was cancelled, but the local AI service could not be reset cleanly: " + ex.Message, ex);
