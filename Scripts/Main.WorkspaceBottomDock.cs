@@ -36,6 +36,7 @@ public partial class Main
         var command = new VBoxContainer
         {
             Name = "WorkspaceCommandDock",
+            CustomMinimumSize = new Vector2(0, 150),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill
         };
