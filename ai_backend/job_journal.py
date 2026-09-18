@@ -5,6 +5,7 @@ import os
 from copy import deepcopy
 from pathlib import Path
 from time import time
+from typing import Any
 from uuid import uuid4
 
 import storage
@@ -118,12 +119,47 @@ def load() -> dict | None:
         if len(raw_bytes) > _MAX_JOURNAL_BYTES:
             raise JournalCorruptError("Job lifecycle journal is unexpectedly large.")
         raw = raw_bytes.decode("utf-8")
-        parsed = json.loads(raw)
+        # Handle torn/truncated JSON by finding the last complete JSON object
+        # before any truncation or corruption at the end of the file.
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            # Try to extract valid prefix from truncated content
+            raw = _extract_valid_json_prefix(raw, exc)
+            if not raw:
+                raise JournalCorruptError("Job lifecycle journal is truncated or corrupted.")
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as inner_exc:
+                raise JournalCorruptError(
+                    f"Job lifecycle journal contains invalid values: {inner_exc}"
+                ) from inner_exc
     except JournalCorruptError:
         raise
     except Exception as exc:
         raise JournalCorruptError(f"Job lifecycle journal cannot be decoded: {exc}") from exc
     return _validate_record(parsed)
+
+
+def _extract_valid_json_prefix(content: str, exc: json.JSONDecodeError) -> str:
+    """Extract the longest valid JSON prefix before truncation/corruption."""
+    if not content or not exc:
+        return ""
+    
+    # Find where parsing failed and try to backtrack to a valid position
+    error_pos = exc.pos if hasattr(exc, 'pos') else len(content)
+    
+    # Try progressively shorter prefixes from the failure point backwards
+    for start in range(error_pos - 1, max(-1, error_pos - 20), -1):
+        prefix = content[:start + 1]
+        try:
+            json.loads(prefix)
+            return prefix
+        except json.JSONDecodeError:
+            continue
+    
+    # If we can't find a valid prefix, return empty string to signal corruption
+    return ""
 
 
 def reconcile_startup(now: float | None = None) -> dict | None:
