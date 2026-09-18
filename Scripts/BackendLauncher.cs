@@ -135,6 +135,7 @@ public partial class BackendLauncher : Node
             if (_backend == null)
             {
                 GD.PrintErr(BuildBackendFailure("Could not start the AI backend process."));
+                ShutdownBackendLocked();
                 return;
             }
 
@@ -156,6 +157,7 @@ public partial class BackendLauncher : Node
         catch (Exception ex)
         {
             GD.PrintErr(BuildBackendFailure("AI backend auto-launch failed: " + ex.Message));
+            // Ensure no stale PID or owned-process state remains after exception
             ShutdownBackendLocked();
         }
     }
@@ -170,6 +172,8 @@ public partial class BackendLauncher : Node
         catch (Exception ex)
         {
             GD.PrintErr("AI backend readiness failed: " + ex.Message);
+            // Ensure no stale PID or owned-process state remains after readiness failure
+            ShutdownBackendLocked();
         }
     }
 
