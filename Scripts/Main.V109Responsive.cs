@@ -123,7 +123,9 @@ public partial class Main
         const float sidebar = 330f;
         int maxViewport = Math.Max(1, (int)Math.Floor(width - _v109ResponsiveTabs.CustomMinimumSize.X));
         int desiredViewport = Math.Max(1, (int)Math.Round(width - sidebar));
-        _v109ResponsiveSplit.SplitOffset = Math.Min(desiredViewport, maxViewport);
+        // Ensure split offset never creates gutters by clamping to valid range
+        int actualSplitOffset = Math.Clamp(desiredViewport, (int)sidebar, maxViewport);
+        _v109ResponsiveSplit.SplitOffset = actualSplitOffset;
         QueueV109ViewportResize();
     }
 
