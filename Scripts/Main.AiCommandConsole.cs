@@ -142,8 +142,7 @@ public partial class Main
 
     void RecordAiCommand(string text)
     {
-        text = (text ?? "").Trim();
-        if (text.Length == 0) return;
+        if (string.IsNullOrWhiteSpace(text)) return;
         if (_aiCommandHistory.Count == 0 || !_aiCommandHistory[^1].Equals(text, StringComparison.Ordinal))
             _aiCommandHistory.Add(text);
         while (_aiCommandHistory.Count > 50) _aiCommandHistory.RemoveAt(0);
@@ -182,13 +181,14 @@ public partial class Main
 
     async Task ExecuteAiConsoleInputAsync(string raw)
     {
-        string text = (raw ?? "").Trim();
-        if (text.Length == 0)
+        raw ??= "";
+        if (string.IsNullOrWhiteSpace(raw))
         {
             SetStatus("Enter an AI prompt or command first.");
             return;
         }
-        RecordAiCommand(text);
+        RecordAiCommand(raw);
+        string text = raw.Trim();
 
         if (text.StartsWith("/", StringComparison.Ordinal))
         {
