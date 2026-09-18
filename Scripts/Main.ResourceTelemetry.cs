@@ -79,6 +79,7 @@ public partial class Main
     float _resourcePeakRamPercent;
     float _resourcePeakGpuTemp;
 
+    /// <summary>Resource telemetry sampling runs at ~1 Hz cadence to avoid frame-bound overhead.</summary>
     public void InstallResourceTelemetry()
     {
         if (_resourceTelemetryTimer != null) return;
@@ -122,6 +123,7 @@ public partial class Main
         _resourceLastCpuTime = process.TotalProcessorTime;
         _resourceLastCpuSampleUtc = DateTime.UtcNow;
 
+        // 1 Hz cadence: ~1 second interval to avoid frame-bound overhead and keep sampling low-overhead.
         _resourceTelemetryTimer = new Timer { WaitTime = 1.0, OneShot = false };
         _resourceTelemetryTimer.Timeout += () => _ = SampleResourceTelemetryAsync();
         AddChild(_resourceTelemetryTimer);
@@ -140,6 +142,7 @@ public partial class Main
         return (label, graph);
     }
 
+    /// <summary>Sample all resource metrics at 1 Hz cadence. GPU sampling is skipped after 3 consecutive failures.</summary>
     async Task SampleResourceTelemetryAsync()
     {
         if (_resourceSampleBusy) return;
@@ -148,6 +151,7 @@ public partial class Main
         {
             var cpu = SampleAppCpu();
             var ram = SampleSystemRam();
+            // Skip GPU sampling after 3 consecutive failures to avoid overhead from failing processes.
             var gpu = _resourceGpuFailureCount >= 3 ? null : await SampleNvidiaGpuAsync();
 
             if (gpu == null && _resourceGpuFailureCount < 3) _resourceGpuFailureCount++;
@@ -175,6 +179,7 @@ public partial class Main
             }
             else if (_resourceGpuFailureCount >= 3)
             {
+                // GPU sensor unavailable after repeated failures; show unknown rather than fabricating values.
                 if (_resourceGpuLabel != null) _resourceGpuLabel.Text = "GPU: unavailable";
                 if (_resourceVramLabel != null) _resourceVramLabel.Text = "VRAM: unavailable";
             }
