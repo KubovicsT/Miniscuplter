@@ -93,3 +93,15 @@ The recent runtime/UI/provider fixes remain NEEDS USER VERIFICATION until packag
 - The queue remains populated with `LD-20260917-0002` through `LD-20260917-0028`. Their historical `BASE_SHA: 323945d` is superseded; claim-time validation must resolve `LATEST_AUTHORIZED_WRITABLE_HEAD:v1.0.38` and fail closed on stale context.
 - Release disposition: hold this isolated fix for the next meaningful release chunk; no publication was performed.
 - Next action: LocalDev advances to `LD-20260917-0002`; Coordinator reviews the next completed isolated branch before adding more queue work.
+
+## Coordinator integration checkpoint — 2026-09-18 21:40 Europe/Budapest
+- Writable head: `7c18f6d937e1203b01634409a7dd189a750da346`.
+- Accepted LocalDev `LD-20260918-0001`: failed backend launches now clear owned process/job state and launch identity through the existing shutdown path.
+- Accepted Dev PR #94: prompt continuity is keyed to immutable accepted image revision identity, with stale-write rejection and legacy prompt migration.
+- Accepted Dev PR #95: workflow-tab camera/orbit continuity and scene hierarchy selection now use stable object identity, including duplicate-name and deleted-selection handling.
+- Accepted Dev PR #96: one root geometry owner and one splitter-preference owner govern responsive layout; narrow clients retain reachable viewport, panels and a two-axis-scrollable bottom dock.
+- Accepted Dev PR #97: durable job recovery uses a verified prior-record backup, lifecycle records fail closed, terminal completion is idempotent, and cancellation is persisted before the owned backend is restarted.
+- All four Dev heads passed `core-foundation` and full `build` workflows before integration. This documentation-only checkpoint PR validates their combined head before release publication.
+- LocalDev quality gate: `LD-20260918-0002` and `0003` were rejected because their claimed tests did not execute; `0004`/`0015` were routed to Manager for output-loop/tooling repair; `0006`/`0007` were routed to Dev after three incompatible-test repairs each. No blocked dependent task is ready.
+- Release disposition: publish v1.0.38 only after this exact combined checkpoint is green; packaged runtime behavior remains NEEDS USER VERIFICATION.
+
