@@ -11,6 +11,7 @@ import storage
 
 _SCHEMA_VERSION = 1
 _JOURNAL_RELATIVE = Path("state") / "job-lifecycle.json"
+_BACKUP_SUFFIX = ".bak"
 _MAX_JOURNAL_BYTES = 256 * 1024
 _ALLOWED_CONTEXT_KEYS = {
     "generation_job_id",
@@ -28,6 +29,11 @@ class JournalCorruptError(RuntimeError):
 
 def journal_path() -> Path:
     return storage.resolve(_JOURNAL_RELATIVE)
+
+
+def backup_path() -> Path:
+    path = journal_path()
+    return path.with_name(path.name + _BACKUP_SUFFIX)
 
 
 def _compact_context(value: object) -> dict:
@@ -75,16 +81,25 @@ def _validate_record(value: object) -> dict:
         raise JournalCorruptError("Job lifecycle journal has an invalid job kind.")
     if state not in _ALLOWED_STATES:
         raise JournalCorruptError("Job lifecycle journal has an invalid state.")
+    active = value.get("active")
+    cancel_requested = value.get("cancel_requested")
+    if not isinstance(active, bool) or not isinstance(cancel_requested, bool):
+        raise JournalCorruptError("Job lifecycle journal has invalid lifecycle flags.")
+    if state == "running" and (not active or cancel_requested):
+        raise JournalCorruptError("Running job lifecycle state is inconsistent.")
+    if state == "cancelling" and (not active or not cancel_requested):
+        raise JournalCorruptError("Cancelling job lifecycle state is inconsistent.")
+    if state in {"completed", "failed", "cancelled", "interrupted"} and active:
+        raise JournalCorruptError("Terminal job lifecycle state cannot remain active.")
+    if state == "cancelled" and not cancel_requested:
+        raise JournalCorruptError("Cancelled job lifecycle state is missing its request evidence.")
     try:
         return compact_record(value)
     except (TypeError, ValueError, OverflowError) as exc:
         raise JournalCorruptError(f"Job lifecycle journal contains invalid values: {exc}") from exc
 
 
-def save(entry: dict) -> Path:
-    path = journal_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(compact_record(entry), ensure_ascii=False, separators=(",", ":"))
+def _write_atomic(path: Path, payload: str) -> None:
     tmp = path.with_name(path.name + "." + uuid4().hex + ".tmp")
     try:
         with tmp.open("w", encoding="utf-8", newline="\n") as stream:
@@ -98,11 +113,9 @@ def save(entry: dict) -> Path:
                 tmp.unlink()
         except OSError:
             pass
-    return path
 
 
-def load() -> dict | None:
-    path = journal_path()
+def _load_path(path: Path) -> dict | None:
     if not path.exists():
         return None
     if path.is_symlink() or not path.is_file():
@@ -124,6 +137,50 @@ def load() -> dict | None:
     except Exception as exc:
         raise JournalCorruptError(f"Job lifecycle journal cannot be decoded: {exc}") from exc
     return _validate_record(parsed)
+
+
+def save(entry: dict) -> Path:
+    path = journal_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = _validate_record(compact_record(entry))
+    payload = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
+
+    # The journal is one atomically replaced current record, not an append log. Preserve only a
+    # fully decoded and semantically validated previous record as the durable recovery copy.
+    # A corrupt current file must never replace an older verified backup.
+    try:
+        previous = _load_path(path)
+    except JournalCorruptError:
+        previous = None
+    if previous is not None:
+        _write_atomic(
+            backup_path(),
+            json.dumps(previous, ensure_ascii=False, separators=(",", ":")),
+        )
+
+    _write_atomic(path, payload)
+    return path
+
+
+def load() -> dict | None:
+    path = journal_path()
+    try:
+        current = _load_path(path)
+    except JournalCorruptError as current_error:
+        try:
+            recovered = _load_path(backup_path())
+        except JournalCorruptError as backup_error:
+            raise JournalCorruptError(
+                f"Current job lifecycle journal is corrupt ({current_error}); "
+                f"verified backup is also unusable ({backup_error})."
+            ) from current_error
+        if recovered is None:
+            raise current_error
+        return recovered
+
+    if current is not None:
+        return current
+    return _load_path(backup_path())
 
 
 def reconcile_startup(now: float | None = None) -> dict | None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -173,6 +174,51 @@ def test_corrupt_journal_fails_closed_without_claiming_resource() -> None:
             assert job_journal.load()["state"] == "failed"
 
 
+def test_truncated_current_recovers_only_from_verified_backup() -> None:
+    with TemporaryDirectory() as raw:
+        root = Path(raw).resolve()
+        with _with_data_root(root):
+            job_id = job_progress.begin("3d-generate", "journal-backup-recovery")
+            job_progress.report("running_inference", "provider active", 61, "triposr")
+            backup = job_journal.backup_path()
+            assert backup.is_file()
+            assert json.loads(backup.read_text(encoding="utf-8"))["job_id"] == job_id
+
+            # A truncated object must never be prefix-recovered or promoted as prior state.
+            job_journal.journal_path().write_text('{"schema_version":1,"job_id":"fabricated', encoding="utf-8")
+            resource_ownership.release(job_id)
+            with job_progress._lock:
+                job_progress._jobs.clear()
+                job_progress._current_id = None
+            job_progress.bind(None)
+
+            restored = job_progress.recover_persisted_state()
+            assert restored is not None
+            assert restored["job_id"] == job_id
+            assert restored["state"] == "interrupted"
+            assert restored["active"] is False
+            assert job_journal.load()["state"] == "interrupted"
+            assert resource_ownership.snapshot()["active"] is False
+
+
+def test_corrupt_current_and_backup_fail_closed() -> None:
+    with TemporaryDirectory() as raw:
+        root = Path(raw).resolve()
+        with _with_data_root(root):
+            path = job_journal.journal_path()
+            backup = job_journal.backup_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("{broken-current", encoding="utf-8")
+            backup.write_text("{broken-backup", encoding="utf-8")
+
+            restored = job_progress.recover_persisted_state()
+            assert restored is None
+            current = job_progress.current()
+            assert current["state"] == "recovery-error"
+            assert "backup is also unusable" in current["detail"]
+            assert resource_ownership.snapshot()["active"] is False
+
+
 def test_oversized_journal_is_rejected_before_decode() -> None:
     with TemporaryDirectory() as raw:
         root = Path(raw).resolve()
@@ -195,5 +241,7 @@ if __name__ == "__main__":
     test_running_job_becomes_interrupted_after_backend_restart()
     test_cancelling_job_becomes_cancelled_after_backend_restart()
     test_corrupt_journal_fails_closed_without_claiming_resource()
+    test_truncated_current_recovers_only_from_verified_backup()
+    test_corrupt_current_and_backup_fail_closed()
     test_oversized_journal_is_rejected_before_decode()
     print("job_journal_tests: PASS")
