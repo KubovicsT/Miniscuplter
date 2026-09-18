@@ -245,7 +245,8 @@ require("InstallV1022Acceptance();" in extras, "v1.0.22 acceptance installer mis
 require(extras.index("InstallV1020StageCEditingAuthority();") < extras.index("InstallV1022Acceptance();"), "v1.0.22 acceptance guard must install after Stage-C editing")
 for token in ("Pressed -= V109Generate3DAsync", "Pressed -= V1017Generate3DAsync", "Pressed -= V1020Generate3DAsync", "Pressed += V1020Generate3DAsync"):
     require(token in acceptance1022, f"v1.0.22 single generation-owner guard missing: {token}")
-require("SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect)" in acceptance1022, "v1.0.22 root client-fill guard missing")
+require("SyncV109RootToViewport();" in acceptance1022 and "root.SetAnchorsAndOffsetsPreset" not in acceptance1022,
+        "v1.0.22 client-fill guard does not delegate to the single V109 root geometry owner")
 require("ground.Visible = false" in acceptance1022, "v1.0.22 non-occluding grid guard missing")
 require("SubViewport.Size =" not in acceptance1022, "v1.0.22 reintroduces manual SubViewport size ownership")
 require("V1022InstallDeferredRecoveryGuards" in acceptance1022 and "Repair 3D Viewport" in acceptance1022, "v1.0.22 recovery guard missing")

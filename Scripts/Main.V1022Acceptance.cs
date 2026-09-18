@@ -135,27 +135,9 @@ public partial class Main
     void V1022ReassertClientFill()
     {
         _v1022ClientFillQueued = false;
-        var root = GetChildren().OfType<VBoxContainer>().FirstOrDefault();
-        if (root == null) return;
-
-        // MS-024: keep the outer UI explicitly pinned to the full client rect after native
-        // window resizes. This changes only Control layout ownership; it never writes
-        // SubViewport.Size and therefore does not reintroduce the old render-target race.
-        root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        root.OffsetLeft = 0;
-        root.OffsetTop = 0;
-        root.OffsetRight = 0;
-        root.OffsetBottom = 0;
-        root.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        root.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-
-        var body = root.GetChildren().OfType<HSplitContainer>().FirstOrDefault();
-        if (body != null)
-        {
-            body.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            body.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        }
-
+        // V109 is the single client-rect writer. This later acceptance guard may request the
+        // same authoritative synchronization, but must not introduce a second anchor/offset path.
+        SyncV109RootToViewport();
         V1022ReassertNativeViewportPresentation();
     }
 }

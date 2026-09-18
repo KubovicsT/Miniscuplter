@@ -17,6 +17,8 @@ public partial class Main
 
     bool _v1023UiPreferencesInstalled;
     bool _v1023PreferenceSaveQueued;
+    bool _v1023BodyReflowActive;
+    bool _v1023WorkspaceReflowActive;
     V1023UiPreferences _v1023UiPreferences = new();
     VBoxContainer? _v1023Root;
     HSplitContainer? _v1023BodySplit;
@@ -36,7 +38,10 @@ public partial class Main
         CallDeferred(nameof(V1023ApplyPersistedLayout));
 
         if (_v1023BodySplit != null)
+        {
             _v1023BodySplit.Dragged += _ => V1023QueuePreferenceSave();
+            _v1023BodySplit.Resized += V1023ReflowBodySplit;
+        }
         if (_v1023WorkspaceSplit != null)
             _v1023WorkspaceSplit.Dragged += _ => V1023QueuePreferenceSave();
 
@@ -50,17 +55,59 @@ public partial class Main
 
     void V1023ApplyPersistedLayout()
     {
-        if (_v1023BodySplit != null)
-            _v1023BodySplit.SplitOffset = V1023ClampSplit(_v1023UiPreferences.BodySplitOffset, _v1023BodySplit, 180);
-        if (_v1023WorkspaceSplit != null)
-            _v1023WorkspaceSplit.SplitOffset = V1023ClampSplit(_v1023UiPreferences.WorkspaceSplitOffset, _v1023WorkspaceSplit, 300);
+        V1023ReflowBodySplit();
+        V1023ReflowWorkspaceSplit();
     }
 
-    static int V1023ClampSplit(int requested, SplitContainer split, int minimumPrimary)
+    void V1023ReflowBodySplit()
     {
-        int width = Math.Max(1, (int)split.Size.X);
-        int maxPrimary = Math.Max(minimumPrimary, width - 260);
-        return Math.Clamp(requested, minimumPrimary, maxPrimary);
+        if (!_v1023UiPreferencesInstalled || _v1023BodySplit == null || _v1023BodyReflowActive) return;
+        _v1023BodyReflowActive = true;
+        try
+        {
+            _v1023BodySplit.SplitOffset = V1023ClampSplit(
+                _v1023UiPreferences.BodySplitOffset, _v1023BodySplit, 180, 260);
+        }
+        finally
+        {
+            _v1023BodyReflowActive = false;
+        }
+    }
+
+    void V1023ReflowWorkspaceSplit()
+    {
+        if (!_v1023UiPreferencesInstalled || _v1023WorkspaceSplit == null || _v1023WorkspaceReflowActive) return;
+        _v1023WorkspaceReflowActive = true;
+        try
+        {
+            _v1023WorkspaceSplit.SplitOffset = V1023ClampSplit(
+                _v1023UiPreferences.WorkspaceSplitOffset, _v1023WorkspaceSplit, 300, 260);
+        }
+        finally
+        {
+            _v1023WorkspaceReflowActive = false;
+        }
+    }
+
+    static int V1023ClampSplit(
+        int requested,
+        SplitContainer split,
+        int preferredMinimumPrimary,
+        int preferredMinimumSecondary)
+    {
+        int width = Math.Max(1, (int)Math.Floor(split.Size.X));
+        int separator = Math.Clamp(split.GetThemeConstant("separation"), 0, Math.Max(0, width - 1));
+        int available = Math.Max(1, width - separator);
+
+        // Prefer both panel minimums when they fit. On an extremely narrow client, reduce the
+        // floors before Math.Clamp so lower can never exceed upper and the primary viewport
+        // receives the remaining usable span instead of forcing the root beyond the client rect.
+        int minimumPrimary = Math.Min(Math.Max(1, preferredMinimumPrimary), available);
+        int minimumSecondary = Math.Min(
+            Math.Max(0, preferredMinimumSecondary),
+            Math.Max(0, available - minimumPrimary));
+        int maximumPrimary = Math.Max(minimumPrimary, available - minimumSecondary);
+        return Math.Clamp(requested, minimumPrimary, maximumPrimary);
     }
 
     void V1023ApplyFontScale(double requested, bool persist)

@@ -33,7 +33,9 @@ public partial class Main
 
         if (_v109ResponsiveTabs != null)
         {
-            _v109ResponsiveTabs.CustomMinimumSize = new Vector2(330, 0);
+            // Split preferences own the intended rail width. A hard child minimum makes the
+            // supported narrow client wider than the OS window and exposes an uncovered gutter.
+            _v109ResponsiveTabs.CustomMinimumSize = Vector2.Zero;
             _v109ResponsiveTabs.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             _v109ResponsiveTabs.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
             WrapV109MainTabsForScrolling(_v109ResponsiveTabs);
@@ -41,7 +43,9 @@ public partial class Main
 
         if (_v109ResponsiveHost != null)
         {
-            _v109ResponsiveHost.CustomMinimumSize = new Vector2(260, 180);
+            // V1023 clamps the split to the preferred viewport/rail sizes whenever they fit.
+            // Zero here is the emergency shrink floor when the client cannot fit both panels.
+            _v109ResponsiveHost.CustomMinimumSize = Vector2.Zero;
             _v109ResponsiveHost.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             _v109ResponsiveHost.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
             _v109ResponsiveHost.Resized += QueueV109ViewportResize;
@@ -73,6 +77,7 @@ public partial class Main
 
         _v109ResponsiveRoot.Position = Vector2.Zero;
         _v109ResponsiveRoot.Size = size;
+        SyncWorkspaceBottomDockToClientHeight(size.Y);
         SyncV109ResponsiveSplit();
     }
 
@@ -116,14 +121,10 @@ public partial class Main
 
     void SyncV109ResponsiveSplit()
     {
-        if (_v109ResponsiveSplit == null || _v109ResponsiveTabs == null) return;
-        float width = _v109ResponsiveSplit.Size.X;
-        if (width <= 1) return;
-
-        const float sidebar = 330f;
-        int maxViewport = Math.Max(1, (int)Math.Floor(width - _v109ResponsiveTabs.CustomMinimumSize.X));
-        int desiredViewport = Math.Max(1, (int)Math.Round(width - sidebar));
-        _v109ResponsiveSplit.SplitOffset = Math.Min(desiredViewport, maxViewport);
+        if (_v109ResponsiveSplit == null) return;
+        // V109 remains the resize signal owner, but V1023 is the sole split-offset policy and
+        // preference owner. This prevents every resize from overwriting the user's saved layout.
+        V1023ReflowWorkspaceSplit();
         QueueV109ViewportResize();
     }
 

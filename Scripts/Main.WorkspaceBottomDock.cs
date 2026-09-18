@@ -1,16 +1,23 @@
 using Godot;
+using System;
 
 namespace Miniscuplter;
 
 public partial class Main
 {
+    const float WorkspaceBottomDockNormalHeight = 188f;
+    const float WorkspaceBottomDockCompactHeight = 104f;
+    const float WorkspaceBodyReservedHeight = 180f;
+
+    ScrollContainer? _workspaceBottomDockScroll;
     HBoxContainer? _workspaceBottomDock;
     VBoxContainer? _workspaceTelemetryDock;
     VBoxContainer? _workspaceCommandDock;
 
     bool EnsureWorkspaceBottomDock()
     {
-        if (_workspaceBottomDock != null &&
+        if (_workspaceBottomDockScroll != null &&
+            _workspaceBottomDock != null &&
             _workspaceTelemetryDock != null &&
             _workspaceCommandDock != null)
             return true;
@@ -18,11 +25,23 @@ public partial class Main
         if (FindChild("VBoxContainer", false, false) is not VBoxContainer root)
             return false;
 
+        // The content keeps its normal 188 px presentation and rail alignment, while this
+        // smaller viewport permits both axes to scroll at the supported minimum client size.
+        var dockScroll = new ScrollContainer
+        {
+            Name = "WorkspaceBottomDockScroll",
+            CustomMinimumSize = new Vector2(0, WorkspaceBottomDockNormalHeight),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Auto,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto
+        };
+
         var dock = new HBoxContainer
         {
             Name = "WorkspaceBottomDock",
             CustomMinimumSize = new Vector2(0, 188),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ShrinkBegin
         };
         dock.AddThemeConstantOverride("separation", 8);
 
@@ -53,14 +72,30 @@ public partial class Main
         dock.AddChild(new VSeparator());
         dock.AddChild(command);
         dock.AddChild(rightRailGutter);
-        root.AddChild(dock);
+        dockScroll.AddChild(dock);
+        root.AddChild(dockScroll);
         if (_status != null)
-            root.MoveChild(dock, _status.GetIndex());
+            root.MoveChild(dockScroll, _status.GetIndex());
 
+        _workspaceBottomDockScroll = dockScroll;
         _workspaceBottomDock = dock;
         _workspaceTelemetryDock = telemetry;
         _workspaceCommandDock = command;
+        SyncWorkspaceBottomDockToClientHeight(GetViewport().GetVisibleRect().Size.Y);
         return true;
+    }
+
+    void SyncWorkspaceBottomDockToClientHeight(float clientHeight)
+    {
+        if (_workspaceBottomDockScroll == null) return;
+
+        const float fixedChromeHeight = 72f; // 46 px toolbar + 26 px status line.
+        float heightForDock = clientHeight - fixedChromeHeight - WorkspaceBodyReservedHeight;
+        float dockViewportHeight = Math.Clamp(
+            heightForDock,
+            WorkspaceBottomDockCompactHeight,
+            WorkspaceBottomDockNormalHeight);
+        _workspaceBottomDockScroll.CustomMinimumSize = new Vector2(0, dockViewportHeight);
     }
 
     public void ReconcileWorkspaceBottomDock()

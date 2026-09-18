@@ -19,6 +19,14 @@ internal static class WorkspaceBottomDockTests
         Assert(dock.Contains("WorkspaceTelemetryDock", StringComparison.Ordinal) &&
                dock.Contains("WorkspaceCommandDock", StringComparison.Ordinal),
             "workspace does not expose dedicated telemetry and command dock regions");
+        Assert(dock.Contains("WorkspaceBottomDockScroll", StringComparison.Ordinal) &&
+               dock.Contains("WorkspaceBottomDockNormalHeight = 188f", StringComparison.Ordinal) &&
+               dock.Contains("WorkspaceBottomDockCompactHeight = 104f", StringComparison.Ordinal) &&
+               dock.Contains("SyncWorkspaceBottomDockToClientHeight", StringComparison.Ordinal) &&
+               dock.Contains("HorizontalScrollMode = ScrollContainer.ScrollMode.Auto", StringComparison.Ordinal) &&
+               dock.Contains("VerticalScrollMode = ScrollContainer.ScrollMode.Auto", StringComparison.Ordinal) &&
+               dock.Contains("dockScroll.AddChild(dock);", StringComparison.Ordinal),
+            "bottom dock content is not reachable through a bounded two-axis scroll viewport");
         Assert(dock.Contains("telemetry.Reparent(_workspaceTelemetryDock, false);", StringComparison.Ordinal) &&
                dock.Contains("telemetry.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);", StringComparison.Ordinal) &&
                dock.Contains("telemetry.OffsetLeft = 0;", StringComparison.Ordinal) &&
