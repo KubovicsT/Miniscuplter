@@ -13,12 +13,14 @@ internal static class PromptContinuityTests
 
         string source = File.ReadAllText(path);
         string installer = File.ReadAllText(installerPath);
-        Assert(source.Contains("ui.last_prompt", StringComparison.Ordinal) &&
-               source.Contains("current.Metadata.TryGetValue", StringComparison.Ordinal) &&
-               source.Contains("state.WithMetadata", StringComparison.Ordinal),
-            "prompt text is not restored from and persisted into project metadata");
-        Assert(source.Contains("session.Execute(\"Update concept prompt\"", StringComparison.Ordinal) &&
-               source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal),
+        Assert(source.Contains("StageCPromptBinding.ReadAcceptedPrompt", StringComparison.Ordinal) &&
+               source.Contains("StageCPromptBinding.SetAcceptedPrompt", StringComparison.Ordinal),
+            "prompt text is not restored from and persisted against accepted image revision identity");
+        Assert(source.Contains("expectedImageRevisionId", StringComparison.Ordinal) &&
+               source.Contains("currentAccepted != expectedImageRevisionId", StringComparison.Ordinal) &&
+               source.Contains("V1036IsAcceptedRevisionPresented", StringComparison.Ordinal),
+            "prompt persistence does not fail closed when accepted/displayed image identity changes");
+        Assert(source.Contains("await V1020SaveSessionAsync();", StringComparison.Ordinal),
             "prompt persistence does not use transactional Core project state and durable save");
         Assert(installer.Contains("main.InstallV1036PromptContinuity();", StringComparison.Ordinal),
             "prompt continuity is not composed by the installer");

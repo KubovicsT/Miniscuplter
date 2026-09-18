@@ -218,6 +218,14 @@ public sealed class ProjectState
         return Copy(metadata: next);
     }
 
+    public ProjectState WithoutMetadata(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Metadata key is required.", nameof(key));
+        var next = new Dictionary<string, string>(_metadata, StringComparer.OrdinalIgnoreCase);
+        next.Remove(key.Trim());
+        return Copy(metadata: next);
+    }
+
     ProjectState Copy(
         string? displayName = null,
         long? revisionNumber = null,
