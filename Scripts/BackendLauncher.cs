@@ -135,6 +135,7 @@ public partial class BackendLauncher : Node
             if (_backend == null)
             {
                 GD.PrintErr(BuildBackendFailure("Could not start the AI backend process."));
+                ShutdownBackendLocked();
                 return;
             }
 
@@ -284,6 +285,9 @@ public partial class BackendLauncher : Node
                 _backend = null;
             }
         }
+
+        // Clear launch identity after cleanup to prevent stale state on failure paths
+        _instanceToken = null;
     }
 
     static IntPtr CreateKillOnCloseJob()

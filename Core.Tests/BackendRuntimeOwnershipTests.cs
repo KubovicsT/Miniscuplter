@@ -30,6 +30,9 @@ internal static class BackendRuntimeOwnershipTests
             "editor backend launcher still silently falls back to arbitrary PATH Python");
         Assert(backend.Contains("recent stderr", StringComparison.Ordinal) && backend.Contains("interpreter:", StringComparison.Ordinal),
             "backend startup failure does not expose interpreter/path/stderr diagnostics");
+        Assert(backend.Contains("ShutdownBackendLocked()", StringComparison.Ordinal) &&
+               backend.Contains("_instanceToken = null", StringComparison.Ordinal),
+            "backend launcher does not invoke cleanup and clear identity on failed Process.Start");
 
         Assert(repair.Contains("VerifyBackendHealthAsync", StringComparison.Ordinal),
             "Repair AI Runtime does not validate backend startup health");
