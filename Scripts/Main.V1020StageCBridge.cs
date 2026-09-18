@@ -104,6 +104,7 @@ public partial class Main
                     _v1020StageCProjectPath, candidate, "3d-baseline", "editor-accepted-baseline", parent);
                 session.Execute("Store accepted 2D baseline image revision", state => state.WithImageRevision(imageRevision));
                 StageCGeneration.AcceptBaseline(session, imageRevision.Id);
+                StageCPromptBinding.SetAcceptedPrompt(session, imageRevision.Id, _prompt?.Text ?? "");
                 await V1020SaveSessionAsync();
                 _v1011BaselineImage = StageCAssetStore.ResolveImagePath(_v1020StageCProjectPath, imageRevision);
                 _lastEditedImage = _v1011BaselineImage;

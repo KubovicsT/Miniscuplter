@@ -46,11 +46,20 @@ internal static class StageCGenerationTests
         var secondImage = await CreateImageRevisionAsync(projectPath, "second", firstImage.Id);
         var state = ProjectState.Create("Stage C")
             .WithImageRevision(firstImage)
-            .WithImageRevision(secondImage);
+            .WithImageRevision(secondImage)
+            .WithMetadata("ui.last_prompt", "legacy accepted prompt");
         var session = new ProjectSession(state);
 
         StageCGeneration.AcceptBaseline(session, firstImage.Id);
         Assert(StageCGeneration.AcceptedBaseline(session.Current) == firstImage.Id, "accepted baseline was not stored as a stable image revision");
+        Assert(StageCPromptBinding.ReadAcceptedPrompt(session.Current, out _) == "legacy accepted prompt" &&
+               StageCPromptBinding.NeedsLegacyMigration(session.Current, firstImage.Id),
+            "legacy project prompt was not safely scoped to the currently accepted image for migration");
+        StageCPromptBinding.SetAcceptedPrompt(session, firstImage.Id, "first accepted prompt");
+        Assert(!session.Current.Metadata.ContainsKey("ui.last_prompt"), "revision-bound prompt migration retained ambiguous project-global prompt metadata");
+        Assert(StageCPromptBinding.ReadAcceptedPrompt(session.Current, out RevisionId? firstPromptRevision) == "first accepted prompt" &&
+               firstPromptRevision == firstImage.Id,
+            "accepted prompt was not bound to the first image revision identity");
         var staleJob = StageCGeneration.BeginImageToMesh(session);
         Assert(staleJob.ProjectId == session.Current.ProjectId, "generation job did not capture project identity");
         Assert(staleJob.InputImageRevisionId == firstImage.Id, "generation job did not capture immutable baseline revision");
@@ -62,6 +71,22 @@ internal static class StageCGenerationTests
         Assert(reloadedJob.OutputObjectId == staleJob.OutputObjectId, "generation output object identity changed across project save/reload");
 
         StageCGeneration.AcceptBaseline(session, secondImage.Id);
+        Assert(StageCPromptBinding.ReadAcceptedPrompt(session.Current, out RevisionId? unboundSecondRevision) == "" &&
+               unboundSecondRevision == secondImage.Id,
+            "switching accepted baseline leaked the prior revision prompt into the new lineage");
+        bool stalePromptWriteRejected = false;
+        try { StageCPromptBinding.SetAcceptedPrompt(session, firstImage.Id, "must not replace first lineage"); }
+        catch (InvalidOperationException) { stalePromptWriteRejected = true; }
+        Assert(stalePromptWriteRejected, "stale prompt writer changed a no-longer-accepted image lineage");
+        StageCPromptBinding.SetAcceptedPrompt(session, secondImage.Id, "second accepted prompt");
+        Assert(StageCPromptBinding.ReadPrompt(session.Current, firstImage.Id) == "first accepted prompt",
+            "binding the second prompt rewrote the first image lineage");
+        Assert(StageCPromptBinding.ReadPrompt(session.Current, secondImage.Id) == "second accepted prompt",
+            "second accepted prompt was not stored against its exact image revision");
+        bool missingPromptRevisionRejected = false;
+        try { _ = StageCPromptBinding.ReadPrompt(session.Current, RevisionId.New()); }
+        catch (InvalidOperationException) { missingPromptRevisionRejected = true; }
+        Assert(missingPromptRevisionRejected, "prompt lookup accepted an image revision absent from authoritative Core state");
         var staleMesh = await store.CreateMeshRevisionAsync(projectPath, staleJob.OutputObjectId, Tetra(), "unit-test:stale-generated");
         var staleCandidate = StageCGeneration.RegisterResult(session, staleJob, staleMesh, "sf3d", "unit-test:stale-result");
         Assert(staleCandidate.Status == CandidateStatus.Conflict, "stale baseline result should be preserved as a conflict");
@@ -142,6 +167,11 @@ internal static class StageCGenerationTests
         await store.SaveAsync(session.Current, projectPath);
         var loaded = await store.LoadAsync(projectPath);
         Assert(StageCGeneration.AcceptedBaseline(loaded) == secondImage.Id, "accepted baseline did not survive project save/reload");
+        Assert(StageCPromptBinding.ReadAcceptedPrompt(loaded, out RevisionId? loadedPromptRevision) == "second accepted prompt" &&
+               loadedPromptRevision == secondImage.Id,
+            "accepted revision prompt identity did not survive project save/reload");
+        Assert(StageCPromptBinding.ReadPrompt(loaded, firstImage.Id) == "first accepted prompt",
+            "save/reload lost the prior immutable image prompt lineage");
         var loadedCandidates = StageCGeneration.ReadCandidates(loaded);
         Assert(loadedCandidates.Count == 2, "generated candidate provenance did not survive save/reload");
         Assert(loadedCandidates.Single(x => x.Id == staleCandidate.Id).Status == CandidateStatus.Conflict, "stale conflict state did not survive save/reload");

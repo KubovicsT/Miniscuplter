@@ -1,17 +1,19 @@
 using Godot;
 using Miniscuplter.Core;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Miniscuplter;
 
 public partial class Main
 {
-    const string V1036PromptMetadataKey = "ui.last_prompt";
     ProjectId? _v1036PromptProjectId;
+    RevisionId? _v1036PromptImageRevisionId;
     string _v1036LastPersistedPrompt = "";
     Timer? _v1036PromptContinuityTimer;
     bool _v1036PromptSaveInFlight;
+    bool _v1036AcceptedPromptPresented;
 
     public void InstallV1036PromptContinuity()
     {
@@ -34,19 +36,55 @@ public partial class Main
         if (_v1036PromptProjectId is null || _v1036PromptProjectId.Value != current.ProjectId)
         {
             _v1036PromptProjectId = current.ProjectId;
-            string restored = current.Metadata.TryGetValue(V1036PromptMetadataKey, out string? value) ? value : "";
+            _v1036PromptImageRevisionId = null;
+            _v1036AcceptedPromptPresented = false;
+        }
+
+        RevisionId? acceptedRevisionId;
+        string restored;
+        try { restored = StageCPromptBinding.ReadAcceptedPrompt(current, out acceptedRevisionId); }
+        catch (Exception ex)
+        {
+            _v1036AcceptedPromptPresented = false;
+            SetStatus("Prompt continuity is unavailable because accepted image identity is invalid: " + ex.Message);
+            return;
+        }
+        if (acceptedRevisionId is not { } revisionId || !V1036IsAcceptedRevisionPresented(current, revisionId))
+        {
+            _v1036AcceptedPromptPresented = false;
+            return;
+        }
+        if (!_v1036AcceptedPromptPresented || _v1036PromptImageRevisionId != revisionId)
+        {
+            _v1036AcceptedPromptPresented = true;
+            _v1036PromptImageRevisionId = revisionId;
             _v1036LastPersistedPrompt = restored;
-            if (_prompt.Text != restored)
-                _prompt.Text = restored;
+            if (_prompt.Text != restored) _prompt.Text = restored;
+            if (StageCPromptBinding.NeedsLegacyMigration(current, revisionId))
+                _ = V1036PersistPromptAsync(revisionId, restored);
             return;
         }
 
         string prompt = _prompt.Text ?? "";
         if (prompt == _v1036LastPersistedPrompt) return;
-        _ = V1036PersistPromptAsync(prompt);
+        _ = V1036PersistPromptAsync(revisionId, prompt);
     }
 
-    async Task V1036PersistPromptAsync(string prompt)
+    bool V1036IsAcceptedRevisionPresented(ProjectState state, RevisionId revisionId)
+    {
+        if (!state.ImageRevisions.TryGetValue(revisionId, out ImageRevision? revision) ||
+            string.IsNullOrWhiteSpace(_v1020StageCProjectPath) ||
+            string.IsNullOrWhiteSpace(_lastEditedImage)) return false;
+        try
+        {
+            string acceptedPath = StageCAssetStore.ResolveImagePath(_v1020StageCProjectPath, revision);
+            return Path.GetFullPath(acceptedPath).Equals(
+                Path.GetFullPath(_lastEditedImage), StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    async Task V1036PersistPromptAsync(RevisionId expectedImageRevisionId, string prompt)
     {
         if (_v1020StageCSession == null || _v1036PromptSaveInFlight) return;
         ProjectId expectedProjectId = _v1020StageCSession.Current.ProjectId;
@@ -58,13 +96,17 @@ public partial class Main
             {
                 ProjectSession session = _v1020StageCSession ?? throw new InvalidOperationException("Project session is unavailable.");
                 if (session.Current.ProjectId != expectedProjectId) return;
-                string durable = session.Current.Metadata.TryGetValue(V1036PromptMetadataKey, out string? value) ? value : "";
-                if (durable != prompt)
+                RevisionId? currentAccepted = StageCGeneration.AcceptedBaseline(session.Current);
+                if (currentAccepted != expectedImageRevisionId ||
+                    !V1036IsAcceptedRevisionPresented(session.Current, expectedImageRevisionId)) return;
+                string durable = StageCPromptBinding.ReadPrompt(session.Current, expectedImageRevisionId);
+                if (durable != prompt || StageCPromptBinding.NeedsLegacyMigration(session.Current, expectedImageRevisionId))
                 {
-                    session.Execute("Update concept prompt", state => state.WithMetadata(V1036PromptMetadataKey, prompt));
+                    StageCPromptBinding.SetAcceptedPrompt(session, expectedImageRevisionId, prompt);
                     await V1020SaveSessionAsync();
                 }
-                _v1036LastPersistedPrompt = prompt;
+                if (_v1036PromptImageRevisionId == expectedImageRevisionId)
+                    _v1036LastPersistedPrompt = prompt;
             }
             finally { _v1020StageCGate.Release(); }
         }
