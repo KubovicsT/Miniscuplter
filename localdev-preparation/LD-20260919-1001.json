@@ -1,0 +1,42 @@
+{
+  "schema": 2,
+  "task_id": "LD-20260919-1001",
+  "title": "Reject blank ProjectLayout manifest paths",
+  "priority": 1,
+  "base_branch": "v1.0.38",
+  "objective": "At the start of ProjectLayout.FromManifest, reject null, empty, and whitespace-only projectPath with ArgumentException naming projectPath, before calling Path.GetFullPath. Preserve valid relative and absolute path handling, asset directory names, and the absence of filesystem mutations. Change only the supplied method; do not impose an extension restriction.",
+  "depends_on": [],
+  "edit_windows": [
+    {
+      "path": "Core/ProjectStore.cs",
+      "anchor": "    public static ProjectLayout FromManifest(string projectPath)\n    {\n        string manifest = Path.GetFullPath(projectPath);\n        string parent = Path.GetDirectoryName(manifest) ?? throw new InvalidOperationException(\"Project path has no parent directory.\");\n        string name = Path.GetFileNameWithoutExtension(manifest);\n        string assets = Path.Combine(parent, name + \"_assets_v7\");\n        return new ProjectLayout(\n            manifest,\n            assets,\n            Path.Combine(assets, \"meshes\"),\n            Path.Combine(assets, \"images\"),\n            Path.Combine(assets, \"data\"),\n            Path.Combine(assets, \"recovery\"));\n    }",
+      "sha256": "fca68d238b1a60f3c70969fb255c42a8100c814c9e3d12e5807c6694d32e28e5"
+    }
+  ],
+  "context": [
+    {
+      "path": "Core/ProjectStore.cs",
+      "start": 1,
+      "end": 6
+    }
+  ],
+  "fixtures": [
+    {
+      "path": "Core.Tests/LocalDevProjectLayoutInputTests.cs",
+      "content": "using System.Runtime.CompilerServices;\nusing Miniscuplter.Core;\n\ninternal static class LocalDevProjectLayoutInputTests\n{\n    [ModuleInitializer]\n    internal static void Run()\n    {\n        foreach (string? input in new string?[] { null, \"\", \" \", \"\\t\\r\\n\", \"\\u2003\" })\n        {\n            try { ProjectLayout.FromManifest(input!); }\n            catch (ArgumentException error) when (error.ParamName == \"projectPath\") { continue; }\n            catch (Exception error) { throw new Exception(\"LD_FAIL_20260919_1001: wrong exception or parameter\", error); }\n            throw new Exception(\"LD_FAIL_20260919_1001: blank path accepted\");\n        }\n        string relative = Path.Combine(\"localdev-layout-\" + Guid.NewGuid().ToString(\"N\"), \"my model.msculpt2\");\n        foreach (string input in new[] { relative, Path.GetFullPath(relative) })\n        {\n            string manifest = Path.GetFullPath(input);\n            string assets = Path.Combine(Path.GetDirectoryName(manifest)!, \"my model_assets_v7\");\n            var expected = new ProjectLayout(manifest, assets, Path.Combine(assets, \"meshes\"),\n                Path.Combine(assets, \"images\"), Path.Combine(assets, \"data\"), Path.Combine(assets, \"recovery\"));\n            if (ProjectLayout.FromManifest(input) != expected)\n                throw new Exception(\"LD_FAIL_20260919_1001: valid layout changed\");\n            if (Directory.Exists(Path.GetDirectoryName(manifest)))\n                throw new Exception(\"LD_FAIL_20260919_1001: layout created directories\");\n        }\n        Console.WriteLine(\"LD_PASS_20260919_1001\");\n    }\n}\n"
+    }
+  ],
+  "regression": {
+    "argv": [
+      "dotnet",
+      "run",
+      "--project",
+      "Core.Tests/Miniscuplter.Core.Tests.csproj",
+      "--configuration",
+      "Release"
+    ],
+    "expected_failure": "LD_FAIL_20260919_1001",
+    "success_marker": "LD_PASS_20260919_1001"
+  },
+  "validation_profile": "dotnet-core"
+}

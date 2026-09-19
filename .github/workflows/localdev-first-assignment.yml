@@ -1,0 +1,24 @@
+name: Verify first LocalDev assignment
+on:
+  push:
+    branches: ["localdev-preparation/ld-20260919-1001"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify baseline, regression, and temporary positive control
+        run: python localdev-preparation/verify_first_assignment.py
