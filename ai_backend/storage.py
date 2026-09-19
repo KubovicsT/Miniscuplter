@@ -101,6 +101,9 @@ def _check_suffix(path: Path, allowed_suffixes: Iterable[str] | None) -> None:
 
 
 def validate_output_path(value: str | Path, allowed_suffixes: Iterable[str] | None = None) -> Path:
+    if not value or not str(value).strip():
+        raise ValueError("An output path is required.")
+    _check_suffix(Path(value).expanduser(), allowed_suffixes)
     candidate = resolve(value)
     if candidate.exists() and candidate.is_dir():
         raise ValueError(f"Output path is a directory, not a file: {candidate}")
