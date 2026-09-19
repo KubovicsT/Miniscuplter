@@ -21,6 +21,7 @@ public static class StageCAssetStore
         RevisionId? parentRevisionId = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         string source = Path.GetFullPath(sourcePath);
         if (!File.Exists(source)) throw new FileNotFoundException("Accepted 2D source image does not exist.", source);
         var sourceInfo = new FileInfo(source);
