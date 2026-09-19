@@ -28,8 +28,8 @@ internal static class InitialTransformProjectionTests
             "new mapped presentation is not projected from durable Core transform state");
         Assert(projection.Contains("_v1036ObservedMappedPresentations.Add(instanceId);", StringComparison.Ordinal),
             "initial transform projection is not bounded to one pass per presentation");
-        Assert(bridge.Contains("_v1013ObjectIds[_selected.GetInstanceId()] = _v1020PendingCandidate.OutputObjectId;\n                    V1036ProjectMappedPresentation(_selected, _v1020PendingCandidate.OutputObjectId);", StringComparison.Ordinal) &&
-               bridge.Contains("_v1013ObjectIds[_selected.GetInstanceId()] = candidate.OutputObjectId;\n                    V1036ProjectMappedPresentation(_selected, candidate.OutputObjectId);", StringComparison.Ordinal),
+        Assert(ProjectsImmediatelyAfterMapping(bridge, "_v1020PendingCandidate.OutputObjectId") &&
+               ProjectsImmediatelyAfterMapping(bridge, "candidate.OutputObjectId"),
             "Stage-C insertion paths do not project immediately after stable object mapping");
         Assert(!projection.Contains("_v1093DBusy =", StringComparison.Ordinal),
             "projection helper competes with the generation path for busy ownership");
@@ -37,8 +37,19 @@ internal static class InitialTransformProjectionTests
             "initial transform projection is not composed by the installer");
     }
 
+    static bool ProjectsImmediatelyAfterMapping(string source, string objectId)
+    {
+        int mapping = source.IndexOf("_v1013ObjectIds[_selected.GetInstanceId()] = " + objectId + ";", StringComparison.Ordinal);
+        int projection = mapping >= 0
+            ? source.IndexOf("V1036ProjectMappedPresentation(_selected, " + objectId + ");", mapping, StringComparison.Ordinal)
+            : -1;
+        int nextLine = mapping >= 0 ? source.IndexOf('\n', mapping) : -1;
+        return mapping >= 0 && projection > mapping && nextLine >= 0 && projection < source.IndexOf('\n', nextLine + 1);
+    }
+
     static void Assert(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException("TEST FAILED: " + message);
     }
 }
+
