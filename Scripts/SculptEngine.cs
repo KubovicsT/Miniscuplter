@@ -15,6 +15,7 @@ public static class SculptEngine
 
     public static ArrayMesh Apply(ArrayMesh mesh, Vector3 hitLocal, Vector3 dragLocal, float radius, float strength, SculptBrush brush)
     {
+        ArgumentNullException.ThrowIfNull(mesh);
         if (ApplyOverride != null) return ApplyOverride(mesh, hitLocal, dragLocal, radius, strength, brush);
         return ApplyAdvanced(mesh, new[] { hitLocal }, dragLocal, radius, strength, brush, SculptFalloff.Smooth, SculptAlpha.None, null);
     }
@@ -22,6 +23,11 @@ public static class SculptEngine
     public static ArrayMesh ApplyAdvanced(ArrayMesh mesh, IReadOnlyList<Vector3> centers, Vector3 dragLocal, float radius, float strength,
         SculptBrush brush, SculptFalloff falloff, SculptAlpha alpha, float[]? mask)
     {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(centers);
+        if (!float.IsFinite(radius)) throw new ArgumentOutOfRangeException(nameof(radius));
+        if (!float.IsFinite(strength)) throw new ArgumentOutOfRangeException(nameof(strength));
+        if (radius <= 0f || strength == 0f) return mesh;
         if (mesh.GetSurfaceCount() == 0 || centers.Count == 0) return mesh;
         var mdt = new MeshDataTool();
         if (mdt.CreateFromSurface(mesh, 0) != Error.Ok) return mesh;
