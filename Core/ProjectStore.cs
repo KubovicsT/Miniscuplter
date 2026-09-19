@@ -86,6 +86,9 @@ public sealed class ProjectStore
     public async Task SaveAsync(ProjectState state, string projectPath, CancellationToken cancellationToken = default)
     {
         if (state == null) throw new ArgumentNullException(nameof(state));
+        if (string.IsNullOrWhiteSpace(projectPath) ||
+            !string.Equals(Path.GetExtension(projectPath), ProjectExtension, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"Project path must use the {ProjectExtension} extension.", nameof(projectPath));
         await _saveGate.WaitAsync(cancellationToken);
         try
         {
@@ -483,3 +486,4 @@ public sealed class ProjectStore
     sealed class AttachmentDto { public string Id { get; set; } = ""; public string ParentObjectId { get; set; } = ""; public string ChildObjectId { get; set; } = ""; public string Socket { get; set; } = ""; public float[] Position { get; set; } = [0,0,0]; public float[] Rotation { get; set; } = [0,0,0]; public float[] Scale { get; set; } = [1,1,1]; public DateTimeOffset CreatedUtc { get; set; } public string? ParentMeshRevisionId { get; set; } public string? ChildMeshRevisionId { get; set; } public string BindingStatus { get; set; } = "Stale"; public string? PartLibraryId { get; set; } }
     sealed class CandidateDto { public string Id { get; set; } = ""; public string ObjectId { get; set; } = ""; public string InputRevisionId { get; set; } = ""; public string OutputRevisionId { get; set; } = ""; public string Kind { get; set; } = ""; public string Status { get; set; } = "Ready"; public string Provenance { get; set; } = ""; public DateTimeOffset CreatedUtc { get; set; } public string? ConflictReason { get; set; } }
 }
+
