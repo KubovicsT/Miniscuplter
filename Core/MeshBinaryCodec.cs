@@ -10,6 +10,7 @@ public static class MeshBinaryCodec
 
     public static async Task<string> WriteAtomicAsync(string path, MeshData mesh, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(mesh);
         mesh.Validate();
         string full = Path.GetFullPath(path);
         string directory = Path.GetDirectoryName(full) ?? throw new InvalidOperationException("Mesh asset path has no parent directory.");
