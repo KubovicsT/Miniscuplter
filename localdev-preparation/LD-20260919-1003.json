@@ -1,0 +1,42 @@
+{
+  "schema": 2,
+  "task_id": "LD-20260919-1003",
+  "title": "Validate save destinations before waiting or writing",
+  "priority": 1,
+  "base_branch": "v1.0.38",
+  "objective": "Make ProjectStore.SaveAsync reject blank or non-.msculpt2 destination paths before acquiring the save gate or mutating directories, while preserving case-insensitive .msculpt2 acceptance and existing load/migration behavior. Existing ProjectStore.ProjectExtension is \".msculpt2\"; reuse it with StringComparison.OrdinalIgnoreCase. Preserve the existing null-state check. Invalid-path checks must run even when the provided cancellation token is already cancelled.",
+  "depends_on": [],
+  "edit_windows": [
+    {
+      "path": "Core/ProjectStore.cs",
+      "anchor": "    public async Task SaveAsync(ProjectState state, string projectPath, CancellationToken cancellationToken = default)\n    {\n        if (state == null) throw new ArgumentNullException(nameof(state));\n        await _saveGate.WaitAsync(cancellationToken);\n",
+      "sha256": "a84d9b06a9aab565dd45c38ddc484e51c3600a16e9e3dd7fdd66d2eafbf14771"
+    }
+  ],
+  "context": [
+    {
+      "path": "Core/ProjectStore.cs",
+      "start": 43,
+      "end": 46
+    }
+  ],
+  "fixtures": [
+    {
+      "path": "Core.Tests/LocalDevSaveDestinationTests.cs",
+      "content": "using System.Runtime.CompilerServices;\nusing Miniscuplter.Core;\n\ninternal static class LocalDevSaveDestinationTests\n{\n    [ModuleInitializer]\n    internal static void Run()\n    {\n        var store = new ProjectStore();\n        var state = new ProjectState(new ProjectId(Guid.NewGuid()), \"Save validation\");\n        var cancelled = new CancellationToken(true);\n        foreach (string? path in new string?[] { null, \"\", \" \", \"\\t\\r\\n\", \"model.txt\", \"model\", \"model.msculpt\" })\n        {\n            try { store.SaveAsync(state, path!, cancelled).GetAwaiter().GetResult(); }\n            catch (ArgumentException error) when (error.ParamName == \"projectPath\") { continue; }\n            catch (Exception error) { throw new Exception(\"LD_FAIL_20260919_1003: invalid path reached cancellation or wrong exception\", error); }\n            throw new Exception(\"LD_FAIL_20260919_1003: invalid path accepted\");\n        }\n        string root = Path.Combine(Path.GetTempPath(), \"localdev-save-\" + Guid.NewGuid().ToString(\"N\"));\n        try\n        {\n            foreach (string name in new[] { \"lower.msculpt2\", \"upper.MSCULPT2\" })\n            {\n                string path = Path.Combine(root, name);\n                store.SaveAsync(state, path).GetAwaiter().GetResult();\n                if (!File.Exists(path))\n                    throw new Exception(\"LD_FAIL_20260919_1003: valid save failed\");\n            }\n        }\n        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }\n        Console.WriteLine(\"LD_PASS_20260919_1003\");\n    }\n}\n"
+    }
+  ],
+  "regression": {
+    "argv": [
+      "dotnet",
+      "run",
+      "--project",
+      "Core.Tests/Miniscuplter.Core.Tests.csproj",
+      "--configuration",
+      "Release"
+    ],
+    "expected_failure": "LD_FAIL_20260919_1003",
+    "success_marker": "LD_PASS_20260919_1003"
+  },
+  "validation_profile": "dotnet-core"
+}
