@@ -237,7 +237,11 @@ public partial class Main
             if (autoApplied && _v1020PendingCandidate != null)
             {
                 AddMeshObject(mesh, $"AI 3D — {actualProvider}");
-                if (_selected != null) _v1013ObjectIds[_selected.GetInstanceId()] = _v1020PendingCandidate.OutputObjectId;
+                if (_selected != null)
+                {
+                    _v1013ObjectIds[_selected.GetInstanceId()] = _v1020PendingCandidate.OutputObjectId;
+                    V1036ProjectMappedPresentation(_selected, _v1020PendingCandidate.OutputObjectId);
+                }
                 FrameSelected();
             }
 
@@ -335,7 +339,11 @@ public partial class Main
                 await V1020SaveSessionAsync();
                 ArrayMesh mesh = _v1020PendingCandidateMesh ?? V1020LoadCandidateMesh(candidate);
                 AddMeshObject(mesh, $"AI 3D — {candidate.Provider}");
-                if (_selected != null) _v1013ObjectIds[_selected.GetInstanceId()] = candidate.OutputObjectId;
+                if (_selected != null)
+                {
+                    _v1013ObjectIds[_selected.GetInstanceId()] = candidate.OutputObjectId;
+                    V1036ProjectMappedPresentation(_selected, candidate.OutputObjectId);
+                }
                 FrameSelected();
                 _v1020PendingCandidate = StageCGeneration.ReadCandidates(session.Current).First(x => x.Id == candidate.Id);
                 V1020RefreshCandidateControls();

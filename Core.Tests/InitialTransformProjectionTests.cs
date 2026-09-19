@@ -12,9 +12,15 @@ internal static class InitialTransformProjectionTests
             throw new InvalidOperationException("TEST FAILED: initial-transform projection source is missing");
 
         string projection = File.ReadAllText(projectionPath);
+        string bridge = File.ReadAllText(Path.Combine(root, "Scripts", "Main.V1020StageCBridge.cs"));
         string installer = File.ReadAllText(installerPath);
-        Assert(projection.Contains("if (_v1093DBusy || _v1020StageCSession == null) return;", StringComparison.Ordinal),
-            "generated transform projection must wait for the generation busy boundary");
+        Assert(!projection.Contains("Timer", StringComparison.Ordinal) &&
+               !projection.Contains("Timeout", StringComparison.Ordinal) &&
+               !projection.Contains("V1036ProjectNewMappedPresentation", StringComparison.Ordinal),
+            "generated transform projection still depends on scene polling");
+        Assert(projection.Contains("void V1036ProjectMappedPresentation(MeshInstance3D presentation, ObjectId objectId)", StringComparison.Ordinal) &&
+               projection.Contains("mappedObjectId != objectId", StringComparison.Ordinal),
+            "event-driven projection does not verify the exact mapped presentation identity");
         Assert(projection.Contains("V1036EnsureGeneratedPresentationNormals(presentation);", StringComparison.Ordinal) &&
                projection.Contains("surface.GenerateNormals();", StringComparison.Ordinal),
             "Stage-C presentation does not repair the missing normal array before standard rendering");
@@ -22,8 +28,23 @@ internal static class InitialTransformProjectionTests
             "new mapped presentation is not projected from durable Core transform state");
         Assert(projection.Contains("_v1036ObservedMappedPresentations.Add(instanceId);", StringComparison.Ordinal),
             "initial transform projection is not bounded to one pass per presentation");
+        Assert(ProjectsImmediatelyAfterMapping(bridge, "_v1020PendingCandidate.OutputObjectId") &&
+               ProjectsImmediatelyAfterMapping(bridge, "candidate.OutputObjectId"),
+            "Stage-C insertion paths do not project immediately after stable object mapping");
+        Assert(!projection.Contains("_v1093DBusy =", StringComparison.Ordinal),
+            "projection helper competes with the generation path for busy ownership");
         Assert(installer.Contains("main.InstallV1036InitialTransformProjection();", StringComparison.Ordinal),
             "initial transform projection is not composed by the installer");
+    }
+
+    static bool ProjectsImmediatelyAfterMapping(string source, string objectId)
+    {
+        int mapping = source.IndexOf("_v1013ObjectIds[_selected.GetInstanceId()] = " + objectId + ";", StringComparison.Ordinal);
+        int projection = mapping >= 0
+            ? source.IndexOf("V1036ProjectMappedPresentation(_selected, " + objectId + ");", mapping, StringComparison.Ordinal)
+            : -1;
+        int nextLine = mapping >= 0 ? source.IndexOf('\n', mapping) : -1;
+        return mapping >= 0 && projection > mapping && nextLine >= 0 && projection < source.IndexOf('\n', nextLine + 1);
     }
 
     static void Assert(bool condition, string message)
@@ -31,3 +52,4 @@ internal static class InitialTransformProjectionTests
         if (!condition) throw new InvalidOperationException("TEST FAILED: " + message);
     }
 }
+
