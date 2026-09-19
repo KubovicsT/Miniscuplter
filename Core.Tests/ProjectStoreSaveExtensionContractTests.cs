@@ -27,8 +27,7 @@ internal static class ProjectStoreSaveExtensionContractTests
                 body.Contains("ArgumentException", StringComparison.Ordinal) &&
                 body.Contains("nameof(projectPath)", StringComparison.Ordinal),
             "save destination extension guard is absent or does not name projectPath");
-        Require(body.IndexOf("ArgumentException", StringComparison.Ordinal) <
-                body.IndexOf("await _saveGate.WaitAsync(cancellationToken);", StringComparison.Ordinal),
+        Require(source.IndexOf("ArgumentException", method, StringComparison.Ordinal) < gate,
             "save extension rejection occurs after the save gate");
         Console.WriteLine("LD_PASS_20260919_1002");
     }
