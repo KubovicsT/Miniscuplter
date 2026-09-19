@@ -11,6 +11,7 @@ public static class MeshIO
 {
     public static ArrayMesh LoadStl(string path)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
         using var fs = File.OpenRead(path);
         if (fs.Length < 84) throw new InvalidDataException("STL file is too small.");
         var header = new byte[80]; fs.ReadExactly(header);
