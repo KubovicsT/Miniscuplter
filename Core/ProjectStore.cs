@@ -6,6 +6,9 @@ public sealed record ProjectLayout(string ManifestPath, string AssetsRoot, strin
 {
     public static ProjectLayout FromManifest(string projectPath)
     {
+        if (string.IsNullOrWhiteSpace(projectPath))
+            throw new ArgumentException("projectPath", nameof(projectPath));
+
         string manifest = Path.GetFullPath(projectPath);
         string parent = Path.GetDirectoryName(manifest) ?? throw new InvalidOperationException("Project path has no parent directory.");
         string name = Path.GetFileNameWithoutExtension(manifest);
